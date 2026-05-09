@@ -92,15 +92,3 @@ docker exec ferox_nav bash -lc \
 The driver container (separate repo) publishes/consumes the
 `/ferox/<robot_id>/...` topics directly — no relay needed.
 
-## Why this is OM1-free
-
-- **Walking policy** (`isaac/checkpoints/<robot>/exported/policy.pt`) is a
-  frozen TorchScript tensor. Loaded by Isaac Sim's `python.sh`. Nothing
-  imports the OM1 SDK.
-- **`isaac/run.py`** uses Isaac Sim's `isaacsim.core.api`, `omni.isaac.*`,
-  and `rclpy` (via `sim_utils.py`). No `import om1*` anywhere.
-- **`sim_utils.py`** is a small ROS2 helper for cmd_vel/sensor wiring.
-  Renamed from the upstream OM1 helper, with the OM1 SDK runtime path
-  removed.
-- **No OM1 image** is ever pulled. Bootstrap pulls only
-  `nvcr.io/nvidia/isaac-sim:5.1.0` and builds Ferox locally.
