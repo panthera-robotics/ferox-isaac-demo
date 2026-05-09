@@ -29,6 +29,27 @@ fi
 [ -d "$FEROX_REPO" ] || { echo "  ✗ FEROX_REPO=$FEROX_REPO not found."; exit 1; }
 echo "  ✓ sim container up; Ferox repo at $FEROX_REPO"
 
+# Guard: sim's robot must match the nav stack's robot, or Nav2 publishes
+# cmd_vel into the wrong namespace and the robot silently won't move.
+# 01_start_sim.sh writes the sim's robot type to /tmp/sim_robot_type
+# inside the sim container; we read it here. If the file is missing
+# (sim started before this guard existed) the check skips silently —
+# we never want a stale tag to block a valid run. Bypass entirely with
+# FEROX_SKIP_SIM_CHECK=1 for multi-host setups where sim and nav run
+# on separate machines.
+if [ -z "${FEROX_SKIP_SIM_CHECK:-}" ]; then
+  SIM_ROBOT=$(docker exec "$SIM_CONTAINER" cat /tmp/sim_robot_type 2>/dev/null | tr -d '[:space:]')
+  if [ -n "$SIM_ROBOT" ] && [ "$SIM_ROBOT" != "$ROBOT" ]; then
+    echo ""
+    echo "  ERROR: Robot mismatch."
+    echo "    Sim is running:  $SIM_ROBOT"
+    echo "    Nav requested:   $ROBOT"
+    echo "    Fix:  ROBOT=$SIM_ROBOT ./scripts/02_start_ferox.sh"
+    echo "  Set FEROX_SKIP_SIM_CHECK=1 to bypass (multi-host setups only)."
+    exit 1
+  fi
+fi
+
 # ---- [2/4] Ferox compose up ----
 echo ""
 echo "[2/4] Bringing up $NAV_CONTAINER (image $FEROX_NAV_IMAGE)..."

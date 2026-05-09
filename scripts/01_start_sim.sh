@@ -62,6 +62,12 @@ docker run -d --name "$SIM_CONTAINER" --runtime=nvidia --gpus all \
 sleep 3
 echo "  ✓ container up"
 
+# Tag the container with the robot it's running so 02_start_ferox.sh can
+# detect a sim/nav robot mismatch before bringing up a wrong-namespaced
+# nav stack. Single-line value, no formatting — the guard reads it via
+# `docker exec ... cat /tmp/sim_robot_type`.
+docker exec "$SIM_CONTAINER" sh -c "echo $ROBOT > /tmp/sim_robot_type"
+
 echo ""
 echo "[4/4] Launching run.py inside Isaac Sim (boot ~60 sec)..."
 # Subscribe directly to /ferox/<robot_id>/cmd_vel — matches what Nav2
