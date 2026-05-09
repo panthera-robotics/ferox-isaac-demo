@@ -1,10 +1,16 @@
 #!/bin/bash
 # ferox-isaac-demo — bring up Ferox nav and launch the stack in sim mode.
 #
-# Inside the Ferox container, 'mode:=sim' triggers the Isaac bridge
-# (ferox_nav_sim/launch/isaac_bridge.launch.py), which relays:
-#   /scan, /odom, /imu (from Isaac Sim) → /ferox/$ROBOT_ID/...
-#   /ferox/$ROBOT_ID/cmd_vel             → /cmd_vel  (consumed by sim)
+# Topic flow when mode:=sim:
+#   Isaac Sim publishes  /scan /odom /imu  at root namespace.
+#   isaac_bridge.launch.py runs topic_tools/relay to mirror them into
+#       /ferox/$ROBOT_ID/{scan,odom,imu/data}  for Nav2 + SLAM.
+#   Isaac Sim's cmd_vel listener subscribes DIRECTLY to
+#       /ferox/$ROBOT_ID/cmd_vel  (set in 01_start_sim.sh via --cmd_vel_topic)
+#   so Nav2's velocity_smoother output goes straight to sim — no relay,
+#   no QoS war between transient_local/volatile publishers.
+#   /tf and /tf_static stay global (multiple transient_local publishers
+#   cannot be relayed; SLAM + Nav2 read them globally — see ferox_nav.launch).
 
 set -e
 source "$(dirname "$0")/lib/env.sh"
@@ -55,46 +61,80 @@ echo "[4/4] Launching ferox_nav_bringup (robot=$ROBOT, robot_id=$ROBOT_ID, mode=
 VENUE_ARG=""
 [ -n "$VENUE" ] && VENUE_ARG="venue:=$VENUE"
 
-# Kill any prior launch in the container so we don't end up with two stacks
-docker exec "$NAV_CONTAINER" bash -lc 'pkill -9 -f "ros2 launch" 2>/dev/null || true'
-sleep 1
+# Kill any prior nav stack so we don't end up with two sets of Nav2 nodes
+# fighting for the same DDS names. The old `pkill -9 -f "ros2 launch"`
+# only killed the LAUNCH parent; its lifecycle children kept running,
+# orphaned to PID 1, and DDS-conflicted with the next launch's nodes
+# (controller_server, bt_navigator, and lifecycle_manager would silently
+# die under the conflict). We match by colcon install path and known
+# Nav2 binary names — narrow enough to avoid system processes, broad
+# enough to catch every orphan from the previous launch.
+#
+# We base64-encode the kill script so the bash -c command line that
+# stages it does NOT contain any of the patterns (otherwise pkill would
+# match its own shell and the caller would exit 137).
+KILL_SH_B64=$(base64 -w0 <<'KILL_SH'
+#!/bin/bash
+victims=$(pgrep -f '/workspace/install/ferox_nav/lib|/opt/ros/humble/lib/nav2_|/opt/ros/humble/lib/slam_toolbox|/opt/ros/humble/lib/topic_tools/relay|ros2 launch ferox_nav_bringup|/opt/ros/humble/lib/tf2_ros/static_transform_publisher' || true)
+if [ -n "$victims" ]; then
+  echo "Killing prior nav-stack PIDs: $(echo $victims | tr '\n' ' ')"
+  kill -9 $victims 2>/dev/null || true
+fi
+exit 0
+KILL_SH
+)
+docker exec "$NAV_CONTAINER" bash -c "echo $KILL_SH_B64 | base64 -d > /tmp/kill_nav.sh && bash /tmp/kill_nav.sh"
+sleep 2
 
+# Truncate any stale log first
+docker exec "$NAV_CONTAINER" bash -lc ': > /tmp/nav.log'
+
+# Launch in detached mode. `exec > /tmp/nav.log 2>&1` at the top of the
+# bash command captures EVERY subsequent command's output (sources, launch,
+# any errors) — without that line, only the final ros2 launch line writes
+# to the log, so source-step failures used to vanish silently and we'd see
+# an empty /tmp/nav.log with no clue what went wrong.
 docker exec -d "$NAV_CONTAINER" bash -lc "
+  exec > /tmp/nav.log 2>&1
+  set -eo pipefail
+  echo \"[run_nav] \$(date -Iseconds) starting nav stack\"
   source /opt/ros/humble/setup.bash
   source /opt/ferox_msgs_ws/install/setup.bash
   source /workspace/install/setup.bash
-  ros2 launch ferox_nav_bringup bringup.launch.py \
-    robot:=$ROBOT mode:=sim robot_id:=$ROBOT_ID $VENUE_ARG \
-    > /tmp/nav.log 2>&1
+  echo \"[run_nav] env sourced; ROBOT=$ROBOT ROBOT_ID=$ROBOT_ID VENUE_ARG=$VENUE_ARG\"
+  exec ros2 launch ferox_nav_bringup bringup.launch.py \
+    robot:=$ROBOT mode:=sim robot_id:=$ROBOT_ID $VENUE_ARG
 "
 
+# Poll the launch log for the lifecycle_manager's "Managed nodes are active"
+# marker. This is the deterministic green light that all 7 lifecycle nodes
+# transitioned to active. Polling the log file avoids DDS daemon cache races
+# that made the previous `ros2 lifecycle get` poll unreliable on cold boot.
 echo "  Waiting for Nav2 to become active (timeout 60s)..."
 ACTIVE=0
 for i in $(seq 1 60); do
   sleep 1
-  ACTIVE=$(docker exec "$NAV_CONTAINER" bash -lc \
-    'source /opt/ros/humble/setup.bash 2>/dev/null
-     source /workspace/install/setup.bash 2>/dev/null
-     n=0
-     for s in controller_server planner_server bt_navigator behavior_server smoother_server velocity_smoother waypoint_follower; do
-       st=$(timeout 1 ros2 lifecycle get /ferox/'"$ROBOT_ID"'/$s 2>/dev/null | head -1)
-       [ "$st" = "active [3]" ] && n=$((n+1))
-     done
-     echo $n' 2>/dev/null)
-  ACTIVE=${ACTIVE:-0}
-  if [ "$ACTIVE" -ge 7 ]; then
-    echo "  ✓ Nav2 fully active after ${i}s (7/7 servers)"; break
+  if docker exec "$NAV_CONTAINER" bash -lc 'grep -q "Managed nodes are active" /tmp/nav.log 2>/dev/null'; then
+    ACTIVE=1
+    echo "  ✓ Nav2 fully active after ${i}s"
+    break
+  fi
+  # Fast-fail if the launch process died early — nav.log will contain the traceback.
+  if ! docker exec "$NAV_CONTAINER" bash -lc 'pgrep -f "ros2 launch ferox_nav_bringup" >/dev/null'; then
+    echo "  ✗ ros2 launch exited unexpectedly. Tail of /tmp/nav.log:"
+    docker exec "$NAV_CONTAINER" bash -lc 'tail -30 /tmp/nav.log'
+    exit 1
   fi
 done
 
-if [ "$ACTIVE" -lt 7 ]; then
-  echo "  ⚠ Nav2 not fully active after 60s ($ACTIVE/7 servers active)"
-  echo "    Inspect: docker exec $NAV_CONTAINER tail -80 /tmp/nav.log"
+if [ "$ACTIVE" -ne 1 ]; then
+  echo "  ⚠ Nav2 not fully active after 60s. Tail of /tmp/nav.log:"
+  docker exec "$NAV_CONTAINER" bash -lc 'tail -30 /tmp/nav.log'
 fi
 
 # Common gotcha: missing topic_tools in the nav image kills the sim bridge
 # silently. Surface it explicitly.
-if docker exec "$NAV_CONTAINER" bash -lc 'grep -q "package .topic_tools. not found" /tmp/nav.log'; then
+if docker exec "$NAV_CONTAINER" bash -lc 'grep -q "package .topic_tools. not found" /tmp/nav.log 2>/dev/null'; then
   echo ""
   echo "  ✗ topic_tools missing from ferox/nav image — sim bridge can't start."
   echo "    Rebuild: cd $FEROX_REPO && docker compose -f docker/docker-compose.yml build nav"

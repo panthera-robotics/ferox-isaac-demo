@@ -16,8 +16,12 @@ sleep 2
 
 echo ""
 echo "[2/3] Stopping containers..."
-( cd "$FEROX_REPO" && docker compose -f docker/docker-compose.yml down ) >/dev/null 2>&1
-docker stop "$SIM_CONTAINER" >/dev/null 2>&1
+if [ -f "$FEROX_REPO/docker/docker-compose.yml" ]; then
+  ( cd "$FEROX_REPO" && docker compose -f docker/docker-compose.yml down ) \
+    >/dev/null 2>&1 || echo "  ⚠ compose down failed; falling back to docker stop"
+fi
+# Belt-and-suspenders: stop by name in case compose path was wrong.
+docker stop "$NAV_CONTAINER" "$SIM_CONTAINER" >/dev/null 2>&1 || true
 
 echo ""
 echo "[3/3] Final state:"

@@ -1,7 +1,9 @@
 #!/bin/bash
 # ferox-isaac-demo — manual cmd_vel for sanity-driving the robot in sim.
-# Publishes Twist on /ferox/$ROBOT_ID/cmd_vel; the Ferox sim bridge relays
-# it to Isaac Sim's /cmd_vel.
+# Publishes Twist on /ferox/$ROBOT_ID/cmd_vel — the SAME topic Nav2's
+# velocity_smoother publishes on, AND the topic Isaac Sim subscribes to
+# (passed as --cmd_vel_topic in 01_start_sim.sh). Volatile reliable QoS
+# matches Nav2's defaults so we never trigger the relay-fallback bug.
 #
 # Usage:
 #   ./03_teleop.sh forward   # 0.4 m/s
@@ -36,7 +38,8 @@ docker exec -d "$NAV_CONTAINER" bash -lc "
   source /opt/ros/humble/setup.bash
   source /opt/ferox_msgs_ws/install/setup.bash
   source /workspace/install/setup.bash
-  ros2 topic pub $TOPIC geometry_msgs/Twist '$TWIST' -r 10
+  ros2 topic pub --qos-reliability reliable --qos-durability volatile \
+    $TOPIC geometry_msgs/Twist '$TWIST' -r 10
 "
 
 sleep 2

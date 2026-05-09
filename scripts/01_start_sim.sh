@@ -64,9 +64,17 @@ echo "  ✓ container up"
 
 echo ""
 echo "[4/4] Launching run.py inside Isaac Sim (boot ~60 sec)..."
+# Subscribe directly to /ferox/<robot_id>/cmd_vel — matches what Nav2
+# publishes inside its namespace, no relay needed. Avoids the QoS war
+# that occurs when multiple Nav2 publishers (volatile + transient_local)
+# share a relayed topic with manual `ros2 topic pub` clients.
+SIM_CMD_VEL_TOPIC="/ferox/${ROBOT_ID}/cmd_vel"
 docker exec -d "$SIM_CONTAINER" bash -c "
   cd /workspace/ferox_isaac && \
-  /isaac-sim/python.sh run.py --robot_type $ROBOT --no_keyboard \
+  /isaac-sim/python.sh run.py \
+    --robot_type $ROBOT \
+    --cmd_vel_topic $SIM_CMD_VEL_TOPIC \
+    --no_keyboard \
     > /tmp/sim.log 2>&1
 "
 

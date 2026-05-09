@@ -5,7 +5,15 @@
 
 # ---- Repo locations ----
 DEMO_DIR="${DEMO_DIR:-$HOME/panthera/ferox-isaac-demo}"
-FEROX_REPO="${FEROX_REPO:-$HOME/panthera/Ferox/ferox}"
+# Ferox repo layout: the repo root holds docker/, src/, install/. Older
+# layouts nested under Ferox/ferox/ — fall back to that if the flat layout
+# isn't there, so existing checkouts keep working.
+if [ -z "${FEROX_REPO:-}" ]; then
+  if   [ -d "$HOME/panthera/Ferox/src" ];        then FEROX_REPO="$HOME/panthera/Ferox"
+  elif [ -d "$HOME/panthera/Ferox/ferox/src" ];  then FEROX_REPO="$HOME/panthera/Ferox/ferox"
+  else FEROX_REPO="$HOME/panthera/Ferox"
+  fi
+fi
 
 # ---- Robot ----
 ROBOT="${ROBOT:-go2}"            # go2 | g1
