@@ -1,0 +1,25 @@
+# Isaac Sim runtime caches (regenerated on every container start)
+cache/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+.pytest_cache/
+
+# ROS2 colcon (in case anyone runs colcon at this level)
+build/
+install/
+log/
+
+# Local env / secrets
+.env
+*.pem
