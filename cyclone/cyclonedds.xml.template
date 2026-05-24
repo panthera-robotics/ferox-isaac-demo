@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ferox-isaac-demo DDS — env-driven Cyclone DDS configuration for the
+  Isaac Sim container. Mirrors the pattern used by Ferox and ferox-speech.
+
+  Rendered on the HOST by scripts/lib/render_cyclone.sh and mounted
+  into the Isaac Sim container at /tmp/cyclonedds.xml. The Isaac Sim
+  container's CYCLONEDDS_URI env var (set via docker run -e) points
+  at that mount path.
+
+  TWO OPTIONAL ENV VARS (read by render_cyclone.sh):
+
+    FEROX_DDS_INTERFACE   Network interface to pin (e.g. "tailscale0").
+                          Empty/unset => Cyclone auto-detects.
+
+    FEROX_DDS_PEERS       Space-separated peer IPs for cross-network
+                          discovery (Tailscale/VPN). Empty/unset =>
+                          multicast-only on local LAN.
+
+  ALWAYS:
+    MaxAutoParticipantIndex=120 — default 9 exhausts when sim shares
+    a host with Nav2 + speech + audio.
+-->
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain id="any">
+    <General>
+      <Interfaces>
+        ${CYCLONE_INTERFACE_BLOCK}
+      </Interfaces>
+      <AllowMulticast>spdp</AllowMulticast>
+    </General>
+    <Discovery>
+      <Peers>
+        ${CYCLONE_PEERS_BLOCK}
+      </Peers>
+      <MaxAutoParticipantIndex>120</MaxAutoParticipantIndex>
+    </Discovery>
+  </Domain>
+</CycloneDDS>

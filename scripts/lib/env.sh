@@ -3,6 +3,28 @@
 # Override any value via environment before running, e.g.
 #     ROBOT=g1 ./01_start_sim.sh
 
+# ---- Optional .env file (loads FEROX_DDS_* and any other overrides) ----
+# Source a .env at the repo root if present, but DO NOT clobber values
+# that the caller already set in the shell environment. We read each
+# KEY=VAL line ourselves so a caller-set value wins over the .env
+# default — `set -a; . file; set +a` would overwrite unconditionally.
+ENV_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/.env"
+if [ -f "$ENV_FILE" ]; then
+  while IFS= read -r _line || [ -n "$_line" ]; do
+    _line="${_line%$'\r'}"
+    _line="${_line#"${_line%%[![:space:]]*}"}"
+    [ -z "$_line" ] && continue
+    [ "${_line:0:1}" = "#" ] && continue
+    [[ "$_line" != *=* ]] && continue
+    _key="${_line%%=*}"
+    _val="${_line#*=}"
+    [[ "$_val" == \"*\" ]] && _val="${_val#\"}" && _val="${_val%\"}"
+    [[ "$_val" == \'*\' ]] && _val="${_val#\'}" && _val="${_val%\'}"
+    [ -z "${!_key+set}" ] && export "$_key=$_val"
+  done < "$ENV_FILE"
+  unset _line _key _val
+fi
+
 # ---- Repo locations ----
 DEMO_DIR="${DEMO_DIR:-$HOME/panthera/ferox-isaac-demo}"
 # Ferox repo layout: the repo root holds docker/, src/, install/. Older
@@ -49,6 +71,7 @@ esac
 
 export DEMO_DIR FEROX_REPO ROBOT ROBOT_ID VENUE
 export ROS_DOMAIN_ID RMW_IMPLEMENTATION
+export FEROX_DDS_INTERFACE FEROX_DDS_PEERS
 export SIM_CONTAINER NAV_CONTAINER
 export ISAAC_IMAGE FEROX_NAV_IMAGE FEROX_MSGS_IMAGE
 export CACHE_DIR HOST_DISPLAY DESKTOP_USER XAUTH_FILE

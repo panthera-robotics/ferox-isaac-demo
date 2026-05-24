@@ -23,3 +23,6 @@ log/
 # Local env / secrets
 .env
 *.pem
+
+# Rendered cyclone config — generated on demand by scripts/lib/render_cyclone.sh
+.cyclone/

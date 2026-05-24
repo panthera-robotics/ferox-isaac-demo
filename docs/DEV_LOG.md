@@ -34,3 +34,33 @@ on a single host — it just hides the bug it's meant to catch.
 started by a build that predates this guard), the guard silently
 proceeds. Stale or missing tags never block a valid run; only an
 explicit mismatch aborts.
+
+---
+
+## 2026-05-24 — env-driven Cyclone DDS (alignment with Ferox 1.1 / ferox-speech 1.2)
+
+Wired the demo into the same env-driven DDS pattern as the sibling
+repos. Two optional env vars — `FEROX_DDS_INTERFACE` and
+`FEROX_DDS_PEERS` — drive the cyclone XML; both empty means
+auto-detect interface + multicast on the local LAN.
+
+Mechanism differs from Ferox/ferox-speech because the Isaac Sim
+image isn't ours to modify. Instead of baking `CYCLONEDDS_URI` into
+the image's `Config.Env`, we render the cyclone XML on the host with
+[scripts/lib/render_cyclone.sh](../scripts/lib/render_cyclone.sh),
+mount it into the sim container, and pass
+`CYCLONEDDS_URI=file:///tmp/cyclonedds.xml` via `docker run -e`. New
+template at [cyclone/cyclonedds.xml.template](../cyclone/cyclonedds.xml.template).
+
+[scripts/lib/env.sh](../scripts/lib/env.sh) now sources a repo-root
+`.env` (gitignored) if present, so the same vars also reach the
+downstream Ferox compose-up triggered by
+[scripts/02_start_ferox.sh](../scripts/02_start_ferox.sh) — no
+changes to that script needed. Caller-set env wins over the .env
+file: a naïve `set -a; . file; set +a` overrides unconditionally, so
+we read each line and only export if the var is currently unset.
+
+Single-machine sim (sim + nav co-located, no Tailscale) needs NO env
+vars — multicast on the local LAN/loopback works.
+
+See [.env.example](../.env.example) for setup scenarios.

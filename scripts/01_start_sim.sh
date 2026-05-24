@@ -34,6 +34,11 @@ echo "[2/4] Stopping any prior sim container..."
 docker rm -f "$SIM_CONTAINER" >/dev/null 2>&1 || true
 
 echo ""
+echo "[2.5/4] Rendering cyclone DDS config..."
+CYCLONE_FILE="$("$(dirname "$0")/lib/render_cyclone.sh")"
+echo "  ✓ rendered to $CYCLONE_FILE"
+
+echo ""
 echo "[3/4] Starting Isaac Sim container ($SIM_CONTAINER)..."
 docker run -d --name "$SIM_CONTAINER" --runtime=nvidia --gpus all \
   --user 1234:1234 \
@@ -44,9 +49,11 @@ docker run -d --name "$SIM_CONTAINER" --runtime=nvidia --gpus all \
   -e ROS_DISTRO=humble \
   -e RMW_IMPLEMENTATION="$RMW_IMPLEMENTATION" \
   -e ROS_DOMAIN_ID="$ROS_DOMAIN_ID" \
+  -e CYCLONEDDS_URI=file:///tmp/cyclonedds.xml \
   -e LD_LIBRARY_PATH=/isaac-sim/exts/isaacsim.ros2.bridge/humble/lib \
   -e DISPLAY="$HOST_DISPLAY" \
   -e XAUTHORITY=/tmp/.docker.xauth \
+  -v "$CYCLONE_FILE":/tmp/cyclonedds.xml:ro \
   -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
   -v "$XAUTH_FILE":/tmp/.docker.xauth:ro \
   -v "$CACHE_DIR/kit":/isaac-sim/kit/cache:rw \
