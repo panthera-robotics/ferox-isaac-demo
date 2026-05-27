@@ -26,13 +26,16 @@
     <General>
       <Interfaces>
         ${CYCLONE_INTERFACE_BLOCK}
+        <NetworkInterface name="lo"/>
       </Interfaces>
-      <AllowMulticast>spdp</AllowMulticast>
+      <AllowMulticast>false</AllowMulticast>
     </General>
     <Discovery>
       <Peers>
         ${CYCLONE_PEERS_BLOCK}
       </Peers>
+      <!-- Required: default 'none' binds ephemeral ports; SPDP probes hit the deterministic range and miss. -->
+      <ParticipantIndex>auto</ParticipantIndex>
       <MaxAutoParticipantIndex>120</MaxAutoParticipantIndex>
     </Discovery>
   </Domain>
