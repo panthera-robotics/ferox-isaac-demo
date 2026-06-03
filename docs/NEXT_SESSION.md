@@ -16,11 +16,11 @@ VENUE=dso_block_a ./scripts/02_start_ferox.sh      # VENUE is mandatory — bare
 ./scripts/03_test_pipeline.sh "take me to the charging dock"
 ```
 
-## Do first
-1. **[demo-blocking] Fix the `tool_use_id` 400** — `backends.py:284`, 2nd tick after a tool dispatch throws `anthropic.BadRequestError 400`. Temp clear: `docker compose up -d --force-recreate speech`. Real fix: track `tool_use` IDs, include only matching `tool_result` blocks in the next turn. **Any multi-turn demo needs this** (can't force-recreate between live utterances).
-2. **Commit `mall_concierge_debug.json5`** (terse, no-prefix). **First** verify the `.env`s are gitignored — `git check-ignore ferox-speech/docker/.env` MUST return the path; it holds the live API key, and a root-anchored `/.env` rule would NOT cover `docker/.env`.
+## Done (2026-06-03)
+- ✅ **`tool_use_id` 400 fixed** — multi-turn tool calls now work **without** `--force-recreate`. The accumulator preserves the Anthropic `tool_use` id, re-emits assistant `tool_use` blocks, pairs each with a synthetic `dispatched` `tool_result` (real outcomes arrive as `[nav]` feedback), and gates idle/in-flight ticks so no assistant turn wedges between a `tool_use` and its result. Baked into `ferox/speech:humble` and validated on the baked image (4-turn session, 0× 400, 77 unit tests). See ferox-speech `DEV_LOG.md` 2026-06-03.
+- ✅ **`mall_concierge_debug.json5` committed** (ferox-speech `2caa429`); `docker/.env` confirmed gitignored.
 
-## Pre-demo hardening
+## Do first (pre-demo hardening)
 - **Bake the Whisper model into the ferox-speech image** — currently fetched from HuggingFace at runtime (cold-start network dependency + bake-deps violation). Demo-day risk on an unreliable venue network.
 - **`ferox_nav.launch.py:104-116`** runs the venue map-existence check even in SLAM mode (contradicts its docstring). Harmless now (map exists); will **crash SLAM bring-up at a venue with waypoints but no saved map** → fix before the M2 duty-free pilot.
 
