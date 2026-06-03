@@ -64,3 +64,60 @@ Single-machine sim (sim + nav co-located, no Tailscale) needs NO env
 vars — multicast on the local LAN/loopback works.
 
 See [.env.example](../.env.example) for setup scenarios.
+
+---
+
+## 2026-06-03 — VM redeploy (100.120.30.7) + headless voice→drive validation
+
+**What:** Stood up the Go2 voice→drive stack on the new Vast.ai VM (`ubuntu`,
+100.120.30.7) and validated it headlessly (no mic). V1/V2/V3 pass. Three
+containers on domain 42 / `tailscale0`: `ferox_isaac_sim`, `ferox_nav`,
+`ferox_speech`.
+
+**Validation:**
+- **V1 stack health** — nav 9/9 lifecycle (7 servers + 2 costmaps) under
+  `/ferox/go2_01/`; SLAM `/map` 399×470 @ 0.05 m (~170k known cells) after the
+  warmup drive; `ferox_speech` subscribed to `/ferox/go2_01/audio/mic_raw`, no
+  rmw crash. Cross-container discovery works with multicast off.
+- **V2 action dry-run** — `MoveToNamed{charge_dock}` → cmd_vel 0.22 m/s, odom
+  x 9.08→7.96, drove ~10 m to the dock.
+- **V3 headless brain** — inject "take me to the charging dock" → Haiku →
+  `MoveToNamed{charge_dock}` → motion + Piper "This way to the charging dock!"
+  (20 chunks ~2 s on `speaker_out`). Re-confirmed with "reception".
+
+**DDS scheme settled — A, everywhere:** `FEROX_DDS_INTERFACE` +
+`FEROX_DDS_PEERS` (space-sep). Scheme B (`PEER_HOST`/`PEER_CLOUD`) exists only
+in stale `ferox-audio-sim/CLAUDE.md`; nothing reads it. Template pins the
+interface `presence_required="true"`, `AllowMulticast=false`, always adds
+`<NetworkInterface name="lo"/>` → same-host sim+nav+speech discover via
+loopback + the VM's own IP in the peer list.
+
+**Files:**
+- `+ .env` — master DDS (`tailscale0`, peers `"100.82.193.45 100.120.30.7"`);
+  [scripts/lib/env.sh](../scripts/lib/env.sh) exports these to the sim
+  (`render_cyclone`) **and** nav (compose passthrough via
+  [scripts/02_start_ferox.sh](../scripts/02_start_ferox.sh))
+- `+ Ferox/.env` — defensive DDS for standalone nav; orchestrated runs
+  override it via the env.sh shell-export
+- `+ ferox-speech/docker/.env` — `ANTHROPIC_API_KEY` + DDS vars
+- `+ ferox-speech/configs/agents/mall_concierge_debug.json5` — `= mall_concierge`
+  + `stt_debug` input; V3 harness, bind-mounted `:ro`, no rebuild
+- `− ferox-speech/.env` (root) — was silently ignored (see finding 2)
+
+**Correctness findings:**
+1. **`VENUE=dso_block_a` is required on
+   [scripts/02_start_ferox.sh](../scripts/02_start_ferox.sh).** Bare →
+   `VENUE=""` → empty waypoint DB → `MoveToNamed` rejected as unknown waypoint
+   (fails V2/V3). Passing it loads the 4 DSO waypoints; `use_slam` stays true
+   (not the AMCL variant). Works because `maps/dso_block_a.{yaml,pgm}` exist in
+   the Ferox repo. (Latent: `ferox_nav.launch.py:104-116` runs the map-existence
+   check even in SLAM mode — harmless only because the map exists.)
+2. **ferox-speech key/DDS `.env` is `docker/.env`, NOT repo root.** Verified via
+   `docker compose config`: Compose v2 loads the interpolation `.env` from the
+   compose-file directory. The root `ferox-speech/.env` resolved to `""` → Haiku
+   would 401, DDS would fall back to multicast. Moved to `docker/.env`, removed
+   the misleading root copy.
+
+**Note:** no `mall_concierge_anthropic.json5` — `mall_concierge.json5` is
+already Anthropic (router: `tools:true` → `cloud=claude-haiku-4-5`). Enum = the
+4 DSO waypoints, field = `name`.
