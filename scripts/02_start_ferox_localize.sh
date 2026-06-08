@@ -31,6 +31,7 @@
 
 set -e
 source "$(dirname "$0")/lib/env.sh"
+source "$(dirname "$0")/lib/kill_nav_stack.sh"
 
 # lib/env.sh leaves VENUE empty — that's the SLAM-mapping default that
 # 02_start_ferox.sh wants. Localization is meaningless without a map, so
@@ -41,11 +42,6 @@ VENUE="${VENUE:-dso_block_a}"
 # package-share copy a colcon build produces; the launch's _load_venue_config
 # walks venue -> map the same way.
 MAP_YAML="/workspace/install/ferox_nav/share/ferox_nav/maps/${VENUE}.yaml"
-
-# Regex (ERE) matching every process the nav stack spawns that we must clear
-# before relaunching. Shared by the kill and the verify below so they can't
-# drift apart.
-NAV_PROC_RE='ros2 launch|lifecycle_manager|controller_server|amcl|slam_toolbox|map_server'
 
 echo "==============================================="
 echo " ferox-isaac-demo — start Ferox nav (AMCL localize)"
@@ -107,29 +103,19 @@ echo "  ✓ $NAV_CONTAINER up; venue map present"
 echo ""
 echo "[2/4] Clearing residual nav processes in $NAV_CONTAINER..."
 
-# A prior nav stack must be gone before we relaunch, or two sets of Nav2
-# nodes fight over the same DDS names and the lifecycle managers die under
-# the conflict. 02_start_ferox.sh stages a base64'd /tmp/kill_nav.sh for
-# this — but that file is written and never chmod'd executable, so it only
-# runs when invoked as `bash /tmp/kill_nav.sh`. Rather than lean on a
-# half-broken helper, kill inline.
+# A prior nav stack must be gone before we relaunch, or two sets of nodes
+# fight over the same DDS names. The trap this script fell into: it killed
+# only the Nav2 nodes + the launch parent and MISSED the ferox_nav package
+# nodes (waypoint_manager, status_publisher, venue_manager) and the static
+# TFs — so those survived, orphaned to PID 1, and the next launch added a
+# SECOND waypoint_manager. Two /ferox/<id>/move_to_named action servers then
+# cross the speech client's goal/result responses and the robot never moves.
 #
-# This is a single BARE `docker exec ... pkill`: docker execs pkill directly
-# with no wrapping shell, and pkill never matches its own PID — so the
-# pattern matching "ros2 launch" cannot kill the very process running it.
-# Do NOT refactor this into a `bash -c` loop over the patterns: that shell's
-# command line would carry every pattern and the first match would kill the
-# shell mid-loop (exit 137). One bare pkill with an ERE alternation is the
-# safe form (same idiom as 09_stop.sh).
-docker exec "$NAV_CONTAINER" pkill -9 -f "$NAV_PROC_RE" 2>/dev/null || true
-sleep 3
-
-# Confirm the clean took. Anything still matching would DDS-conflict with
-# the launch below — fail loud instead of launching into a fight.
-RESIDUAL=$(docker exec "$NAV_CONTAINER" pgrep -af "$NAV_PROC_RE" 2>/dev/null || true)
-if [ -n "$RESIDUAL" ]; then
-  echo "  ✗ residual nav processes survived the clean:"
-  echo "$RESIDUAL" | sed 's/^/      /'
+# kill_nav_stack (lib/kill_nav_stack.sh) is the single source of the match
+# pattern, covering the node executables — not just the launch parent — so
+# orphans can't slip through. It is a bare `docker exec ... pkill` (never a
+# wrapping shell) so it cannot kill the process that runs it.
+if ! kill_nav_stack "$NAV_CONTAINER" --verify; then
   echo "    Brute-clean and retry:  docker exec $NAV_CONTAINER pkill -9 -f ros2"
   exit 1
 fi

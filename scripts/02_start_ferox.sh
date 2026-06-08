@@ -14,6 +14,7 @@
 
 set -e
 source "$(dirname "$0")/lib/env.sh"
+source "$(dirname "$0")/lib/kill_nav_stack.sh"
 
 echo "==============================================="
 echo " ferox-isaac-demo — start Ferox nav"
@@ -82,30 +83,18 @@ echo "[4/4] Launching ferox_nav_bringup (robot=$ROBOT, robot_id=$ROBOT_ID, mode=
 VENUE_ARG=""
 [ -n "$VENUE" ] && VENUE_ARG="venue:=$VENUE"
 
-# Kill any prior nav stack so we don't end up with two sets of Nav2 nodes
-# fighting for the same DDS names. The old `pkill -9 -f "ros2 launch"`
-# only killed the LAUNCH parent; its lifecycle children kept running,
-# orphaned to PID 1, and DDS-conflicted with the next launch's nodes
-# (controller_server, bt_navigator, and lifecycle_manager would silently
-# die under the conflict). We match by colcon install path and known
-# Nav2 binary names — narrow enough to avoid system processes, broad
-# enough to catch every orphan from the previous launch.
-#
-# We base64-encode the kill script so the bash -c command line that
-# stages it does NOT contain any of the patterns (otherwise pkill would
-# match its own shell and the caller would exit 137).
-KILL_SH_B64=$(base64 -w0 <<'KILL_SH'
-#!/bin/bash
-victims=$(pgrep -f '/workspace/install/ferox_nav/lib|/opt/ros/humble/lib/nav2_|/opt/ros/humble/lib/slam_toolbox|/opt/ros/humble/lib/topic_tools/relay|ros2 launch ferox_nav_bringup|/opt/ros/humble/lib/tf2_ros/static_transform_publisher' || true)
-if [ -n "$victims" ]; then
-  echo "Killing prior nav-stack PIDs: $(echo $victims | tr '\n' ' ')"
-  kill -9 $victims 2>/dev/null || true
+# Kill any prior nav stack so we don't end up with two sets of nodes
+# fighting for the same DDS names. Killing only the `ros2 launch` parent
+# leaves its children (waypoint_manager, the Nav2 nodes, the static TFs)
+# running and orphaned to PID 1; a second launch then yields duplicate
+# endpoints — e.g. two /ferox/<id>/move_to_named action servers — and the
+# robot stops moving. kill_nav_stack (lib/kill_nav_stack.sh) is the single
+# source of the match pattern and targets the node executables, so orphans
+# from a prior launch are caught too.
+if ! kill_nav_stack "$NAV_CONTAINER" --verify; then
+  echo "    Brute-clean and retry:  docker exec $NAV_CONTAINER pkill -9 -f ros2"
+  exit 1
 fi
-exit 0
-KILL_SH
-)
-docker exec "$NAV_CONTAINER" bash -c "echo $KILL_SH_B64 | base64 -d > /tmp/kill_nav.sh && bash /tmp/kill_nav.sh"
-sleep 2
 
 # Truncate any stale log first
 docker exec "$NAV_CONTAINER" bash -lc ': > /tmp/nav.log'

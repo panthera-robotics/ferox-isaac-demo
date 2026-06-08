@@ -4,14 +4,22 @@
 
 set +e
 source "$(dirname "$0")/lib/env.sh"
+source "$(dirname "$0")/lib/kill_nav_stack.sh"
 
 echo "==============================================="
 echo " ferox-isaac-demo — shutdown"
 echo "==============================================="
 
 echo "[1/3] Killing in-container processes..."
-docker exec "$NAV_CONTAINER" bash -lc 'pkill -9 -f "ros2 launch|topic pub|rviz2|action send_goal"' 2>/dev/null
-docker exec "$SIM_CONTAINER" bash -lc 'pkill -9 -f run.py' 2>/dev/null
+# Clear the WHOLE nav stack (node executables, not just the launch parent).
+# The old `pkill -f "ros2 launch"` here killed only the parent and left its
+# children orphaned to PID 1 — the same gap that produced duplicate action
+# servers on the next launch. kill_nav_stack is the shared, complete killer.
+kill_nav_stack "$NAV_CONTAINER"
+# Then the debug helpers a session may have left running. Bare docker exec
+# pkill (no wrapping shell that could carry — and match — the pattern).
+docker exec "$NAV_CONTAINER" pkill -9 -f 'rviz2|ros2 topic pub|ros2 action send_goal' 2>/dev/null || true
+docker exec "$SIM_CONTAINER" pkill -9 -f run.py 2>/dev/null || true
 sleep 2
 
 echo ""
