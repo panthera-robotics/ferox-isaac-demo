@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 #
-# Renders the Isaac Sim cyclone DDS config on the host, using the two
-# optional FEROX_DDS_* env vars, and prints the rendered file path to
-# stdout (one line, suitable for command substitution).
+# Renders the Isaac Sim cyclone DDS config on the host and prints the
+# rendered file path to stdout (one line, suitable for command substitution).
 #
-# Defaults are robot-LAN safe (no env vars => auto-detect + multicast).
+# FEROX_DDS_INTERFACE  pins the network interface (else auto-detect).
+# FEROX_DDS_PEERS      the <Peers> list. Normally tailnet-derived + exported
+#                      by scripts/lib/env.sh before this runs; if unset (e.g.
+#                      this script invoked standalone) it is derived here via
+#                      scripts/lib/dds_peers.sh. Only currently-online tailnet
+#                      nodes are listed, so a dead host is never a <Peer> and
+#                      the ddsi_udp_conn_write flood can't recur. Set it
+#                      explicitly to override ("" => multicast only).
 #
 # Usage:
 #   RENDERED_PATH=$(scripts/lib/render_cyclone.sh)
@@ -32,7 +38,14 @@ else
   export CYCLONE_INTERFACE_BLOCK="<NetworkInterface autodetermine=\"true\" />"
 fi
 
-# Peers block: empty unless FEROX_DDS_PEERS set (space-separated IPs).
+# Peers block. The list is normally tailnet-derived and exported by
+# scripts/lib/env.sh before this runs. If invoked standalone (FEROX_DDS_PEERS
+# unset), derive it here too so the rendered XML never lists a stale/dead host.
+# An explicit FEROX_DDS_PEERS (including "") is honored verbatim.
+if [[ -z "${FEROX_DDS_PEERS+set}" ]]; then
+  . "$(dirname "${BASH_SOURCE[0]}")/dds_peers.sh"
+  FEROX_DDS_PEERS="$(ferox_derive_dds_peers || true)"
+fi
 export CYCLONE_PEERS_BLOCK=""
 for peer in ${FEROX_DDS_PEERS}; do
   CYCLONE_PEERS_BLOCK+="<Peer Address=\"${peer}\"/>"$'\n        '

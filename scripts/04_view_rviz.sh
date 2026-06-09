@@ -22,89 +22,20 @@ docker ps --format '{{.Names}}' | grep -q "^${NAV_CONTAINER}$" || {
 sudo -u "$DESKTOP_USER" DISPLAY="$HOST_DISPLAY" XAUTHORITY="$XAUTH_FILE" \
   xhost +local: >/dev/null 2>&1 || true
 
-echo "Writing RViz config ($RVIZ_CFG) inside $NAV_CONTAINER ..."
-docker exec "$NAV_CONTAINER" bash -lc "cat > $RVIZ_CFG <<'RVIZ'
-Panels:
-  - Class: rviz_common/Displays
-    Name: Displays
-  - Class: rviz_common/Tool Properties
-    Name: Tool Properties
-Visualization Manager:
-  Class: ''
-  Displays:
-    - Class: rviz_default_plugins/Grid
-      Enabled: true
-      Name: Grid
-    - Class: rviz_default_plugins/TF
-      Enabled: true
-      Name: TF
-    - Class: rviz_default_plugins/Map
-      Enabled: true
-      Name: Map (SLAM)
-      Topic:
-        Value: ${NS}/map
-        Durability Policy: Transient Local
-        Reliability Policy: Reliable
-      Color Scheme: map
-      Alpha: 0.7
-    - Class: rviz_default_plugins/Map
-      Enabled: true
-      Name: Global Costmap
-      Topic:
-        Value: ${NS}/global_costmap/costmap
-        Durability Policy: Transient Local
-        Reliability Policy: Reliable
-      Color Scheme: costmap
-      Alpha: 0.5
-    - Class: rviz_default_plugins/Map
-      Enabled: true
-      Name: Local Costmap
-      Topic:
-        Value: ${NS}/local_costmap/costmap
-        Durability Policy: Volatile
-        Reliability Policy: Reliable
-      Color Scheme: costmap
-      Alpha: 0.5
-    - Class: rviz_default_plugins/Path
-      Enabled: true
-      Name: Global Plan
-      Topic: { Value: ${NS}/plan }
-      Color: 0; 255; 0
-      Line Width: 0.05
-    - Class: rviz_default_plugins/Path
-      Enabled: true
-      Name: Local Plan
-      Topic: { Value: ${NS}/local_plan }
-      Color: 0; 200; 255
-    - Class: rviz_default_plugins/Pose
-      Enabled: true
-      Name: Goal Pose
-      Topic: { Value: ${NS}/goal_pose }
-      Color: 255; 25; 0
-    - Class: rviz_default_plugins/LaserScan
-      Enabled: true
-      Name: LaserScan
-      Topic: { Value: ${NS}/scan }
-      Size (m): 0.05
-      Color: 255; 0; 0
-    - Class: rviz_default_plugins/Odometry
-      Enabled: true
-      Name: Odometry
-      Topic: { Value: ${NS}/odom }
-      Shape: Axes
-      Axes Length: 0.4
-      Keep: 100
-  Global Options:
-    Fixed Frame: map
-    Background Color: 48; 48; 48
-  Tools:
-    - Class: rviz_default_plugins/Interact
-    - Class: rviz_default_plugins/MoveCamera
-    - Class: rviz_default_plugins/SetGoal
-      Topic: { Value: ${NS}/goal_pose }
-    - Class: rviz_default_plugins/SetInitialPose
-      Topic: { Value: ${NS}/initialpose }
-RVIZ
+# Use the committed RViz config (config/rviz/ferox_nav.rviz) as the single
+# source of truth. The repo is bind-mounted at /workspace, so edits saved
+# from RViz land here directly — no rebuild needed.
+#
+# RViz bakes ABSOLUTE topic names, so the saved file is pinned to whatever
+# robot_id it was captured with (e.g. /ferox/go2_01/...). Rewrite that
+# prefix to the current $ROBOT_ID on the fly so one file serves any robot.
+SRC_RVIZ="/workspace/src/ferox_nav/config/rviz/ferox_nav.rviz"
+
+echo "Loading RViz config from $SRC_RVIZ (namespace → $NS) ..."
+docker exec "$NAV_CONTAINER" bash -lc "
+  set -e
+  test -f '$SRC_RVIZ' || { echo '  ✗ RViz config not found: $SRC_RVIZ — save it from RViz first.'; exit 1; }
+  sed -E 's#/ferox/[A-Za-z0-9_]+/#${NS}/#g' '$SRC_RVIZ' > '$RVIZ_CFG'
 "
 
 # Kill prior rviz, launch new

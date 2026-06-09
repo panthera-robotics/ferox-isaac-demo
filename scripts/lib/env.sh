@@ -46,6 +46,24 @@ VENUE="${VENUE:-}"               # empty → SLAM mapping mode
 ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-42}"
 RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}"
 
+# DDS peer list: tailnet-derived, NOT hardcoded. This exported value flows to
+# BOTH the sim (render_cyclone.sh writes the <Peers> block) and the Ferox nav
+# stack (docker compose interpolation — shell env wins over Ferox/.env). By
+# listing only currently-online tailnet nodes (+ this node's own tailscale IP),
+# an unreachable host is never a <Peer>, so the "ddsi_udp_conn_write ... failed"
+# flood can't recur on a fresh Vast.ai instance or while the laptop is asleep.
+# See scripts/lib/dds_peers.sh and docs/DEV_LOG.md (2026-06-09).
+#
+# Override: set FEROX_DDS_PEERS in the shell env or .env to bypass derivation
+# entirely (explicit "" => no peers, multicast only). Caller/.env value wins.
+. "$(dirname "${BASH_SOURCE[0]}")/dds_peers.sh"
+if [ -z "${FEROX_DDS_PEERS+set}" ]; then
+  FEROX_DDS_PEERS="$(ferox_derive_dds_peers || true)"
+  echo "[dds] peers (tailnet-derived): ${FEROX_DDS_PEERS:-<none, multicast only>}" >&2
+else
+  echo "[dds] peers (FEROX_DDS_PEERS override): ${FEROX_DDS_PEERS:-<none, multicast only>}" >&2
+fi
+
 # ---- Container names ----
 SIM_CONTAINER="${SIM_CONTAINER:-ferox_isaac_sim}"
 NAV_CONTAINER="${NAV_CONTAINER:-ferox_nav}"

@@ -6,6 +6,56 @@ link to PRs / files for detail.
 
 ---
 
+## 2026-06-09 — DDS peers tailnet-derived (kill the ddsi_udp_conn_write flood)
+
+**What:** Replaced the hardcoded `FEROX_DDS_PEERS` in `.env`
+(`"100.82.193.45 100.112.212.89"` = laptop + this instance's VM IP) with a
+peer list **derived from the tailnet at startup**. New
+[scripts/lib/dds_peers.sh](../scripts/lib/dds_peers.sh) defines
+`ferox_derive_dds_peers()`:
+- This node's own `tailscale ip -4` — **always** included (same-host
+  sim+nav+speech discovery needs it; multicast is off over the tunnel).
+- Every currently-**online** node from `tailscale status --json`
+  (`.Peer[] | select(.Online) | .TailscaleIPs[0]`). If `tag:ferox` is in use
+  anywhere on the tailnet, remote peers are scoped to online `tag:ferox` nodes;
+  if no node carries it, fall back to all online peers. Both paths tested.
+- Degrades loudly (never a silent empty list): missing `tailscale`/`jq` or a
+  down `tailscaled` → stderr warning + best-effort/multicast-only.
+
+**Why:** Cyclone sprays SPDP across the participant-index range at every
+`<Peer>`; an unreachable one floods the logs with `ddsi_udp_conn_write to
+udp/<ip>:<port> failed` (retcode -3). Two hardcoded failure modes: (1) the
+Vast.ai VM IP is **ephemeral**, so the baked-in self entry goes stale on the
+next instance and floods forever; (2) the laptop was listed unconditionally, so
+it floods whenever it's asleep. Listing only online nodes removes the flood **by
+construction** — an offline host is never `.Online`, so it never becomes a
+`<Peer>` — and the self entry tracks the live `tailscale ip -4` instead of a
+stale literal.
+
+**Where it runs:** derivation is host-side (tailscale + jq present there).
+[scripts/lib/env.sh](../scripts/lib/env.sh) sources `dds_peers.sh` and sets
+`FEROX_DDS_PEERS` when it isn't already set, so the one derived list feeds
+**both** the sim (via [render_cyclone.sh](../scripts/lib/render_cyclone.sh),
+which also self-derives if invoked standalone) **and** the Ferox nav stack (the
+exported value wins over `Ferox/.env` in docker compose interpolation). The
+minimal Isaac Sim / nav containers never re-derive — they consume the
+host-rendered list.
+
+**Override preserved:** set `FEROX_DDS_PEERS` explicitly (shell env or `.env`)
+to bypass derivation for edge cases (non-Tailscale VPN, fixed pin); `""` =
+multicast-only. Caller/.env value wins over the derived default.
+
+**Unchanged (out of scope):** interface pinning (`FEROX_DDS_INTERFACE`),
+`AllowMulticast=false`, `ParticipantIndex=auto`,
+`MaxAutoParticipantIndex=120`, the domain, and the `<NetworkInterface
+name="lo"/>` entry. Only peer-list construction changed. Other repos untouched.
+
+**Files:** `+ scripts/lib/dds_peers.sh`; `~ scripts/lib/env.sh`,
+`scripts/lib/render_cyclone.sh`, `.env`, `.env.example`,
+[docs/NEXT_SESSION.md](NEXT_SESSION.md).
+
+---
+
 ## 2026-05-09 — Sim/nav robot-mismatch guard
 
 Added a pre-flight check to [scripts/02_start_ferox.sh](../scripts/02_start_ferox.sh)

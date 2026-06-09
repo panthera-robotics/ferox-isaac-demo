@@ -1,7 +1,7 @@
 # NEXT_SESSION
 
 ## Current state (2026-06-03)
-Go2 voice→drive validated **headless** on VM `100.120.30.7` (Vast.ai). Three containers up, domain 42 / `tailscale0`: `ferox_isaac_sim`, `ferox_nav`, `ferox_speech`. Production `mall_concierge` running, subscribed to `/ferox/go2_01/audio/mic_raw`; Piper publishing `/ferox/go2_01/audio/speaker_out`. **VM is laptop-ready** — `100.82.193.45` already in the peer list, so the wakeb thread needs zero VM change.
+Go2 voice→drive validated **headless** on VM `100.120.30.7` (Vast.ai). Three containers up, domain 42 / `tailscale0`: `ferox_isaac_sim`, `ferox_nav`, `ferox_speech`. Production `mall_concierge` running, subscribed to `/ferox/go2_01/audio/mic_raw`; Piper publishing `/ferox/go2_01/audio/speaker_out`. **VM is laptop-ready** — the DDS peer list is tailnet-derived (`scripts/lib/dds_peers.sh`), so the laptop (`wakeb`, `100.82.193.45`) is picked up automatically whenever it's online; the wakeb thread needs zero VM change.
 
 **Bring-up** (cold ≈5 min build + ≈180 s sim):
 ```
@@ -30,7 +30,7 @@ On the laptop: set `ferox-audio-sim/.env` peers `"100.82.193.45 100.120.30.7"` +
 Also: `tools/live_audio.sh` has a stale IP `100.118.201.71` to update there.
 
 ## Gotchas (carry forward)
-- DDS scheme = **A** (`FEROX_DDS_INTERFACE` + `FEROX_DDS_PEERS`). Peer list **must include the VM's own IP** for same-host discovery (multicast is off).
+- DDS scheme = **A** (`FEROX_DDS_INTERFACE` + `FEROX_DDS_PEERS`). The peer list is **tailnet-derived** at startup by `scripts/lib/dds_peers.sh`, **not hardcoded**: this node's own `tailscale ip -4` (always — required for same-host discovery, multicast is off) + every currently-online tailnet node (scoped to `tag:ferox` if that tag is in use, else all online peers). Set `FEROX_DDS_PEERS` explicitly only to override.
 - ferox-speech key/DDS `.env` = **`docker/.env`**, not repo root.
 - **`VENUE=dso_block_a`** required on `02_start_ferox.sh`.
-- DDS log spam from the offline laptop peer (`ddsi_udp_conn_write … failed`) is harmless — filter with `grep -avE "tev:|ddsi_udp"`.
+- DDS log spam (`ddsi_udp_conn_write … failed`) from an offline peer **no longer occurs** — only currently-online tailnet nodes are listed as `<Peer>`, so a dead host is never targeted by SPDP. (If you ever pin `FEROX_DDS_PEERS` manually to a host that goes offline, the old spam returns; filter with `grep -avE "tev:|ddsi_udp"`.)
