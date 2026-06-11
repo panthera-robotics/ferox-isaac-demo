@@ -87,6 +87,7 @@ docker exec -d "$SIM_CONTAINER" bash -c "
   /isaac-sim/python.sh run.py \
     --robot_type $ROBOT \
     --cmd_vel_topic $SIM_CMD_VEL_TOPIC \
+    --ros_namespace /ferox/${ROBOT_ID} \
     --no_keyboard \
     > /tmp/sim.log 2>&1
 "

@@ -25,6 +25,33 @@ CAMERA_LINK_PRIM = f"{GO2_STAGE_PATH}/base/camera_link"
 REALSENSE_DEPTH_CAMERA_PRIM = f"{CAMERA_LINK_PRIM}/realsense_depth_camera"
 REALSENSE_RGB_CAMERA_PRIM = f"{CAMERA_LINK_PRIM}/realsense_rgb_camera"
 GO2_RGB_CAMERA_PRIM = f"{CAMERA_LINK_PRIM}/go2_rgb_camera"
+
+# Single source of truth for the RealSense camera downward pitch. Used both to
+# tilt the camera prims (setup_sensors_delayed) and to derive the
+# base_link -> camera_optical static TF (setup_static_tfs), so the published
+# optical frame can never drift from the actual prim orientation.
+CAMERA_TILT_DEG = -25.0
+
+
+def optical_quat_from_tilt(tilt_deg: float):
+    """base_link -> REP-103 camera optical frame (x-right, y-down, z-forward),
+    pitched down by |tilt_deg|. Derived, not hand-tuned magic numbers.
+
+    = q_straight (base_link->optical, the canonical (-0.5,0.5,-0.5,0.5)) composed
+    with a pitch about the optical x-axis. NOTE camera_link itself is the
+    OpenGL/USD camera convention (y-up, z-back), so the optical frame is NOT
+    camera_link + a small tilt — it's this full rotation. At tilt_deg=0 this
+    returns exactly (-0.5, 0.5, -0.5, 0.5). Returns [x, y, z, w]."""
+    ax, ay, az, aw = -0.5, 0.5, -0.5, 0.5            # base_link -> optical (straight)
+    half = math.radians(-tilt_deg) / 2.0            # downward magnitude
+    bx, by, bz, bw = -math.sin(half), 0.0, 0.0, math.cos(half)  # pitch about optical-x
+    return [
+        aw * bx + ax * bw + ay * bz - az * by,
+        aw * by + ay * bw + az * bx - ax * bz,
+        aw * bz + az * bw + ax * by - ay * bx,
+        aw * bw - ax * bx - ay * by - az * bz,
+    ]
+
 L1_LINK_PRIM = f"{GO2_STAGE_PATH}/base/lidar_l1_link"
 L1_LIDAR_PRIM = f"{L1_LINK_PRIM}/lidar_l1_rtx"
 VELO_BASE_LINK_PRIM = f"{GO2_STAGE_PATH}/base/velodyne_base_link"
@@ -345,8 +372,8 @@ def setup_sensors_delayed(
             xformable.ClearXformOpOrder()
             xformable.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, 0.0))
             xformable.AddRotateXYZOp().Set(
-                Gf.Vec3f(-25.0, 0.0, 0.0)
-            )  # 25° downward tilt (X-axis)
+                Gf.Vec3f(CAMERA_TILT_DEG, 0.0, 0.0)
+            )  # downward tilt (X-axis), single source CAMERA_TILT_DEG
             logger.info(
                 "[Sensors] Set realsense_depth_camera 25° downward tilt, 5cm higher"
             )
@@ -372,8 +399,8 @@ def setup_sensors_delayed(
             xformable.ClearXformOpOrder()
             xformable.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, 0.0))
             xformable.AddRotateXYZOp().Set(
-                Gf.Vec3f(-25.0, 0.0, 0.0)
-            )  # 25° downward tilt (X-axis)
+                Gf.Vec3f(CAMERA_TILT_DEG, 0.0, 0.0)
+            )  # downward tilt (X-axis), single source CAMERA_TILT_DEG
             logger.info(
                 "[Sensors] Set realsense_rgb_camera 25° downward tilt, 5cm higher"
             )
@@ -548,6 +575,19 @@ def setup_static_tfs(simulation_app) -> None:
             [0.3, 0.0, 0.1],
             [0.5, -0.5, -0.5, 0.5],
         ),
+        # REP-103 optical frame for the published camera feed, parented to
+        # base_link (translation = the camera mount). Rotation DERIVED from
+        # CAMERA_TILT_DEG via optical_quat_from_tilt() — single source, so it
+        # can't drift from the actual prim tilt. (camera_link is the OpenGL/USD
+        # camera frame, NOT a ROS optical frame, so we do not build the optical
+        # frame off it.) The legacy realsense_* rows above keep their known
+        # missing-tilt debt (tracked, untouched).
+        (
+            "base_link",
+            "camera_optical",
+            [0.3, 0.0, 0.1],
+            optical_quat_from_tilt(CAMERA_TILT_DEG),
+        ),
         ("map", "odom", [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]),
     ]
 
@@ -684,8 +724,14 @@ def update_odom(pos, quat_xyzw, lin_vel, ang_vel) -> None:
         odom_ang_vel_attr.set([float(ang_vel[0]), float(ang_vel[1]), float(ang_vel[2])])
 
 
-def setup_color_camera_publishers(sensors, simulation_app) -> None:
-    """Set up ROS2 publishers for color camera images."""
+def setup_color_camera_publishers(sensors, simulation_app, ros_namespace="") -> None:
+    """Set up ROS2 publishers for color camera images.
+
+    ros_namespace (e.g. /ferox/go2_01) is prepended to the RELATIVE topic name
+    by the ROS2 bridge, so the color image lands at
+    /ferox/<robot_id>/camera/color/image_raw — no relay. frameId is the
+    REP-103 optical frame published by setup_static_tfs.
+    """
     import omni.replicator.core as rep
     import omni.syntheticdata as syn_data
     import omni.syntheticdata._syntheticdata as sd
@@ -695,20 +741,20 @@ def setup_color_camera_publishers(sensors, simulation_app) -> None:
         rp = cam.get_render_product_path()
         if rp:
             try:
-                # Color image on RealSense topic
+                # Color image, natively namespaced
                 rv = syn_data.SyntheticData.convert_sensor_type_to_rendervar(
                     sd.SensorType.Rgb.name
                 )
                 w = rep.writers.get(rv + "ROS2PublishImage")
                 w.initialize(
-                    frameId="realsense_depth_camera",
-                    nodeNamespace="",
+                    frameId="camera_optical",
+                    nodeNamespace=ros_namespace,
                     queueSize=10,
-                    topicName="/camera/realsense2_camera_node/color/image_isaac_sim_raw",
+                    topicName="camera/color/image_raw",
                 )
                 w.attach([rp])
                 logger.info(
-                    "[ROS2] Color camera -> /camera/realsense2_camera_node/color/image_isaac_sim_raw"
+                    f"[ROS2] Color camera -> {ros_namespace}/camera/color/image_raw"
                 )
 
             except Exception as e:
@@ -747,6 +793,7 @@ def setup_color_camerainfo_graph(
     fy=320.0,
     cx=None,
     cy=None,
+    node_namespace="",
 ) -> bool:
     """Publish CameraInfo for color camera."""
     import omni.graph.core as og
@@ -787,6 +834,7 @@ def setup_color_camerainfo_graph(
             og.Controller.Keys.SET_VALUES: [
                 ("Ctx.inputs:useDomainIDEnvVar", True),
                 ("Pub.inputs:topicName", topic),
+                ("Pub.inputs:nodeNamespace", node_namespace),
                 ("Pub.inputs:frameId", frame_id),
                 ("Pub.inputs:queueSize", 10),
                 ("Pub.inputs:width", width),
@@ -803,7 +851,7 @@ def setup_color_camerainfo_graph(
         },
     )
 
-    logger.info(f"[ROS2] Color CameraInfo -> {topic}")
+    logger.info(f"[ROS2] Color CameraInfo -> {node_namespace}/{topic}")
     simulation_app.update()
     return True
 
@@ -869,6 +917,7 @@ def setup_ros_publishers(
     camera_link_pos: Optional[Tuple[float, float, float]] = None,
     lidar_l1_pos: Optional[Tuple[float, float, float]] = None,
     lidar_velo_pos: Optional[Tuple[float, float, float]] = None,
+    ros_namespace: str = "",
 ) -> None:
     """Setup ROS2 publishers for sensors."""
     import omni.graph.core as og
@@ -949,14 +998,14 @@ def setup_ros_publishers(
                 )
                 w_rs_depth = rep.writers.get(rv + "ROS2PublishImage")
                 w_rs_depth.initialize(
-                    frameId="realsense_depth_camera",
-                    nodeNamespace="",
+                    frameId="camera_optical",
+                    nodeNamespace=ros_namespace,
                     queueSize=10,
-                    topicName="/camera/realsense2_camera_node/depth/image_rect_isaac_sim_raw",
+                    topicName="camera/depth/image_raw",
                 )
                 w_rs_depth.attach([rp])
                 logger.info(
-                    "[ROS2] Depth camera -> /camera/realsense2_camera_node/depth/image_rect_isaac_sim_raw"
+                    f"[ROS2] Depth camera -> {ros_namespace}/camera/depth/image_raw (32FC1 m, registered to color)"
                 )
 
                 # For easier RViz viewing
@@ -1034,6 +1083,7 @@ def setup_depth_camerainfo_graph(
     fy=320.0,
     cx=None,
     cy=None,
+    node_namespace="",
 ) -> bool:
     """
     Publish depth CameraInfo.
@@ -1081,6 +1131,7 @@ def setup_depth_camerainfo_graph(
             og.Controller.Keys.SET_VALUES: [
                 ("Ctx.inputs:useDomainIDEnvVar", True),
                 ("Pub.inputs:topicName", topic),
+                ("Pub.inputs:nodeNamespace", node_namespace),
                 ("Pub.inputs:frameId", frame_id),
                 ("Pub.inputs:queueSize", 10),
                 ("Pub.inputs:width", width),
@@ -1098,7 +1149,7 @@ def setup_depth_camerainfo_graph(
     )
 
     logger.info(
-        f"[ROS2] Depth CameraInfo -> {topic} (width={width}, height={height}, fx={fx}, fy={fy})"
+        f"[ROS2] Depth CameraInfo -> {node_namespace}/{topic} (width={width}, height={height}, fx={fx}, fy={fy})"
     )
     simulation_app.update()
     return True

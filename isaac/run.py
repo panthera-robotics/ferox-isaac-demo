@@ -655,6 +655,7 @@ class RobotRosRunner(object):
         enable_sensors: bool,
         enable_keyboard: bool,
         robot_type: str = ROBOT_GO2,
+        ros_namespace: str = "",
     ) -> None:
         """
         Creates the simulation world with preset physics_dt and render_dt and creates a robot inside the warehouse.
@@ -687,6 +688,7 @@ class RobotRosRunner(object):
         )
         self._physics_dt = physics_dt
         self._render_dt = render_dt
+        self._ros_namespace = ros_namespace
 
         assets_root_path = get_assets_root_path()
         if assets_root_path is None:
@@ -832,6 +834,8 @@ class RobotRosRunner(object):
         for _ in range(5):
             self._world.step(render=True)
 
+        ros_ns = self._ros_namespace
+
         ros_utils.setup_ros_publishers(
             self._sensors,
             simulation_app,
@@ -839,32 +843,56 @@ class RobotRosRunner(object):
             camera_link_pos=camera_link_pos,
             lidar_l1_pos=lidar_l1_pos,
             lidar_velo_pos=lidar_velo_pos,
+            ros_namespace=ros_ns,
         )
+
+        # Intrinsics DERIVED from the actual sim camera (no hardcoded magic
+        # numbers). Color + depth share the realsense_depth_camera prim, so one
+        # set of intrinsics applies to both. Falls back to the legacy values if
+        # the camera API is unavailable.
+        try:
+            dcam = self._sensors["realsense_depth_camera"]
+            K = dcam.get_intrinsics_matrix()
+            res = dcam.get_resolution()
+            cam_fx, cam_fy = float(K[0][0]), float(K[1][1])
+            cam_cx, cam_cy = float(K[0][2]), float(K[1][2])
+            cam_w, cam_h = int(res[0]), int(res[1])
+            print(f"[PANTHERA-MARK] derived intrinsics fx={cam_fx:.3f} fy={cam_fy:.3f} "
+                  f"cx={cam_cx:.3f} cy={cam_cy:.3f} {cam_w}x{cam_h}", flush=True)
+        except Exception as e:
+            logger.info(f"[WARN] intrinsics derive failed ({e}); using legacy defaults")
+            cam_fx = cam_fy = 242.479
+            cam_cx, cam_cy = 242.736, 133.273
+            cam_w, cam_h = 480, 270
 
         ros_utils.setup_depth_camerainfo_graph(
             simulation_app,
-            topic="/camera/realsense2_camera_node/depth/camera_info",
-            frame_id="realsense_depth_camera",
-            width=480,
-            height=270,
-            fx=242.479,
-            fy=242.479,
-            cx=242.736,
-            cy=133.273,
+            topic="camera/depth/camera_info",
+            frame_id="camera_optical",
+            node_namespace=ros_ns,
+            width=cam_w,
+            height=cam_h,
+            fx=cam_fx,
+            fy=cam_fy,
+            cx=cam_cx,
+            cy=cam_cy,
         )
 
         ros_utils.setup_odom_publisher(simulation_app)
-        ros_utils.setup_color_camera_publishers(self._sensors, simulation_app)
+        ros_utils.setup_color_camera_publishers(
+            self._sensors, simulation_app, ros_namespace=ros_ns
+        )
         ros_utils.setup_color_camerainfo_graph(
             simulation_app,
-            topic="/camera/realsense2_camera_node/color/camera_info",
-            frame_id="realsense_depth_camera",
-            width=480,
-            height=270,
-            fx=242.479,
-            fy=242.479,
-            cx=242.736,
-            cy=133.273,
+            topic="camera/color/camera_info",
+            frame_id="camera_optical",
+            node_namespace=ros_ns,
+            width=cam_w,
+            height=cam_h,
+            fx=cam_fx,
+            fy=cam_fy,
+            cx=cam_cx,
+            cy=cam_cy,
         )
 
         ros_utils.setup_joint_states_publisher(
@@ -993,6 +1021,12 @@ def main():
         help="Policy directory (auto-detected based on robot_type if not set)",
     )
     parser.add_argument("--cmd_vel_topic", default="/cmd_vel")
+    parser.add_argument(
+        "--ros_namespace",
+        default="",
+        help="ROS namespace for the camera topics, e.g. /ferox/go2_01. Empty => "
+        "derived from --cmd_vel_topic by stripping a trailing /cmd_vel.",
+    )
     parser.add_argument("--vx_max", type=float, default=1.0)
     parser.add_argument("--vy_max", type=float, default=1.0)
     parser.add_argument("--wz_max", type=float, default=1.0)
@@ -1034,6 +1068,12 @@ def main():
 
     try:
         print("[PANTHERA-MARK] before RobotRosRunner()", flush=True)
+        # Camera namespace: explicit --ros_namespace, else derive from the
+        # cmd_vel topic (which already carries /ferox/<robot_id>/).
+        ros_ns = args.ros_namespace
+        if not ros_ns and args.cmd_vel_topic.endswith("/cmd_vel"):
+            ros_ns = args.cmd_vel_topic[: -len("/cmd_vel")]
+        print(f"[PANTHERA-MARK] camera ros_namespace = {ros_ns!r}", flush=True)
         runner = RobotRosRunner(
             physics_dt=args.physics_dt,
             render_dt=args.render_dt,
@@ -1047,6 +1087,7 @@ def main():
             enable_sensors=not args.no_sensors,
             enable_keyboard=not args.no_keyboard,
             robot_type=args.robot_type,
+            ros_namespace=ros_ns,
         )
         print("[PANTHERA-MARK] RobotRosRunner constructed, before reset", flush=True)
         simulation_app.update()
