@@ -24,6 +24,9 @@ VENUE=dso_block_a ./scripts/02_start_ferox.sh      # VENUE is mandatory — bare
 - **Bake the Whisper model into the ferox-speech image** — currently fetched from HuggingFace at runtime (cold-start network dependency + bake-deps violation). Demo-day risk on an unreliable venue network.
 - **`ferox_nav.launch.py:104-116`** runs the venue map-existence check even in SLAM mode (contradicts its docstring). Harmless now (map exists); will **crash SLAM bring-up at a venue with waypoints but no saved map** → fix before the M2 duty-free pilot.
 
+## Backlog (post-demo)
+- **Publish `ferox/msgs`, `ferox/nav`, `ferox/vision` images to a registry.** Instance death is now a recurring event, not hypothetical (repeated fresh-VM rebuilds). `00_bootstrap.sh` local builds are the proven canonical path, but pulling pre-built images would cut restore from a full colcon build to a download. Needs a registry path + a `read:packages`-scoped login on each fresh VM (neither wired today; the GHCR path is currently undocumented).
+
 ## wakeb (live audio) thread — re-add wakeb to the VM peers at audio bring-up
 Sim+vision now run **own-IP-only** (DDS standing rule above), so audio bring-up has two peer steps, not zero:
 1. **On the VM** (current sim/vision VM = `100.72.0.125`): add `100.82.193.45` back to `FEROX_DDS_PEERS` (isaac-demo `.env` + ferox-speech `docker/.env`), or rely on `dds_peers.sh` once wakeb is online AND running a participant.
