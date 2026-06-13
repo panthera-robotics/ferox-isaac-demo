@@ -24,6 +24,11 @@ VENUE=dso_block_a ./scripts/02_start_ferox.sh      # VENUE is mandatory — bare
 - **Bake the Whisper model into the ferox-speech image** — currently fetched from HuggingFace at runtime (cold-start network dependency + bake-deps violation). Demo-day risk on an unreliable venue network.
 - **`ferox_nav.launch.py:104-116`** runs the venue map-existence check even in SLAM mode (contradicts its docstring). Harmless now (map exists); will **crash SLAM bring-up at a venue with waypoints but no saved map** → fix before the M2 duty-free pilot.
 
+## Vision Phase 2 — nav camera can't see standing people (Phase 6 needs a people-facing camera)
+The down-tilted nav camera (~25 deg, height ~0.42 m) sees essentially the FLOOR — a standing person is cut off at the knees. Phase 2's perception integration test therefore uses FLOOR COCO props (`FEROX_SIM_TEST_PROPS=1` in `01_start_sim.sh` spawns a chair + bottle ~1 m ahead), not people. Two claims land in **Phase 6, on a PEOPLE-FACING camera config — NOT this nav cam**:
+- (a) **Can the camera see a person at all?** Likely needs a second, near-level camera. (b) **Can a person be tracked stably enough to follow?**
+- **ID-stability-under-motion + real perception-path occlusion** were DEFERRED from Phase 2 (floor objects are ~25 px → detection too intermittent under camera motion to hold an id past max_age; no cosmetic occlusion was manufactured). Validate them against the people-facing camera with a large, near-frame follow target — do not retry on this nav camera.
+
 ## Backlog (post-demo)
 - **Publish `ferox/msgs`, `ferox/nav`, `ferox/vision` images to a registry.** Instance death is now a recurring event, not hypothetical (repeated fresh-VM rebuilds). `00_bootstrap.sh` local builds are the proven canonical path, but pulling pre-built images would cut restore from a full colcon build to a download. Needs a registry path + a `read:packages`-scoped login on each fresh VM (neither wired today; the GHCR path is currently undocumented).
 
