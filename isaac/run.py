@@ -638,6 +638,33 @@ class G1VelocityPolicy(PolicyController):
         self._policy_counter += 1
 
 
+def _add_test_props(assets_root_path: str) -> None:
+    """Spawn floor-level COCO objects ~1-1.5 m ahead of the robot (origin, +X
+    forward) on the ground (z=0), spread laterally to sit in the down-tilted
+    camera's FOV. Vision perception integration test only; gated by
+    FEROX_SIM_TEST_PROPS. Objects/positions are tuned to what rtdetr actually
+    fires on (the parity gate against the live frame)."""
+    from pxr import Gf, UsdGeom
+
+    # Kept to what rtdetr actually fires on with sane boxes (parity gate on the
+    # live frame): mustard bottle (conf ~0.75, fully on the floor) and the chair
+    # (fires ~0.4 on its wheeled base — the seat/back are above the down-tilted
+    # FOV). The cracker box only reached "suitcase" ~0.28 (< 0.4) so it is omitted.
+    props = [
+        ("chair", "/Isaac/Environments/Hospital/Props/SM_Chair_01a.usd", (1.3, 0.25, 0.0), 90.0),
+        ("bottle", "/Isaac/Props/YCB/Axis_Aligned/006_mustard_bottle.usd", (0.9, -0.25, 0.0), 0.0),
+    ]
+    for name, rel, pos, yaw in props:
+        prim = define_prim(f"/World/TestProps/{name}", "Xform")
+        prim.GetReferences().AddReference(assets_root_path + rel)
+        xf = UsdGeom.Xformable(prim)
+        xf.ClearXformOpOrder()
+        xf.AddTranslateOp().Set(Gf.Vec3d(*pos))
+        if yaw:
+            xf.AddRotateXYZOp().Set(Gf.Vec3f(0.0, 0.0, yaw))
+        logger.info(f"[TestProps] {name} <- {rel} at {pos}")
+
+
 class RobotRosRunner(object):
     """Runner class for Unitree robots (Go2/G1) with ROS2 integration and sensor support."""
 
@@ -699,6 +726,13 @@ class RobotRosRunner(object):
             assets_root_path + "/Isaac/Environments/Simple_Warehouse/warehouse.usd"
         )
         prim.GetReferences().AddReference(asset_path)
+
+        # Floor-level COCO test props, gated by FEROX_SIM_TEST_PROPS=1 (off by
+        # default — never disturbs the nav/demo scene). The nav camera is tilted
+        # ~25deg down and sees the FLOOR, so the vision integration test uses
+        # ground objects it can see, not standing people (2026-06-13 finding).
+        if os.environ.get("FEROX_SIM_TEST_PROPS", "0") == "1":
+            _add_test_props(assets_root_path)
 
         if not usd_path:
             raise RuntimeError(f"{robot_type.upper()} USD path could not be resolved")

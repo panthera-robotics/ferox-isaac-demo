@@ -82,7 +82,7 @@ echo "[4/4] Launching run.py inside Isaac Sim (boot ~60 sec)..."
 # that occurs when multiple Nav2 publishers (volatile + transient_local)
 # share a relayed topic with manual `ros2 topic pub` clients.
 SIM_CMD_VEL_TOPIC="/ferox/${ROBOT_ID}/cmd_vel"
-docker exec -d "$SIM_CONTAINER" bash -c "
+docker exec -d -e FEROX_SIM_TEST_PROPS="${FEROX_SIM_TEST_PROPS:-0}" "$SIM_CONTAINER" bash -c "
   cd /workspace/ferox_isaac && \
   /isaac-sim/python.sh run.py \
     --robot_type $ROBOT \
