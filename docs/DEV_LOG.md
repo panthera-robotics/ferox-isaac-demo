@@ -6,6 +6,31 @@ link to PRs / files for detail.
 
 ---
 
+## 2026-06-13 — DDS peers = live participants only (fresh-VM restore; camera 13→20 Hz)
+
+**What:** On the fresh-VM restore (sim/vision VM `100.72.0.125`, laptop `wakeb`
+`100.82.193.45`), `FEROX_DDS_PEERS` was pinned to both IPs per the restore
+prompt. `wakeb` was a remote, high-latency (≈214 ms, jittery) tailnet peer
+running **no DDS participant** — so cyclone's `tev` thread flooded failed SPDP
+writes (`ddsi_udp_conn_write … 100.82.193.45 … retcode -3`, continuous) in both
+the sim and vision containers, starving the camera publish/receive loop: the
+[check_camera.py](../../ferox_vision/scripts/test/check_camera.py) gate sat at
+~13 Hz (< 15 floor). Dropping `wakeb` (own-IP-only in isaac-demo `.env` and
+ferox_vision `docker/.env`) cleared the flood; the rate returned to ~20 Hz —
+gate PASS (geometry/frame/intrinsics were never affected).
+
+**Standing rule (refines the "online tailnet node" heuristic of 2026-06-09):**
+`FEROX_DDS_PEERS` lists **only hosts running a live DDS participant in the
+current session**. Tailnet membership — even `Online` in `tailscale status` — is
+**not** DDS participation: a pinned (or auto-derived) participant-less,
+high-latency peer floods SPDP and starves publishers. Same-host sim+vision →
+**own tailscale IP only**. `dds_peers.sh` derivation stays the default for
+genuine multi-participant sessions, but an online-yet-idle host (no container)
+must not be listed — re-add it as part of *its own* bring-up. Promoted to a
+standing rule in [NEXT_SESSION.md](NEXT_SESSION.md).
+
+---
+
 ## 2026-06-09 — DDS peers tailnet-derived (kill the ddsi_udp_conn_write flood)
 
 **What:** Replaced the hardcoded `FEROX_DDS_PEERS` in `.env`
