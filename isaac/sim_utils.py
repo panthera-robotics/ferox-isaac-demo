@@ -32,6 +32,12 @@ GO2_RGB_CAMERA_PRIM = f"{CAMERA_LINK_PRIM}/go2_rgb_camera"
 # optical frame can never drift from the actual prim orientation.
 CAMERA_TILT_DEG = -25.0
 
+# Single source of truth for the published RealSense horizontal FOV. The sim
+# camera prim defaults to a narrow ~23.6° HFOV (derived fx≈1145 at 480px); the
+# real RealSense D435 is ~69°. setup_sensors() sets the prim focalLength from
+# this; run.py's get_intrinsics_matrix() read propagates it to camera_info.
+CAMERA_HFOV_DEG = 69.0
+
 
 def optical_quat_from_tilt(tilt_deg: float):
     """base_link -> REP-103 camera optical frame (x-right, y-down, z-forward),
@@ -376,6 +382,20 @@ def setup_sensors_delayed(
             )  # downward tilt (X-axis), single source CAMERA_TILT_DEG
             logger.info(
                 "[Sensors] Set realsense_depth_camera 25° downward tilt, 5cm higher"
+            )
+
+            # Widen HFOV to CAMERA_HFOV_DEG (~69°) from the narrow ~23.6° prim
+            # default. focalLength = h_aperture / (2·tan(HFOV/2)); run.py reads
+            # this prim via get_intrinsics_matrix(), so the DERIVED camera_info
+            # fx/fy and the 3D lift propagate automatically.
+            cam_geom = UsdGeom.Camera(realsense_depth_cam_prim)
+            h_ap = cam_geom.GetHorizontalApertureAttr().Get()
+            cam_geom.GetFocalLengthAttr().Set(
+                h_ap / (2.0 * math.tan(math.radians(CAMERA_HFOV_DEG) / 2.0))
+            )
+            logger.info(
+                f"[Sensors] Set realsense_depth_camera HFOV ~{CAMERA_HFOV_DEG:.0f}° "
+                f"(focalLength {cam_geom.GetFocalLengthAttr().Get():.2f})"
             )
 
         realsense_depth_camera.set_clipping_range(near_distance=0.1, far_distance=100.0)
