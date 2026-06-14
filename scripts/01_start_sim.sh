@@ -12,6 +12,7 @@
 # World selection (INDEPENDENT of robot):
 #   Default world is NVIDIA's built-in Office. Override with SIM_WORLD=<name>:
 #       SIM_WORLD=office       ./01_start_sim.sh   # default
+#       SIM_WORLD=hospital     ./01_start_sim.sh   # NVIDIA Hospital env
 #       SIM_WORLD=dso_block_a  ./01_start_sim.sh   # the original warehouse world
 #   ROBOT=go2|g1 selects the robot independently of the world.
 #   Adding a world = ONE line in isaac/run.py SIM_WORLDS:

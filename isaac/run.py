@@ -85,6 +85,15 @@ SIM_WORLDS = {
         "usd": "/Isaac/Environments/Simple_Warehouse/warehouse.usd",
         "spawn": {"xy": (0.0, 0.0), "yaw": 0.0},
     },
+    # NVIDIA built-in Hospital. Origin (0,0) is the waiting room (reception
+    # counter + chairs ~2 m away), so spawn instead mid-corridor on open floor:
+    # ~3.3 m to each side wall, ~5 m to the south doors, ~9 m clear north to the
+    # stairs. yaw ~+90deg faces down the open corridor. (Spawn found by probing
+    # hospital.usd geometry; floor is flat z=0 like office/warehouse.)
+    "hospital": {
+        "usd": "/Isaac/Environments/Hospital/hospital.usd",
+        "spawn": {"xy": (7.8, 2.0), "yaw": 1.57},
+    },
 }
 
 
