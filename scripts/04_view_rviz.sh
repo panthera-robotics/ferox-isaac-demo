@@ -5,14 +5,13 @@
 #   - Map (SLAM)
 #   - Global + Local costmaps
 #   - Global + Local plans
-#   - LaserScan, Odometry, TF
-#   - 2D Goal Pose tool (publishes to navigate_to_pose under namespace)
+#   - LaserScan, Odometry, TF, RobotModel
+#   - 2D Pose Estimate (→ initialpose) + Nav2 Goal (→ goal_pose) tools
 
 set -e
 source "$(dirname "$0")/lib/env.sh"
 
 NS="/ferox/$ROBOT_ID"
-RVIZ_CFG="/tmp/ferox_${ROBOT_ID}.rviz"
 
 # Pre-flight
 docker ps --format '{{.Names}}' | grep -q "^${NAV_CONTAINER}$" || {
@@ -26,16 +25,15 @@ sudo -u "$DESKTOP_USER" DISPLAY="$HOST_DISPLAY" XAUTHORITY="$XAUTH_FILE" \
 # source of truth. The repo is bind-mounted at /workspace, so edits saved
 # from RViz land here directly — no rebuild needed.
 #
-# RViz bakes ABSOLUTE topic names, so the saved file is pinned to whatever
-# robot_id it was captured with (e.g. /ferox/go2_01/...). Rewrite that
-# prefix to the current $ROBOT_ID on the fly so one file serves any robot.
+# The config uses RELATIVE topic names (map, scan, global_costmap/costmap, ...);
+# we run rviz2 under __ns:=/ferox/$ROBOT_ID below so they resolve to that
+# robot's namespace — one file serves any robot, the same mechanism as the
+# launch's PushRosNamespace. Frames are plain (map/odom/base_link).
 SRC_RVIZ="/workspace/src/ferox_nav/config/rviz/ferox_nav.rviz"
 
 echo "Loading RViz config from $SRC_RVIZ (namespace → $NS) ..."
 docker exec "$NAV_CONTAINER" bash -lc "
-  set -e
-  test -f '$SRC_RVIZ' || { echo '  ✗ RViz config not found: $SRC_RVIZ — save it from RViz first.'; exit 1; }
-  sed -E 's#/ferox/[A-Za-z0-9_]+/#${NS}/#g' '$SRC_RVIZ' > '$RVIZ_CFG'
+  test -f '$SRC_RVIZ' || { echo '  ✗ RViz config not found: $SRC_RVIZ — rebuild ferox_nav (config/rviz install rule).'; exit 1; }
 "
 
 # Kill prior rviz, launch new
@@ -48,7 +46,7 @@ docker exec -d "$NAV_CONTAINER" bash -lc "
   source /workspace/install/setup.bash
   export DISPLAY=$HOST_DISPLAY
   export XAUTHORITY=/tmp/.docker.xauth
-  rviz2 -d $RVIZ_CFG > /tmp/rviz.log 2>&1
+  rviz2 -d $SRC_RVIZ --ros-args -r __ns:=$NS > /tmp/rviz.log 2>&1
 "
 sleep 5
 docker exec "$NAV_CONTAINER" pgrep -af rviz2 >/dev/null \
