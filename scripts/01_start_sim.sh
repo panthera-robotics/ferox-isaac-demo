@@ -40,6 +40,19 @@ echo "  ✓ rendered to $CYCLONE_FILE"
 
 echo ""
 echo "[3/4] Starting Isaac Sim container ($SIM_CONTAINER)..."
+
+# G1 policy source-of-truth: when the ferox-g1-locomotion repo is present
+# (G1_POLICY_DIR resolved in lib/env.sh) and we're launching the G1, overlay
+# its policy/ onto the G1 checkpoint slot so the sim runs that policy with no
+# change to run.py. Empty for Go2 or when the repo is absent (falls back to the
+# bundled isaac/checkpoints/g1). Unquoted on the docker line so it word-splits
+# into `-v <src>:<dst>:ro`.
+G1_POLICY_MOUNT=""
+if [ "$ROBOT" = "g1" ] && [ -n "$G1_POLICY_DIR" ] && [ -f "$G1_POLICY_DIR/exported/policy.pt" ]; then
+  G1_POLICY_MOUNT="-v $G1_POLICY_DIR:/workspace/ferox_isaac/checkpoints/g1:ro"
+  echo "  G1 policy source: $G1_POLICY_DIR (overlay -> checkpoints/g1)"
+fi
+
 docker run -d --name "$SIM_CONTAINER" --runtime=nvidia --gpus all \
   --user 1234:1234 \
   --network host \
@@ -63,6 +76,7 @@ docker run -d --name "$SIM_CONTAINER" --runtime=nvidia --gpus all \
   -v "$CACHE_DIR/compute":/isaac-sim/.nv/ComputeCache:rw \
   -v "$CACHE_DIR/warp":/isaac-sim/.cache/warp:rw \
   -v "$DEMO_DIR/isaac":/workspace/ferox_isaac:rw \
+  $G1_POLICY_MOUNT \
   --entrypoint bash \
   "$ISAAC_IMAGE" \
   -c "tail -f /dev/null" >/dev/null
