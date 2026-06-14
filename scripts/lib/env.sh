@@ -42,6 +42,20 @@ ROBOT="${ROBOT:-go2}"            # go2 | g1
 ROBOT_ID="${ROBOT_ID:-${ROBOT}_01}"
 VENUE="${VENUE:-}"               # empty → SLAM mapping mode
 
+# ---- G1 locomotion policy source-of-truth (ferox-g1-locomotion) ----
+# The G1 velocity policy is maintained in its own repo for reuse/retraining.
+# If that repo is checked out alongside this one, the sim sources the policy
+# from it (single source of truth) by overlay-mounting its policy/ dir onto the
+# G1 checkpoint slot in 01_start_sim.sh. If absent, the sim falls back to the
+# checkpoint bundled in isaac/checkpoints/g1. Override with G1_POLICY_DIR=<dir>
+# (must contain exported/policy.pt + params/{env,deploy}.yaml). Empty => bundled.
+if [ -z "${G1_POLICY_DIR+set}" ]; then
+  _g1_src="$HOME/panthera/ferox-g1-locomotion/policy"
+  if [ -f "$_g1_src/exported/policy.pt" ]; then G1_POLICY_DIR="$_g1_src"; else G1_POLICY_DIR=""; fi
+  unset _g1_src
+fi
+export G1_POLICY_DIR
+
 # ---- ROS / DDS ----
 ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-42}"
 RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}"
