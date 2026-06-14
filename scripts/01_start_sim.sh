@@ -8,6 +8,15 @@
 # Sim publishes default-namespace topics (/scan, /odom, /imu, /cmd_vel).
 # Ferox's sim bridge (started by 02_start_ferox.sh) relays these to
 # /ferox/<robot_id>/...
+#
+# World selection (INDEPENDENT of robot):
+#   Default world is NVIDIA's built-in Office. Override with SIM_WORLD=<name>:
+#       SIM_WORLD=office       ./01_start_sim.sh   # default
+#       SIM_WORLD=dso_block_a  ./01_start_sim.sh   # the original warehouse world
+#   ROBOT=go2|g1 selects the robot independently of the world.
+#   Adding a world = ONE line in isaac/run.py SIM_WORLDS:
+#       name -> { usd: <path under the assets root>, spawn: {xy, yaw} }
+#   (z / standing height comes from the robot, so one entry works for any robot.)
 
 set -e
 source "$(dirname "$0")/lib/env.sh"
@@ -91,12 +100,18 @@ docker exec "$SIM_CONTAINER" sh -c "echo $ROBOT > /tmp/sim_robot_type"
 
 echo ""
 echo "[4/4] Launching run.py inside Isaac Sim (boot ~60 sec)..."
+echo "  ROBOT=$ROBOT   SIM_WORLD=${SIM_WORLD:-office}"
 # Subscribe directly to /ferox/<robot_id>/cmd_vel — matches what Nav2
 # publishes inside its namespace, no relay needed. Avoids the QoS war
 # that occurs when multiple Nav2 publishers (volatile + transient_local)
 # share a relayed topic with manual `ros2 topic pub` clients.
 SIM_CMD_VEL_TOPIC="/ferox/${ROBOT_ID}/cmd_vel"
-docker exec -d -e FEROX_SIM_TEST_PROPS="${FEROX_SIM_TEST_PROPS:-0}" "$SIM_CONTAINER" bash -c "
+# SIM_WORLD selects the environment USD (default office); run.py reads it from
+# the env. docker exec does not inherit the host env, so pass it explicitly.
+docker exec -d \
+  -e FEROX_SIM_TEST_PROPS="${FEROX_SIM_TEST_PROPS:-0}" \
+  -e SIM_WORLD="${SIM_WORLD:-office}" \
+  "$SIM_CONTAINER" bash -c "
   cd /workspace/ferox_isaac && \
   /isaac-sim/python.sh run.py \
     --robot_type $ROBOT \
@@ -106,15 +121,39 @@ docker exec -d -e FEROX_SIM_TEST_PROPS="${FEROX_SIM_TEST_PROPS:-0}" "$SIM_CONTAI
     > /tmp/sim.log 2>&1
 "
 
-echo "  Waiting for sim main loop (cold first boot can take 2–3 min)..."
-for i in {1..36}; do
+# Larger scenes (office, and any big networked USD) can take several minutes on
+# a COLD first load while the world streams over the network. Wait up to
+# SIM_BOOT_TIMEOUT seconds (default 600 = 10 min) so the bigger world does not
+# false-fail this readiness check. Override with SIM_BOOT_TIMEOUT=<seconds>.
+SIM_BOOT_TIMEOUT="${SIM_BOOT_TIMEOUT:-600}"
+echo "  Waiting for sim main loop (cold first load of a large world can take"
+echo "  several minutes; timeout ${SIM_BOOT_TIMEOUT}s)..."
+_waited=0
+_booted=0
+while [ "$_waited" -lt "$SIM_BOOT_TIMEOUT" ]; do
   sleep 5
-  if docker exec "$SIM_CONTAINER" bash -c 'grep -q "before runner.run()" /tmp/sim.log 2>/dev/null'; then
-    echo "  ✓ main loop reached at $((i*5))s"
+  _waited=$((_waited + 5))
+  # -F: the marker is a literal string, not a regex (robust if run.py's
+  # PANTHERA-MARK line is ever reformatted).
+  if docker exec "$SIM_CONTAINER" bash -c 'grep -qF "before runner.run()" /tmp/sim.log 2>/dev/null'; then
+    echo "  ✓ main loop reached at ${_waited}s"
+    _booted=1
     break
   fi
-  echo "  ...still booting ($((i*5))s)"
+  echo "  ...still booting (${_waited}s)"
 done
+
+# Surface a stall/crash LOUDLY instead of falling through to the success
+# banner. run.py is launched detached (docker exec -d), so a Python failure —
+# e.g. _resolve_world raising on an unknown/unreachable SIM_WORLD — surfaces
+# here only as the marker never appearing. Tail the log so the reason is
+# visible immediately. Keep exit 0 (don't trip set -e); the operator decides.
+if [ "$_booted" -ne 1 ]; then
+  echo ""
+  echo "  ⚠ Sim did NOT reach its main loop within ${SIM_BOOT_TIMEOUT}s."
+  echo "    Last lines of /tmp/sim.log (check SIM_WORLD + asset reachability):"
+  docker exec "$SIM_CONTAINER" bash -c 'tail -30 /tmp/sim.log 2>/dev/null' || true
+fi
 
 echo ""
 echo "==============================================="

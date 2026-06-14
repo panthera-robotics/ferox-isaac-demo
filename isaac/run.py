@@ -55,6 +55,38 @@ CMD_VEL_TIMEOUT = 0.5  # seconds – stop if no new /cmd_vel received
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# World selection — INDEPENDENT of robot selection.
+#
+# SIM_WORLD picks the environment USD loaded under WORLD_ENV_PRIM. Default is
+# "office" (NVIDIA's built-in Office scene). The robot (ROBOT=go2|g1) is chosen
+# separately, so any robot loads into any world.
+#
+# `usd` is RELATIVE to the Isaac assets root resolved by get_assets_root_path()
+# — the SAME mechanism the robot-USD fallback already uses (local pack /
+# nucleus / S3). `spawn` is the open-floor (x, y) and yaw (radians) the robot is
+# placed at; the z standing height comes from the robot (env.yaml init height),
+# NOT the world, so one world entry works for every robot.
+#
+# Adding a world = ONE line here:  name -> {usd, spawn: {xy, yaw}}.
+WORLD_ENV_PRIM = "/World/Env"
+DEFAULT_SIM_WORLD = "office"
+
+SIM_WORLDS = {
+    # NVIDIA built-in Office — the default world.
+    "office": {
+        "usd": "/Isaac/Environments/Office/office.usd",
+        "spawn": {"xy": (0.0, 0.0), "yaw": 0.0},
+    },
+    # The original world (Simple Warehouse) preserved verbatim, so nothing is
+    # lost: SIM_WORLD=dso_block_a loads exactly what the sim loaded before, at
+    # the same origin spawn.
+    "dso_block_a": {
+        "usd": "/Isaac/Environments/Simple_Warehouse/warehouse.usd",
+        "spawn": {"xy": (0.0, 0.0), "yaw": 0.0},
+    },
+}
+
 
 def _load_yaml(path: str) -> dict:
     try:
@@ -182,6 +214,48 @@ def _resolve_usd_path(env_cfg: dict, robot_type: str = ROBOT_GO2) -> str:
     fallback_path = assets_root_path + "/Isaac/Robots/Unitree/Go2/go2.usd"
     logger.info("Using Isaac Sim default Go2 USD model: %s", fallback_path)
     return fallback_path
+
+
+def _resolve_world(assets_root_path: str) -> Tuple[str, dict]:
+    """Resolve SIM_WORLD to an absolute world USD path + spawn pose.
+
+    World choice is independent of robot. The USD path is built from the SAME
+    assets root the robot USD uses, then VERIFIED with omni.client.stat before
+    it is referenced — so a missing/unreachable world fails loud here instead of
+    silently loading an empty stage. Returns (absolute_usd_path, spawn_dict).
+    """
+    name = (os.environ.get("SIM_WORLD") or DEFAULT_SIM_WORLD).strip() or DEFAULT_SIM_WORLD
+    entry = SIM_WORLDS.get(name)
+    if entry is None:
+        known = ", ".join(sorted(SIM_WORLDS))
+        raise RuntimeError(
+            f"Unknown SIM_WORLD='{name}'. Known worlds: {known}. "
+            f"Add one with a single line in SIM_WORLDS (name -> usd + spawn)."
+        )
+
+    world_usd = assets_root_path + entry["usd"]
+    try:
+        import omni.client
+
+        result = omni.client.stat(world_usd)[0]
+        ok = result == omni.client.Result.OK
+    except Exception as exc:  # stat backend / resolver failure
+        raise RuntimeError(
+            f"SIM_WORLD='{name}': could not stat world USD {world_usd}: {exc}"
+        ) from exc
+    if not ok:
+        raise RuntimeError(
+            f"SIM_WORLD='{name}': world USD not found / not resolvable: "
+            f"{world_usd} (omni.client.stat -> {result}). "
+            f"Check the assets root and network."
+        )
+
+    logger.info("[World] SIM_WORLD=%s -> %s", name, world_usd)
+    # print() (not just logger.info) so the selected world is visible in
+    # /tmp/sim.log — Isaac's logging swallows INFO, and the operator/health
+    # check needs to see which world actually loaded.
+    print(f"[World] SIM_WORLD={name} -> {world_usd}", flush=True)
+    return world_usd, entry["spawn"]
 
 
 def _configure_ros_utils_paths(robot_root: str, robot_type: str = ROBOT_GO2) -> None:
@@ -701,13 +775,21 @@ class RobotRosRunner(object):
 
         usd_path = _resolve_usd_path(env_cfg, robot_type)
 
-        # Get default init height based on robot type
+        # Robot standing height (z) is robot-specific and stays env.yaml-driven:
+        # this is the existing per-robot spawn input, left intact. World
+        # selection (below) only sets the open-floor (x, y) + yaw, so the world
+        # choice is independent of which robot is loaded.
         default_z = G1_INIT_HEIGHT if robot_type == ROBOT_G1 else 0.4
-        init_pos = np.array(
+        env_pos = (
             env_cfg.get("scene", {})
             .get("robot", {})
             .get("init_state", {})
             .get("pos", (0.0, 0.0, default_z))
+        )
+        robot_z = (
+            float(env_pos[2])
+            if env_pos is not None and len(env_pos) >= 3
+            else default_z
         )
 
         self._world = World(
@@ -721,11 +803,38 @@ class RobotRosRunner(object):
         if assets_root_path is None:
             raise RuntimeError("Could not find Isaac Sim assets folder")
 
-        prim = define_prim("/World/Warehouse", "Xform")
-        asset_path = (
-            assets_root_path + "/Isaac/Environments/Simple_Warehouse/warehouse.usd"
+        # --- World selection (independent of robot) -------------------------
+        # SIM_WORLD picks the environment USD (default = office). Resolved +
+        # verified against the same assets root as the robot USD, then
+        # referenced under /World/Env. Fails loud if it can't resolve.
+        world_usd, world_spawn = _resolve_world(assets_root_path)
+        prim = define_prim(WORLD_ENV_PRIM, "Xform")
+        prim.GetReferences().AddReference(world_usd)
+
+        # Per-world spawn: open-floor (x, y) + yaw from the world map; z (the
+        # standing height) from the robot above. yaw=0 -> identity quat (the
+        # robots' env.yaml default orientation), so a yaw-0 entry reproduces the
+        # old upright spawn exactly (regression-safe for dso_block_a).
+        spawn_xy = world_spawn.get("xy", (0.0, 0.0))
+        spawn_yaw = float(world_spawn.get("yaw", 0.0))
+        init_pos = np.array(
+            [float(spawn_xy[0]), float(spawn_xy[1]), robot_z], dtype=np.float32
         )
-        prim.GetReferences().AddReference(asset_path)
+        _half_yaw = spawn_yaw / 2.0
+        init_quat = np.array(
+            [np.cos(_half_yaw), 0.0, 0.0, np.sin(_half_yaw)], dtype=np.float32
+        )  # wxyz, yaw about +Z
+        logger.info(
+            "[World] spawn pos=%s yaw=%.3frad (robot=%s)",
+            init_pos.tolist(),
+            spawn_yaw,
+            robot_type,
+        )
+        print(
+            f"[World] spawn pos={init_pos.tolist()} yaw={spawn_yaw:.3f}rad "
+            f"(robot={robot_type})",
+            flush=True,
+        )
 
         # Floor-level COCO test props, gated by FEROX_SIM_TEST_PROPS=1 (off by
         # default — never disturbs the nav/demo scene). The nav camera is tilted
@@ -744,6 +853,7 @@ class RobotRosRunner(object):
                 name="G1",
                 usd_path=usd_path,
                 position=init_pos,
+                orientation=init_quat,
                 policy_path=policy_path,
                 env_path=env_path,
                 deploy_path=deploy_path,
@@ -754,6 +864,7 @@ class RobotRosRunner(object):
                 name="Go2",
                 usd_path=usd_path,
                 position=init_pos,
+                orientation=init_quat,
                 policy_path=policy_path,
                 env_path=env_path,
             )
