@@ -10,10 +10,11 @@
 # /ferox/<robot_id>/...
 #
 # World selection (INDEPENDENT of robot):
-#   Default world is NVIDIA's built-in Office. Override with SIM_WORLD=<name>:
-#       SIM_WORLD=office       ./01_start_sim.sh   # default
+#   Default world is the original warehouse venue (dso_block_a). Override with
+#   SIM_WORLD=<name>:
+#       SIM_WORLD=dso_block_a  ./01_start_sim.sh   # the warehouse venue (default)
+#       SIM_WORLD=office       ./01_start_sim.sh   # NVIDIA Office env
 #       SIM_WORLD=hospital     ./01_start_sim.sh   # NVIDIA Hospital env
-#       SIM_WORLD=dso_block_a  ./01_start_sim.sh   # the original warehouse world
 #   ROBOT=go2|g1 selects the robot independently of the world.
 #   Adding a world = ONE line in isaac/run.py SIM_WORLDS:
 #       name -> { usd: <path under the assets root>, spawn: {xy, yaw} }
@@ -101,17 +102,17 @@ docker exec "$SIM_CONTAINER" sh -c "echo $ROBOT > /tmp/sim_robot_type"
 
 echo ""
 echo "[4/4] Launching run.py inside Isaac Sim (boot ~60 sec)..."
-echo "  ROBOT=$ROBOT   SIM_WORLD=${SIM_WORLD:-office}"
+echo "  ROBOT=$ROBOT   SIM_WORLD=${SIM_WORLD:-dso_block_a}"
 # Subscribe directly to /ferox/<robot_id>/cmd_vel — matches what Nav2
 # publishes inside its namespace, no relay needed. Avoids the QoS war
 # that occurs when multiple Nav2 publishers (volatile + transient_local)
 # share a relayed topic with manual `ros2 topic pub` clients.
 SIM_CMD_VEL_TOPIC="/ferox/${ROBOT_ID}/cmd_vel"
-# SIM_WORLD selects the environment USD (default office); run.py reads it from
-# the env. docker exec does not inherit the host env, so pass it explicitly.
+# SIM_WORLD selects the environment USD (default dso_block_a); run.py reads it
+# from the env. docker exec does not inherit the host env, so pass it explicitly.
 docker exec -d \
   -e FEROX_SIM_TEST_PROPS="${FEROX_SIM_TEST_PROPS:-0}" \
-  -e SIM_WORLD="${SIM_WORLD:-office}" \
+  -e SIM_WORLD="${SIM_WORLD:-dso_block_a}" \
   "$SIM_CONTAINER" bash -c "
   cd /workspace/ferox_isaac && \
   /isaac-sim/python.sh run.py \
