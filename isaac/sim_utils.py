@@ -520,47 +520,17 @@ def setup_sensors_delayed(
 
             traceback.print_exc()
 
-        try:
-            ensure_link_xform(
-                usd_stage,
-                VELO_BASE_LINK_PRIM,
-                translation=lidar_velo_position,
-                rpy_rad=(0.0, 0.0, 0.0),
-            )
-            ensure_link_xform(
-                usd_stage,
-                VELO_LASER_LINK_PRIM,
-                translation=(0.0, 0.0, 0.0377),
-                rpy_rad=(0.0, 0.0, 0.0),
-            )
-            result = omni.kit.commands.execute(
-                "IsaacSensorCreateRtxLidar",
-                path="rplidar",
-                parent=VELO_LASER_LINK_PRIM,
-                config="Slamtec_RPLIDAR_S2E",
-                translation=(0.0, 0.0, 0.0),
-                orientation=Gf.Quatd(1, 0, 0, 0),
-            )
-            if result and len(result) > 1 and result[1]:
-                lidar_prim = result[1]
-                lidar_path = lidar_prim.GetPath().pathString
-                logger.info(f"[Sensors] 2D LiDAR created at: {lidar_path}")
-                velo_rp = rep.create.render_product(
-                    lidar_path, resolution=(1, 1), name="velo_lidar_rp"
-                )
-                scan_writer = rep.writers.get("RtxLidarROS2PublishLaserScan")
-                scan_writer.initialize(
-                    frameId="laser", nodeNamespace="", topicName="/scan", queueSize=10
-                )
-                scan_writer.attach([velo_rp])
-                logger.info("[Sensors] 2D LiDAR -> /scan")
-            else:
-                logger.info(f"[WARN] 2D LiDAR creation returned: {result}")
-        except Exception as e:
-            logger.info(f"[WARN] 2D LiDAR setup failed: {e}")
-            import traceback
-
-            traceback.print_exc()
+        # --- 2D RPLIDAR RETIRED as the /scan source (Option A) ---
+        # /scan is now produced by the L1 (Livox-analog) PointCloud2 -> the
+        # pointcloud_to_laserscan node in ferox_nav_sim (Mid-360 mount + height
+        # slice), so floor-return geometry + the min_height slice mirror the real
+        # Mid-360 + go2_ros2_sdk driver. The synthetic 2D RTX lidar
+        # (Slamtec_RPLIDAR_S2E, a horizontal slice at +0.238 m that structurally
+        # never hits the floor) is no longer created and no longer publishes
+        # /scan, leaving the p2l node as the single /scan publisher. The
+        # velodyne_base_link/laser static TFs (setup_static_tfs) + the ferox_nav
+        # sim TF bridges for them are now vestigial-but-harmless (separate
+        # cleanup, out of this scope).
 
     simulation_app.update()
     return sensors
