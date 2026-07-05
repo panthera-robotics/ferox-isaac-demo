@@ -324,6 +324,7 @@ def setup_sensors_delayed(
     camera_link_position: Optional[Tuple[float, float, float]] = None,
     enable_lidar: bool = True,
     lidar_l1_position: Optional[Tuple[float, float, float]] = None,
+    lidar_l1_rpy: Optional[Tuple[float, float, float]] = None,
     lidar_velo_position: Optional[Tuple[float, float, float]] = None,
     robot_type: str = "go2",
 ) -> dict:
@@ -343,6 +344,8 @@ def setup_sensors_delayed(
         camera_link_position = (0.3, 0.0, 0.35)
     if lidar_l1_position is None:
         lidar_l1_position = (0.15, 0.0, 0.15)
+    if lidar_l1_rpy is None:
+        lidar_l1_rpy = (0.0, 0.0, 0.0)
     if lidar_velo_position is None:
         lidar_velo_position = (0.1, 0.0, 0.2)
 
@@ -483,7 +486,7 @@ def setup_sensors_delayed(
                 usd_stage,
                 L1_LINK_PRIM,
                 translation=lidar_l1_position,
-                rpy_rad=(0.0, 0.0, 0.0),
+                rpy_rad=lidar_l1_rpy,
             )
             result = omni.kit.commands.execute(
                 "IsaacSensorCreateRtxLidar",
@@ -577,7 +580,13 @@ def setup_static_tfs(simulation_app) -> None:
     # Format: (parent, child, translation, rotation_xyzw)
     static_transforms = [
         ("base_link", "base", [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]),
-        ("base", "lidar_l1_link", [0.15, 0.0, 0.15], [0.0, 0.0, 0.0, 1.0]),
+        # Mid-360 mount: matches run.py lidar_l1_pos + sim_utils lidar_l1_rpy
+        # (0.187, 0, 0.0803) + nose-down pitch. quat xyzw negated to match the
+        # prim's -0.2249 rad rotation about its local Y (Isaac's Y is opposite
+        # REP-103 here). MUST stay consistent with the prim pose above or p2l
+        # places the cloud against the wrong frame. (Verified in sim: floor
+        # plane lands at -0.318.)
+        ("base", "lidar_l1_link", [0.187, 0.0, 0.0803], [0.0, -0.11221, 0.0, 0.99368]),
         ("base", "velodyne_base_link", [0.1, 0.0, 0.2], [0.0, 0.0, 0.0, 1.0]),
         ("velodyne_base_link", "laser", [0.0, 0.0, 0.0377], [0.0, 0.0, 0.0, 1.0]),
         ("base", "imu_link", [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]),

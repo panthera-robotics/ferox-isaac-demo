@@ -966,11 +966,19 @@ class RobotRosRunner(object):
         if self._robot_type == ROBOT_G1:
             camera_link_pos = (0.0, 0.0, 0.75)
             lidar_l1_pos = (0.2, 0.0, 0.4)
+            lidar_l1_rpy = (0.0, 0.0, 0.0)
             lidar_velo_pos = (0.15, 0.0, 0.5)
             enable_lidar = True
         else:
             camera_link_pos = (0.3, 0.0, 0.10)
-            lidar_l1_pos = (0.15, 0.0, 0.15)
+            # L1 lidar at the real Mid-360 mount: translation + 12.885 deg
+            # (0.2249 rad) nose-down pitch. Sign is NEGATIVE about the prim's
+            # local Y: Isaac's AddRotateXYZOp Y is opposite REP-103 here, so
+            # -0.2249 (not +) tilts the sensor nose-DOWN toward the floor
+            # (verified in sim: floor plane lands at -0.318). The TF quat below
+            # is negated to match.
+            lidar_l1_pos = (0.187, 0.0, 0.0803)
+            lidar_l1_rpy = (0.0, -0.2249, 0.0)
             lidar_velo_pos = (0.1, 0.0, 0.2)
             enable_lidar = True
 
@@ -980,6 +988,7 @@ class RobotRosRunner(object):
             camera_link_position=camera_link_pos,
             enable_lidar=enable_lidar,
             lidar_l1_position=lidar_l1_pos,
+            lidar_l1_rpy=lidar_l1_rpy,
             lidar_velo_position=lidar_velo_pos,
             robot_type=self._robot_type,
         )
