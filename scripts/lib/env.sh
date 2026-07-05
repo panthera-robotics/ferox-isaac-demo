@@ -91,9 +91,12 @@ FEROX_MSGS_IMAGE="${FEROX_MSGS_IMAGE:-ferox/msgs:humble}"
 CACHE_DIR="${CACHE_DIR:-$DEMO_DIR/cache}"
 
 # ---- X / display (for sim viewport + rviz) ----
-HOST_DISPLAY="${DISPLAY:-:0}"
-DESKTOP_USER="${DESKTOP_USER:-user}"
-XAUTH_FILE="${XAUTH_FILE:-/home/${DESKTOP_USER}/.Xauthority}"
+# Auto-detect the live desktop X server instead of hardcoding — the display
+# number, owning user, and Xauthority path differ across hosts and change on
+# every reboot (see lib/detect_display.sh). Explicit DISPLAY/DESKTOP_USER/
+# XAUTH_FILE in the shell still override.
+. "$(dirname "${BASH_SOURCE[0]}")/detect_display.sh"
+ferox_detect_display
 
 # ---- Validation ----
 case "$ROBOT" in

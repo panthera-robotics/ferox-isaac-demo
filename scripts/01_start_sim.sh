@@ -52,6 +52,17 @@ echo "  ✓ rendered to $CYCLONE_FILE"
 echo ""
 echo "[3/4] Starting Isaac Sim container ($SIM_CONTAINER)..."
 
+# Isaac Sim runs as UID 1234 inside the container; every cache mount must be
+# writable by that uid or asset downloads fail ("Could not download local file")
+# and the world loads EMPTY — a black viewport. A fresh checkout / fresh boot can
+# leave these owned by the host user, so normalize ownership here (idempotent).
+SIM_CONTAINER_UID="${SIM_CONTAINER_UID:-1234}"
+mkdir -p "$CACHE_DIR"/{kit,ov,pip,gl,compute,warp}
+if [ "$(stat -c '%u' "$CACHE_DIR" 2>/dev/null)" != "$SIM_CONTAINER_UID" ]; then
+  echo "  Normalizing cache ownership ($CACHE_DIR -> $SIM_CONTAINER_UID)..."
+  sudo chown -R "$SIM_CONTAINER_UID:$SIM_CONTAINER_UID" "$CACHE_DIR"
+fi
+
 # G1 policy source-of-truth: when the ferox-g1-locomotion repo is present
 # (G1_POLICY_DIR resolved in lib/env.sh) and we're launching the G1, overlay
 # its policy/ onto the G1 checkpoint slot so the sim runs that policy with no
