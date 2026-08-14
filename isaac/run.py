@@ -14,7 +14,17 @@ Examples
 
 from isaacsim import SimulationApp
 
-simulation_app = SimulationApp({"renderer": "RaytracedLighting", "headless": False})
+# PANTHERA: env-gated capture settings (default behaviour unchanged: headless=False, GUI shown).
+# CAPTURE_FULLSCREEN=1 -> 1920x1080 render + window with the UI hidden, so an x11grab of the
+# whole display is a clean viewport of the robot. HEADLESS=1 -> headless (no window).
+import os as _os
+
+_sim_cfg = {"renderer": "RaytracedLighting",
+            "headless": _os.environ.get("HEADLESS", "").strip().lower() in ("1", "true", "yes", "on")}
+if _os.environ.get("CAPTURE_FULLSCREEN", "").strip().lower() in ("1", "true", "yes", "on"):
+    _sim_cfg.update({"width": 1920, "height": 1080, "window_width": 1920,
+                     "window_height": 1080, "hide_ui": True})
+simulation_app = SimulationApp(_sim_cfg)
 
 import argparse
 import logging

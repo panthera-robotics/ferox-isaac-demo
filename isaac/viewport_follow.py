@@ -24,10 +24,10 @@ def maybe_step(runner) -> None:
         w, x, y, z = (float(quat[0]), float(quat[1]), float(quat[2]), float(quat[3]))
         yaw = np.arctan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
         back = np.array([np.cos(yaw), np.sin(yaw), 0.0])
-        # 3/4 chase: behind-left + up, looking at the torso
+        # 3/4 chase: behind-left + up, looking at the torso (close enough for a clear subject)
         left = np.array([-np.sin(yaw), np.cos(yaw), 0.0])
-        eye = pos + (-4.0) * back + 1.6 * left + np.array([0.0, 0.0, 2.2])
-        target = pos + np.array([0.0, 0.0, 0.55])
+        eye = pos + (-3.0) * back + 1.2 * left + np.array([0.0, 0.0, 1.8])
+        target = pos + np.array([0.0, 0.0, 0.5])
         set_camera_view(eye.tolist(), target.tolist())
     except Exception:
         _S["err"] = True
