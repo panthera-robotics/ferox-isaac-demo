@@ -26,6 +26,7 @@ import carb
 import numpy as np
 import omni.appwindow  # Contains handle to keyboard
 import sim_utils as ros_utils
+import viewport_follow  # PANTHERA: flag-gated viewport-follow for x11grab capture
 import yaml
 from isaacsim.core.api import World
 from isaacsim.core.utils.prims import define_prim
@@ -1128,6 +1129,7 @@ class RobotRosRunner(object):
         while simulation_app.is_running():
             t0 = time.time()
             self._world.step(render=True)
+            viewport_follow.maybe_step(self)  # PANTHERA: no-op unless VIEWPORT_FOLLOW
             if self._world.is_stopped():
                 self.needs_reset = True
             if real_time:
