@@ -1,0 +1,40 @@
+      w: 0.9946680839517432
+navigation_time:
+  sec: 13
+  nanosec: 289999703
+estimated_time_remaining:
+  sec: 1
+  nanosec: 68018502
+number_of_recoveries: 0
+distance_remaining: 0.3828427195549011
+
+Feedback:
+    current_pose:
+  header:
+    stamp:
+      sec: 564
+      nanosec: 54987392
+    frame_id: map
+  pose:
+    position:
+      x: 5.233484440795412
+      y: -0.1806072884891785
+      z: -0.004872581482939328
+    orientation:
+      x: 0.000919168332306094
+      y: -0.0013332284595708938
+      z: 0.10311537421364148
+      w: 0.9946680839517432
+navigation_time:
+  sec: 13
+  nanosec: 289999703
+estimated_time_remaining:
+  sec: 1
+  nanosec: 68018502
+number_of_recoveries: 0
+distance_remaining: 0.3828427195549011
+
+Result:
+    result: {}
+
+Goal finished with status: SUCCEEDED

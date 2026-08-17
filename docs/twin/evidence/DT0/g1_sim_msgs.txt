@@ -1,0 +1,122 @@
+### /scan (one msg, arrays hidden)
+header:
+  stamp:
+    sec: 103
+    nanosec: 179997693
+  frame_id: laser
+angle_min: -3.1415927410125732
+angle_max: 3.1396291255950928
+angle_increment: 0.0019634952768683434
+time_increment: 3.125000148429535e-05
+scan_time: 0.10000000149011612
+range_min: 0.05000000074505806
+range_max: 30.0
+ranges: '<sequence type: float, length: 3200>'
+intensities: '<sequence type: float, length: 3200>'
+---
+
+### /odom (one msg, arrays hidden)
+header:
+  stamp:
+    sec: 103
+    nanosec: 719997681
+  frame_id: odom
+child_frame_id: base_link
+pose:
+  pose:
+    position:
+      x: -0.011297952383756638
+      y: -0.00551220728084445
+      z: 0.7907224893569946
+    orientation:
+      x: 0.0002806920383591205
+      y: 0.006369610782712698
+      z: 0.0027834621723741293
+      w: 0.9999758005142212
+  covariance: '<array type: double[36]>'
+twist:
+  twist:
+    linear:
+      x: 0.001800975645892322
+
+### /unitree_lidar (one msg, arrays hidden)
+header:
+  stamp:
+    sec: 104
+    nanosec: 229997670
+  frame_id: lidar_l1_link
+height: 1
+width: 62582
+fields: '<sequence type: sensor_msgs/msg/PointField, length: 3>'
+is_bigendian: false
+point_step: 12
+row_step: 750984
+data: '<sequence type: uint8, length: 750984>'
+is_dense: true
+---
+
+### camera color image header
+header:
+  stamp:
+    sec: 104
+    nanosec: 769997658
+  frame_id: camera_optical
+height: 270
+width: 480
+encoding: rgb8
+is_bigendian: 0
+step: 1440
+
+### camera depth image header
+header:
+  stamp:
+    sec: 105
+    nanosec: 309997646
+  frame_id: camera_optical
+height: 270
+width: 480
+encoding: 32FC1
+is_bigendian: 0
+step: 1920
+
+### camera color camera_info
+header:
+  stamp:
+    sec: 105
+    nanosec: 849997634
+  frame_id: camera_optical
+height: 270
+width: 480
+distortion_model: plumb_bob
+d:
+- 0.0
+- 0.0
+- 0.0
+- 0.0
+- 0.0
+k:
+- 349.2021484375
+- 0.0
+- 240.0
+- 0.0
+- 349.2021484375
+- 135.0
+- 0.0
+- 0.0
+- 1.0
+r:
+- 1.0
+- 0.0
+- 0.0
+- 0.0
+- 1.0
+- 0.0
+- 0.0
+- 0.0
+- 1.0
+p:
+- 349.2021484375
+- 0.0
+- 240.0
+- 0.0
+- 0.0

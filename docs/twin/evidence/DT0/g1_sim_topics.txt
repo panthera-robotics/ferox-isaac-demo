@@ -1,0 +1,88 @@
+### ros2 topic list (sim only, ROBOT=g1, no nav stack)
+/clock
+/ferox/g1_01/camera/color/camera_info
+/ferox/g1_01/camera/color/image_raw
+/ferox/g1_01/camera/depth/camera_info
+/ferox/g1_01/camera/depth/image_raw
+/ferox/g1_01/cmd_vel
+/joint_states
+/odom
+/parameter_events
+/rosout
+/scan
+/tf
+/tf_static
+/unitree_lidar
+
+### ros2 node list
+/ferox_cmd_vel_listener
+
+### topic info -v (key topics)
+--- /scan
+Type: sensor_msgs/msg/LaserScan
+
+Publisher count: 1
+
+Node name: _Render_PostProcess_SDGPipeline_velo_lidar_rp_NodeWriterWriter
+Node namespace: /
+Topic type: sensor_msgs/msg/LaserScan
+Endpoint type: PUBLISHER
+GID: 01.10.f4.67.0c.3b.49.a7.0a.7f.8c.63.00.00.09.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (10)
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+
+Subscription count: 0
+
+
+--- /odom
+Type: nav_msgs/msg/Odometry
+
+Publisher count: 1
+
+Node name: _OdomPublisherGraph_OdomPub
+Node namespace: /
+Topic type: nav_msgs/msg/Odometry
+Endpoint type: PUBLISHER
+GID: 01.10.f4.67.1e.3d.c6.3e.1b.60.3a.c5.00.00.07.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (10)
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+
+Subscription count: 0
+
+
+--- /imu
+Unknown topic '/imu'
+
+--- /clock
+Type: rosgraph_msgs/msg/Clock
+
+Publisher count: 1
+
+Node name: _ClockGraph_Pub
+Node namespace: /
+Topic type: rosgraph_msgs/msg/Clock
+Endpoint type: PUBLISHER
+GID: 01.10.f4.67.0c.3b.49.a7.0a.7f.8c.63.00.00.0d.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (10)
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+
+Subscription count: 0
+

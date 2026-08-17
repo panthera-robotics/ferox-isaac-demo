@@ -1,0 +1,30 @@
+Feedback:
+    current_pose:
+  header:
+    stamp:
+      sec: 204
+      nanosec: 579995427
+    frame_id: map
+  pose:
+    position:
+      x: 5.4666565899428585
+      y: 0.2613924677121515
+      z: 0.005263321962097556
+    orientation:
+      x: -0.0037276810460778464
+      y: 0.0019472040927949476
+      z: -0.16972592558501673
+      w: 0.9854823301178712
+navigation_time:
+  sec: 5
+  nanosec: 174999885
+estimated_time_remaining:
+  sec: 1
+  nanosec: 176901677
+number_of_recoveries: 0
+distance_remaining: 0.2914213538169861
+
+Result:
+    result: {}
+
+Goal finished with status: SUCCEEDED

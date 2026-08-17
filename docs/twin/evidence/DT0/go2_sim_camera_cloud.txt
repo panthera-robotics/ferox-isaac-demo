@@ -1,0 +1,109 @@
+### camera_info (color) — go2 baseline
+header:
+  stamp:
+    sec: 606
+    nanosec: 504986443
+  frame_id: camera_optical
+height: 270
+width: 480
+distortion_model: plumb_bob
+d:
+- 0.0
+- 0.0
+- 0.0
+- 0.0
+- 0.0
+k:
+- 349.2021484375
+- 0.0
+- 240.0
+- 0.0
+- 349.2021484375
+- 135.0
+- 0.0
+- 0.0
+- 1.0
+r:
+- 1.0
+- 0.0
+- 0.0
+- 0.0
+- 1.0
+
+### camera_info (depth) — go2 baseline
+header:
+  stamp:
+    sec: 606
+    nanosec: 969986433
+  frame_id: camera_optical
+height: 270
+width: 480
+distortion_model: plumb_bob
+d:
+- 0.0
+- 0.0
+- 0.0
+- 0.0
+- 0.0
+k:
+- 349.2021484375
+- 0.0
+- 240.0
+- 0.0
+- 349.2021484375
+- 135.0
+- 0.0
+- 0.0
+- 1.0
+r:
+- 1.0
+- 0.0
+- 0.0
+- 0.0
+- 1.0
+
+### color image header/encoding
+header:
+  stamp:
+    sec: 607
+    nanosec: 404986423
+  frame_id: camera_optical
+height: 270
+width: 480
+encoding: rgb8
+is_bigendian: 0
+step: 1440
+data: '<sequence type: uint8, length: 388800>'
+---
+
+### depth image header/encoding
+header:
+  stamp:
+    sec: 607
+    nanosec: 824986414
+  frame_id: camera_optical
+height: 270
+width: 480
+encoding: 32FC1
+is_bigendian: 0
+step: 1920
+data: '<sequence type: uint8, length: 518400>'
+---
+
+### /unitree/slam_lidar/points fields
+
+### /unitree_lidar fields
+header:
+  stamp:
+    sec: 612
+    nanosec: 459986310
+  frame_id: lidar_l1_link
+height: 1
+width: 72014
+fields: '<sequence type: sensor_msgs/msg/PointField, length: 3>'
+is_bigendian: false
+point_step: 12
+row_step: 864168
+data: '<sequence type: uint8, length: 864168>'
+is_dense: true
+---

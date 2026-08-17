@@ -1,0 +1,114 @@
+### /scan (one msg, arrays hidden)
+header:
+  stamp:
+    sec: 108
+    nanosec: 234997580
+  frame_id: laser
+angle_min: -3.1415927410125732
+angle_max: 3.1396291255950928
+angle_increment: 0.0019634952768683434
+time_increment: 3.125000148429535e-05
+scan_time: 0.10000000149011612
+range_min: 0.05000000074505806
+range_max: 30.0
+ranges: '<sequence type: float, length: 3200>'
+intensities: '<sequence type: float, length: 3200>'
+---
+
+### /scan ranges length
+ranges=3200 finite=3200 min=-1.0 max=20.793611526489258
+angle_min=-3.1415927410125732 angle_max=3.1396291255950928 inc=0.0019634952768683434 scan_time=0.10000000149011612 range_min=0.05000000074505806 range_max=30.0 frame=laser
+
+### /odom (one msg, arrays hidden)
+header:
+  stamp:
+    sec: 109
+    nanosec: 224997558
+  frame_id: odom
+child_frame_id: base_link
+pose:
+  pose:
+    position:
+      x: -0.09998584538698196
+      y: 0.046412158757448196
+      z: 0.31820258498191833
+    orientation:
+      x: 0.0027503478340804577
+      y: -0.005417416337877512
+      z: -0.02339150384068489
+      w: 0.9997079372406006
+  covariance: '<array type: double[36]>'
+twist:
+  twist:
+    linear:
+      x: -3.750529504031874e-05
+      y: -4.1777370825002436e-06
+      z: 0.022473974153399467
+    angular:
+      x: 0.0016873813001438975
+      y: 0.004693332128226757
+      z: -1.1777280633396003e-05
+  covariance: '<array type: double[36]>'
+---
+
+### /unitree_lidar PointCloud2 fields
+[sensor_msgs.msg.PointField(name='x', offset=0, datatype=7, count=1), sensor_msgs.msg.PointField(name='y', offset=4, datatype=7, count=1), sensor_msgs.msg.PointField(name='z', offset=8, datatype=7, count=1)]
+---
+
+### /ferox/go2_01/camera/color/camera_info
+header:
+  stamp:
+    sec: 110
+    nanosec: 469997530
+  frame_id: camera_optical
+height: 270
+width: 480
+distortion_model: plumb_bob
+d:
+- 0.0
+- 0.0
+- 0.0
+- 0.0
+- 0.0
+k:
+- 349.2021484375
+- 0.0
+- 240.0
+- 0.0
+- 349.2021484375
+- 135.0
+- 0.0
+- 0.0
+- 1.0
+r:
+- 1.0
+- 0.0
+- 0.0
+- 0.0
+- 1.0
+- 0.0
+- 0.0
+- 0.0
+- 1.0
+p:
+- 349.2021484375
+- 0.0
+- 240.0
+- 0.0
+- 0.0
+- 349.2021484375
+- 135.0
+- 0.0
+- 0.0
+- 0.0
+- 1.0
+- 0.0
+binning_x: 0
+binning_y: 0
+roi:
+  x_offset: 0
+  y_offset: 0
+  height: 0
+  width: 0
+  do_rectify: false
+---

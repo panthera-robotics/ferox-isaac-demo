@@ -1,0 +1,31 @@
+### ros2 topic hz (10 s windows, ROBOT=g1, sim only)
+--- /scan
+average rate: 4.831
+	min: 0.200s max: 0.215s std dev: 0.00501s window: 6
+average rate: 4.442
+--- /odom
+average rate: 29.594
+	min: 0.029s max: 0.047s std dev: 0.00398s window: 31
+average rate: 29.125
+--- /imu
+WARNING: topic [/imu] does not appear to be published yet
+--- /clock
+average rate: 19.782
+	min: 0.034s max: 0.091s std dev: 0.01874s window: 21
+average rate: 20.162
+--- /joint_states
+average rate: 24.936
+	min: 0.034s max: 0.070s std dev: 0.00649s window: 26
+average rate: 25.363
+--- /unitree_lidar
+average rate: 17.814
+	min: 0.028s max: 0.433s std dev: 0.08883s window: 19
+average rate: 19.344
+--- /ferox/g1_01/camera/color/image_raw
+average rate: 25.479
+	min: 0.003s max: 0.101s std dev: 0.01631s window: 27
+average rate: 26.289
+--- /ferox/g1_01/camera/depth/image_raw
+average rate: 22.792
+	min: 0.032s max: 0.109s std dev: 0.01919s window: 26
+average rate: 23.141

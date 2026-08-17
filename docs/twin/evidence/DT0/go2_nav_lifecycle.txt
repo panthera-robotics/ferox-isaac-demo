@@ -1,0 +1,48 @@
+### Nav2 lifecycle (go2), 7 managed nodes
+controller_server      active [3]
+smoother_server        active [3]
+planner_server         active [3]
+behavior_server        active [3]
+bt_navigator           active [3]
+waypoint_follower      active [3]
+velocity_smoother      active [3]
+
+### /ferox/go2_01 topic rates (5 s)
+scan             average rate: 4.017
+odom             average rate: 26.138
+imu/data         <silent>
+map              <silent>
+cmd_vel          <silent>
+
+### map info
+map_load_time:
+  sec: 0
+  nanosec: 0
+resolution: 0.05000000074505806
+width: 0
+height: 0
+origin:
+  position:
+    x: -0.00010015202290253322
+    y: 0.04173364266722774
+    z: 0.0
+  orientation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+---
+
+### TF map->base_link
+[INFO] [1787008623.250260135] [tf2_echo]: Waiting for transform map ->  base_link: Invalid frame ID "map" passed to canTransform argument target_frame - frame does not exist
+At time 410.259990829
+- Translation: [-0.100, 0.046, 0.000]
+- Rotation: in Quaternion (xyzw) [0.000, -0.000, -0.023, 1.000]
+- Rotation: in RPY (radian) [0.000, -0.000, -0.047]
+- Rotation: in RPY (degree) [0.001, -0.002, -2.679]
+- Matrix:
+  0.999  0.047 -0.000 -0.100
+ -0.047  0.999 -0.000  0.046
+  0.000  0.000  1.000  0.000
+  0.000  0.000  0.000  1.000
+At time 410.649990821
