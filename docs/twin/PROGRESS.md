@@ -1,4 +1,68 @@
-# PROGRESS — overnight run 2026-08-18 (DT2 → DT3 → DT5)
+# PROGRESS — overnight run 2026-08-18
+
+## RUN SUMMARY — stopped on a PING at 03:55Z
+
+| Gate | Verdict |
+|---|---|
+| **DT0** | PASSED (accepted), tag `twin-DT0` pushed |
+| **DT1** | PASSED (accepted), tag `twin-DT1` pushed |
+| **DT2** | **BLOCKED on a decision** — interface is Class-A conformant (84 pass / **0 Class-A FAIL** / 5 Class-B); geometry has one 5.96° fork. Not tagged. |
+| **DT3** | not started |
+| **DT5** | not started |
+
+### The three decisions I need
+
+1. **The waist pose fork — the blocker.** The sim's policy stands with all three waist joints at
+   0; the real G1 stands pitched ~6.2°. So the cloud is generated at the calibrated *mount*
+   attitude while `/tf_static` announces the driver's standing *composite*, and the floor plane
+   comes out 5.96° off (tolerance 0.5°, fit residual 1.72 mm over 1884 points — the plane is real
+   and flat, just rotated). Three options with costs are in **`docs/twin/PING.md`**;
+   **I recommend option A** (publish `base_link→livox_frame` dynamically, which is the driver's
+   *default* waist-bridge mode — Session A captured the *static* fallback).
+2. **`/ferox/g1_01/scan` and `/livox/lidar` sit at 10–11.1 Hz** against 10 Hz ±10 %. Isaac rounds
+   the render step to a whole number of physics substeps (0.015 s = 66.67 Hz) while
+   `get_rendering_dt()` still reports the requested 0.016667. Clean fix is `--render_dt 0.02`
+   (exactly 4 physics substeps → 50 Hz → decimation 5 → exactly 10 Hz) which leaves `physics_dt`
+   and therefore the policy untouched. Want me to apply it?
+3. **Aligned depth runs 16.3 Hz** against the ≥20 Hz floor — the converter is bandwidth-bound at
+   ~190 MB/s inbound, not compute-bound (optimising numpy changed nothing). Fix is to publish
+   depth at the module's native 848×480 and upsample in the converter. Accept 16.3 Hz as
+   Class C ([C-10](TWIN_DEVIATIONS.md)), or spend the time?
+
+### Exact next command
+
+```bash
+cd ~/panthera/ferox-isaac-demo
+# after deciding the PING: reboot the twin, then finish the DT2 evidence
+TWIN=1 ROBOT=g1 ROBOT_ID=g1_01 ./scripts/01_start_sim.sh
+MODE=twin ROBOT=g1 ROBOT_ID=g1_01 VENUE=dso_block_a ./scripts/02_start_ferox.sh
+ROBOT=g1 ./scripts/07_twin_audit.sh --duration 20
+docker exec ferox_nav bash -lc 'source /opt/ros/humble/setup.bash;
+  source /workspace/install/setup.bash; export ROS_DOMAIN_ID=42;
+  python3 /tmp/twin_geometry_check.py --robot-id g1_01'
+```
+
+### DT2 state — what is done and pushed
+
+Contract-driven twin publishing the hardware interface: `/tf_static` exactly the 7 Session-A
+edges at contract values (`camera_link` an orphan root under `CAMERA_TF=0`), `/livox/lidar` full
+10 Hz sweeps, `/livox/imu`, `imu/data`, `odom` at 49.5 Hz, colour at 50.9 Hz with K reading back
+908.000/908.000/640.000/360.000, `/scan` 723 rays in `base_link` with 100 % of finite returns in
+band, the converter supplying 16UC1 mm aligned depth and an xyzrgb cloud with the colour stamp,
+`mode:=twin` in Ferox, and the USD sensor layer generated from the contract and self-verified.
+
+Still to do once the fork is settled: 3 nav goals, 4 visual PNGs, `validate_motion` re-run against
+the pre-change baseline, `ferox_vision`, `RESULTS_DT2.md`, tag `twin-DT2`.
+
+### Pushes this run (all token-clean, verified after each)
+
+| Repo | Range |
+|---|---|
+| ferox-isaac-demo | `0a3a99d..ef1cbac..5507023..1d3b543` |
+| Ferox | `b405014..306724e..52eb95e` |
+
+---
+
 
 Running log. Updated at every task boundary and after every failure/retry, so this
 file is readable if the instance dies mid-gate.
