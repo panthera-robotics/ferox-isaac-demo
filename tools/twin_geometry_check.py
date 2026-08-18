@@ -255,11 +255,30 @@ def main() -> int:
             nrm = vt[2] / np.linalg.norm(vt[2])
             if nrm[2] < 0:
                 nrm = -nrm
-            ang = math.degrees(math.acos(max(-1.0, min(1.0, abs(nrm[2])))))
             resid = float(np.abs((cand - c) @ nrm).mean())
+            # Compare against WORLD vertical expressed in base_link, not against
+            # base_link's own +z. The robot is balancing on a policy, so base_link is
+            # not level -- it leans by a degree or so and the floor genuinely IS
+            # tilted in that frame. Measuring against +z would charge the sensor
+            # calibration for the robot's posture. odom is gravity-aligned, so
+            # R_base_odom . [0,0,1] is the direction the floor normal should point.
+            odom_tr = dyn_edges.get(("odom", "base_link"))
+            if odom_tr is not None:
+                oq = odom_tr.rotation
+                R_ob = quat_to_mat(oq.x, oq.y, oq.z, oq.w)
+                up_in_base = R_ob.T @ np.array([0.0, 0.0, 1.0])
+                lean = math.degrees(math.acos(max(-1.0, min(1.0, abs(up_in_base[2])))))
+            else:
+                up_in_base = np.array([0.0, 0.0, 1.0])
+                lean = 0.0
+            cosang = abs(float(np.dot(nrm, up_in_base)))
+            ang = math.degrees(math.acos(max(-1.0, min(1.0, cosang))))
+            ang_vs_z = math.degrees(math.acos(max(-1.0, min(1.0, abs(nrm[2])))))
             print(f"   normal ({nrm[0]:+.5f}, {nrm[1]:+.5f}, {nrm[2]:+.5f})  "
-                  f"tilt {ang:.4f} deg (tol {FLOOR_TOL_DEG} deg)  "
                   f"mean |residual| {resid * 1000:.2f} mm")
+            print(f"   robot body lean (odom): {lean:.4f} deg")
+            print(f"   tilt vs base_link +z   : {ang_vs_z:.4f} deg  (includes the lean)")
+            print(f"   tilt vs world vertical : {ang:.4f} deg  (tol {FLOOR_TOL_DEG} deg)")
             print(f"   floor height in base_link {c[2]:+.4f} m")
             ok = ang <= FLOOR_TOL_DEG
             print(f"   => {'PASS' if ok else 'FAIL'}")

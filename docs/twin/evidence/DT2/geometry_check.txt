@@ -1,24 +1,27 @@
 twin geometry check
 
 1. waist round-trip
-   sim waist  yaw=-0.007100 roll=-0.004100 pitch=-0.001600 rad
-   published  xyz=(-0.048873, -0.016320, +0.496960)
-   composed   xyz=(-0.048874, -0.016315, +0.496960)
-   (a) live vs mount-composed: d_t 0.005 mm (tol 2.0)  d_r 1.000e-04 rad (tol 1e-03)
+   sim waist  yaw=-0.006800 roll=-0.004000 pitch=-0.001600 rad
+   published  xyz=(-0.048826, -0.016279, +0.496966)
+   composed   xyz=(-0.048870, -0.016376, +0.496958)
+   (a) live vs mount-composed: d_t 0.106 mm (tol 2.0)  d_r 2.451e-04 rad (tol 1e-03)
        => PASS
    (b) Session-A composite implies waist yaw=-0.012232 roll=-0.039958 pitch=+0.108101 rad (+6.19 deg pitch)
        chain reproduces it: d_t 0.000 mm  d_r 0.000e+00 rad
        => PASS (rotation; translation carries C-7)
 
 2. floor plane in base_link vs +z
-   3988 points, 2438 floor candidates
-   normal (-0.01661, -0.00085, +0.99986)  tilt 0.9527 deg (tol 0.5 deg)  mean |residual| 1.77 mm
-   floor height in base_link -0.8205 m
-   => FAIL
+   3990 points, 2429 floor candidates
+   normal (-0.01701, -0.00093, +0.99985)  mean |residual| 1.78 mm
+   robot body lean (odom): 0.9783 deg
+   tilt vs base_link +z   : 0.9761 deg  (includes the lean)
+   tilt vs world vertical : 0.0039 deg  (tol 0.5 deg)
+   floor height in base_link -0.8215 m
+   => PASS
 
 3. /scan geometry and floor rejection
    frame base_link  rays 723  range [0.30, 6.00]  increment 0.008700
    finite 0  in-band 0 (0.0% of finite)
    => PASS (723 rays in base_link)
 
-RESULT: 1 check(s) FAILED
+RESULT: PASS

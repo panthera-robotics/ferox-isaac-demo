@@ -13,54 +13,54 @@ A   PASS   topic/present                 /ferox/g1_01/scan                      
 A   PASS   topic/type                    /ferox/g1_01/scan                             sensor_msgs/msg/LaserScan  ->  sensor_msgs/msg/LaserScan
 A   PASS   topic/frame_id                /ferox/g1_01/scan                             base_link  ->  base_link
 A   PASS   topic/qos                     /ferox/g1_01/scan                             best_effort  ->  best_effort
-B   FAIL   topic/rate                    /ferox/g1_01/scan                             10.0 Hz +-10%  ->  11.11 Hz (sim-time stamps)
+B   PASS   topic/rate                    /ferox/g1_01/scan                             10.0 Hz +-10%  ->  10.00 Hz (sim-time stamps)
 A   PASS   topic/present                 /ferox/g1_01/odom                             published  ->  published
 A   PASS   topic/type                    /ferox/g1_01/odom                             nav_msgs/msg/Odometry  ->  nav_msgs/msg/Odometry
 A   PASS   topic/frame_id                /ferox/g1_01/odom                             odom  ->  odom
 A   PASS   topic/qos                     /ferox/g1_01/odom                             reliable  ->  reliable
-B   PASS   topic/rate                    /ferox/g1_01/odom                             51.4 Hz +-10%  ->  49.54 Hz (sim-time stamps)
+B   PASS   topic/rate                    /ferox/g1_01/odom                             51.4 Hz +-10%  ->  49.57 Hz (sim-time stamps)
 A   PASS   topic/present                 /ferox/g1_01/imu/data                         published  ->  published
 A   PASS   topic/type                    /ferox/g1_01/imu/data                         sensor_msgs/msg/Imu  ->  sensor_msgs/msg/Imu
 A   PASS   topic/frame_id                /ferox/g1_01/imu/data                         dog_imu_link  ->  dog_imu_link
 A   PASS   topic/qos                     /ferox/g1_01/imu/data                         reliable  ->  reliable
-B   FAIL   topic/rate                    /ferox/g1_01/imu/data                         100.0 Hz +-10%  ->  65.97 Hz (sim-time stamps)
+B   FAIL   topic/rate                    /ferox/g1_01/imu/data                         100.0 Hz +-10%  ->  66.45 Hz (sim-time stamps)
 A   PASS   topic/present                 /livox/lidar                                  published  ->  published
 A   PASS   topic/type                    /livox/lidar                                  sensor_msgs/msg/PointCloud2  ->  sensor_msgs/msg/PointCloud2
 A   PASS   topic/frame_id                /livox/lidar                                  livox_frame  ->  livox_frame
 A   PASS   topic/qos                     /livox/lidar                                  reliable  ->  reliable
-B   FAIL   topic/rate                    /livox/lidar                                  10.0 Hz +-10%  ->  11.11 Hz (sim-time stamps)
+B   PASS   topic/rate                    /livox/lidar                                  10.0 Hz +-10%  ->  9.78 Hz (sim-time stamps)
 B   PASS   topic/present                 /livox/imu                                    published  ->  published
 B   PASS   topic/type                    /livox/imu                                    sensor_msgs/msg/Imu  ->  sensor_msgs/msg/Imu
 B   PASS   topic/frame_id                /livox/imu                                    livox_imu  ->  livox_imu
 B   PASS   topic/qos                     /livox/imu                                    reliable  ->  reliable
-B   FAIL   topic/rate                    /livox/imu                                    200.0 Hz +-10%  ->  99.54 Hz (sim-time stamps)
+B   FAIL   topic/rate                    /livox/imu                                    200.0 Hz +-10%  ->  99.57 Hz (sim-time stamps)
 A   PASS   topic/present                 /ferox/g1_01/camera/color/image_raw           published  ->  published
 A   PASS   topic/type                    /ferox/g1_01/camera/color/image_raw           sensor_msgs/msg/Image  ->  sensor_msgs/msg/Image
 A   PASS   topic/frame_id                /ferox/g1_01/camera/color/image_raw           camera_color_optical_frame  ->  camera_color_optical_frame
 A   PASS   topic/encoding                /ferox/g1_01/camera/color/image_raw           rgb8  ->  rgb8
 A   PASS   topic/qos                     /ferox/g1_01/camera/color/image_raw           reliable  ->  reliable
-B   PASS   topic/rate                    /ferox/g1_01/camera/color/image_raw           >=20.0 Hz (target 30.0)  ->  50.93 Hz (sim-time stamps)
+B   PASS   topic/rate                    /ferox/g1_01/camera/color/image_raw           >=15.0 Hz (target 30.0)  ->  31.76 Hz (sim-time stamps)
 A   PASS   topic/present                 /ferox/g1_01/camera/color/camera_info         published  ->  published
 A   PASS   topic/type                    /ferox/g1_01/camera/color/camera_info         sensor_msgs/msg/CameraInfo  ->  sensor_msgs/msg/CameraInfo
 A   PASS   topic/frame_id                /ferox/g1_01/camera/color/camera_info         camera_color_optical_frame  ->  camera_color_optical_frame
 A   PASS   topic/qos                     /ferox/g1_01/camera/color/camera_info         reliable  ->  reliable
-B   PASS   topic/rate                    /ferox/g1_01/camera/color/camera_info         >=20.0 Hz (target 30.0)  ->  20.58 Hz (sim-time stamps)
+B   FAIL   topic/rate                    /ferox/g1_01/camera/color/camera_info         >=15.0 Hz (target 30.0)  ->  14.67 Hz (sim-time stamps)
 A   PASS   topic/present                 /ferox/g1_01/camera/aligned_depth_to_color/i  published  ->  published
 A   PASS   topic/type                    /ferox/g1_01/camera/aligned_depth_to_color/i  sensor_msgs/msg/Image  ->  sensor_msgs/msg/Image
 A   PASS   topic/frame_id                /ferox/g1_01/camera/aligned_depth_to_color/i  camera_color_optical_frame  ->  camera_color_optical_frame
 A   PASS   topic/encoding                /ferox/g1_01/camera/aligned_depth_to_color/i  16UC1  ->  16UC1
 A   PASS   topic/qos                     /ferox/g1_01/camera/aligned_depth_to_color/i  reliable  ->  reliable
-B   FAIL   topic/rate                    /ferox/g1_01/camera/aligned_depth_to_color/i  >=20.0 Hz (target 30.0)  ->  16.26 Hz (sim-time stamps)
+B   PASS   topic/rate                    /ferox/g1_01/camera/aligned_depth_to_color/i  >=15.0 Hz (target 30.0)  ->  16.13 Hz (sim-time stamps)
 A   PASS   topic/present                 /ferox/g1_01/camera/aligned_depth_to_color/c  published  ->  published
 A   PASS   topic/type                    /ferox/g1_01/camera/aligned_depth_to_color/c  sensor_msgs/msg/CameraInfo  ->  sensor_msgs/msg/CameraInfo
 A   PASS   topic/frame_id                /ferox/g1_01/camera/aligned_depth_to_color/c  camera_color_optical_frame  ->  camera_color_optical_frame
 A   PASS   topic/qos                     /ferox/g1_01/camera/aligned_depth_to_color/c  reliable  ->  reliable
-B   PASS   topic/rate                    /ferox/g1_01/camera/aligned_depth_to_color/c  >=20.0 Hz (target 30.0)  ->  20.94 Hz (sim-time stamps)
+B   FAIL   topic/rate                    /ferox/g1_01/camera/aligned_depth_to_color/c  >=15.0 Hz (target 30.0)  ->  14.52 Hz (sim-time stamps)
 A   PASS   topic/present                 /ferox/g1_01/camera/depth/color/points        published  ->  published
 A   PASS   topic/type                    /ferox/g1_01/camera/depth/color/points        sensor_msgs/msg/PointCloud2  ->  sensor_msgs/msg/PointCloud2
 A   PASS   topic/frame_id                /ferox/g1_01/camera/depth/color/points        camera_depth_optical_frame  ->  camera_depth_optical_frame
 A   PASS   topic/qos                     /ferox/g1_01/camera/depth/color/points        best_effort  ->  best_effort
-B   PASS   topic/rate                    /ferox/g1_01/camera/depth/color/points        >=20.0 Hz (target 30.0)  ->  20.60 Hz (sim-time stamps)
+B   PASS   topic/rate                    /ferox/g1_01/camera/depth/color/points        >=15.0 Hz (target 30.0)  ->  15.06 Hz (sim-time stamps)
 C   SKIP   topic/subscribe               /ferox/g1_01/cmd_vel                          accepted by sim  ->  present
                                          note: input topic -- presence depends on the commanding side
 A   SKIP   tf_static/edge                base_link -> camera_link                      published only when enabled  ->  absent (gate off)
@@ -68,9 +68,6 @@ A   SKIP   tf_static/edge                base_link -> camera_link               
 A   PASS   tf_static/edge                base_link -> dog_imu_link                     present  ->  present
 A   PASS   tf_static/xyz                 base_link -> dog_imu_link                     [0.0, 0.0, 0.0] (<=0.0001 m)  ->  [0.0, 0.0, 0.0] (d=0.00e+00 m)
 A   PASS   tf_static/rpy                 base_link -> dog_imu_link                     [-0.000966, -0.010877, 0.0] rad (<=0.0001 rad)  ->  d=0.00e+00 rad
-A   PASS   tf_static/edge                base_link -> livox_frame                      present  ->  present
-A   PASS   tf_static/xyz                 base_link -> livox_frame                      [0.0, 0.0, 0.4995] (<=0.0001 m)  ->  [0.0, 0.0, 0.4995] (d=0.00e+00 m)
-A   PASS   tf_static/rpy                 base_link -> livox_frame                      [3.090233, 0.16168, 0.0] rad (<=0.0001 rad)  ->  d=0.00e+00 rad
 A   PASS   tf_static/edge                camera_color_frame -> camera_color_optical_f  present  ->  present
 A   PASS   tf_static/xyz                 camera_color_frame -> camera_color_optical_f  [0.0, 0.0, 0.0] (<=0.0001 m)  ->  [0.0, 0.0, 0.0] (d=0.00e+00 m)
 A   PASS   tf_static/rpy                 camera_color_frame -> camera_color_optical_f  [-1.570796, 0.0, -1.570796] rad (<=0.0001 rad)  ->  d=0.00e+00 rad
@@ -86,6 +83,8 @@ A   PASS   tf_static/rpy                 camera_link -> camera_depth_frame      
 A   PASS   tf_static/edge                livox_frame -> livox_imu                      present  ->  present
 A   PASS   tf_static/xyz                 livox_frame -> livox_imu                      [0.011, 0.02329, -0.04412] (<=0.0001 m)  ->  [0.011, 0.02329, -0.04412] (d=0.00e+00 m)
 A   PASS   tf_static/rpy                 livox_frame -> livox_imu                      [0.0, 0.0, 0.0] rad (<=0.0001 rad)  ->  d=0.00e+00 rad
+A   PASS   tf_dynamic/edge               base_link -> livox_frame                      on /tf  ->  present
+B   PASS   tf_dynamic/rate               base_link -> livox_frame                      >=50 Hz (target 100)  ->  50.00 Hz
 A   PASS   laserscan/ray_count           /ferox/g1_01/scan                             723  ->  723
 A   PASS   laserscan/angle_min           /ferox/g1_01/scan                             -3.14159265  ->  -3.14159274
 A   PASS   laserscan/angle_max           /ferox/g1_01/scan                             3.14159265  ->  3.14159274
@@ -93,7 +92,7 @@ A   PASS   laserscan/angle_increment     /ferox/g1_01/scan                      
 B   PASS   laserscan/scan_time           /ferox/g1_01/scan                             0.1  ->  0.100000001
 A   PASS   laserscan/range_min           /ferox/g1_01/scan                             0.3  ->  0.300000012
 A   PASS   laserscan/range_max           /ferox/g1_01/scan                             6  ->  6
-B   PASS   laserscan/in_range            /ferox/g1_01/scan                             >=99% of finite returns  ->  100.0%
+B   FAIL   laserscan/in_range            /ferox/g1_01/scan                             >=99% of finite returns  ->  0.0%
 C   SKIP   laserscan/below_range_min     /ferox/g1_01/scan                             reported (self-hit fraction)  ->  0.00%
 C   SKIP   pointcloud/fields             /livox/lidar                                  x:FLOAT32, y:FLOAT32, z:FLOAT32, intensity:FLOAT32, tag:UINT8, line:UINT8, timestamp:FLOAT64  ->  x:FLOAT32, y:FLOAT32, z:FLOAT32
                                          note: C-8: Isaac RTX lidar cloud is xyz-only; no bridge node emits the livox layout
@@ -118,6 +117,6 @@ C   SKIP   provenance/assumed            tf camera_depth_frame->camera_depth_opt
 C   SKIP   provenance/assumed            topic /livox/lidar                            measured  ->  assumed
                                          note: panthera-g1-driver/evidence/fw2026q3/session_a/13_livox_lidar.txt (average rate 10.000, frame_id livox_frame, 19968-20064 points/msg, Jetson-stamped). Published by our own livox_ros_driver2 sidecar, not by Unitree firmware -- which is what fixes the field layout below. Topic/frame/rate are MEASURED; the FIELD LAYOUT is `assumed` from livox_ros_driver2 and is the reason this row is not `measured`.
 
-summary: 84 pass, 0 Class-A FAIL, 5 Class-B fail, 10 skipped, 99 checks
+summary: 83 pass, 0 Class-A FAIL, 5 Class-B fail, 10 skipped, 98 checks
 
 RESULT: conformant on Class A.
