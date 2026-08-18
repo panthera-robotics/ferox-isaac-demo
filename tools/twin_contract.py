@@ -216,6 +216,11 @@ def validate(contract: Dict[str, Any]) -> Dict[str, Any]:
         _check_provenanced(e, where)
         # An edge the robot ships DISABLED is still part of the contract: its values must
         # be right when someone turns it on, but its absence must not read as a failure.
+        if "dynamic" in e:
+            _require(isinstance(e["dynamic"], bool), f"{where}: dynamic must be a boolean")
+            if e["dynamic"]:
+                _require(isinstance(e.get("rate_hz"), (int, float)) and e["rate_hz"] > 0,
+                         f"{where}: a dynamic edge needs a positive rate_hz")
         if "default_published" in e:
             _require(isinstance(e["default_published"], bool),
                      f"{where}: default_published must be a boolean")

@@ -6,6 +6,33 @@ link to PRs / files for detail.
 
 ---
 
+## 2026-08-18 — Isaac rounds `rendering_dt` to whole physics substeps, and does not tell you
+
+**What:** The twin's Mid-360 was decimated to 10 Hz by dividing the render rate by the
+sensor's scan rate. It came out at **11.11 Hz**, consistently, against a 10 Hz contract.
+
+**Why:** `World(physics_dt=1/200, rendering_dt=1/60)` does not render at 60 Hz. 1/60 =
+0.016667 s is not a whole number of 0.005 s physics substeps, so Isaac runs **3** substeps
+per render frame — 0.015 s, i.e. **66.67 Hz**. `world.get_rendering_dt()` still returns the
+0.016667 you asked for. Dividing by the reported 60 gave decimation step 6, and
+66.67 / 6 = 11.11.
+
+**The trap:** the error is small, plausible, and looks like sensor jitter. Nothing warns.
+Any rate derived from `get_rendering_dt()` inherits it.
+
+**Rule:** pick a `rendering_dt` that is an exact multiple of `physics_dt`. `scripts/01_start_sim.sh`
+passes `--render_dt 0.02` on the twin path — exactly four substeps, 50 Hz, decimation 5,
+exactly 10 Hz — and leaves `physics_dt` alone so the walking policy (200 Hz physics,
+decimation 4, 50 Hz policy) is untouched. If you need a different render rate, choose from
+0.005 · n, and verify against a MEASURED topic rate rather than the reported dt.
+
+**Related:** `world.current_time` has the same shape of problem — it advances once per
+`world.step()`, not per physics substep, so a sim-time rate limiter driven by it emits at
+most one message per render frame no matter what period you ask for. The twin accumulates
+`step_size` inside `on_physics_step` instead.
+
+---
+
 ## 2026-06-13 — DDS peers = live participants only (fresh-VM restore; camera 13→20 Hz)
 
 **What:** On the fresh-VM restore (sim/vision VM `100.72.0.125`, laptop `wakeb`

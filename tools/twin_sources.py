@@ -50,6 +50,8 @@ class Observation:
     topics: Dict[str, TopicObs] = field(default_factory=dict)
     # (parent, child) -> {"xyz": [..], "quat": [x,y,z,w] or None}
     tf_static: Dict[Tuple[str, str], Dict[str, Any]] = field(default_factory=dict)
+    # (parent, child) -> measured rate on /tf, in SIM time
+    tf_dynamic: Dict[Tuple[str, str], float] = field(default_factory=dict)
     tf_static_values_known: bool = True
     # Whether this source can see inside messages at all. The evidence source records
     # topic names, types, rates and QoS but no payloads, so frame_id / encoding /
@@ -242,11 +244,29 @@ def observe_live(topic_names: List[str], duration: float, node_name: str = "twin
 
         subs.append(node.create_subscription(TFMessage, "/tf_static", tf_cb, tf_qos))
 
+        # /tf as well: the twin publishes base_link -> livox_frame there, composed
+        # from the live waist. Rate is measured from the transform stamps (sim time).
+        dyn_stamps: Dict[Tuple[str, str], List[float]] = {}
+
+        def tf_dyn_cb(msg):
+            for tr in msg.transforms:
+                k = (tr.header.frame_id, tr.child_frame_id)
+                t = tr.header.stamp.sec + tr.header.stamp.nanosec * 1e-9
+                lst = dyn_stamps.setdefault(k, [])
+                if not lst or t > lst[-1]:
+                    lst.append(t)
+
+        subs.append(node.create_subscription(TFMessage, "/tf", tf_dyn_cb, 50))
+
         start = node.get_clock().now().nanoseconds
         end = start + int(duration * 1e9)
         while node.get_clock().now().nanoseconds < end:
             rclpy.spin_once(node, timeout_sec=0.05)
         elapsed = (node.get_clock().now().nanoseconds - start) / 1e9
+
+        for k, lst in dyn_stamps.items():
+            if len(lst) >= 2 and (lst[-1] - lst[0]) > 0.2:
+                obs.tf_dynamic[k] = (len(lst) - 1) / (lst[-1] - lst[0])
 
         for name, n in counts.items():
             t = obs.topic(name)

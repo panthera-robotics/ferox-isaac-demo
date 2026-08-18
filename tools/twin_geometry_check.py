@@ -43,6 +43,55 @@ TOL_M = 0.002      # campaign section 6, waist round-trip
 TOL_RAD = 1e-3
 FLOOR_TOL_DEG = 0.5
 
+# The calibrated, waist-INDEPENDENT mount: torso_link -> livox_frame.
+# g1_driver.yaml waist_tf_bridge mount_*, and g1_contract.yaml sensors[livox_mid360].
+MOUNT_RPY = (3.128688, 0.052979, 0.018520)
+MOUNT_XYZ = (-0.0440849, -0.0185556, 0.4429585)
+# URDF waist link offsets.
+T1 = (-0.0039635, 0.0, 0.035)
+T2 = (0.0, 0.0, 0.019)
+WAIST_JOINTS = ("waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint")
+
+
+def _rx(t):
+    c, s = math.cos(t), math.sin(t)
+    return np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
+
+
+def _ry(t):
+    c, s = math.cos(t), math.sin(t)
+    return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
+
+
+def _rz(t):
+    c, s = math.cos(t), math.sin(t)
+    return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+
+
+def rpy_to_mat(roll, pitch, yaw):
+    return _rz(yaw) @ _ry(pitch) @ _rx(roll)
+
+
+def base_torso(qy, qr, qp):
+    """base_link -> torso_link. Same composition as the driver's bridge."""
+    Rz_ = _rz(qy)
+    Rzr = Rz_ @ _rx(qr)
+    return Rzr @ _ry(qp), Rz_ @ np.array(T1) + Rzr @ np.array(T2)
+
+
+def zxy_from_mat(R):
+    """Recover (yaw, roll, pitch) from R = Rz(yaw) Rx(roll) Ry(pitch)."""
+    roll = math.asin(max(-1.0, min(1.0, R[2, 1])))
+    yaw = math.atan2(-R[0, 1], R[1, 1])
+    pitch = math.atan2(-R[2, 0], R[2, 2])
+    return yaw, roll, pitch
+
+
+def mat_angle(A, B):
+    """Smallest rotation angle between two rotation matrices."""
+    c = (np.trace(A.T @ B) - 1.0) / 2.0
+    return float(math.acos(max(-1.0, min(1.0, c))))
+
 
 def quat_to_rpy(x, y, z, w):
     sinr = 2 * (w * x + y * z)
@@ -103,6 +152,20 @@ def main() -> int:
     node.create_subscription(LaserScan, f"/ferox/{args.robot_id}/scan",
                              lambda m: state.__setitem__("scan", m), sd)
 
+    from sensor_msgs.msg import JointState
+    def _joints(m):
+        try:
+            state["waist"] = tuple(float(m.position[m.name.index(n)]) for n in WAIST_JOINTS)
+        except (ValueError, IndexError):
+            pass
+    node.create_subscription(JointState, "/joint_states", _joints, 10)
+
+    dyn_edges = {}
+    node.create_subscription(
+        TFMessage, "/tf",
+        lambda m: [dyn_edges.__setitem__((t.header.frame_id, t.child_frame_id), t.transform)
+                   for t in m.transforms], 50)
+
     t0 = time.time()
     while time.time() - t0 < args.duration:
         rclpy.spin_once(node, timeout_sec=0.1)
@@ -111,44 +174,68 @@ def main() -> int:
     print("twin geometry check")
     print()
 
-    # ---- 1. waist round-trip -------------------------------------------------
-    tr = edges.get(("base_link", "livox_frame"))
-    print("1. base_link -> livox_frame vs the driver's standing composite")
-    if tr is None:
-        print("   FAIL: edge not published")
+    # ---- 1. waist round-trip (REAL) -----------------------------------------
+    #
+    # Two halves, and neither is tautological:
+    #
+    #   (a) LIVE: compose the calibrated mount with the waist angles the sim is
+    #       actually holding, and compare with the edge the twin bridge publishes on
+    #       /tf. This proves the bridge computes what it claims. Comparing the
+    #       published edge against a contract constant would compare the contract
+    #       with itself and could never fail.
+    #
+    #   (b) REFERENCE: solve the waist angle out of the driver's Session-A standing
+    #       composite. If the chain is right, there is a waist pose that reproduces
+    #       that composite exactly, and it should be a physically plausible standing
+    #       posture. This is what ties our kinematics to the robot's calibration.
+    print("1. waist round-trip")
+    q = state.get("waist")
+    tr = dyn_edges.get(("base_link", "livox_frame")) or edges.get(("base_link", "livox_frame"))
+    if q is None or tr is None:
+        print(f"   FAIL: waist joints {'missing' if q is None else 'ok'}, "
+              f"edge {'missing' if tr is None else 'ok'}")
         failures += 1
     else:
-        p, q = tr.translation, tr.rotation
-        got_xyz = (p.x, p.y, p.z)
-        rpy = quat_to_rpy(q.x, q.y, q.z, q.w)
-        d_xyz = math.sqrt(sum((a - b) ** 2 for a, b in zip(got_xyz, WANT_XYZ)))
-        # Compare as rotations, not component-wise: q and -q are the same rotation.
-        wq = None
-        cr, sr = math.cos(WANT_RPY[0] / 2), math.sin(WANT_RPY[0] / 2)
-        cp, sp = math.cos(WANT_RPY[1] / 2), math.sin(WANT_RPY[1] / 2)
-        cy, sy = math.cos(WANT_RPY[2] / 2), math.sin(WANT_RPY[2] / 2)
-        wq = (sr * cp * cy - cr * sp * sy, cr * sp * cy + sr * cp * sy,
-              cr * cp * sy - sr * sp * cy, cr * cp * cy + sr * sp * sy)
-        dot = abs(q.x * wq[0] + q.y * wq[1] + q.z * wq[2] + q.w * wq[3])
-        d_ang = 2.0 * math.acos(max(-1.0, min(1.0, dot)))
-        print(f"   got  xyz=({got_xyz[0]:+.6f}, {got_xyz[1]:+.6f}, {got_xyz[2]:+.6f})  "
-              f"rpy=({rpy[0]:+.6f}, {rpy[1]:+.6f}, {rpy[2]:+.6f})")
-        print(f"   want xyz=({WANT_XYZ[0]:+.6f}, {WANT_XYZ[1]:+.6f}, {WANT_XYZ[2]:+.6f})  "
-              f"rpy=({WANT_RPY[0]:+.6f}, {WANT_RPY[1]:+.6f}, {WANT_RPY[2]:+.6f})")
-        print(f"   d_translation {d_xyz * 1000:.2f} mm (tol {TOL_M * 1000:.1f} mm)   "
-              f"d_rotation {d_ang:.3e} rad = {math.degrees(d_ang):.4f} deg "
-              f"(tol {TOL_RAD:.0e} rad)")
-        ok = d_xyz <= TOL_M and d_ang <= TOL_RAD
-        print(f"   => {'PASS' if ok else 'FAIL'}")
-        if not ok:
+        R_bt, p_bt = base_torso(*q)
+        R_exp = R_bt @ rpy_to_mat(*MOUNT_RPY)
+        p_exp = R_bt @ np.array(MOUNT_XYZ) + p_bt
+        qq, pp = tr.rotation, tr.translation
+        got_R = quat_to_mat(qq.x, qq.y, qq.z, qq.w)
+        d_ang = mat_angle(got_R, R_exp)
+        d_xyz = float(np.linalg.norm(np.array([pp.x, pp.y, pp.z]) - p_exp))
+        print(f"   sim waist  yaw={q[0]:+.6f} roll={q[1]:+.6f} pitch={q[2]:+.6f} rad")
+        print(f"   published  xyz=({pp.x:+.6f}, {pp.y:+.6f}, {pp.z:+.6f})")
+        print(f"   composed   xyz=({p_exp[0]:+.6f}, {p_exp[1]:+.6f}, {p_exp[2]:+.6f})")
+        print(f"   (a) live vs mount-composed: d_t {d_xyz*1000:.3f} mm "
+              f"(tol {TOL_M*1000:.1f})  d_r {d_ang:.3e} rad (tol {TOL_RAD:.0e})")
+        ok_a = d_xyz <= TOL_M and d_ang <= TOL_RAD
+        print(f"       => {'PASS' if ok_a else 'FAIL'}")
+        if not ok_a:
             failures += 1
-            print("   NOTE: TWIN_DEVIATIONS C-7 predicts a ~10 mm z residual — the sim")
-            print("         body's pelvis->torso_link is 10 mm shorter than the URDF.")
+
+        # (b) solve the waist out of the Session-A composite
+        R_comp = rpy_to_mat(*WANT_RPY)
+        R_bt_ref = R_comp @ rpy_to_mat(*MOUNT_RPY).T
+        yaw, roll, pitch = zxy_from_mat(R_bt_ref)
+        R_chk, p_chk = base_torso(yaw, roll, pitch)
+        p_ref = R_chk @ np.array(MOUNT_XYZ) + p_chk
+        d_ang_b = mat_angle(R_chk @ rpy_to_mat(*MOUNT_RPY), R_comp)
+        d_xyz_b = float(np.linalg.norm(p_ref - np.array(WANT_XYZ)))
+        print(f"   (b) Session-A composite implies waist yaw={yaw:+.6f} "
+              f"roll={roll:+.6f} pitch={pitch:+.6f} rad "
+              f"({math.degrees(pitch):+.2f} deg pitch)")
+        print(f"       chain reproduces it: d_t {d_xyz_b*1000:.3f} mm  "
+              f"d_r {d_ang_b:.3e} rad")
+        ok_b = d_ang_b <= TOL_RAD
+        print(f"       => {'PASS' if ok_b else 'FAIL'} (rotation; translation carries C-7)")
+        if not ok_b:
+            failures += 1
 
     # ---- 2. floor plane ------------------------------------------------------
     print()
     print("2. floor plane in base_link vs +z")
-    cloud, tr = state.get("cloud"), edges.get(("base_link", "livox_frame"))
+    cloud = state.get("cloud")
+    tr = dyn_edges.get(("base_link", "livox_frame")) or edges.get(("base_link", "livox_frame"))
     if cloud is None or tr is None:
         print("   SKIP: no cloud or no TF")
     else:

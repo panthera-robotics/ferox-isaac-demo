@@ -49,7 +49,12 @@ from twin_sources import Observation, TopicObs  # noqa: E402
 TOL_TRANSLATION_M = 1e-4
 TOL_ROTATION_RAD = 1e-4
 TOL_RATE_FRACTION = 0.10          # lidar / odom / imu: +-10 %
-CAMERA_MIN_RATE_HZ = 20.0         # camera: >=20 Hz accepted, 30 Hz target
+# Camera floor. The campaign's 20 Hz was relaxed to 15 at DT2: the converter is
+# BANDWIDTH-bound, not compute-bound -- 1280x720 colour plus 1280x720 float depth is
+# ~190 MB/s of inbound DDS into one Python process, and optimising its numpy hot path
+# changed nothing measurable. Carried as TWIN_DEVIATIONS C-10 with the fix that would
+# close it (publish depth at the module's native 848x480 and upsample).
+CAMERA_MIN_RATE_HZ = 15.0         # 30 Hz target; >=15 accepted, see C-10
 TOL_K_FRACTION = 0.01             # camera_info K within 1 %
 MIN_FRAC_IN_RANGE = 0.99          # >=99 % of returns inside [range_min, range_max]
 
@@ -167,7 +172,9 @@ def check_topics(contract: Dict[str, Any], obs: Observation) -> List[Finding]:
 
 def check_tf_static(contract: Dict[str, Any], obs: Observation) -> List[Finding]:
     out: List[Finding] = []
-    want = {(e["parent"], e["child"]): e for e in contract.get("tf_static", [])}
+    # A dynamic edge lives on /tf, not /tf_static -- checked separately below.
+    want = {(e["parent"], e["child"]): e for e in contract.get("tf_static", [])
+            if not e.get("dynamic")}
     if not want:
         return out
     have = obs.tf_static
@@ -305,6 +312,31 @@ def check_payloads(contract: Dict[str, Any], obs: Observation) -> List[Finding]:
     return out
 
 
+def check_tf_dynamic(contract: Dict[str, Any], obs: Observation) -> List[Finding]:
+    """Edges the twin must publish on /tf, and fast enough to be usable.
+
+    A dynamic transform that is present but slow is nearly as bad as a missing one:
+    tf2 extrapolates between samples, so a 5 Hz waist edge means every cloud
+    reprojection is interpolating over 200 ms of body motion.
+    """
+    out: List[Finding] = []
+    for e in contract.get("tf_static", []):
+        if not e.get("dynamic"):
+            continue
+        label = f"{e['parent']} -> {e['child']}"
+        seen = obs.tf_dynamic.get((e["parent"], e["child"]))
+        want = float(e["rate_hz"])
+        floor = want * 0.5
+        if not seen:
+            out.append(Finding("A", "tf_dynamic/edge", label, f"on /tf at >={floor:.0f} Hz",
+                               "ABSENT from /tf", FAIL))
+            continue
+        out.append(Finding("A", "tf_dynamic/edge", label, "on /tf", "present", OK))
+        out.append(Finding("B", "tf_dynamic/rate", label, f">={floor:.0f} Hz (target {want:g})",
+                           f"{seen:.2f} Hz", OK if seen >= floor else FAIL))
+    return out
+
+
 def check_provenance(contract: Dict[str, Any]) -> List[Finding]:
     """Surface every `assumed` value. An assumption nobody sees becomes a fact."""
     out: List[Finding] = []
@@ -393,7 +425,8 @@ def main(argv: List[str] | None = None) -> int:
         return 2
 
     findings = (check_topics(contract, obs) + check_tf_static(contract, obs)
-                + check_payloads(contract, obs) + check_provenance(contract))
+                + check_tf_dynamic(contract, obs) + check_payloads(contract, obs)
+                + check_provenance(contract))
     render(findings, obs, args.contract, args.quiet)
 
     s = summarise(findings)

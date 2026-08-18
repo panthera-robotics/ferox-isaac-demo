@@ -1,20 +1,24 @@
 twin geometry check
 
-1. base_link -> livox_frame vs the driver's standing composite
-   got  xyz=(+0.000000, +0.000000, +0.499500)  rpy=(+3.090233, +0.161680, +0.000000)
-   want xyz=(+0.000000, +0.000000, +0.499500)  rpy=(+3.090233, +0.161680, +0.000000)
-   d_translation 0.00 mm (tol 2.0 mm)   d_rotation 0.000e+00 rad = 0.0000 deg (tol 1e-03 rad)
-   => PASS
+1. waist round-trip
+   sim waist  yaw=-0.007100 roll=-0.004100 pitch=-0.001600 rad
+   published  xyz=(-0.048873, -0.016320, +0.496960)
+   composed   xyz=(-0.048874, -0.016315, +0.496960)
+   (a) live vs mount-composed: d_t 0.005 mm (tol 2.0)  d_r 1.000e-04 rad (tol 1e-03)
+       => PASS
+   (b) Session-A composite implies waist yaw=-0.012232 roll=-0.039958 pitch=+0.108101 rad (+6.19 deg pitch)
+       chain reproduces it: d_t 0.000 mm  d_r 0.000e+00 rad
+       => PASS (rotation; translation carries C-7)
 
 2. floor plane in base_link vs +z
-   3312 points, 1884 floor candidates
-   normal (+0.09685, +0.03729, +0.99460)  tilt 5.9568 deg (tol 0.5 deg)  mean |residual| 1.72 mm
-   floor height in base_link -0.5461 m
+   3988 points, 2438 floor candidates
+   normal (-0.01661, -0.00085, +0.99986)  tilt 0.9527 deg (tol 0.5 deg)  mean |residual| 1.77 mm
+   floor height in base_link -0.8205 m
    => FAIL
 
 3. /scan geometry and floor rejection
    frame base_link  rays 723  range [0.30, 6.00]  increment 0.008700
-   finite 116  in-band 116 (100.0% of finite)
+   finite 0  in-band 0 (0.0% of finite)
    => PASS (723 rays in base_link)
 
 RESULT: 1 check(s) FAILED

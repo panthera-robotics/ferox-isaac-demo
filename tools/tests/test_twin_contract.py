@@ -259,10 +259,9 @@ def test_g1_hardware_tf_static_edge_set_is_exactly_session_a():
     # is still contracted -- its values must be right when someone enables it -- but its
     # absence is what the robot actually does.
     got = {(e["parent"], e["child"]) for e in c["tf_static"]
-           if e.get("default_published", True)}
+           if e.get("default_published", True) and not e.get("dynamic")}
     expected = {
         ("base_link", "dog_imu_link"),
-        ("base_link", "livox_frame"),
         ("livox_frame", "livox_imu"),
         ("camera_link", "camera_color_frame"),
         ("camera_color_frame", "camera_color_optical_frame"),
@@ -270,10 +269,29 @@ def test_g1_hardware_tf_static_edge_set_is_exactly_session_a():
         ("camera_depth_frame", "camera_depth_optical_frame"),
     }
     assert got == expected, f"missing {expected - got}, extra {got - expected}"
+    assert len(got) == 6, f"static set must be 6 edges after DT2, got {len(got)}"
+    # base_link -> livox_frame is DYNAMIC (/tf), composed from the live waist by the
+    # twin bridge -- the driver's default lidar_tf_mode. Session A captured the static
+    # fallback at one posture. Publishing it statically as well would give one edge two
+    # owners, which is baseline defect B-2 in a new costume.
+    assert ("base_link", "livox_frame") not in got
     # base_link -> camera_link is NOT in the default set: the driver ships
     # camera_tf_enable:false (g1_driver.yaml:186), so camera_link is an ORPHAN ROOT on
     # the real robot with the RealSense subtree beneath it. The twin mirrors that.
     assert ("base_link", "camera_link") not in got
+
+
+def test_g1_livox_edge_is_dynamic_with_a_rate():
+    """The lidar edge moved to /tf at DT2 (fork resolved: option A).
+
+    Its xyz/rpy stay in the contract as the REFERENCE the waist round-trip must
+    reproduce at the robot's standing waist angle -- they are not what is published
+    at rest, because our policy stands with the waist at 0."""
+    e = _edge(twin_contract.load(G1_PATH), "base_link", "livox_frame")
+    assert e.get("dynamic") is True
+    assert e["rate_hz"] == 100.0, e.get("rate_hz")
+    assert e["xyz"] == [0.0, 0.0, 0.4995]
+    assert e["rpy"] == [3.090233, 0.161680, 0.0]
 
 
 def test_g1_camera_link_edge_is_contracted_but_gated_off():

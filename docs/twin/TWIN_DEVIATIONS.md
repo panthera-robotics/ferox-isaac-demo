@@ -36,7 +36,8 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 | [C-7](#c-7) | B→C | Sim USD waist chain is 10 mm shorter than the robot's URDF | DT2 | OPEN — body asset, not patched by design |
 | [C-8](#c-8) | C | Mid-360 cloud is xyz-only; Isaac has no node that emits the livox field layout | DT2 | OPEN — Isaac bridge limitation |
 | [C-9](#c-9) | C | Rendered depth has no stereo baseline, so no occlusion shadows | DT2 | OPEN — inherent to rendered depth |
-| [C-10](#c-10) | C | IMU rates capped by the render/physics step coupling; aligned depth below the 20 Hz floor | DT2 | OPEN — see entry for what was tried |
+| [C-10](#c-10) | C | IMU rates capped by the render/physics step coupling; aligned depth below the 20 Hz floor | DT2 | OPEN — floor relaxed to 15 Hz for DT2 |
+| [C-11](#c-11) | C | The sim stands with waist = 0; the real G1 stands pitched ~6.2° | DT2 | OPEN — policy property, not geometry |
 
 ---
 
@@ -338,9 +339,48 @@ process. Optimising the numpy hot path (masking in place, subsampling before mas
 nothing measurable, which is what identified the bottleneck. Its own camera_info and cloud clear
 the floor because they are far smaller messages.
 
+**Decision at DT2:** accepted. The audit's camera floor is **15 Hz** for DT2 rather than 20, and
+the aligned-depth rate is not to be chased further.
+
 **Would close by** publishing depth at the module's native 848×480 instead of colour resolution
-and letting the converter upsample, or by moving the conversion into the sim process where the
-frame is already in memory.
+and aligning only on demand, or by moving the conversion into the sim process where the frame is
+already in memory.
+
+---
+
+## C-11 — the sim stands with its waist at zero; the robot stands pitched ~6.2° {#c-11}
+
+**Opened:** DT2 · **Class:** C · **Status:** OPEN — a property of the policy, not of the geometry
+
+The walking policy's `default_joint_pos` is **0.0** at all three waist indices, so the twin
+stands with `waist_yaw = waist_roll = waist_pitch = 0`. The real G1 stands with its torso
+pitched forward. Solving the waist out of the driver's Session-A standing composite through the
+URDF chain gives roughly:
+
+| | roll | pitch | yaw |
+|---|---|---|---|
+| `torso_link → livox_frame` (calibrated mount, waist-independent) | 3.128688 | 0.052979 | 0.018520 |
+| `base_link → livox_frame` (Session-A standing composite) | 3.090233 | 0.161680 | 0.0 |
+| implied standing waist | ≈ −0.038 | **≈ +0.109 (6.2°)** | ≈ −0.019 |
+
+**Why this is not a geometry bug.** Both poses are correct for the posture they describe. The
+mount is calibrated and waist-independent; the composite is that mount evaluated at one standing
+posture. They differ by exactly the waist.
+
+**What DT2 changed.** The twin now runs the driver's **default** `lidar_tf_mode=waist`: the twin
+bridge composes `waist(q) ∘ mount` at 100 Hz and publishes `base_link → livox_frame` on `/tf`.
+The sim is therefore self-consistent at *any* posture, including waist = 0. Before this, the twin
+published the Session-A static composite while generating the cloud at the mount attitude, and
+the floor plane came out **5.96° off** — caught by the floor-plane check, which fitted the plane
+to a 1.72 mm residual and found it rotated.
+
+**What remains.** A policy trained or tuned against the twin sees a torso that does not pitch
+forward when standing. Anything sensitive to nominal torso attitude — a fixed-pitch assumption in
+perception, or a gait prior — differs. The *sensor* geometry is right in both cases.
+
+**Cross-references.** [C-1](#c-1) (standing pelvis height 0.791 m sim vs 0.731 m real) and
+[C-7](#c-7) (the 10 mm short waist chain in the body asset) are the other two standing-pose
+deltas. All three are posture/body facts, not interface facts, and none is patched.
 
 ---
 

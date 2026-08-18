@@ -161,10 +161,21 @@ tf_static:
   # published DYNAMICALLY by waist_tf_bridge as waist(q) x torso->livox. These numbers
   # are that composition evaluated at the standing pose, and DT2 must reproduce them to
   # <=1e-3 rad / <=2 mm as the waist round-trip check (doc/05-validation.md 11.2).
+  # DYNAMIC (/tf), not static. Resolved at DT2: the driver's DEFAULT lidar_tf_mode is
+  # the waist bridge, which composes waist(q) with the calibrated torso_link->livox_frame
+  # mount at 100 Hz. The static edge below is that composition evaluated at ONE posture --
+  # the robot standing at ~6.2 deg of waist pitch, which is what Session A captured.
+  # Our policy stands with the waist at 0, so publishing the static value there put the
+  # cloud 5.96 deg out from its own TF (floor-plane fit, 1.72 mm residual over 1884 pts).
+  # The twin therefore runs the driver's default mode. These xyz/rpy stay in the contract
+  # as the REFERENCE the round-trip must reproduce when the waist is at the robot's
+  # standing angle -- they are not what is published at rest.
   - parent: base_link
     child: livox_frame
     xyz: [0.0, 0.0, 0.4995]
     rpy: [3.090233, 0.161680, 0.0]   # +177.0573, +9.2636, 0 deg
+    dynamic: true
+    rate_hz: 100.0
     provenance: calibrated
     source: >-
       panthera-g1-driver/.../g1_driver_hw.launch.py:459-478 (lidar_x/y/z,

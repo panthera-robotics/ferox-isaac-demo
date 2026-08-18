@@ -125,6 +125,21 @@ echo "  ROBOT=$ROBOT   SIM_WORLD=${SIM_WORLD:-dso_block_a}   TWIN=${TWIN:-0}   C
 # that occurs when multiple Nav2 publishers (volatile + transient_local)
 # share a relayed topic with manual `ros2 topic pub` clients.
 SIM_CMD_VEL_TOPIC="/ferox/${ROBOT_ID}/cmd_vel"
+
+# TWIN RENDER STEP. Isaac rounds rendering_dt to a whole number of physics substeps
+# but get_rendering_dt() keeps reporting the value you asked for. With the default
+# --physics_dt 1/200, a requested 1/60 (0.016667) actually runs at 0.015 s = 66.67 Hz,
+# so decimating the lidar by round(60/10)=6 gave 11.11 Hz against a 10 Hz contract --
+# a miss that reads as sensor jitter and is really arithmetic.
+#
+# 0.02 s is EXACTLY four physics substeps: 50 Hz render, decimation 5, exactly 10 Hz
+# lidar. physics_dt is untouched, so the walking policy (200 Hz physics, decimation 4,
+# 50 Hz policy) is unaffected. Legacy mode:=sim keeps its old default.
+TWIN_RENDER_ARG=""
+if [ "${TWIN:-0}" = "1" ]; then
+  TWIN_RENDER_ARG="--render_dt ${TWIN_RENDER_DT:-0.02}"
+  echo "  twin render step: ${TWIN_RENDER_DT:-0.02}s (exact multiple of physics_dt)"
+fi
 # SIM_WORLD selects the environment USD (default dso_block_a); run.py reads it
 # from the env. docker exec does not inherit the host env, so pass it explicitly.
 docker exec -d \
@@ -139,6 +154,7 @@ docker exec -d \
     --cmd_vel_topic $SIM_CMD_VEL_TOPIC \
     --ros_namespace /ferox/${ROBOT_ID} \
     --no_keyboard \
+    $TWIN_RENDER_ARG \
     > /tmp/sim.log 2>&1
 "
 

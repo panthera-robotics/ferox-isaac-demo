@@ -63,6 +63,11 @@ def tf_static_edges(contract: Dict[str, Any], camera_tf: bool) -> List[Dict[str,
     """
     out = []
     for e in contract.get("tf_static", []):
+        # A dynamic edge belongs on /tf, published by the twin bridge's waist
+        # composition -- not here. Publishing it statically as well would give one
+        # edge two owners, which is baseline defect B-2 in a new costume.
+        if e.get("dynamic"):
+            continue
         if e.get("default_published") is False and not camera_tf:
             continue
         out.append(e)
