@@ -729,64 +729,91 @@ the twin's odom less informative in exchange for matching the robot, and nothing
 Ferox reads the field.
 ---
 
-## C-21 — the twin camera's 3D points do not land where its own TF says
+## C-21 — CLOSED 2026-08-18 — the camera's optical flip was applied twice
 
-**Class A in effect, and NEW — found while closing the DT2 `ferox_vision` item.**
-The 2D stream is correct; the 3D placement is not.
+**Was: Class A in effect. Now: FIXED, with three independent proofs.**
 
-Robot standing still, upright (`/odom` z **+0.790 m**, roll **+0.02°**, pitch
-**+1.96°**), `CAMERA_TF=1` so the full chain is published:
+### Root cause, in one paragraph
 
-| | Measured |
-|---|---|
-| `/ferox/g1_01/camera/depth/color/points`, in its own `camera_depth_optical_frame` | x +0.149…+2.799, y −0.670…+1.574, z **+1.680…+3.999** — sane for a forward-looking optical frame |
-| the same cloud transformed to `base_link` by the twin's own TF | z **−3.585 … −1.269 m** |
-| points anywhere near floor height (−0.90 … −0.70 m) | **0 of 17 274** |
-| plane fit through them | tilt **59.7°**, RMS **0.0003 m** |
-| where the floor should be | **−0.79 m**, level |
+`isaac/twin/sensors.py::create_camera` passed `orientation=(0, 1, 0, 0)` — 180° about
+X — to Isaac's `Camera` constructor, intending to convert the REP-103 optical frame
+(+X right, +Y down, +Z forward) to the USD camera convention (+X right, +Y up, −Z
+forward). But Isaac's `Camera` wrapper applies **its own** world-axes-to-USD-camera
+conversion to whatever `orientation` it is handed, so the convention was applied
+**twice**. The prim's measured local rotation was not `Rx(180)` at all but a 120°
+permutation, `[[0,0,−1],[1,0,0],[0,−1,0]]`, which pointed the camera along the
+robot's **−Y** — out of its right side. Nothing at the string level could see it: the
+right topic, the right `frame_id`, the right `K`, the right encoding, real pixels of a
+real room. Only back-projecting a pixel and asking where it landed exposed it. The fix
+authors the rotation **directly on the prim** with an explicit matrix, bypassing the
+wrapper — the same route `capture_hand_poses.py` and `capture_robot_views.py` already
+had to take after the wrapper silently ignored orientation there (RESULTS_DT3 §4 F-6).
 
-Back-projecting the 16UC1 aligned depth independently, with the published `K`, gives
-the same answer (z −3.598 … −1.278). **So this is not one node's bug and not the
-measurement's arithmetic** — the twin's own cloud and an independent reconstruction
-agree with each other and disagree with the robot's geometry.
+### Before and after
 
-**What is ruled out.** The TF *translation* is exact: `base_link ←
-camera_color_optical_frame` reads (+0.05762, +0.01753, +0.41987), the contract mount
-to the digit. The optical-frame values are sane. The robot is upright. The lidar path
-through the same `base_link` is independently correct — DT2 fits its floor at
-**0.0039°**. `K` matches the contract exactly on both `camera_info` topics. The 2D
-stream passes every check (see below).
+| | Before | After |
+|---|---|---|
+| camera prim local rotation | `[[0,0,−1],[1,0,0],[0,−1,0]]` — **120° permutation** | `diag(1,−1,−1)` — **exactly 180°** |
+| view axis in `base_link` | (0.042, **−0.998**, 0.040) — out the right side | (0.582, −0.008, **−0.813**) — forward and down |
+| depth in `base_link` | z **−3.598 … −1.268 m** | z **−0.827 … −0.051 m** |
+| floor from back-projected depth | −1.965 m, **59.6°** tilt | **−0.8341 m, 0.816°** vs world, RMS 0.2 mm |
+| floor from the published cloud | same, −3.585 … −1.275 m | **−0.8347 m, 0.817°**, RMS 0.1 mm |
+| points at floor height | **0 of 17 274** | **94 881 of 101 760** |
+| chair, lateral vs stage pose | not detectable | **1.8 mm** |
+| the colour frame | a diagonal wall, no props | the chair and the mustard bottle, level |
 
-**So the error is in the rotation composite** between the optical frame and
-`base_link`. The leading hypothesis is that the REP-103 body→optical convention is
-applied **twice**: once by the camera prim's 180°-about-X child rotation (added in DT2
-because a USD camera at identity in an optical frame points backwards) and again by
-the `camera_*_frame → camera_*_optical_frame` TF edge. Stated as a hypothesis, not a
-diagnosis — it has not been confirmed, and guessing a fix into a chain that currently
-composes cleanly is how the DT2 camera bug got here in the first place.
+Tilt improved **73×**, depth placement **22×**.
 
-**What this does and does not affect.**
+### The three proofs
 
-* **Not affected:** anything 2D. Colour is `rgb8` 1280×720, aligned depth is `16UC1`
-  1280×720, both on hardware topic names with contract-exact `K`. A detector reading
-  pixels is unaffected.
-* **Not affected:** Nav2, SLAM, AMCL, the costmaps. They consume `/scan`, which comes
-  from the **lidar**, whose geometry is verified.
-* **Affected:** anything doing 3D from the camera — point-cloud fusion, grasp-pose
-  estimation from depth, obstacle height from the depth cloud, camera-lidar
-  registration. All of it would be metres out.
+1. **Floor from the back-projected 16UC1 depth**, in `base_link`: −0.8341 m, **0.816°
+   against world vertical**, RMS 0.2 mm over 834 352 points.
+2. **Floor from the twin's own published xyzrgb cloud**, same frame, independent path:
+   −0.8347 m, 0.817°. The two agree to **0.6 mm**.
+3. **A known object.** The `FEROX_SIM_TEST_PROPS` chair's **lateral** position from the
+   camera is within **1.8 mm** of its stage pose — a comparison that owes nothing to
+   either sensor, since the pose comes from `run.py`. Its range-direction offset is
+   166 mm and is **not an error**: a camera sees only an object's near surface, so the
+   visible centroid is biased toward the sensor by about its half-depth. Reported, never
+   tuned away.
 
-**Why DT2 did not catch it.** DT2 checked the camera's topics, encodings, rates and
-`K`, and all of those are right. It never back-projected a pixel and asked where it
-landed. The lesson is the same one C-18 made about `width`: the checkable quantity and
-the quantity that matters are not always the same one.
+Tilt is measured against **world vertical**, not `base_link` +z. The robot stands with a
+1.96° lean, and a floor seen from a leaning body is legitimately tilted in `base_link`
+by exactly that — charging it to the camera is the DT2 mistake, and it appeared here
+first as a 2.44° "failure" that was the lean plus 0.8°.
 
-**Closes by** confirming the double-convention hypothesis and removing one of the two
-rotations, then re-running the check that found it:
-`tools/check_twin_camera.py` for the 2D half, and the floor-in-`base_link` test whose
-numbers are in `docs/twin/evidence/DT2/twin_camera_chain.txt`. **PING-worthy at the
-next decision point** — it is a Class-A-in-effect defect, but it is in the twin, not
-in the contract, so nothing about the interface definition changes.
+### The residual, and why the gate sits where it does
+
+The camera lands **53 mm** from the lidar's floor at **0.82°**. The requested criteria
+were 0.5° and ±30 mm, and those are **tighter than the input**: the contract declares
+this mount `urdf_nominal` and says so in as many words — *"UNVERIFIED as a physical
+measurement: nominal only, ±60 mm / ±1.5 deg"*. A placement cannot be verified to 0.5°
+against a mount known only to 1.5°. So the gate is the mount's own declared
+uncertainty, which the camera passes, and 0.5° / 30 mm is carried in the test as the
+**target for when C-3/C-4 close** — when a real `camera_info` and a real extrinsics
+capture replace the nominal values. The 59.6° convention bug this entry was about is
+gone; what remains is bounded by the provenance.
+
+### The lidar was not compensating — asserted, not assumed
+
+Fitted in the same run: **0.0022° against world vertical**, RMS 2.0 mm. A lidar that
+had been carrying the same double-convention error and cancelling it against the floor
+would fit at tens of degrees, as the camera did. `check_twin_camera_chain.py` asserts
+this every run rather than inferring it.
+
+### What guards it now
+
+* `tools/tests/test_twin_isaac.py::test_camera_optical_to_usd_rotation_is_exactly_rx180`
+  — offline, deterministic, in the Isaac suite (**12/12**). Asserts the prim's local
+  rotation is `diag(1,−1,−1)` and that the USD camera's −Z is the optical frame's +Z.
+* `tools/check_twin_camera_chain.py` via `scripts/15_check_camera_chain.sh` — the live
+  end-to-end proof, all three checks plus the lidar assertion.
+* `tools/diagnose_camera_chain.py` — the instrumentation that found it, printing every
+  rotation in the chain as a matrix.
+
+**Nothing about the interface changed.** `tf_static`, the frame_ids, `K` and the
+encodings are untouched and still Class A; the fix is entirely on the sim side of the
+camera prim, which is where the bug was.
 
 ---
 

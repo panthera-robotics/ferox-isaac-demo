@@ -276,6 +276,52 @@ def test_rubber_hand_caps_are_gone():
     assert not left, f"the Dex5 replaces the rubber caps, but they are still here: {left}"
 
 
+# --- C-21: the camera's optical-to-USD rotation ------------------------------
+# The root-cause guard. C-21 was Isaac's Camera wrapper applying its own
+# world-to-USD-camera conversion ON TOP of a hand-written 180-degree flip, so the
+# prim ended up with a 120-degree permutation and the camera pointed out of the
+# robot's right side. Every string-level check still passed. This asserts the
+# rotation itself, offline and deterministically, so the regression cannot return.
+def test_camera_optical_to_usd_rotation_is_exactly_rx180():
+    import numpy as np
+    from pxr import Usd, UsdGeom
+    import sensors as twin_sensors
+
+    contract = twin_contract_load("g1")
+    root = "/World/G1"
+    from isaacsim.core.utils.stage import add_reference_to_stage
+    from isaacsim.core.api import World
+    world = World(stage_units_in_meters=1.0)
+    add_reference_to_stage(
+        "/workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.usd", root)
+    world.reset()
+    cam, _ = twin_sensors.create_camera(contract, root)
+    stage = world.stage
+    cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    optical = (f"{root}/torso_link/camera_link/camera_color_frame"
+               f"/camera_color_optical_frame")
+
+    def R_of(path):
+        m = cache.GetLocalToWorldTransform(stage.GetPrimAtPath(path))
+        return np.array([[m[0][0], m[1][0], m[2][0]],
+                         [m[0][1], m[1][1], m[2][1]],
+                         [m[0][2], m[1][2], m[2][2]]])
+
+    R_child = R_of(optical).T @ R_of(f"{optical}/camera")
+    want = np.diag([1.0, -1.0, -1.0])          # Rx(180)
+    assert np.allclose(R_child, want, atol=1e-6), (
+        "camera prim local rotation is not Rx(180) -- C-21 regression. got\n"
+        f"{np.round(R_child, 6)}")
+    # The USD camera looks along its own -Z; that must be the optical frame's +Z.
+    view_in_optical = R_child @ np.array([0.0, 0.0, -1.0])
+    assert np.allclose(view_in_optical, [0.0, 0.0, 1.0], atol=1e-6), view_in_optical
+
+
+def twin_contract_load(robot):
+    import twin_contract
+    return twin_contract.load(f"{CONTRACTS}/{robot}_contract.yaml")
+
+
 def main():
     create_new_stage()
     define_prim("/World", "Xform")
@@ -293,6 +339,8 @@ def main():
     check("every hand joint is a dof", test_every_hand_joint_is_a_dof)
     check("hand mass and mount survive the merge", test_hand_mass_and_mount_survive_the_merge)
     check("rubber hand caps are gone", test_rubber_hand_caps_are_gone)
+    check("camera optical->USD rotation is exactly Rx(180)",
+          test_camera_optical_to_usd_rotation_is_exactly_rx180)
 
     out = open("/tmp/twin_isaac_tests.txt", "w")
     failed = 0

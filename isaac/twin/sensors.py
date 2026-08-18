@@ -140,6 +140,28 @@ def read_back_K(prim, width: int, height: int) -> Dict[str, float]:
     }
 
 
+# optical (+X right, +Y down, +Z fwd) -> USD camera (+X right, +Y up, -Z fwd).
+# Rx(180) = diag(1, -1, -1). Written as an explicit matrix because it IS the
+# convention, and because a quaternion routed through Isaac's Camera wrapper is what
+# produced C-21.
+_OPTICAL_TO_USD_CAMERA = ((1.0, 0.0, 0.0),
+                          (0.0, -1.0, 0.0),
+                          (0.0, 0.0, -1.0))
+
+
+def _author_optical_to_usd_camera(prim) -> None:
+    """Set the camera prim's LOCAL transform to Rx(180), on the prim itself."""
+    from pxr import Gf, UsdGeom
+
+    R = Gf.Matrix4d(1.0)
+    for i, row in enumerate(_OPTICAL_TO_USD_CAMERA):
+        for j, v in enumerate(row):
+            R[i, j] = v
+    x = UsdGeom.Xformable(prim)
+    x.ClearXformOpOrder()
+    x.AddTransformOp().Set(R)
+
+
 def create_camera(contract: Dict[str, Any], robot_root: str):  # noqa: C901
     """Create the D435i colour camera at the authored optical frame.
 
@@ -166,19 +188,31 @@ def create_camera(contract: Dict[str, Any], robot_root: str):  # noqa: C901
             "run scripts/08_build_twin_assets.sh and check the Sensor variant is 'Sensors'.")
 
     # The optical frame is an Xform carrying the REP-103 optical convention
-    # (+x right, +y down, +z forward). A USD camera looks along -Z with +Y up. So
-    # the camera prim is a child rotated 180 degrees about X: that maps ROS +Z
-    # forward onto USD -Z forward and ROS +y down onto USD +y up. Placing the
-    # camera at identity here instead would point it BACKWARDS -- and it would
-    # still publish happily on the right topic in the right frame, which is
-    # exactly the kind of wrong that survives every string-level check.
+    # (+x right, +y down, +z forward). A USD camera looks along -Z with +Y up, so the
+    # camera prim needs a local rotation of 180 degrees about X: that maps optical +Z
+    # forward onto USD -Z forward and optical +Y down onto USD +Y up.
+    #
+    # C-21: that rotation is authored DIRECTLY on the prim, not passed to the Camera
+    # constructor. Isaac's Camera wrapper applies its OWN world-axes-to-USD-camera
+    # conversion to whatever `orientation` it is given, so passing the 180 degrees
+    # here applied the convention TWICE. The measured result was not Rx(180) at all
+    # but a 120-degree permutation,
+    #     [[0, 0, -1], [1, 0, 0], [0, -1, 0]]
+    # which pointed the camera along the robot's -Y -- out of its right side. Every
+    # string-level check still passed: right topic, right frame_id, right K, right
+    # encoding, real pixels. Only back-projecting a pixel showed it, and that is why
+    # tools/check_twin_camera_chain.py now lives in the Isaac suite.
+    #
+    # The same wrapper unreliability is recorded in RESULTS_DT3 F-6, where
+    # Camera(orientation=...) and set_world_pose() both silently ignored orientation.
+    # Authoring the transform on the prim is the one route that behaves.
     path = f"{optical}/camera"
     cam = Camera(
         prim_path=path, name="d435i_color", resolution=(width, height),
         translation=np.array([0.0, 0.0, 0.0]),
-        orientation=np.array([0.0, 1.0, 0.0, 0.0]),  # wxyz: 180 deg about X
     )
     cam.initialize()
+    _author_optical_to_usd_camera(cam.prim)
     # MinZ from the datasheet; far clip past clip_distance so the converter, not
     # the renderer, is what enforces the contract's 4.0 m Z clip.
     cam.set_clipping_range(mp["min_z_m"], 100.0)

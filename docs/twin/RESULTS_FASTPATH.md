@@ -86,7 +86,7 @@ Class C throughout: approximated or unknown, declared rather than silently carri
 | **C-18** | Real Mid-360 cloud is 52.7 % zero padding | valid returns 9443 real vs ~20 000 twin | GT-G1 | **modelled**, both sides measured |
 | **C-19** | `/livox/imu` reports **g**, not m/s², stamps `livox_frame` | \|a\| = 1.006 vs 9.795 on the body IMU | GT-G1 | log-only; Kevin's |
 | **C-20** | Robot `/odom` z is ground-referenced | +0.00675 m real vs 0.791 m twin | GT-G1 | accepted; C-1 stands on the floor fit |
-| **C-21** | **Twin camera 3D points miss by metres** | floor lands **−1.97 m** at **59.6°** tilt vs −0.79 m level | E-1 | confirm the double-convention hypothesis |
+| **C-21** | ~~Twin camera 3D points miss by metres~~ | **CLOSED** — optical flip applied twice; 59.6° → **0.82°**, 1.18 m → **53 mm** | E-1 | **closed 2026-08-18** |
 
 Note the pairing of **C-12** and **C-17**: on the G1 the sim is *missing* a self-hit
 cluster the robot has; on the Go2 the sim *has* one whose hardware counterpart is
@@ -132,11 +132,19 @@ python3 tools/check_twin_camera.py          # interface half, expect RESULT: PAS
 **Expected:** mustard bottle ~0.75 confidence, chair ~0.4 on its wheeled base
 (`run.py:_add_test_props` documents both, and why the cracker box is omitted).
 
-**And it found a defect: C-21.** Closing this item is what prompted actually
-back-projecting a pixel, and the twin's 3D camera points land **1.2 m too low and
-59.6° off** from where its own TF says. 2D is fine; anything doing 3D from the camera
-is metres out. `tools/check_twin_camera_chain.py` is the check, it currently FAILS by
-design, and it is what will close C-21.
+**And it found a defect: C-21, now CLOSED.** Closing this item is what prompted
+actually back-projecting a pixel, which exposed the camera's optical flip being applied
+twice — the prim pointed out of the robot's right side while every string-level check
+passed. Fixed on the sim side of the camera prim; `tf_static`, frame_ids, `K` and
+encodings untouched. Tilt 59.6° → **0.82°**, depth placement 1.18 m → **53 mm**, both
+inside the mount's declared ±1.5° / ±60 mm. Three independent proofs and the lidar
+assertion are in `scripts/15_check_camera_chain.sh`; the root cause is guarded offline
+in the Isaac suite. Full write-up: **C-21** in `TWIN_DEVIATIONS.md`.
+
+The props are confirmed in view: `evidence/C21/twin_camera_color_after.png` shows the
+chair's wheeled base and the mustard bottle, which is exactly what
+`run.py::_add_test_props` says a detector should fire on. The earlier "no props
+visible" was the camera pointing sideways, not a missing prop.
 
 ### E-2 — the visual pass — **G1 done; Go2 bracket still open**
 

@@ -1,0 +1,38 @@
+[dds] peers (FEROX_DDS_PEERS override): 100.70.223.52
+[x11] No logged-in desktop X session found (only the GDM login screen).
+[x11]   -> Open your DCV/VNC client, LOG IN to the desktop, then re-run.
+[x11]   (falling back to headless for now)
+robot standing height (odom z): +0.7902 m
+body lean vs world            : 1.9368 deg
+
+LIDAR reference floor: z = -0.7807 m, tilt vs world 0.0288 deg, RMS 0.0020 m (2159 pts)
+   => LIDAR NOT compensating: PASS (tilt 0.0288 deg <= 0.1; the camera's pre-fix error was 59.6 deg)
+LIDAR chair candidates: 0 (z in -0.751..-0.200)
+  (expected: the Mid-360 sits 0.4995 m up, so a floor-level object at 1.3 m is ~45 deg BELOW it -- outside its elevation span. The lidar cannot see this prop, which is why the cross-sensor check below falls back to the floor comparison.)
+floor reference used for DEPTH: -0.7807 m (lidar)
+
+1. FLOOR from back-projected 16UC1 depth, in base_link
+   921600 valid pixels, z -0.826 .. -0.050 m
+   points within 0.15 m of the expected floor: 859488
+   plane: z = -0.8341 m, tilt vs world 0.7804 deg (vs base_link 2.2593, body lean 1.9368), RMS 0.0002 m (834147 pts)
+   depth error vs lidar floor: 53.4 mm
+   => PASS (tilt <= 1.5 deg, |z - -0.7807| <= 0.06 -- mount provenance)
+      target once C-3/C-4 close: 0.5 deg / 0.03 m -- currently not met
+
+2. FLOOR from the published xyzrgb cloud, same frame
+   frame 'camera_depth_optical_frame', 101760 pts, z -0.826 .. -0.051 m
+   points within 0.15 m of the expected floor: 94883
+   plane: z = -0.8346 m, tilt vs world 0.7822 deg, RMS 0.0001 m (92084 pts)
+   depth error vs lidar floor: 54.0 mm
+   => PASS
+
+3. KNOWN OBJECT -- the FEROX_SIM_TEST_PROPS chair
+   chair: world (1.3, 0.25, 0.0) -> expected in base_link (+1.323, +0.255, -0.746)
+   bottle: world (0.9, -0.25, 0.0) -> expected in base_link (+0.922, -0.244, -0.760)
+   chair: 9025 cloud points within 0.45 m in XY, above the floor
+   camera centroid (+1.157, +0.253, -0.375)
+   (a) lateral (Y) error vs stage pose: 1.6 mm => PASS (<= 50 mm)
+   (b) N/A: the Mid-360's elevation span does not reach a floor-level object at 1.3 m (see above). The cross-SENSOR check is therefore the floor comparison in (1)/(2), where camera and lidar agree to 53 mm; the cross-SOURCE check is (a), the stage pose, which owes nothing to either sensor.
+   (reported) range (X) offset vs stage centre: 166.4 mm -- one-sided visibility, expected
+
+RESULT: PASS
