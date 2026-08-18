@@ -83,6 +83,10 @@ Class C throughout: approximated or unknown, declared rather than silently carri
 | **C-15** | Go2 `/odom` 100 Hz, not 148.7 Hz | 200/148.7 = 1.345 ⇒ 2-step limiter ⇒ 100.0 Hz | DT5 | a rate source independent of physics steps |
 | **C-16** | Go2 `/utlidar/imu` 200 Hz, not 250 Hz | 250 Hz is **above** the 200 Hz physics rate | DT5 | raising `physics_dt` for the Go2 only |
 | **C-17** | Go2 Mid-360 sees the robot's own nose; `/scan` keeps it | 134 pts at 0.100–0.152 m sensor / 0.272–0.332 m base_link ⇒ 13–14 rays at 0.300–0.313 m | DT5 | **OQ-5.1** decides sim-side or real |
+| **C-18** | Real Mid-360 cloud is 52.7 % zero padding | valid returns 9443 real vs ~20 000 twin | GT-G1 | **modelled**, both sides measured |
+| **C-19** | `/livox/imu` reports **g**, not m/s², stamps `livox_frame` | \|a\| = 1.006 vs 9.795 on the body IMU | GT-G1 | log-only; Kevin's |
+| **C-20** | Robot `/odom` z is ground-referenced | +0.00675 m real vs 0.791 m twin | GT-G1 | accepted; C-1 stands on the floor fit |
+| **C-21** | **Twin camera 3D points miss by metres** | floor lands **−1.97 m** at **59.6°** tilt vs −0.79 m level | E-1 | confirm the double-convention hypothesis |
 
 Note the pairing of **C-12** and **C-17**: on the G1 the sim is *missing* a self-hit
 cluster the robot has; on the Go2 the sim *has* one whose hardware counterpart is
@@ -95,40 +99,78 @@ unverified. Same physical question, opposite signs, and one capture answers both
 Both are deliberate carry-overs, not oversights. Each is scoped and can be done
 independently of the robot.
 
-### E-1 — `ferox_vision` against the twin camera *(from DT2)*
+### E-1 — `ferox_vision` against the twin camera — **half done, and it found C-21**
 
-Not run. The twin publishes colour, raw depth, aligned depth and an xyzrgb cloud with
-hardware names, frames and QoS, so `ferox_vision` should attach unmodified; what is
-missing is the evidence that it does, and a detection count against the sim's props.
+**Interface half: PASS.** `tools/check_twin_camera.py`, evidence in
+`evidence/DT2/twin_camera_check.txt`:
+
+| topic | result |
+|---|---|
+| `camera/color/image_raw` | **`rgb8`**, 1280×720, step 3840, 19.95 Hz — PASS |
+| `camera/aligned_depth_to_color/image_raw` | **`16UC1`**, 1280×720, step 2560, 3.96 Hz — PASS |
+| both `camera_info` | **K = [908, 0, 640, 0, 908, 360, 0, 0, 1]** exact, `plumb_bob`, `camera_color_optical_frame` — PASS |
+| `camera/depth/color/points` | 17 050 pts, `point_step` 16, fields `[x, y, z, rgb]` — PASS |
+
+So a consumer's *subscriptions* are satisfied bit-for-bit: the encodings, sizes, steps
+and intrinsics are the hardware ones. Aligned depth at 3.96 Hz is well under C-10's
+already-relaxed floor, because this run carries the hands and a heavier world — noted,
+not a new deviation.
+
+**Detection half: CANNOT RUN HERE.** There is no `ferox_vision` image on this box
+(`docker images` has only `ferox/nav`, `ferox/msgs`, `isaac-sim`), no detector runtime
+in the nav image (no torch, no onnxruntime, no TensorRT) and no rtdetr weights
+anywhere. Nothing was stubbed in to make a number appear. When the image is available:
 
 ```bash
-ROBOT=g1 TWIN=1 SIM_WORLD=dso_block_a FEROX_SIM_TEST_PROPS=1 ./scripts/01_start_sim.sh
+ROBOT=g1 TWIN=1 HAND=dex5_1p SIM_WORLD=dso_block_a \
+  FEROX_SIM_TEST_PROPS=1 CAMERA_TF=1 ./scripts/01_start_sim.sh
 ROBOT=g1 MODE=twin ./scripts/02_start_ferox.sh
-# then bring up ferox_vision against /ferox/g1_01/camera/color/image_raw
+python3 tools/check_twin_camera.py          # interface half, expect RESULT: PASS
+# then bring ferox_vision up against /ferox/g1_01/camera/color/image_raw
 ```
 
-**Expected:** detections on the spawned COCO props at ≥5 Hz, and `camera_info` K matching
-the contract to 1 %. **Blocks nothing** — it is a transfer check, not an interface one.
+**Expected:** mustard bottle ~0.75 confidence, chair ~0.4 on its wheeled base
+(`run.py:_add_test_props` documents both, and why the cracker box is omitted).
 
-### E-2 — the visual pass, including the Go2's Mid-360 puck and bracket *(DT2 + OQ-5.4)*
+**And it found a defect: C-21.** Closing this item is what prompted actually
+back-projecting a pixel, and the twin's 3D camera points land **1.2 m too low and
+59.6° off** from where its own TF says. 2D is fine; anything doing 3D from the camera
+is metres out. `tools/check_twin_camera_chain.py` is the check, it currently FAILS by
+design, and it is what will close C-21.
 
-The Go2's sensor frames are authored and verified (5/5, exact) but there is **no
-geometry** on them: no Mid-360 puck, no mount bracket. The G1's hidden-puck work and the
-4-angle render pass are likewise not done.
+### E-2 — the visual pass — **G1 done; Go2 bracket still open**
 
-The blocker is environmental, not technical: this VM has no logged-in desktop X session,
-so Isaac falls back to headless and the GUI viewport renders empty — the DT2
-`twin_viewport_hospital.png` is a screenshot of an empty viewport, which is why it proves
-nothing. Offscreen rendering **does** work; `tools/capture_hand_poses.py` is a worked
-example, including the five separate ways a frame can come back blank
-(RESULTS_DT3 §4 F-6).
+**Four PNGs delivered** (`scripts/14_capture_views.sh`, `tools/capture_robot_views.py`):
+
+| PNG | Shows |
+|---|---|
+| `evidence/DT2/g1_twin_front.png` | full body, head shell, Unitree livery, **both Dex5 hands attached and open** |
+| `evidence/DT2/g1_twin_side.png` | profile, head shell, wrist flange, leg chain |
+| `evidence/DT2/g1_twin_top.png` | from above — **no puck visible on the G1**, which is correct: its Mid-360 is internal |
+| `evidence/DT2/g1_twin_tf_tree.png` | the live TF tree with per-edge rates |
+
+Plus the camera's own view: `twin_camera_color.png` (real `dso_block_a` pixels through
+the twin D435i) and `twin_camera_depth.png`.
+
+**On the TF image: it is `tf2_tools view_frames`, not an RViz screenshot.** RViz needs a
+logged-in desktop X session and this box has none — Isaac falls back to headless and any
+GUI viewport renders empty, which is exactly what DT2's `twin_viewport_hospital.png`
+turned out to be. The `view_frames` graph is arguably the better artefact anyway: it
+shows the whole tree *and* every edge's rate, so `base_link → livox_frame` at
+**50.46 Hz** (Option A's dynamic waist edge) and `map → odom` at 10.48 Hz from SLAM are
+both visible as numbers rather than as a picture of some axes.
+
+Two framing iterations were needed and are recorded in the tool: at 2.6 m Isaac's
+default pinhole cropped both head and feet, and aiming below eye level tilted the frame
+and clipped the head. A crop is not a blank frame, so the std check cannot catch it —
+the geometry has to be set from the robot's extent.
+
+**Still open:** the Go2's Mid-360 puck and mount bracket (**OQ-5.4**). Its frames are
+authored and verified 5/5 exact, but they carry no geometry.
 
 ```bash
-./scripts/13_capture_hands.sh    # the offscreen-render pattern that works
+./scripts/14_capture_views.sh     # the G1 views
 ```
-
-**Expected:** four PNGs of the hand. Extending that to a 4-angle robot pass and to Go2
-bracket geometry is the remaining work.
 
 ---
 

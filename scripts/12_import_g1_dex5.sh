@@ -46,3 +46,12 @@ docker exec "$SIM_CONTAINER" cat /tmp/g1_dex5_import.txt
 rm -rf "$DEMO_DIR/isaac/assets/g1_dex5"
 docker cp "$SIM_CONTAINER:/tmp/g1_dex5_usd" "$DEMO_DIR/isaac/assets/g1_dex5" >/dev/null
 echo "  installed isaac/assets/g1_dex5 ($(du -sh "$DEMO_DIR/isaac/assets/g1_dex5" | cut -f1))"
+
+# The import above rm -rf's the asset directory, which DESTROYS the twin sensor layer
+# that 08_build_twin_assets.sh authored into it. Rebuilding it here rather than
+# leaving it to be remembered: the failure otherwise surfaces only at sim boot, as
+# "frame 'livox_frame' is not in the stage", several minutes and one world load after
+# the mistake was made.
+echo ""
+echo "Rebuilding the twin sensor layer into the fresh asset..."
+"$DEMO_DIR/scripts/08_build_twin_assets.sh" g1_dex5

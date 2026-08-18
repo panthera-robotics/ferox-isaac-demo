@@ -727,6 +727,66 @@ of its evidence is withdrawn.
 **Would close by** the twin publishing ground-referenced z. Deliberately open: it makes
 the twin's odom less informative in exchange for matching the robot, and nothing in
 Ferox reads the field.
+---
+
+## C-21 — the twin camera's 3D points do not land where its own TF says
+
+**Class A in effect, and NEW — found while closing the DT2 `ferox_vision` item.**
+The 2D stream is correct; the 3D placement is not.
+
+Robot standing still, upright (`/odom` z **+0.790 m**, roll **+0.02°**, pitch
+**+1.96°**), `CAMERA_TF=1` so the full chain is published:
+
+| | Measured |
+|---|---|
+| `/ferox/g1_01/camera/depth/color/points`, in its own `camera_depth_optical_frame` | x +0.149…+2.799, y −0.670…+1.574, z **+1.680…+3.999** — sane for a forward-looking optical frame |
+| the same cloud transformed to `base_link` by the twin's own TF | z **−3.585 … −1.269 m** |
+| points anywhere near floor height (−0.90 … −0.70 m) | **0 of 17 274** |
+| plane fit through them | tilt **59.7°**, RMS **0.0003 m** |
+| where the floor should be | **−0.79 m**, level |
+
+Back-projecting the 16UC1 aligned depth independently, with the published `K`, gives
+the same answer (z −3.598 … −1.278). **So this is not one node's bug and not the
+measurement's arithmetic** — the twin's own cloud and an independent reconstruction
+agree with each other and disagree with the robot's geometry.
+
+**What is ruled out.** The TF *translation* is exact: `base_link ←
+camera_color_optical_frame` reads (+0.05762, +0.01753, +0.41987), the contract mount
+to the digit. The optical-frame values are sane. The robot is upright. The lidar path
+through the same `base_link` is independently correct — DT2 fits its floor at
+**0.0039°**. `K` matches the contract exactly on both `camera_info` topics. The 2D
+stream passes every check (see below).
+
+**So the error is in the rotation composite** between the optical frame and
+`base_link`. The leading hypothesis is that the REP-103 body→optical convention is
+applied **twice**: once by the camera prim's 180°-about-X child rotation (added in DT2
+because a USD camera at identity in an optical frame points backwards) and again by
+the `camera_*_frame → camera_*_optical_frame` TF edge. Stated as a hypothesis, not a
+diagnosis — it has not been confirmed, and guessing a fix into a chain that currently
+composes cleanly is how the DT2 camera bug got here in the first place.
+
+**What this does and does not affect.**
+
+* **Not affected:** anything 2D. Colour is `rgb8` 1280×720, aligned depth is `16UC1`
+  1280×720, both on hardware topic names with contract-exact `K`. A detector reading
+  pixels is unaffected.
+* **Not affected:** Nav2, SLAM, AMCL, the costmaps. They consume `/scan`, which comes
+  from the **lidar**, whose geometry is verified.
+* **Affected:** anything doing 3D from the camera — point-cloud fusion, grasp-pose
+  estimation from depth, obstacle height from the depth cloud, camera-lidar
+  registration. All of it would be metres out.
+
+**Why DT2 did not catch it.** DT2 checked the camera's topics, encodings, rates and
+`K`, and all of those are right. It never back-projected a pixel and asked where it
+landed. The lesson is the same one C-18 made about `width`: the checkable quantity and
+the quantity that matters are not always the same one.
+
+**Closes by** confirming the double-convention hypothesis and removing one of the two
+rotations, then re-running the check that found it:
+`tools/check_twin_camera.py` for the 2D half, and the floor-in-`base_link` test whose
+numbers are in `docs/twin/evidence/DT2/twin_camera_chain.txt`. **PING-worthy at the
+next decision point** — it is a Class-A-in-effect defect, but it is in the twin, not
+in the contract, so nothing about the interface definition changes.
 
 ---
 
