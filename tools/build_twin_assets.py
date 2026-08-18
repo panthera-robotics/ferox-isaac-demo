@@ -65,12 +65,17 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics  # noqa: E402
 
 SENSOR_LAYERS = {
     "g1": "assets/g1/usd/configuration/g1_29dof_rev_1_0_sensor.usd",
+    "g1_dex5": "assets/g1_dex5/configuration/g1_dex5_1p_sensor.usd",
     "go2": "assets/go2/usd/configuration/go2_description_sensor.usd",
 }
+# The merged G1+Dex5 asset is a different FILE but the same ROBOT: same base frame,
+# same link names, same sensor mounts. It reads the G1 contract rather than a copy,
+# so the two assets cannot drift apart in the one place that would matter.
+CONTRACT_FOR = {"g1_dex5": "g1"}
 # The robot's base frame is this USD prim. On the G1 the ROS base_link IS the
 # pelvis -- the driver relabels /state_estimator/odom_pelvis's child -- so a
 # sensor whose contract parent_link is base_link is authored under pelvis.
-BASE_PRIM = {"g1": "pelvis", "go2": "base"}
+BASE_PRIM = {"g1": "pelvis", "g1_dex5": "pelvis", "go2": "base"}
 
 
 def _frames_from_contract(contract):
@@ -118,7 +123,8 @@ def _out_path(robot: str) -> str:
 
 
 def build(robot: str) -> str:
-    contract = twin_contract.load(os.path.join(ISAAC_ROOT, "twin", f"{robot}_contract.yaml"))
+    contract = twin_contract.load(os.path.join(
+        ISAAC_ROOT, "twin", f"{CONTRACT_FOR.get(robot, robot)}_contract.yaml"))
     stub = os.path.join(ISAAC_ROOT, SENSOR_LAYERS[robot])
     if not os.path.exists(stub):
         raise SystemExit(f"sensor layer stub missing: {stub}")
@@ -219,7 +225,8 @@ def verify(robot: str) -> None:
 
     Rule 7: a generated artifact is not trusted because it was generated.
     """
-    contract = twin_contract.load(os.path.join(ISAAC_ROOT, "twin", f"{robot}_contract.yaml"))
+    contract = twin_contract.load(os.path.join(
+        ISAAC_ROOT, "twin", f"{CONTRACT_FOR.get(robot, robot)}_contract.yaml"))
     out = _out_path(robot)
     stage = Usd.Stage.Open(out)
     # Compare against the pose actually authored: for a redirected sensor frame
@@ -265,157 +272,15 @@ def verify(robot: str) -> None:
 
 # ---------------------------------------------------------------- hands
 #
-# Mount offsets. Campaign section 8 Q3: Unitree does not publish a Dex5 adapter
-# transform, so the DEFAULT is the Dex3 flange offset from g1_29dof_with_hand,
-# flagged `assumed`. Verbatim from that URDF:
-#     left_hand_palm_joint   origin xyz="0.0415  0.003 0" rpy="0 0 0"
-#     right_hand_palm_joint  origin xyz="0.0415 -0.003 0" rpy="0 0 0"
-# The y offset is MIRRORED, which is why both are written out rather than one
-# being derived from the other.
-HAND_FLANGE = {
-    "left":  {"parent": "left_wrist_yaw_link",  "xyz": (0.0415, 0.003, 0.0)},
-    "right": {"parent": "right_wrist_yaw_link", "xyz": (0.0415, -0.003, 0.0)},
-}
-# The hand USD's own root link, from Unitree's URDF. Note the LEFT file suffixes it
-# and the RIGHT file does not -- an upstream naming inconsistency, not a typo here.
-HAND_PALM_LINK = {"left": "base_link00L", "right": "base_link00"}
-HAND_VARIANTS = {
-    # variant name -> {side: path relative to ISAAC_ROOT}. Kept anchored at the repo
-    # root, NOT relative to the layer: the layer is authored in a staging dir and
-    # installed into usd/configuration/, so a path written relative to "where the
-    # layer is" resolves against the wrong directory in one of those two places.
-    # _hand_ref() converts to a layer-relative path against the INSTALL location.
-    "dex5_1p": {"left": "assets/hands/dex5_1p/dex5_1p_l.usd",
-                "right": "assets/hands/dex5_1p/dex5_1p_r.usd"},
-}
-
-
-def _hand_ref(variant: str, side: str, install_dir: str) -> str:
-    """Layer-relative reference to a hand asset, verified to resolve.
-
-    USD resolves a relative reference against the layer that AUTHORS it. Returning
-    a path here without checking it is how the hand silently composes to an empty
-    Xform: the mount transform is still exact, the flange joint is still there, and
-    only the mass and joint count betray that nothing arrived.
-    """
-    target = os.path.join(ISAAC_ROOT, HAND_VARIANTS[variant][side])
-    if not os.path.exists(target):
-        raise SystemExit(f"hand asset missing: {target}  (run scripts/11_import_dex5.sh)")
-    rel = os.path.relpath(target, install_dir)
-    if not os.path.exists(os.path.normpath(os.path.join(install_dir, rel))):
-        raise SystemExit(f"hand reference {rel!r} does not resolve from {install_dir}")
-    return rel
-
-
-def build_hands(robot: str, variant: str = "dex5_1p"):
-    """Author the hand layer and add a `Hand` variant set to the robot's stub.
-
-    Mirrors the asset's existing Physics/Sensor pattern exactly: a payload per
-    variant, plus a `None` variant that carries nothing. `None` is what DT4's
-    `hand=none` selects and what keeps the bare-wristed robot reproducible.
-
-    The hand is REFERENCED, never merged. Unitree's file stays the single source of
-    the geometry, masses and limits, so re-importing it cannot silently diverge from
-    what is mounted.
-    """
-    if variant not in HAND_VARIANTS:
-        raise SystemExit(f"unknown hand variant {variant!r}; known: {sorted(HAND_VARIANTS)}")
-    usd_dir = os.path.dirname(os.path.join(ISAAC_ROOT, SENSOR_LAYERS[robot]))
-    usd_dir = os.path.dirname(usd_dir)                      # .../usd
-    stub = os.path.join(usd_dir, f"{robot}.usd")
-    layer_name = f"{os.path.basename(SENSOR_LAYERS[robot])}".replace(
-        "_sensor.usd", f"_hands_{variant}.usd")
-
-    staged = os.environ.get("TWIN_ASSET_OUT_DIR")
-    install_dir = os.path.join(usd_dir, "configuration")
-    layer_path = os.path.join(staged or install_dir, layer_name)
-    stub_out = os.path.join(staged, f"{robot}.usd") if staged else stub
-
-    # --- the hand layer -----------------------------------------------------
-    # Author FRESH, never open-and-edit. USD list-ops append: re-running an
-    # open-and-edit build left the previous (broken) reference in place alongside
-    # the new one, and the composed result kept resolving to the stale path. This
-    # layer is 100% generated, so regenerating it is always the correct semantics.
-    if os.path.exists(layer_path):
-        os.remove(layer_path)
-    hl = Usd.Stage.CreateNew(layer_path)
-    # Hold the stage. Usd.Stage.Open(...).GetDefaultPrim() frees the stage as soon
-    # as the temporary goes out of scope, and the prim expires with it -- the error
-    # is "Accessed invalid expired prim", several lines from the real cause.
-    stub_stage = Usd.Stage.Open(stub)
-    default_name = stub_stage.GetDefaultPrim().GetName()
-    root = hl.OverridePrim(f"/{default_name}")
-    hl.SetDefaultPrim(root)
-    for side, spec in HAND_FLANGE.items():
-        parent = hl.OverridePrim(f"/{default_name}/{spec['parent']}")
-        node = hl.DefinePrim(f"{parent.GetPath()}/{variant}_{side}", "Xform")
-        node.GetReferences().SetReferences([Sdf.Reference(_hand_ref(variant, side, install_dir))])
-        x = UsdGeom.Xformable(node)
-        x.ClearXformOpOrder()
-        x.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble).Set(Gf.Vec3d(*spec["xyz"]))
-        # A reference alone does not ATTACH the hand -- it places a separate
-        # articulation next to the wrist, and PhysX drops it on the floor the moment
-        # the sim steps. The flange is a fixed joint in the URDF
-        # (left_hand_palm_joint, type="fixed"), so it is a fixed joint here.
-        palm = f"{node.GetPath()}/{HAND_PALM_LINK[side]}"
-        jpath = f"/{default_name}/joints/{variant}_{side}_flange"
-        joint = UsdPhysics.FixedJoint.Define(hl, jpath)
-        joint.CreateBody0Rel().SetTargets([f"/{default_name}/{spec['parent']}"])
-        joint.CreateBody1Rel().SetTargets([palm])
-        # localPos0 carries the flange offset; the hand's own root sits at identity
-        # in its frame, so localPos1 is zero.
-        joint.CreateLocalPos0Attr().Set(Gf.Vec3f(*spec["xyz"]))
-        joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
-        joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
-        joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
-        # Each imported hand carries its OWN ArticulationRootAPI, because it was
-        # imported as a standalone robot. PhysX honours that: it builds three
-        # articulations (pelvis + two palms) and the flange joint above becomes a
-        # link BETWEEN articulations, not a link within one. The stage still shows
-        # all 40 finger joints and the correct 2.003615 kg -- but the G1's
-        # articulation reports 29 DOF, so nothing can command a finger. Deleting
-        # the API on the palms is what merges the fingers into the G1's own
-        # articulation, which is the whole point of mounting them.
-        palm_over = hl.OverridePrim(palm)
-        palm_over.RemoveAPI(UsdPhysics.ArticulationRootAPI)
-        for schema in ("PhysxArticulationAPI",):
-            palm_over.RemoveAppliedSchema(schema)
-        node.SetCustomDataByKey("twin:provenance", "assumed")
-        node.SetCustomDataByKey(
-            "twin:source",
-            "Dex3 flange offset from unitree_ros g1_29dof_with_hand_rev_1_0.urdf "
-            f"({spec['parent']} -> {side}_hand_palm_link). Unitree publishes no Dex5 "
-            "adapter transform; campaign section 8 Q3 default, flagged assumed.")
-    hl.GetRootLayer().Save()
-
-    # --- the variant set on the stub ---------------------------------------
-    if stub_out != stub:
-        import shutil
-        shutil.copyfile(stub, stub_out)
-    st = Usd.Stage.Open(stub_out)
-    prim = st.GetDefaultPrim()
-    vsets = prim.GetVariantSets()
-    vs = vsets.AddVariantSet("Hand")
-    for name in ("None", variant):
-        if name not in vs.GetVariantNames():
-            vs.AddVariant(name)
-    vs.SetVariantSelection(variant)
-    with vs.GetVariantEditContext():
-        prim.GetPayloads().AddPayload(f"configuration/{layer_name}")
-    vs.SetVariantSelection(variant)
-    st.GetRootLayer().Save()
-    return layer_path, stub_out, vs.GetVariantNames()
-
+# There is no hand code here any more. Mounting a hand by USD reference and a
+# PhysicsFixedJoint composes a stage that passes every geometric check and still
+# cannot move a finger: PhysX builds its articulation from one robot description,
+# so the referenced hand joins the scene as a maximal-coordinate rigid body and
+# the articulation stays at 29 DOF. The hands are merged into the URDF instead --
+# see tools/merge_dex5_urdf.py, which records what was tried and why it failed.
 
 def main() -> int:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    if "--hands" in sys.argv:
-        robot = args[0] if args else "g1"
-        variant = args[1] if len(args) > 1 else "dex5_1p"
-        layer, stub, names = build_hands(robot, variant)
-        print(f"{robot}: hand layer {layer}")
-        print(f"{robot}: stub {stub}  Hand variants {names}")
-        return 0
     robots = args or ["g1"]
     for robot in robots:
         if robot not in SENSOR_LAYERS:

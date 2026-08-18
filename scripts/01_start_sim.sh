@@ -119,7 +119,7 @@ docker exec "$SIM_CONTAINER" sh -c "echo $ROBOT > /tmp/sim_robot_type"
 
 echo ""
 echo "[4/4] Launching run.py inside Isaac Sim (boot ~60 sec)..."
-echo "  ROBOT=$ROBOT   SIM_WORLD=${SIM_WORLD:-dso_block_a}   TWIN=${TWIN:-0}   CAMERA_TF=${CAMERA_TF:-0}"
+echo "  ROBOT=$ROBOT   SIM_WORLD=${SIM_WORLD:-dso_block_a}   TWIN=${TWIN:-0}   CAMERA_TF=${CAMERA_TF:-0}   HAND=${HAND:-none}"
 # Subscribe directly to /ferox/<robot_id>/cmd_vel — matches what Nav2
 # publishes inside its namespace, no relay needed. Avoids the QoS war
 # that occurs when multiple Nav2 publishers (volatile + transient_local)
@@ -147,6 +147,7 @@ docker exec -d \
   -e SIM_WORLD="${SIM_WORLD:-dso_block_a}" \
   -e TWIN="${TWIN:-0}" \
   -e CAMERA_TF="${CAMERA_TF:-0}" \
+  -e HAND="${HAND:-none}" \
   "$SIM_CONTAINER" bash -c "
   cd /workspace/ferox_isaac && \
   /isaac-sim/python.sh run.py \

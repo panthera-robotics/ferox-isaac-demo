@@ -162,6 +162,22 @@ def _resolve_usd_path(env_cfg: dict, robot_type: str = ROBOT_GO2) -> str:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
     if robot_type == ROBOT_G1:
+        # HAND=dex5_1p selects the merged G1+Dex5 asset. It is a SEPARATE asset, not a
+        # variant on the bare one, because the hands have to be present at URDF import
+        # time to end up in the same PhysX articulation -- see tools/merge_dex5_urdf.py.
+        # HAND=none (the default) keeps the bare-wristed robot every earlier gate ran
+        # against, so a hand problem can always be bisected against it.
+        hand = os.environ.get("HAND", "none").strip().lower()
+        if hand not in ("none", "dex5_1p"):
+            raise SystemExit(f"HAND={hand!r} unknown; expected 'none' or 'dex5_1p'")
+        if hand == "dex5_1p":
+            hand_usd = os.path.join(script_dir, "assets", "g1_dex5", "g1_dex5_1p.usd")
+            if not os.path.isfile(hand_usd):
+                raise SystemExit(f"HAND=dex5_1p but {hand_usd} is missing; run "
+                                 "./scripts/12_import_g1_dex5.sh")
+            logger.info("Using merged G1+Dex5-1P USD model: %s", hand_usd)
+            return hand_usd
+
         # First priority: check for local G1 assets directory
         local_usd_path = os.path.join(script_dir, "assets", "g1", "usd", "g1.usd")
         if os.path.isfile(local_usd_path):

@@ -145,82 +145,135 @@ def test_camera_intrinsics_solve_from_contract_K():
           f"VFOV {got['vfov_deg']:.2f} deg")
 
 
-# --- hand mount (DT3) -------------------------------------------------------
-# These four are drift tripwires for the composed asset, not for the importer.
-# Every one of them was a real failure during DT3: the reference resolved one
-# directory too shallow (mass 0, joints 0) while the mount transform and the
-# flange joint both still looked perfect. Composition is the thing that has to
-# be asserted -- authoring it correctly is not evidence that it arrived.
-HAND_STUB = "/workspace/ferox_isaac/assets/g1/usd/g1.usd"
-EXPECT_HAND_MASS = 1.025045 + 0.978570      # L + R, from the URDFs
-EXPECT_HAND_JOINTS = 40                     # 2 x 20 revolute
-EXPECT_BODY_JOINTS = 29
+# --- merged G1+Dex5 asset (DT3) ---------------------------------------------
+# Drift tripwires for the MERGED asset. The four numbers below are the ones that
+# were green on the USD-composition attempt that could not move a finger -- joint
+# count, mass, mount offset, limits -- plus the one that was not: DOF. Only the
+# articulation DOF count proves the hands are part of the robot, so it leads.
+HAND_STUB = "/workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.usd"
+EXPECT_DOF = 69                      # 29 body + 2 x 20 hand
+EXPECT_BODIES = 79
+EXPECT_TOTAL_MASS = 35.004757        # 33.001142 body (rubber caps removed) + hands
+EXPECT_HAND_MASS = 1.025045 + 0.978570
 HAND_MOUNT = {
-    "left":  ("left_wrist_yaw_link",  (0.0415, 0.003, 0.0)),
-    "right": ("right_wrist_yaw_link", (0.0415, -0.003, 0.0)),
+    "left":  ("left_hand_palm_joint",  "left_wrist_yaw_link",  "base_link00L",
+              (0.0415, 0.003, 0.0)),
+    "right": ("right_hand_palm_joint", "right_wrist_yaw_link", "base_link00",
+              (0.0415, -0.003, 0.0)),
 }
+# The flange offset is checked on the JOINT, where it is authored, not by composing
+# world transforms down the chain. USD stores xform ops as float32 and the palm sits
+# ~10 links from the root, so the composed route accumulates ~8 um -- real, harmless,
+# and enough to fail a micron-level assertion for a reason that has nothing to do
+# with the mount. CHAIN_TOL is what the composed cross-check is allowed.
+CHAIN_TOL = 5e-5
+# The pre-hand body DOF order. The walk policy indexes these, so the merge is only
+# safe while this list is reproduced exactly.
+BODY_DOF_ORDER = [
+    "left_hip_pitch_joint", "right_hip_pitch_joint", "waist_yaw_joint",
+    "left_hip_roll_joint", "right_hip_roll_joint", "waist_roll_joint",
+    "left_hip_yaw_joint", "right_hip_yaw_joint", "waist_pitch_joint",
+    "left_knee_joint", "right_knee_joint", "left_shoulder_pitch_joint",
+    "right_shoulder_pitch_joint", "left_ankle_pitch_joint", "right_ankle_pitch_joint",
+    "left_shoulder_roll_joint", "right_shoulder_roll_joint", "left_ankle_roll_joint",
+    "right_ankle_roll_joint", "left_shoulder_yaw_joint", "right_shoulder_yaw_joint",
+    "left_elbow_joint", "right_elbow_joint", "left_wrist_roll_joint",
+    "right_wrist_roll_joint", "left_wrist_pitch_joint", "right_wrist_pitch_joint",
+    "left_wrist_yaw_joint", "right_wrist_yaw_joint",
+]
+
+_ART = {}
 
 
-def _hand_stage():
+def _articulation():
+    """One physics-enabled load of the merged asset, shared by the tests below."""
+    if "art" not in _ART:
+        from isaacsim.core.api import World
+        from isaacsim.core.utils.stage import add_reference_to_stage
+        from isaacsim.core.prims import Articulation
+        world = World(stage_units_in_meters=1.0)
+        world.scene.add_default_ground_plane()
+        add_reference_to_stage(HAND_STUB, "/World/g1_dex5")
+        world.reset()
+        art = Articulation("/World/g1_dex5")
+        art.initialize()
+        _ART["art"] = art
+        _ART["world"] = world
+    return _ART["art"]
+
+
+def test_merged_asset_is_one_articulation_of_69_dof():
+    art = _articulation()
+    assert len(art.dof_names) == EXPECT_DOF, \
+        f"{len(art.dof_names)} DOF, expected {EXPECT_DOF} -- the hands are in the " \
+        "stage but not in the articulation"
+    assert len(art.body_names) == EXPECT_BODIES, \
+        f"{len(art.body_names)} bodies, expected {EXPECT_BODIES}"
+
+
+def test_body_dof_order_unchanged_by_the_merge():
+    got = list(_articulation().dof_names)[:29]
+    assert got == BODY_DOF_ORDER, \
+        f"body DOF order changed: first difference at " \
+        f"{next(i for i, (a, b) in enumerate(zip(got, BODY_DOF_ORDER)) if a != b)}"
+
+
+def test_every_hand_joint_is_a_dof():
+    import xml.etree.ElementTree as ET
+    names = set(_articulation().dof_names)
+    for side, path in (("L", "/tmp/dex5_urdf/Dex5-URDF-L/Dex5-URDF-L.urdf"),
+                       ("R", "/tmp/dex5_urdf/Dex5-URDF-R/Dex5-URDF-R.urdf")):
+        if not os.path.exists(path):
+            continue                     # URDFs are staged only by the import script
+        root = ET.parse(path).getroot()
+        want = [j.get("name") for j in root.findall("joint")
+                if j.get("type") in ("revolute", "continuous")]
+        missing = [n for n in want if n not in names]
+        assert not missing, f"{side}: {missing} absent from the articulation"
+
+
+def test_hand_mass_and_mount_survive_the_merge():
+    from pxr import Usd, UsdGeom, UsdPhysics
+    st = Usd.Stage.Open(HAND_STUB)
+    root = st.GetDefaultPrim()
+    assert root.GetName() == "g1_29dof_rev_1_0", \
+        f"default prim {root.GetName()!r} -- the sensor layer overrides " \
+        "/g1_29dof_rev_1_0/... and would stop composing"
+    total = 0.0
+    for prim in st.Traverse():
+        if prim.HasAPI(UsdPhysics.MassAPI):
+            m = UsdPhysics.MassAPI(prim).GetMassAttr().Get()
+            if m:
+                total += float(m)
+    assert abs(total - EXPECT_TOTAL_MASS) < 1e-4, \
+        f"total mass {total:.6f} != {EXPECT_TOTAL_MASS:.6f}"
+    joints = {p.GetName(): p for p in st.Traverse()
+              if p.IsA(UsdPhysics.FixedJoint)}
+    cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    for side, (jname, parent, palm, want) in HAND_MOUNT.items():
+        jp = joints.get(jname)
+        assert jp is not None, f"{side}: fixed joint {jname} missing"
+        pos = UsdPhysics.FixedJoint(jp).GetLocalPos0Attr().Get()
+        for i, axis in enumerate("xyz"):
+            assert abs(pos[i] - want[i]) < 1e-6, \
+                f"{side} {axis} on {jname}: {pos[i]:.6f} != {want[i]:.6f}"
+        # Cross-check through the composed chain, at float32 tolerance.
+        pp = st.GetPrimAtPath(f"/{root.GetName()}/{parent}")
+        cp = st.GetPrimAtPath(f"/{root.GetName()}/{palm}")
+        assert cp and cp.IsValid(), f"{side}: palm link {palm} missing"
+        rel = (cache.GetLocalToWorldTransform(cp)
+               * cache.GetLocalToWorldTransform(pp).GetInverse()).ExtractTranslation()
+        for i, axis in enumerate("xyz"):
+            assert abs(rel[i] - want[i]) < CHAIN_TOL, \
+                f"{side} {axis} composed: {rel[i]:.6f} != {want[i]:.6f} " \
+                f"(tol {CHAIN_TOL})"
+
+
+def test_rubber_hand_caps_are_gone():
     from pxr import Usd
     st = Usd.Stage.Open(HAND_STUB)
-    vs = st.GetDefaultPrim().GetVariantSets()
-    assert "Hand" in vs.GetNames(), f"no Hand variant set: {vs.GetNames()}"
-    assert vs.GetVariantSet("Hand").GetVariantSelection() == "dex5_1p"
-    return st
-
-
-def test_hand_variant_set_offers_none():
-    st = _hand_stage()
-    names = st.GetDefaultPrim().GetVariantSets().GetVariantSet("Hand").GetVariantNames()
-    assert sorted(names) == ["None", "dex5_1p"], names
-
-
-def test_hand_composes_with_mass_and_joints():
-    from pxr import UsdPhysics
-    st = _hand_stage()
-    body = hand = 0
-    mass = 0.0
-    for prim in st.Traverse():
-        is_hand = "dex5_1p_" in str(prim.GetPath())
-        if prim.IsA(UsdPhysics.RevoluteJoint):
-            hand, body = (hand + 1, body) if is_hand else (hand, body + 1)
-        if is_hand and prim.HasAPI(UsdPhysics.MassAPI):
-            m = UsdPhysics.MassAPI(prim).GetMassAttr().Get()
-            mass += float(m or 0.0)
-    assert hand == EXPECT_HAND_JOINTS, f"hand joints {hand} != {EXPECT_HAND_JOINTS}"
-    assert body == EXPECT_BODY_JOINTS, f"body joints {body} != {EXPECT_BODY_JOINTS}"
-    assert abs(mass - EXPECT_HAND_MASS) < 1e-4, f"hand mass {mass} != {EXPECT_HAND_MASS}"
-
-
-def test_hand_flange_is_a_fixed_joint():
-    from pxr import UsdPhysics
-    st = _hand_stage()
-    found = {}
-    for prim in st.Traverse():
-        if prim.IsA(UsdPhysics.FixedJoint) and "flange" in prim.GetName():
-            j = UsdPhysics.FixedJoint(prim)
-            found[prim.GetName()] = (j.GetBody0Rel().GetTargets(),
-                                     j.GetBody1Rel().GetTargets())
-    assert len(found) == 2, f"expected 2 flange joints, got {sorted(found)}"
-    for name, (b0, b1) in found.items():
-        assert b0 and b1, f"{name} has an unset body relationship: {b0} {b1}"
-
-
-def test_hand_mount_offsets_match_urdf():
-    from pxr import Usd, UsdGeom
-    st = _hand_stage()
-    cache = UsdGeom.XformCache(Usd.TimeCode.Default())
-    root = st.GetDefaultPrim().GetName()
-    for side, (parent, want) in HAND_MOUNT.items():
-        prim = st.GetPrimAtPath(f"/{root}/{parent}/dex5_1p_{side}")
-        assert prim and prim.IsValid(), f"{side} hand prim missing"
-        rel = (cache.GetLocalToWorldTransform(prim)
-               * cache.GetLocalToWorldTransform(
-                   st.GetPrimAtPath(f"/{root}/{parent}")).GetInverse()).ExtractTranslation()
-        for i, axis in enumerate("xyz"):
-            assert abs(rel[i] - want[i]) < 1e-6, \
-                f"{side} {axis}: {rel[i]:.6f} != {want[i]:.6f}"
+    left = [str(p.GetPath()) for p in st.Traverse() if "rubber_hand" in p.GetName()]
+    assert not left, f"the Dex5 replaces the rubber caps, but they are still here: {left}"
 
 
 def main():
@@ -234,10 +287,12 @@ def main():
     check("mid360 g1 elevation span", lambda: test_elevation_span_matches_datasheet("g1"))
     check("unknown lidar config never silently accepted", test_unknown_config_is_never_silently_accepted)
     check("camera intrinsics solve from contract K", test_camera_intrinsics_solve_from_contract_K)
-    check("hand variant set offers None", test_hand_variant_set_offers_none)
-    check("hand composes with mass and joints", test_hand_composes_with_mass_and_joints)
-    check("hand flange is a fixed joint", test_hand_flange_is_a_fixed_joint)
-    check("hand mount offsets match urdf", test_hand_mount_offsets_match_urdf)
+    check("merged asset is one articulation of 69 dof",
+          test_merged_asset_is_one_articulation_of_69_dof)
+    check("body dof order unchanged by the merge", test_body_dof_order_unchanged_by_the_merge)
+    check("every hand joint is a dof", test_every_hand_joint_is_a_dof)
+    check("hand mass and mount survive the merge", test_hand_mass_and_mount_survive_the_merge)
+    check("rubber hand caps are gone", test_rubber_hand_caps_are_gone)
 
     out = open("/tmp/twin_isaac_tests.txt", "w")
     failed = 0
