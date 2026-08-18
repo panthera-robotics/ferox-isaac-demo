@@ -85,6 +85,29 @@ both sides. Anything else is a regression.
 
 ---
 
+## twin_progress_20260818.mp4 — progress montage
+
+| | |
+|---|---|
+| **sha256** | `ce387ea7d11b3ed020d9a20bdec61c65ff99e020764c63028f16c185d546ff93` |
+| **size** | 6 491 813 bytes (6.19 MiB) |
+| **format** | 1920x1080, 30 fps, 93 s, H.264 (`avc1`) |
+| **built** | 2026-08-18, offscreen — no GUI, no ffmpeg on the box |
+| **contents** | 10 clips, DT0-DT5 + fastpath + gt-g1 + persist |
+| **notes** | [`media/README.md`](media/README.md) — one line per clip, and the two substitutions |
+
+Committed in the repo at `docs/twin/media/` as well as attached to this release, since
+6 MB is small enough to keep in git and a montage that only exists on a release is one
+`git clone` away from being lost.
+
+```bash
+curl -fL -o twin_progress_20260818.mp4 \
+  https://github.com/panthera-robotics/ferox-isaac-demo/releases/download/twin-gt-g1/twin_progress_20260818.mp4
+echo "ce387ea7d11b3ed020d9a20bdec61c65ff99e020764c63028f16c185d546ff93  twin_progress_20260818.mp4" | sha256sum -c -
+```
+
+---
+
 ## Pending — Go2 ground truth
 
 Not captured yet. When it lands, extract to `~/panthera/ref/captures/go2/`, upload to
