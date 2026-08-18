@@ -1,0 +1,43 @@
+### DT1 hygiene fix: the sim no longer publishes a static map->odom
+### slam_toolbox is the sole writer of map->odom.
+
+--- publishers of /tf ---
+    /_OdomActionGraph_TF
+    /ferox/g1_01/slam_toolbox
+    /ferox/g1_01/slam_toolbox
+
+--- publishers of /tf_static ---
+    /ferox/g1_01/sim_base_to_velodyne_tf
+    /ferox/g1_01/sim_base_to_base_link_tf
+    /_StaticTFGraph_TF2
+    /_StaticTFGraph_TF5
+    /_StaticTFGraph_TF0
+    /_StaticTFGraph_TF1
+    /_StaticTFGraph_TF3
+    /_StaticTFGraph_TF4
+    /_StaticTFGraph_TF6
+    /_StaticTFGraph_TF7
+    /_StaticTFGraph_TF8
+    /_StaticTFGraph_TF9
+    /ferox/g1_01/sim_lidar_to_laser_tf
+
+--- edges carried on each topic (12 s observation) ---
+  /tf_static: 12 edges
+      base                   -> camera_link
+      base                   -> imu_link
+      base                   -> lidar_l1_link
+      base                   -> velodyne_base_link
+      base_link              -> base
+      base_link              -> camera_optical
+      base_link              -> realsense_depth_camera
+      base_link              -> velodyne_base_link
+      camera_link            -> realsense_depth_camera
+      camera_link            -> realsense_rgb_camera
+      lidar_l1_link          -> laser
+      velodyne_base_link     -> laser
+  /tf (dynamic):
+      map                    -> odom            601 msgs
+      odom                   -> base_link       341 msgs
+
+  map->odom on /tf_static : False   <-- REQUIRED False
+  map->odom on /tf        : True   <-- REQUIRED True (slam_toolbox)

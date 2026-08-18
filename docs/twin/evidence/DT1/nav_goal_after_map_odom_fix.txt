@@ -1,0 +1,6 @@
+distance_remaining: 0.37071067094802856
+
+Result:
+    result: {}
+
+Goal finished with status: SUCCEEDED

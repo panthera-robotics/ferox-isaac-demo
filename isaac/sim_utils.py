@@ -608,7 +608,14 @@ def setup_static_tfs(simulation_app) -> None:
             [0.3, 0.0, 0.1],
             optical_quat_from_tilt(CAMERA_TILT_DEG),
         ),
-        ("map", "odom", [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]),
+        # NO map -> odom HERE. That edge belongs to whoever localises: in every
+        # configuration we ship, slam_toolbox owns it and publishes it
+        # dynamically as the pose graph corrects. The sim used to also publish a
+        # STATIC identity map -> odom, which gave one TF edge two owners —
+        # last-writer-wins between a frozen identity and SLAM's live correction,
+        # so consumers silently disagreed about where the robot was. Removed in
+        # DT1 (twin campaign). If a future stage genuinely needs a map frame
+        # without SLAM, publish it from that stage, not from the sensor layer.
     ]
 
     create_nodes = [

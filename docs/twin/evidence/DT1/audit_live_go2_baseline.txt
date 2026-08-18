@@ -1,0 +1,78 @@
+[dds] peers (FEROX_DDS_PEERS override): 100.70.223.52
+[x11] No logged-in desktop X session found (only the GDM login screen).
+[x11]   -> Open your DCV/VNC client, LOG IN to the desktop, then re-run.
+[x11]   (falling back to headless for now)
+Auditing ROBOT=go2 against isaac/twin/go2_contract.yaml ...
+
+twin_audit  contract=isaac/twin/go2_contract.yaml
+            source=live ROS 2 graph
+
+CLS STATUS CHECK                      SUBJECT                                EXPECTED -> ACTUAL
+---------------------------------------------------------------------------------------------------------------------------------------
+A   PASS   topic/present              /scan                                  published  ->  published
+A   PASS   topic/type                 /scan                                  sensor_msgs/msg/LaserScan  ->  sensor_msgs/msg/LaserScan
+A   FAIL   topic/frame_id             /scan                                  base_link  ->  laser
+B   FAIL   topic/rate                 /scan                                  20.0 Hz +-10%  ->  4.25 Hz
+A   PASS   topic/present              /odom                                  published  ->  published
+A   PASS   topic/type                 /odom                                  nav_msgs/msg/Odometry  ->  nav_msgs/msg/Odometry
+A   PASS   topic/frame_id             /odom                                  odom  ->  odom
+A   PASS   topic/qos                  /odom                                  reliable  ->  reliable
+B   FAIL   topic/rate                 /odom                                  148.7 Hz +-10%  ->  25.73 Hz
+A   FAIL   topic/present              /unitree/slam_lidar/points             published  ->  ABSENT
+B   FAIL   topic/present              /mid360/points_accum                   published  ->  ABSENT
+B   FAIL   topic/present              /utlidar/imu                           published  ->  ABSENT
+C   SKIP   topic/subscribe            /ferox/go2_01/cmd_vel                  accepted by sim  ->  no publisher seen
+                                      note: input topic -- presence depends on the commanding side
+C   FAIL   topic/present              /ferox/go2_01/driver_heartbeat         published  ->  ABSENT
+A   FAIL   tf_static/edge             base_link -> livox_frame               present  ->  MISSING
+A   FAIL   tf_static/edge             base_link -> robot_center              present  ->  MISSING
+A   FAIL   tf_static/edge             base_link -> utlidar_imu               present  ->  MISSING
+A   FAIL   tf_static/edge             base_link -> utlidar_lidar             present  ->  MISSING
+A   FAIL   tf_static/edge             livox_frame -> livox_imu               present  ->  MISSING
+A   FAIL   tf_static/extra            base -> camera_link                    not in contract  ->  PUBLISHED ANYWAY
+                                      note: an edge the robot does not publish
+A   FAIL   tf_static/extra            base -> imu_link                       not in contract  ->  PUBLISHED ANYWAY
+                                      note: an edge the robot does not publish
+A   FAIL   tf_static/extra            base -> lidar_l1_link                  not in contract  ->  PUBLISHED ANYWAY
+                                      note: an edge the robot does not publish
+A   FAIL   tf_static/extra            base -> velodyne_base_link             not in contract  ->  PUBLISHED ANYWAY
+                                      note: an edge the robot does not publish
+A   FAIL   tf_static/extra            base_link -> base                      not in contract  ->  PUBLISHED ANYWAY
+                                      note: an edge the robot does not publish
+A   FAIL   tf_static/extra            base_link -> camera_optical            not in contract  ->  PUBLISHED ANYWAY
+                                      note: an edge the robot does not publish
+A   FAIL   tf_static/extra            base_link -> realsense_depth_camera    not in contract  ->  PUBLISHED ANYWAY
+                                      note: an edge the robot does not publish
+A   FAIL   tf_static/extra            camera_link -> realsense_depth_camera  not in contract  ->  PUBLISHED ANYWAY
+                                      note: an edge the robot does not publish
+A   FAIL   tf_static/extra            camera_link -> realsense_rgb_camera    not in contract  ->  PUBLISHED ANYWAY
+                                      note: an edge the robot does not publish
+A   FAIL   tf_static/extra            velodyne_base_link -> laser            not in contract  ->  PUBLISHED ANYWAY
+                                      note: an edge the robot does not publish
+A   FAIL   laserscan/ray_count        /scan                                  723  ->  3200
+A   PASS   laserscan/angle_min        /scan                                  -3.14159  ->  -3.14159
+A   FAIL   laserscan/angle_max        /scan                                  3.14159  ->  3.13963
+A   FAIL   laserscan/angle_increment  /scan                                  0.0087  ->  0.0019635
+B   PASS   laserscan/scan_time        /scan                                  0.1  ->  0.1
+A   FAIL   laserscan/range_min        /scan                                  0.3  ->  0.05
+A   FAIL   laserscan/range_max        /scan                                  6  ->  30
+B   FAIL   laserscan/in_range         /scan                                  >=99% of finite returns  ->  88.8%
+C   SKIP   laserscan/below_range_min  /scan                                  reported (self-hit fraction)  ->  11.16%
+C   SKIP   provenance/assumed         sensor livox_imu pose                  calibrated or datasheet  ->  assumed
+                                      note: go2_driver_hw.launch.py:395-405, hardcoded identity. The launch comment states it plainly: "identity by assumption (Mid-360 internal IMU colocated with the optical frame)" and "the live Mid-360 IMU messages carry an EMPTY frame_id, so nothing consumes livox_imu via TF today; this edge exists for tree completeness. Revisit only if LIO is added, using the Livox datasheet offset." NOTE the asymmetry with the G1, where this same edge IS the datasheet offset (0.011, 0.02329, -0.04412).
+C   SKIP   provenance/assumed         sensor utlidar_l1 pose                 calibrated or datasheet  ->  assumed
+                                      note: go2_driver_hw.launch.py:299-301 (lidar_x/y/z), published at :332-358. The launch comment flags the hidden assumption: "rotation is identity here, but the physical L1 is pitched DOWN (community URDFs suggest ~2.87 rad; UNVERIFIED). The lidar_x/y/z are config placeholders marked 'MEASURE' and are likewise unverified." OFF the /scan critical path -- the L1 was retired from /scan.
+C   SKIP   provenance/assumed         sensor utlidar_imu pose                calibrated or datasheet  ->  assumed
+                                      note: go2_driver_hw.launch.py:302-306 (utlidar_imu_x/y/z, SEPARATE args from lidar_*, defaults intentionally equal), published at :367-375. Unlike the L1 lidar edge this one is UNGATED.
+C   SKIP   provenance/assumed         tf livox_frame->livox_imu              calibrated  ->  assumed
+                                      note: go2_driver_hw.launch.py:395-405, hardcoded identity by assumption. Ungated.
+C   SKIP   provenance/assumed         tf base_link->utlidar_lidar            calibrated  ->  assumed
+                                      note: go2_driver_hw.launch.py:299-301 (args), :332-358 (node), :359-366 (guard log)
+C   SKIP   provenance/assumed         tf base_link->utlidar_imu              calibrated  ->  assumed
+                                      note: go2_driver_hw.launch.py:302-306 (args), :367-375 (node). UNGATED.
+
+[source note] /ferox/go2_01/cmd_vel: declared in graph but has no publisher
+
+summary: 8 pass, 22 Class-A FAIL, 6 Class-B fail, 8 skipped, 44 checks
+
+RESULT: NON-CONFORMANT -- 22 Class-A difference(s) from the contract.

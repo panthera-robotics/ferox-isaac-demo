@@ -1,0 +1,323 @@
+# ============================================================================
+# GO2 TWIN CONTRACT — what the sim must publish for the sim to BE the robot.
+#
+# See g1_contract.yaml for the provenance vocabulary and the rules. Same law here:
+# if the sim disagrees with this file the SIM is wrong; if this file disagrees with
+# panthera-go2-driver, the DRIVER wins and this file is the bug.
+#
+# READ THIS FIRST — THE GO2 IS NOT NAMESPACED LIKE THE G1.
+#   go2_driver_hw.launch.py:5-6 says, verbatim: "No namespace push here."
+#   The Go2's sensor topics live at the ROOT: /scan and /odom. Only the control and
+#   observability topics are namespaced (/ferox/go2_01/cmd_vel, driver_heartbeat,
+#   clock_offset). The G1 is the opposite: its sensor topics ARE namespaced.
+#   This is not an inconsistency to clean up -- Ferox depends on it in both directions:
+#     Ferox go2_nav2.yaml:43-47  "GLOBAL /scan (leading slash). A relative 'scan'
+#                                 resolves to /ferox/<robot_id>/scan, which nobody
+#                                 publishes -> AMCL silently starves."
+#     Ferox g1_nav2.yaml:19-27   "Copying /scan or /odom across from the Go2 file is
+#                                 the mistake this header prevents."
+#   A namespaced variant exists (go2_driver_fleet.launch.py) but it is explicitly
+#   incomplete -- its own header (:18-25) says it OMITS the static TFs, and it still
+#   points p2l at the RETIRED /utlidar/cloud_deskewed. It is not the deployed interface.
+#
+#   The campaign brief section 3 lists /ferox/go2_01/scan, /ferox/go2_01/odom and
+#   /ferox/go2_01/imu/data for the Go2. Per campaign rule "the file wins", all three
+#   are corrected here. /ferox/go2_01/imu/data does not exist at all: there is no IMU
+#   republisher in the package.
+# ============================================================================
+
+schema_version: 1
+
+robot:
+  type: go2
+  id: go2_01
+  # Control-plane namespace only. Sensor topics are ROOT -- see the header.
+  namespace: /ferox/go2_01
+  base_frame: base_link
+  odom_frame: odom
+  description: >-
+    Unitree Go2 EDU with a Livox Mid-360 on the top mount (sidecar SDK stream), the
+    built-in L1 4D lidar retired from the /scan path, and no ROS-published camera.
+
+sensors:
+  - name: livox_mid360
+    model: Livox Mid-360
+    parent_link: base_link
+    pose:
+      xyz: [0.187, 0.0, 0.0803]
+      rpy: [0.0, 0.2249, 0.0]   # +12.886 deg pitch about +y
+      provenance: datasheet
+      source: >-
+        panthera-go2-driver/src/panthera_go2_driver/launch/go2_driver_hw.launch.py:308-317
+        (livox_x/livox_y/livox_z/livox_pitch defaults), published at :377-394.
+        From the Unitree SLAM docs, with the IMU frame == base_link decision.
+    model_params:
+      azimuth_deg: [-180.0, 180.0]
+      elevation_deg: [-7.0, 52.0]
+      range_m: [0.1, 40.0]
+      # NOTE: 20 Hz on the Go2, not the Mid-360's default 10. The sidecar is launched
+      # with publish_freq:=20.0; measured 19.8 Hz in bag replay, 19.912 Hz live.
+      scan_rate_hz: 20.0
+      points_per_second: 200000
+      range_accuracy_m: 0.02
+      provenance: configured
+      source: go2_driver_hw.launch.py (publish_freq:=20.0); measured 19.8-19.912 Hz
+    notes: >-
+      Raw sensor-frame cloud: NOT deskewed and NOT self-filtered. It contains the
+      robot's own head from ~0.15 m out, which is why p2l range_min is 0.30. Range
+      starvation is real: <1% of returns land beyond 6 m, p95 ~4.5 m -- which is why
+      range_max was lowered 12.0 -> 6.0.
+
+  - name: livox_imu
+    model: Mid-360 internal IMU
+    parent_link: livox_frame
+    pose:
+      xyz: [0.0, 0.0, 0.0]
+      rpy: [0.0, 0.0, 0.0]
+      provenance: assumed
+      source: >-
+        go2_driver_hw.launch.py:395-405, hardcoded identity. The launch comment states
+        it plainly: "identity by assumption (Mid-360 internal IMU colocated with the
+        optical frame)" and "the live Mid-360 IMU messages carry an EMPTY frame_id, so
+        nothing consumes livox_imu via TF today; this edge exists for tree completeness.
+        Revisit only if LIO is added, using the Livox datasheet offset."
+        NOTE the asymmetry with the G1, where this same edge IS the datasheet offset
+        (0.011, 0.02329, -0.04412).
+
+  - name: utlidar_l1
+    model: Unitree L1 4D lidar (built in)
+    parent_link: base_link
+    pose:
+      xyz: [0.28, 0.0, 0.075]
+      rpy: [0.0, 0.0, 0.0]
+      provenance: assumed
+      source: >-
+        go2_driver_hw.launch.py:299-301 (lidar_x/y/z), published at :332-358.
+        The launch comment flags the hidden assumption: "rotation is identity here, but
+        the physical L1 is pitched DOWN (community URDFs suggest ~2.87 rad; UNVERIFIED).
+        The lidar_x/y/z are config placeholders marked 'MEASURE' and are likewise
+        unverified." OFF the /scan critical path -- the L1 was retired from /scan.
+
+  - name: utlidar_imu
+    model: L1 IMU
+    parent_link: base_link
+    pose:
+      xyz: [0.28, 0.0, 0.075]
+      rpy: [0.0, 0.0, 0.0]
+      provenance: assumed
+      source: >-
+        go2_driver_hw.launch.py:302-306 (utlidar_imu_x/y/z, SEPARATE args from lidar_*,
+        defaults intentionally equal), published at :367-375. Unlike the L1 lidar edge
+        this one is UNGATED.
+
+# Front camera: the Go2 has a 1280x720 ~120 deg HFOV wide-angle camera in the head, but
+# panthera-go2-driver does NOT publish it to ROS -- Unitree streams it out of band. The
+# twin therefore publishes no camera topic by default.
+#
+# D435i: not mounted per this repo. Campaign open question 4; default taken is the
+# `camera: none` variant. If one is fitted, its pose is unknown and must be measured.
+variants:
+  camera: none          # none | d435i_dock (pose TODO, needs measurement)
+  lidar: mid360_top
+
+# ---------------------------------------------------------------------------
+# TF STATIC — 5 edges, two of them gated. The campaign brief listed only the first
+# three; base_link->utlidar_imu and base_link->robot_center are real and must be
+# reproduced or the tree differs from the robot's.
+# ---------------------------------------------------------------------------
+tf_static:
+  - parent: base_link
+    child: livox_frame
+    xyz: [0.187, 0.0, 0.0803]
+    rpy: [0.0, 0.2249, 0.0]
+    provenance: datasheet
+    source: go2_driver_hw.launch.py:308-317 (args), :377-394 (node base_to_livox). Ungated.
+
+  - parent: livox_frame
+    child: livox_imu
+    xyz: [0.0, 0.0, 0.0]
+    rpy: [0.0, 0.0, 0.0]
+    provenance: assumed
+    source: go2_driver_hw.launch.py:395-405, hardcoded identity by assumption. Ungated.
+
+  - parent: base_link
+    child: utlidar_lidar
+    xyz: [0.28, 0.0, 0.075]
+    rpy: [0.0, 0.0, 0.0]
+    provenance: assumed
+    conditional: >-
+      GATED: IfCondition("<lidar_frame> != 'livox_frame'"). Suppressed when
+      lidar_frame == livox_frame, with a companion LogInfo (a silent skip would look
+      like a missing TF). Published under the default lidar_frame='utlidar_lidar'.
+    source: go2_driver_hw.launch.py:299-301 (args), :332-358 (node), :359-366 (guard log)
+
+  - parent: base_link
+    child: utlidar_imu
+    xyz: [0.28, 0.0, 0.075]
+    rpy: [0.0, 0.0, 0.0]
+    provenance: assumed
+    source: go2_driver_hw.launch.py:302-306 (args), :367-375 (node). UNGATED.
+
+  - parent: base_link
+    child: robot_center
+    xyz: [0.0, 0.0, 0.0]
+    rpy: [0.0, 0.0, 0.0]
+    provenance: configured
+    conditional: >-
+      GATED on publish_robot_center_alias, default_value='true' -- ON by default.
+    source: >-
+      go2_driver_hw.launch.py:318-322 (arg), :406-418 (node base_to_robot_center).
+      "The Unitree SLAM service stamps its output in robot_center; this zero-offset edge
+      grafts that data onto the tree. Phase-0 confirmed NOTHING else parents
+      robot_center, so this cannot double-parent."
+
+# ---------------------------------------------------------------------------
+# pointcloud_to_laserscan — Class A, exact.
+# ---------------------------------------------------------------------------
+pointcloud_to_laserscan:
+  target_frame: base_link
+  transform_tolerance: 0.1
+  min_height: -0.20       # rejects the floor (floor sits at ~-0.30 m in base_link) + 10 cm margin
+  max_height: 0.50
+  # NOTE: truncated pi, NOT math.pi. The G1 uses -math.pi/+math.pi exactly. Both yield
+  # 723 rays after p2l's ceil((angle_max-angle_min)/angle_increment), but the contract
+  # records what the file says, not what is tidy.
+  angle_min: -3.14159
+  angle_max: 3.14159
+  angle_increment: 0.0087
+  scan_time: 0.1
+  range_min: 0.30         # rejects the robot's own head, present from ~0.15 m out
+  range_max: 6.0          # MATCHED PAIR with AMCL laser_max_range in Ferox go2_nav2.yaml
+  use_inf: true
+  queue_size: 5
+  provenance: configured
+  source: >-
+    go2_driver_hw.launch.py:155-180 (node params), presets at :64-68
+    (scan_min_height -0.20, scan_range_min 0.30), scan_max_height default at :286 (0.50).
+    The SAME min_height MUST be used at map time and localisation time -- AMCL localises
+    against the map's scan geometry, so a slice mismatch silently degrades the match.
+    cloud_in is REFUSED for any /utlidar/* topic: those are stamped in non-Jetson clock
+    domains and every Jetson-time consumer would silently drop the resulting /scan.
+
+topics:
+  - name: /scan
+    type: sensor_msgs/msg/LaserScan
+    direction: publish
+    frame_id: base_link
+    rate_hz: 20.0
+    qos: {}
+    parity_class: A
+    provenance: configured
+    source: >-
+      go2_driver_hw.launch.py:160 (remappings scan -> '/scan'). ROOT namespace, not
+      /ferox/go2_01/scan. QoS is the pointcloud_to_laserscan default and is NOT set by
+      the driver, so it is left unasserted here rather than guessed.
+    expect:
+      laserscan:
+        ray_count: 723
+        angle_min: -3.14159
+        angle_max: 3.14159
+        angle_increment: 0.0087
+        scan_time: 0.1
+        range_min: 0.30
+        range_max: 6.0
+
+  - name: /odom
+    type: nav_msgs/msg/Odometry
+    direction: publish
+    frame_id: odom
+    rate_hz: 148.7
+    qos: {reliability: reliable, durability: volatile}
+    parity_class: A
+    provenance: measured
+    source: >-
+      go2_driver_hw.launch.py:425 (out_topic '/odom'). Republished verbatim from
+      /utlidar/robot_odom (child_frame_id base_link). Measured 148.737 Hz over 929.543 s
+      (138,258 samples). ROOT namespace.
+
+  - name: /unitree/slam_lidar/points
+    type: sensor_msgs/msg/PointCloud2
+    direction: publish
+    frame_id: livox_frame
+    rate_hz: 20.0
+    qos: {reliability: reliable, durability: volatile}
+    parity_class: A
+    provenance: measured
+    source: >-
+      Mid-360S sidecar SDK stream (frame_id:=livox_frame, publish_freq:=20.0); 19.8 Hz in
+      bag, 19.912 Hz live. QoS corrected in panthera-go2-driver/DEV_LOG.md:
+      "RELIABLE, KEEP_LAST(1), not BEST_EFFORT as doc/03-interfaces.md claimed".
+      Ferox go2_nav2.yaml:289 points the STVL layer straight at this topic, so the twin
+      must publish it under this exact name.
+    expect:
+      # Same declared approximation as the G1 -- the real field layout of the sidecar
+      # stream is not recorded. Closest real capture is the retired Unitree
+      # /utlidar/cloud_livox_mid360 (evidence/phase0/streams_90s.json). See OQ-2.
+      pointcloud_fields:
+        - {name: x,         datatype: FLOAT32, offset: 0,  count: 1}
+        - {name: y,         datatype: FLOAT32, offset: 4,  count: 1}
+        - {name: z,         datatype: FLOAT32, offset: 8,  count: 1}
+        - {name: intensity, datatype: FLOAT32, offset: 12, count: 1}
+        - {name: ring,      datatype: UINT16,  offset: 16, count: 1}
+        - {name: time,      datatype: FLOAT32, offset: 18, count: 1}
+      point_step: 22
+
+  - name: /mid360/points_accum
+    type: sensor_msgs/msg/PointCloud2
+    direction: publish
+    frame_id: livox_frame
+    rate_hz: 20.0
+    qos: {reliability: reliable, durability: volatile}
+    parity_class: B
+    provenance: configured
+    source: >-
+      cloud_accumulator.py sliding window (target_frame default 'livox_frame'), RELIABLE
+      / VOLATILE / KEEP_LAST 5. OPTIONAL on hardware (accumulate:=true) -- one output per
+      input once primed. Class B because it is an optional driver node, not a core edge.
+
+  - name: /utlidar/imu
+    type: sensor_msgs/msg/Imu
+    direction: publish
+    frame_id: utlidar_imu
+    rate_hz: 250.0
+    qos: {reliability: reliable, durability: volatile}
+    parity_class: B
+    provenance: measured
+    source: >-
+      Go2 firmware topic, the highest-rate one on the bus. The driver consumes it only
+      as the MCU-clock estimator feed, never for navigation.
+
+  - name: /ferox/go2_01/cmd_vel
+    type: geometry_msgs/msg/Twist
+    direction: subscribe
+    frame_id: ""
+    qos: {reliability: reliable}
+    parity_class: A
+    provenance: configured
+    source: >-
+      go2_driver_hw.launch.py:16 (cmd_vel_to_sport: /ferox/<id>/cmd_vel ->
+      /api/sport/request Move). Namespaced, unlike the sensor topics.
+
+  - name: /ferox/go2_01/driver_heartbeat
+    type: std_msgs/msg/Header
+    direction: publish
+    frame_id: ""
+    rate_hz: 20.0
+    qos: {reliability: reliable, durability: volatile}
+    parity_class: C
+    provenance: configured
+    source: >-
+      20 Hz == keepalive_hz, published every tick regardless of dry_run. Observability
+      only; the sport_watchdog deliberately ignores it in favour of its own steady
+      receive time. Class C: a driver-liveness signal, not a sensor interface. The twin
+      need not emit it unless DT8 emulates the driver itself.
+
+cmd_vel_clamps:
+  # Sport-mode envelope enforced by cmd_vel_to_sport before /api/sport/request.
+  linear_x: [-0.3, 0.8]
+  linear_y: [-0.3, 0.3]
+  angular_z: [-1.0, 1.0]
+  provenance: configured
+  source: >-
+    Ferox src/ferox_nav/config/robots/go2.yaml:27-31 (velocity envelope consumed by the
+    driver). VERIFY against panthera-go2-driver cmd_vel_to_sport before DT5 relies on it.
