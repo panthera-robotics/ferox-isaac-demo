@@ -1,0 +1,36 @@
+# Nav2 goals, mode:=twin, SIM_WORLD=hospital, G1 twin
+# Map at time of test: 127x95 @ 0.05 m, free extent x[5.94,9.94] y[-2.57,1.93]
+#   = ~1369 free cells (~3.4 m^2). Robot spawn (7.80, 1.99); footprint radius 0.35 m,
+#   inflation radius 0.35 m.
+#
+# RESULT: PARTIAL. The twin -> SLAM -> Nav2 loop closes and the robot navigates --
+# pose feedback tracked (7.80,1.99) -> (8.07,1.35) -> (8.74,0.24) across goals -- but
+# no goal reached its terminal SUCCEEDED state inside a 220 s timeout.
+#
+# goal            recoveries   distance_remaining at last feedback   terminal
+# (8.2,  1.2)         1              0.88 m                          timeout (220 s)
+# (8.8, -0.2)         3              0.28 m                          timeout (220 s)
+# (7.4, -1.4)         1              1.11 m                          timeout (220 s)
+#
+# An earlier set of goals aborted immediately with "Robot is out of bounds of the
+# costmap". That was an OPERATOR error, not a stack fault: in SIM_WORLD=hospital the
+# sim spawns at world (7.8, 2.0) and odom starts THERE, not at zero, so goals given in
+# warehouse-relative coordinates fell outside a map spanning x >= 4.54.
+#
+# READING THIS RESULT
+# Goal 2 stalling at 0.28 m remaining, with recoveries firing, is the signature of a
+# controller sitting just outside xy_goal_tolerance rather than of a broken interface.
+# The contributing factors are all Nav2-side and all REAL:
+#   * the map is small because the sensor is honest -- range_max 6.0 in a corridor
+#     yields ~3.4 m^2 of free space, where the DT0 stand-in lidar (range_max 30 m,
+#     horizontal) would have mapped the whole floor;
+#   * the G1's cmd_vel clamps are tight (+0.4/-0.2 x, +-0.2 y, +-0.5 wz), so the
+#     controller has little authority to close a final 0.3 m;
+#   * footprint 0.35 m against inflation 0.35 m leaves little admissible width. Nav2
+#     already warns about this: "configured inflation radius (0.350) is smaller than
+#     the computed inscribed radius (0.360)".
+#
+# This is a finding FOR the Ferox side, not a twin defect -- and it is the kind of
+# finding the campaign exists to surface: the same tuning gap will appear on hardware,
+# because the sensor envelope is now identical. Goal coordinates were NOT tuned until
+# three passed; a result tuned until it looks right is not evidence.

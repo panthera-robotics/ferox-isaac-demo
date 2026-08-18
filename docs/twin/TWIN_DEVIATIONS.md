@@ -27,7 +27,7 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 
 | ID | Class | Subject | Opened | Status |
 |---|---|---|---|---|
-| [C-1](#c-1) | C | G1 standing height: 0.791 m sim vs 0.731 m real (~60 mm) | DT1 | OPEN — re-check at DT2 |
+| [C-1](#c-1) | C | G1 standing height: ~0.82 m sim vs 0.731 m real (~90 mm, re-measured at DT2) | DT1 | RE-CHECKED at DT2 — no floor returns in `/scan`, 0.2655 m margin |
 | [C-2](#c-2) | C | Mid-360 PointCloud2 field layout is not recorded for either robot's live stream | DT1 | OPEN — G1 defaulted to the sidecar driver's layout at DT2; Go2 still unknown |
 | [C-3](#c-3) | C | D435i intrinsics (K/D) are factory-typical placeholders | DT1 | OPEN — needs OQ-1 |
 | [C-4](#c-4) | C | RealSense intra-camera TF values unknown (edges confirmed, numbers absent) | DT1 | OPEN — needs OQ-1 |
@@ -38,6 +38,7 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 | [C-9](#c-9) | C | Rendered depth has no stereo baseline, so no occlusion shadows | DT2 | OPEN — inherent to rendered depth |
 | [C-10](#c-10) | C | IMU rates capped by the render/physics step coupling; aligned depth below the 20 Hz floor | DT2 | OPEN — floor relaxed to 15 Hz for DT2 |
 | [C-11](#c-11) | C | The sim stands with waist = 0; the real G1 stands pitched ~6.2° | DT2 | OPEN — policy property, not geometry |
+| [C-12](#c-12) | C | No head-shell self-hit cluster: sim r_min 1.10 m vs real 0.0985 m | DT2 | OPEN — accepted, `range_min` still reproduced |
 
 ---
 
@@ -71,10 +72,24 @@ trade this campaign exists to refuse.
 not reconcile with 0.731 m. Until that is settled on hardware, the *magnitude* of this deviation is
 uncertain even though its *existence* is not. Do not tune anything against 60 mm as if it were exact.
 
-**Re-check (DT2).** With the twin G1 standing, confirm **no floor returns enter `/scan`**. The
-60 mm of extra clearance makes floor bleed *less* likely in sim than on hardware, so a clean sim
+**Re-check (DT2) — DONE, and the numbers moved.** Measured on the live twin with the waist
+bridge running (`docs/twin/evidence/DT2/geometry_check.txt`):
+
+| | value |
+|---|---|
+| floor height in `base_link` (plane fit, 2438 pts, 1.78 mm residual) | **−0.8215 m** |
+| p2l `min_height` | −0.556 m |
+| **margin below the slice** | **0.2655 m** |
+| floor returns entering `/scan` | **none** |
+
+Note the standing height itself: −0.8215 m implies a pelvis **0.8215 m** above the floor, not the
+0.791 m single `/odom` sample recorded at DT0. The plane fit is the better measurement — 2438
+points against one message — so the gap to the robot's 0.731 m is nearer **90 mm** than 60 mm, and
+the derived clearances shift with it (0.2655 m sim vs 0.175 m real, rather than 0.235 vs 0.175).
+The *decision* is unchanged: the p2l slice stays Class A and exact.
+
+The 90 mm of extra clearance makes floor bleed *less* likely in sim than on hardware, so this clean
 result does **not** clear the hardware case — it only fails loudly if something else is wrong.
-Record the measured minimum return height in `RESULTS_DT2.md`.
 
 ---
 
@@ -384,6 +399,34 @@ deltas. All three are posture/body facts, not interface facts, and none is patch
 
 ---
 
+## C-12 — the twin has no head-shell self-hit cluster {#c-12}
+
+**Opened:** DT2 · **Class:** C · **Status:** OPEN, accepted
+
+| | nearest return |
+|---|---|
+| Real `/livox/lidar` | **r_min 0.0985 m**, stable over 897 clouds — the Mid-360 seeing the inside of the G1's own head shell, a cluster at 0.10–0.20 m |
+| Twin | **r_min 1.10 m** — no self-hit cluster at all |
+
+The driver's `range_min` of **0.30** exists precisely to reject that cluster: the radial histogram is
+empty from ~0.2 m to ~0.8 m, so anything in 0.25–0.50 separates the shell from the world. The twin
+reproduces `range_min 0.30` exactly — it simply has nothing to reject.
+
+**Why.** The head shell is present in the body asset, but Isaac's RTX lidar does not return hits
+from it at this mount. The campaign anticipated this and set the bar accordingly: *"the real
+self-hit cluster (0.10–0.20 m) is a Class-C deviation unless you reproduce it cheaply."* It is not
+cheap — it would mean either forcing self-intersection or modelling the shell's interior geometry.
+
+**Consequence.** Anything that *depends* on the self-hit cluster — a health check that asserts its
+presence, or a filter tuned to remove it — behaves differently. Nothing in the Ferox stack does:
+`range_min` removes it upstream of every consumer, and that threshold is identical on both sides.
+The practical effect is that the twin's `/scan` is slightly cleaner at close range than the robot's.
+
+**Would close by** enabling self-intersection for the lidar against the head-shell mesh, if a future
+Isaac release makes that cheap. Not worth chasing now.
+
+---
+
 ## Anticipated entries (not yet opened — listed so the shape is known)
 
 These are named in campaign §2 as expected Class-C items. They are **not** deviations yet; each
@@ -391,7 +434,6 @@ opens in the gate that builds the thing.
 
 | Expected ID | Subject | Opens at |
 |---|---|---|
-| — | G1 head-shell self-hit cluster (real returns at 0.10–0.20 m) not reproduced unless cheap | DT2 |
 | — | Tactile: 12 contact-sensor zones per hand vs 94 real taxels (Dex5-1P) | DT3 / DT6 |
 | — | PhysX finger-contact grasp physics vs real compliant contact | DT3 |
 | — | `HandState_` published at ≥200 Hz from sim vs 1 kHz on the real hand (campaign amendment 3) | DT6 |
