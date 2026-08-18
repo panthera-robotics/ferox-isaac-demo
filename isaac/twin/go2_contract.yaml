@@ -263,6 +263,11 @@ topics:
       point_step: 22
 
   - name: /mid360/points_accum
+    # Produced by cloud_accumulator.py, not by the sensor. The twin runs the same
+    # node (twin_bridge), so the sim must publish the RAW stream and let the
+    # accumulator derive this one -- exactly as on hardware. Without this the sim
+    # would have two candidate clouds in livox_frame and would have to guess.
+    produced_by: bridge
     type: sensor_msgs/msg/PointCloud2
     direction: publish
     frame_id: livox_frame
@@ -317,7 +322,14 @@ cmd_vel_clamps:
   linear_x: [-0.3, 0.8]
   linear_y: [-0.3, 0.3]
   angular_z: [-1.0, 1.0]
-  provenance: configured
+  provenance: calibrated
   source: >-
-    Ferox src/ferox_nav/config/robots/go2.yaml:27-31 (velocity envelope consumed by the
-    driver). VERIFY against panthera-go2-driver cmd_vel_to_sport before DT5 relies on it.
+    VERIFIED at DT5 against three independent sources that agree exactly:
+    panthera-go2-driver cmd_vel_to_sport.py:146-149 (declare_parameter defaults
+    max_linear_x 0.8, min_linear_x -0.3, max_linear_y 0.3, max_angular_z 1.0),
+    the clamp applied at :252-254, and Ferox
+    src/ferox_nav/config/robots/go2.yaml:26-29 (the same four numbers). The driver
+    names go2.yaml as its own source, so this is one value with two readers rather
+    than two values that happen to match -- but both were read, and both were the
+    same. Note go2.yaml:31-32 additionally caps ACCELERATION (max_linear_x 1.5,
+    max_angular_z 2.0); the driver does not enforce that and neither does the twin.

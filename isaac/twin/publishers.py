@@ -48,6 +48,25 @@ def _topic(contract: Dict[str, Any], suffix: str) -> Dict[str, Any]:
     raise PublisherError(f"contract has no topic {full!r}")
 
 
+def _topic_of_type(contract: Dict[str, Any], msg_type: str) -> Dict[str, Any]:
+    """The contract's single topic of a given message type.
+
+    Used where the NAME differs between robots but the role does not: the G1
+    publishes odometry on /ferox/g1_01/odom and the Go2 on /odom at the root,
+    because that is what each driver does. Looking it up by name would need a
+    per-robot branch; looking it up by type asks the question that is actually
+    being asked, and raises if a robot ever grows two.
+    """
+    hits = [t for t in contract.get("topics", []) if t["type"] == msg_type]
+    if not hits:
+        raise PublisherError(f"contract has no {msg_type} topic")
+    if len(hits) > 1:
+        raise PublisherError(
+            f"contract has {len(hits)} {msg_type} topics: "
+            f"{[t['name'] for t in hits]}; look it up by name")
+    return hits[0]
+
+
 def _qos_for(topic_spec: Dict[str, Any]) -> str:
     rel = (topic_spec.get("qos") or {}).get("reliability", "reliable")
     return QOS_SENSOR_DATA if rel == "best_effort" else QOS_RELIABLE
@@ -117,6 +136,14 @@ def setup_tf_static(contract: Dict[str, Any], camera_tf: bool = False):
     return edges
 
 
+def _sensor_frame(contract: Dict[str, Any]) -> str:
+    """The Mid-360's frame name, from the contract's sensors block."""
+    for s in contract.get("sensors", []):
+        if s["name"] == "livox_mid360":
+            return s.get("frame_id", "livox_frame")
+    return "livox_frame"
+
+
 def setup_lidar_cloud(contract: Dict[str, Any], lidar_prim, resolution=(1, 1),
                       render_hz: float = 60.0):
     """RTX lidar -> PointCloud2 on the contract's cloud topic.
@@ -129,7 +156,20 @@ def setup_lidar_cloud(contract: Dict[str, Any], lidar_prim, resolution=(1, 1),
     """
     import omni.replicator.core as rep
 
-    spec = _topic(contract, "/livox/lidar")
+    # The cloud topic is named differently on each robot (/livox/lidar on the G1,
+    # /unitree/slam_lidar/points on the Go2) and both are PointCloud2 in the
+    # lidar's own frame. Select on frame_id, which is the thing that identifies it.
+    lidar_frame = _sensor_frame(contract)
+    clouds = [t for t in contract.get("topics", [])
+              if t["type"] == "sensor_msgs/msg/PointCloud2"
+              and t["frame_id"] == lidar_frame
+              and t.get("default_published", True)
+              and t.get("produced_by", "sensor") == "sensor"]
+    if len(clouds) != 1:
+        raise PublisherError(
+            f"expected exactly one published PointCloud2 in {lidar_frame!r}, got "
+            f"{[t['name'] for t in clouds]}")
+    spec = clouds[0]
     rp = rep.create.render_product(
         lidar_prim.GetPath().pathString, resolution=resolution, name="twin_mid360_rp")
     w = rep.writers.get("RtxLidarROS2PublishPointCloud")

@@ -1168,17 +1168,31 @@ class RobotRosRunner(object):
         lidar_prim, lidar_derived = twin_sensors.create_lidar(contract, root)
         print(f"[TWIN] Mid-360 at {lidar_prim.GetPath()} {lidar_derived}", flush=True)
 
-        camera, K_got = twin_sensors.create_camera(contract, root)
-        print(f"[TWIN] D435i K readback fx={K_got['fx']:.3f} fy={K_got['fy']:.3f} "
-              f"cx={K_got['cx']:.3f} cy={K_got['cy']:.3f} "
-              f"(HFOV {K_got['hfov_deg']:.2f} deg, VFOV {K_got['vfov_deg']:.2f} deg)",
-              flush=True)
+        # Which devices exist is a property of the ROBOT and is read off the
+        # contract, not branched on robot_type. The G1 carries a D435i and two IMUs;
+        # the Go2 carries neither camera nor body IMU and publishes the L1's IMU
+        # instead. A `if robot_type == GO2` here would be a second place for the two
+        # robots to disagree with their own contracts.
+        camera = None
+        if any(t["name"].endswith("/camera/color/image_raw")
+               for t in contract.get("topics", [])):
+            camera, K_got = twin_sensors.create_camera(contract, root)
+            print(f"[TWIN] D435i K readback fx={K_got['fx']:.3f} fy={K_got['fy']:.3f} "
+                  f"cx={K_got['cx']:.3f} cy={K_got['cy']:.3f} "
+                  f"(HFOV {K_got['hfov_deg']:.2f} deg, VFOV {K_got['vfov_deg']:.2f} deg)",
+                  flush=True)
+        else:
+            print("[TWIN] no camera in the contract", flush=True)
 
-        imu = twin_sensors.create_imu(contract, root)
-        livox_imu = twin_sensors.create_livox_imu(contract, root)
-        for _s in (imu, livox_imu):
+        imu_topics = [t for t in contract.get("topics", [])
+                      if t["type"] == "sensor_msgs/msg/Imu"]
+        imus = []
+        for t in imu_topics:
+            sensor = twin_sensors.create_imu_for(
+                contract, root, t["name"], t["frame_id"].replace("/", "_"))
+            imus.append((t, sensor))
             try:
-                _s.initialize()
+                sensor.initialize()
             except Exception:
                 pass
 
@@ -1210,36 +1224,29 @@ class RobotRosRunner(object):
         # success, and advertises nothing -- baseline defect B-4, still reproducible.
         # sim_utils already publishes cmd_vel through rclpy for the same reason.
         import rclpy_pub as twin_rclpy
-        imu_spec = twin_pub._topic(contract, "imu/data")
-        imu_frame = imu_spec["frame_id"]
         self._twin_rclpy = twin_rclpy.TwinRclpyPublishers()
-        self._twin_rclpy.add_imu("body", imu_spec["name"], reliable=True)
-        self._twin_imu_sensor = imu
-        self._twin_imu_frame = imu_frame
-        self._twin_imu_period = 1.0 / float(imu_spec["rate_hz"])
-        self._twin_imu_next = 0.0
+        self._twin_imus = []
+        for spec, sensor in imus:
+            key = spec["frame_id"].replace("/", "_")
+            self._twin_rclpy.add_imu(key, spec["name"], reliable=True)
+            self._twin_imus.append({
+                "key": key, "sensor": sensor, "frame": spec["frame_id"],
+                "period": 1.0 / float(spec["rate_hz"]), "next": 0.0,
+            })
+            print(f"[TWIN] IMU -> {spec['name']} (frame {spec['frame_id']}, "
+                  f"{spec['rate_hz']} Hz, rclpy)", flush=True)
 
-        livox_spec = twin_pub._topic(contract, "/livox/imu")
-        self._twin_rclpy.add_imu("livox", livox_spec["name"], reliable=True)
-        self._twin_livox_imu = livox_imu
-        self._twin_livox_frame = livox_spec["frame_id"]
-        self._twin_livox_period = 1.0 / float(livox_spec["rate_hz"])
-        self._twin_livox_next = 0.0
-        print(f"[TWIN] Livox IMU -> {livox_spec['name']} "
-              f"(frame {livox_spec['frame_id']}, {livox_spec['rate_hz']} Hz, rclpy)",
-              flush=True)
-        print(f"[TWIN] IMU -> {imu_spec['name']} (frame {imu_frame}, "
-              f"{imu_spec['rate_hz']} Hz, rclpy)", flush=True)
-
-        twin_pub.setup_camera_color(contract, camera, ns)
-        depth_topic = twin_pub.setup_camera_depth_raw(contract, camera, ns)
-        print(f"[TWIN] camera colour -> {ns}/camera/color/image_raw", flush=True)
-        print(f"[TWIN] raw depth (32FC1, converter seam) -> {ns}/{depth_topic}", flush=True)
+        if camera is not None:
+            twin_pub.setup_camera_color(contract, camera, ns)
+            depth_topic = twin_pub.setup_camera_depth_raw(contract, camera, ns)
+            print(f"[TWIN] camera colour -> {ns}/camera/color/image_raw", flush=True)
+            print(f"[TWIN] raw depth (32FC1, converter seam) -> {ns}/{depth_topic}",
+                  flush=True)
 
         # /clock first: without it every use_sim_time consumer sits at time zero
         # and Nav2 silently never plans.
         ros_utils.setup_clock_publisher()
-        odom_spec = twin_pub._topic(contract, "odom")
+        odom_spec = twin_pub._topic_of_type(contract, "nav_msgs/msg/Odometry")
         # Odometry via rclpy, not the OmniGraph publisher. The graph is OnTick, so
         # it emits once per RENDER frame (~66 Hz measured) and there is no divisor
         # of 60 that lands on the contract's 51.4. Driving it from the physics
@@ -1281,23 +1288,19 @@ class RobotRosRunner(object):
         t = getattr(self, "_twin_sim_time", None)
         if t is None:
             return
-        for key, sensor, frame_id, period_attr, next_attr in (
-                ("body", self._twin_imu_sensor, self._twin_imu_frame,
-                 "_twin_imu_period", "_twin_imu_next"),
-                ("livox", getattr(self, "_twin_livox_imu", None),
-                 getattr(self, "_twin_livox_frame", ""),
-                 "_twin_livox_period", "_twin_livox_next")):
-            if sensor is None or t < getattr(self, next_attr, 0.0):
+        for entry in getattr(self, "_twin_imus", ()):
+            if t < entry["next"]:
                 continue
-            setattr(self, next_attr, t + getattr(self, period_attr))
+            entry["next"] = t + entry["period"]
             try:
-                frame = sensor.get_current_frame()
+                frame = entry["sensor"].get_current_frame()
             except Exception:
                 continue
-            lin, ang, ori = frame.get("lin_acc"), frame.get("ang_vel"), frame.get("orientation")
+            lin, ang = frame.get("lin_acc"), frame.get("ang_vel")
+            ori = frame.get("orientation")
             if lin is None or ang is None:
                 continue
-            self._twin_rclpy.publish_imu(key, frame_id, t, lin, ang,
+            self._twin_rclpy.publish_imu(entry["key"], entry["frame"], t, lin, ang,
                                          orientation_wxyz=ori if ori is not None else None)
 
         if getattr(self, "_twin_odom_next", None) is not None and t >= self._twin_odom_next:

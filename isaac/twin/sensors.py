@@ -40,6 +40,37 @@ def _topic(contract: Dict[str, Any], name: str) -> Dict[str, Any]:
 # --------------------------------------------------------------- camera
 
 
+def frame_path(contract: Dict[str, Any], robot_root: str, frame: str) -> str:
+    """Prim path of an authored frame, found by NAME in the built stage.
+
+    Deliberately not a re-derivation of the parent chain. The two robots disagree
+    about what a frame's parent means: on the G1 livox_frame is MOUNTED on
+    torso_link but PUBLISHED as a dynamic child of base_link (DT2 Option A, the
+    waist bridge), so walking tf_static yields pelvis/livox_frame and the asset has
+    torso_link/livox_frame. Any second implementation of the builder's rules is a
+    second thing to keep in sync; looking the frame up where the builder actually
+    put it cannot drift.
+
+    Frame names are unique within a robot, so a match is unambiguous -- and if that
+    ever stops being true this raises rather than picking one.
+    """
+    from isaacsim.core.utils.stage import get_current_stage
+    from pxr import Usd
+
+    root_prim = get_current_stage().GetPrimAtPath(robot_root)
+    if not root_prim or not root_prim.IsValid():
+        raise SensorAuthoringError(f"{robot_root} is not in the stage")
+    hits = [str(p.GetPath()) for p in Usd.PrimRange(root_prim)
+            if p.GetName() == frame]
+    if not hits:
+        raise SensorAuthoringError(
+            f"frame {frame!r} is not in the stage under {robot_root} -- "
+            "run scripts/08_build_twin_assets.sh")
+    if len(hits) > 1:
+        raise SensorAuthoringError(f"frame {frame!r} is ambiguous: {hits}")
+    return hits[0]
+
+
 def set_camera_intrinsics(prim, K, width: int, height: int) -> Dict[str, float]:
     """Drive focal length and aperture from the contract's K, then read K back.
 
@@ -167,7 +198,7 @@ def create_lidar(contract: Dict[str, Any], robot_root: str):
     from isaacsim.core.utils.prims import is_prim_path_valid
 
     spec = _sensor(contract, "livox_mid360")
-    frame = f"{robot_root}/{spec['parent_link']}/livox_frame"
+    frame = frame_path(contract, robot_root, "livox_frame")
     if not is_prim_path_valid(frame):
         raise SensorAuthoringError(
             f"{frame} is not in the stage -- run scripts/08_build_twin_assets.sh")
@@ -177,6 +208,32 @@ def create_lidar(contract: Dict[str, Any], robot_root: str):
 
 
 # --------------------------------------------------------------- imu
+
+
+def create_imu_for(contract: Dict[str, Any], robot_root: str, topic_name: str,
+                   sensor_name: str):
+    """Create an IMUSensor under the authored frame that a contract topic names.
+
+    Which IMUs exist is a property of the ROBOT, not of this code: the G1 publishes
+    a body IMU and the Mid-360's internal one, the Go2 publishes the L1's. Driving
+    it off the contract's Imu topics means the Go2 does not need a `dog_imu` branch
+    and cannot accidentally grow one.
+    """
+    import numpy as np
+    from isaacsim.sensors.physics import IMUSensor
+    from isaacsim.core.utils.prims import is_prim_path_valid
+
+    spec = _topic(contract, topic_name)
+    frame = frame_path(contract, robot_root, spec["frame_id"])
+    if not is_prim_path_valid(frame):
+        raise SensorAuthoringError(
+            f"{frame} is not in the stage -- run scripts/08_build_twin_assets.sh")
+    return IMUSensor(
+        prim_path=f"{frame}/imu", name=sensor_name,
+        frequency=int(round(float(spec["rate_hz"]))),
+        translation=np.array([0.0, 0.0, 0.0]),
+        orientation=np.array([1.0, 0.0, 0.0, 0.0]),
+    )
 
 
 def create_livox_imu(contract: Dict[str, Any], robot_root: str):
