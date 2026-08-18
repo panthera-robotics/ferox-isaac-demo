@@ -44,6 +44,13 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 
 ## C-1 — G1 standing height is ~60 mm taller in sim than on hardware {#c-1}
 
+> **Updated 2026-08-18 by the ground-truth capture.** The odom-z line of this entry's
+> evidence is **withdrawn**: the robot's `/odom` z is ground-referenced at +0.00675 m,
+> not a standing height, so "0.791 sim vs 0.731 real" was never comparing like with
+> like (see [[C-20]]). **C-1 itself stands**, on the floor-plane measurement, which
+> never depended on odometry: the p2l slice sits ~60 mm higher off the floor in sim,
+> fitted independently on both sides.
+
 **Opened:** DT1 (2026-08-18) · **Class:** C · **Status:** OPEN, re-check at DT2
 
 | | Sim | Hardware |
@@ -619,10 +626,31 @@ leaf size, a clustering threshold, an occupancy hit count — will behave differ
 `pointcloud_to_laserscan` is unaffected because a (0,0,0) point falls under
 `range_min` and is dropped.
 
-**Would close by** the twin emitting the same padding, which is easy and is
-deliberately not done yet: it would make the twin's cloud *worse* on purpose, and
-which of the two behaviours downstream code should be written against is a decision,
-not a detail.
+**Resolved as MODELLED, not corrected** (Mohammed, 2026-08-18). Isaac's RTX lidar
+returns one point per ray and pads nothing; the real stream pads to a fixed width. Sim
+points are **not** dropped to match — that would degrade the twin on purpose to
+reproduce an encoding artefact.
+
+Instead the **comparable quantity is measured on both sides**. `twin_audit` now
+reports `pointcloud/valid_returns` for every `PointCloud2`, from any source (live,
+bag or evidence), counting points whose xyz is finite and not exactly zero:
+
+```
+real  /livox/lidar               9443 of 19968  (52.7% zero-padded)   PASS vs contract 9443 +-20%
+twin  /unitree/slam_lidar/points 4285 of 4285   ( 0.0% zero-padded)   reported
+```
+
+The G1 contract carries `expect.valid_returns_per_sweep: 9443` as a **captured**
+number, so the real side is checked rather than merely printed. `width` deliberately
+is not the check: comparing widths says the two agree, and they do not.
+
+**Consequence, restated with the right number.** The twin is **~2× denser in real
+measurements** at the same nominal width. Anything tuned on point count — voxel leaf
+size, cluster thresholds, occupancy hit counts — will behave differently.
+
+**Would close by** deciding that downstream code should see the robot's padding, at
+which point the twin can emit it. That is a decision about what the twin is *for*,
+not a defect to fix.
 
 ---
 
@@ -652,9 +680,16 @@ its messages `livox_frame` and never uses the child frame. The contract now reco
 Nothing in Ferox consumes it today (`FW_MIGRATION_REPORT`: "published, unconsumed"),
 which is the only reason this has not already bitten.
 
-**Would close by** deciding which side is wrong. Making the twin emit g reproduces the
-robot faithfully; fixing the sidecar makes the robot correct. That is Kevin's call,
-not a sim change — logged, not applied.
+**Resolved as LOG-ONLY** (Mohammed, 2026-08-18). The twin keeps **SI m/s² on both
+IMUs**. Making it emit g would reproduce the robot faithfully and propagate a stream
+that does not conform to `sensor_msgs/Imu`; the discrepancy belongs to the sidecar, and
+correcting it is Kevin's call. Recorded here so that when a consumer of `/livox/imu`
+appears, the factor of 9.80665 is already written down rather than discovered.
+
+The `frame_id` half **was** acted on: the contract now records `livox_frame` because
+that is what the robot stamps, with `mount_frame: livox_imu` beside it so the twin
+still places the device where the hardware has it. See the note on C-19 in
+`RESULTS_GT_G1.md` §5.
 
 ---
 
@@ -683,9 +718,15 @@ fit; only the odom-z part of its evidence is withdrawn.
 **Consequence.** Anything reading `odom.pose.position.z` sees 0.79 m in sim and 0.007 m
 on the robot. Nav2, SLAM Toolbox and AMCL are all planar and never read it.
 
-**Would close by** the twin publishing ground-referenced z. Small change, real decision:
-it makes the twin's odom less informative in exchange for matching the robot, and it
-should be made deliberately rather than as a side effect of this capture.
+**Accepted** (Mohammed, 2026-08-18): the `odom_pelvis` z semantics were provisional
+and are now settled. **C-1 stands on the floor measurement**, which is independent of
+odometry — the p2l slice sits 60 mm higher off the floor in sim, measured by plane fit
+on both sides, and that was always the load-bearing part of C-1. Only the odom-z line
+of its evidence is withdrawn.
+
+**Would close by** the twin publishing ground-referenced z. Deliberately open: it makes
+the twin's odom less informative in exchange for matching the robot, and nothing in
+Ferox reads the field.
 
 ---
 

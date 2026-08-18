@@ -155,7 +155,45 @@ RMS — i.e. tilted by the waist term that the edge assumes and the body did not
 For contrast the **twin's** floor, with the dynamic edge DT2 chose, fits at
 **0.0039°** against world vertical.
 
-That is the PING. Full argument and the two readings in `docs/twin/PING.md`.
+**RESOLVED** (Mohammed, 2026-08-18): **the contract stays dynamic — Option A stands.**
+The bag shows the robot was running `lidar_tf_mode=static`, i.e. the Session-A
+composite. That is a **robot-side configuration/verification item, not a twin defect**,
+and it goes to Kevin as **OQ-6**.
+
+So the twin is correct as it stands, and the 6.6° floor tilt measured above is a
+property of how the robot was configured for this capture, not of the twin.
+
+---
+
+### OQ-6 — the robot ran `lidar_tf_mode=static`
+
+**For Kevin.** In this capture the driver published `base_link → livox_frame` as the
+static Session-A composite rather than composing it live from the waist. In that mode
+the edge is only correct at the one waist angle it bakes in (+6.228°), and the robot
+was standing level (odom pitch +0.518°), so the cloud it produced is tilted by very
+nearly the whole waist term — measured at **5.87–6.97°** with a 5–21 mm plane-fit RMS.
+
+Two questions worth putting together:
+
+1. Was `static` deliberate for this capture, or is it the default?
+2. Should the static fallback exist at all, given it is correct at exactly one waist
+   angle and silently wrong at every other?
+
+The one-line check on the robot, driver up:
+
+```bash
+ros2 param get /waist_tf_bridge lidar_tf_mode      # or: ros2 node list | grep waist
+ros2 topic echo --once /tf | grep -A2 livox_frame  # is the edge ever on /tf?
+```
+
+**Expected if the default is `waist`:** the param reads `waist`, the node is listed,
+and `base_link → livox_frame` appears on `/tf` at ~100 Hz — in which case this capture
+used the fallback and the twin already matches the default.
+**Expected if the default is `static`:** no such node or param, and `/tf` carries only
+`odom → base_link` as it does in this bag.
+
+The twin is unaffected either way: the contract keeps the dynamic edge, and the sim's
+own floor fits at **0.0039°**.
 
 ---
 
@@ -169,7 +207,7 @@ That is the PING. Full argument and the two readings in `docs/twin/PING.md`.
 | `/livox/imu` frame_id | `livox_imu` | **`livox_frame`**, `captured` | what the sidecar actually stamps |
 | `base_link → dog_imu_link` | `calibrated` | **`captured`** | confirmed to 0.00e+00 |
 | `livox_frame → livox_imu` | `datasheet` | **`captured`** | confirmed to 0.00e+00 |
-| `base_link → livox_frame` | dynamic | **unchanged** | Class-A mismatch → PING, not mine to reverse |
+| `base_link → livox_frame` | dynamic | **unchanged — Option A stands** | robot ran `lidar_tf_mode=static`; robot-side item, now **OQ-6** |
 | all camera items | `assumed` | **unchanged** | no camera in the capture, as instructed |
 
 `captured` is a new provenance tier — stronger than `measured`, meaning "read out of a
@@ -182,12 +220,17 @@ capture lands.
 ## 6. New deviations
 
 * **C-18** — the real cloud is **52.7 % exact zeros** with `is_dense: true`; ~9 443
-  valid returns per sweep against the twin's ~20 000.
+  valid returns per sweep against the twin's ~20 000. **Modelled, not corrected:** no
+  sim points are dropped. `twin_audit` now reports `pointcloud/valid_returns` for both
+  sides, and the G1 contract carries `valid_returns_per_sweep: 9443` as a captured
+  check. Real: `9443 of 19968 (52.7% zero-padded)`. Sim: `4285 of 4285 (0.0%)`.
 * **C-19** — `/livox/imu` reports acceleration in **g** (|a| = 1.006), not m/s², and
-  stamps `livox_frame`. The body IMU is correct SI (9.795).
+  stamps `livox_frame`. The body IMU is correct SI (9.795). **Log-only:** the twin
+  keeps SI on both IMUs; the sidecar discrepancy is Kevin's. The `frame_id` half was
+  acted on, with `mount_frame` keeping the device where the hardware has it.
 * **C-20** — the robot's `/odom` z is **+0.00675 m** (ground-referenced), the twin's is
-  **0.791 m** (standing height). This retires the premise of C-1's odom-z comparison;
-  C-1's floor-clearance consequence stands and is measured independently.
+  **0.791 m** (standing height). **Accepted:** the semantics were provisional and are
+  now settled. **C-1 stands on the floor measurement**, which never depended on odom.
 
 ## 7. Reproduce
 

@@ -641,6 +641,25 @@ def test_ground_truth_closed_oq2_and_oq3():
                 "carries no camera TF at all")
 
 
+def test_c18_valid_returns_is_captured_and_sim_points_are_not_dropped():
+    """C-18 is MODELLED, not corrected.
+
+    The decision was: measure the comparable quantity on both sides, and do NOT drop
+    sim points to match the robot's zero padding. This guards the first half -- the
+    captured number must stay in the contract as a checkable expectation, since
+    without it the real side is merely printed and nothing would notice it drifting.
+
+    The second half is guarded by its absence: there is no downsampling anywhere in
+    the twin's cloud path, and this test would have to be rewritten to add one.
+    """
+    t = _topic(twin_contract.load(G1_PATH), "/livox/lidar")
+    vr = t["expect"].get("valid_returns_per_sweep")
+    assert vr == 9443, f"captured valid-return count changed: {vr}"
+    # width is NOT the check -- that is the whole point of C-18.
+    assert t["expect"]["point_step"] == 26
+    assert t["provenance"] == "captured"
+
+
 def main() -> int:
     tests = [(n, o) for n, o in sorted(globals().items())
              if n.startswith("test_") and callable(o)]

@@ -298,6 +298,27 @@ def check_payloads(contract: Dict[str, Any], obs: Observation) -> List[Finding]:
                         f"{run['azimuth_lo_deg']:+.1f}..{run['azimuth_hi_deg']:+.1f} deg",
                         SKIP))
 
+        # VALID RETURNS PER SWEEP (C-18). Always reported, for both sides, because
+        # `width` is not the comparable number: the real Mid-360 pads non-returns
+        # with exact zeros to a fixed width while claiming is_dense, so its 20k-point
+        # sweep contains ~9.4k measurements. Isaac's RTX lidar emits one point per
+        # ray and pads nothing. Comparing widths says they agree; this says the twin
+        # is ~2x denser, which is what anything tuned on point count actually feels.
+        if ex.get("valid_returns") is not None:
+            want = expect.get("valid_returns_per_sweep")
+            got = ex["valid_returns"]
+            detail = (f"{got} of {ex['points_total']} "
+                      f"({ex['frac_padded']:.1%} zero-padded)")
+            if want is None:
+                out.append(Finding("C", "pointcloud/valid_returns", name,
+                                   "reported (C-18)", detail, SKIP))
+            else:
+                lo, hi = want * 0.8, want * 1.2
+                ok = lo <= got <= hi
+                out.append(Finding("C", "pointcloud/valid_returns", name,
+                                   f"~{want} per sweep +-20% (C-18)", detail,
+                                   OK if ok else FAIL))
+
         pc = expect.get("pointcloud_fields")
         if pc:
             got = [(f["name"], f["datatype"], f["count"]) for f in ex.get("fields", [])]

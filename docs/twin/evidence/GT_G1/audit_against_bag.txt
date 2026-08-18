@@ -62,6 +62,7 @@ A   PASS   laserscan/range_max        /ferox/g1_01/scan                         
 B   PASS   laserscan/in_range         /ferox/g1_01/scan                             >=99% of finite returns  ->  100.0%
 C   SKIP   laserscan/below_range_min  /ferox/g1_01/scan                             reported (self-hit fraction)  ->  0.00%
 C   SKIP   laserscan/self_hit         /ferox/g1_01/scan                             reported in base_link (<0.35 m)  ->  none under 0.35 m
+C   PASS   pointcloud/valid_returns   /livox/lidar                                  ~9443 per sweep +-20% (C-18)  ->  9443 of 19968 (52.7% zero-padded)
 A   PASS   pointcloud/fields          /livox/lidar                                  x:FLOAT32, y:FLOAT32, z:FLOAT32, intensity:FLOAT32, tag:UINT8, line:UINT8, timestamp:FLOAT64  ->  x:FLOAT32, y:FLOAT32, z:FLOAT32, intensity:FLOAT32, tag:UINT8, line:UINT8, timestamp:FLOAT64
                                       note: C-8: Isaac RTX lidar cloud is xyz-only; no bridge node emits the livox layout
 A   PASS   pointcloud/point_step      /livox/lidar                                  26  ->  26
@@ -77,6 +78,6 @@ C   SKIP   provenance/assumed         tf camera_depth_frame->camera_depth_optica
 
 [source note] bag source: QoS not recorded per message; QoS checks are skipped
 
-summary: 36 pass, 11 Class-A FAIL, 0 Class-B fail, 13 skipped, 60 checks
+summary: 37 pass, 11 Class-A FAIL, 0 Class-B fail, 13 skipped, 61 checks
 
 RESULT: NON-CONFORMANT -- 11 Class-A difference(s) from the contract.

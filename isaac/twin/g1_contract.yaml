@@ -400,6 +400,12 @@ topics:
         - {name: line,      datatype: UINT8,   offset: 17, count: 1}
         - {name: timestamp, datatype: FLOAT64, offset: 18, count: 1}
       point_step: 26
+      # C-18, CAPTURED. What the robot actually MEASURES per sweep. `width` is
+      # 19872-20064, but 52.7% of it is exact-zero padding for non-returns, so
+      # this is the number that compares to the twin's. The twin emits one point
+      # per ray and pads nothing, so it reports ~20k here and is ~2x denser --
+      # declared, not corrected by throwing sim points away.
+      valid_returns_per_sweep: 9443
     deviations:
       # RtxLidarROS2PublishPointCloud emits x,y,z only (point_step 12) -- measured,
       # and there is no Isaac 5.1 node that adds intensity/tag/line/timestamp to an

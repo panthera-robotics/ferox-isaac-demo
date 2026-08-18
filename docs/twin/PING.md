@@ -1,3 +1,16 @@
+# PING — RESOLVED 2026-08-18
+
+> **Outcome: the contract stays dynamic. Option A stands.**
+> The bag shows the robot was running `lidar_tf_mode=static` (the Session-A
+> composite). That is a robot-side configuration/verification item, not a twin
+> defect, and it goes to Kevin as **OQ-6** — see `RESULTS_GT_G1.md` §4, which
+> carries the check command and both expected outcomes.
+>
+> Nothing in the contract changed. The text below is kept as the record of the
+> measurement that raised the question.
+
+---
+
 # PING — the ground-truth bag contradicts the DT2 Option-A decision
 
 **Raised:** 2026-08-18, from `ref/captures/g1/captures/g1_twin_gt`

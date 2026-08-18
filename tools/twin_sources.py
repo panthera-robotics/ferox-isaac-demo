@@ -100,6 +100,51 @@ def _bearing_runs(hits, angle_min, angle_increment, gap=2):
             for lo, hi in runs]
 
 
+def _valid_returns(msg) -> Dict[str, Any]:
+    """Count the points in a cloud that are actual returns (C-18).
+
+    `width` is not the comparable number between the robot and the twin. The real
+    Mid-360 stream is FIXED WIDTH and pads non-returns with exact (0,0,0) while still
+    setting `is_dense: true`, so ~52.7% of a 20k-point sweep is padding and the robot
+    only measured ~9.4k things. Isaac's RTX lidar returns one point per ray and pads
+    nothing, so its 20k are all real. Comparing widths says the two agree; comparing
+    valid returns says the twin is about twice as dense, which is the fact that
+    matters to anything tuned on point count.
+
+    Decoded straight out of the buffer rather than via point_cloud2.read_points: this
+    runs inside the observer for every source, including bag replay, and one numpy
+    view is cheaper and has no extra dependency.
+    """
+    import numpy as np
+
+    off = {}
+    for f in msg.fields:
+        if f.name in ("x", "y", "z") and int(f.datatype) == 7:   # FLOAT32
+            off[f.name] = int(f.offset)
+    total = int(msg.width) * int(msg.height)
+    if len(off) != 3 or total == 0 or not msg.data:
+        return {}
+    step = int(msg.point_step)
+    raw = np.frombuffer(bytes(msg.data), dtype=np.uint8)
+    usable = (len(raw) // step) * step
+    if usable < step:
+        return {}
+    rows = raw[:usable].reshape(-1, step)
+    xyz = np.empty((rows.shape[0], 3), dtype=np.float32)
+    for i, k in enumerate(("x", "y", "z")):
+        xyz[:, i] = rows[:, off[k]:off[k] + 4].copy().view(np.float32).ravel()
+    finite = np.isfinite(xyz).all(axis=1)
+    nonzero = (xyz != 0.0).any(axis=1)
+    valid = int((finite & nonzero).sum())
+    n = int(rows.shape[0])
+    return {
+        "points_total": n,
+        "valid_returns": valid,
+        "zero_padded": n - valid,
+        "frac_padded": (n - valid) / n if n else 0.0,
+    }
+
+
 def probe_message(msg, type_str: str) -> Tuple[str, str, Dict[str, Any]]:
     """Pull (frame_id, encoding, extras) out of one message, per type.
 
@@ -178,6 +223,7 @@ def probe_message(msg, type_str: str) -> Tuple[str, str, Dict[str, Any]]:
             width=int(msg.width),
             is_dense=bool(msg.is_dense),
         )
+        extras.update(_valid_returns(msg))
     elif short == "CameraInfo":
         extras.update(
             width=int(msg.width),
