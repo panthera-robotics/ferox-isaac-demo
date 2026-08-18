@@ -427,6 +427,61 @@ Isaac release makes that cheap. Not worth chasing now.
 
 ---
 
+## C-13 — Dex5-1P passive joints are held at zero, not mimic-coupled
+
+**Class C.** Campaign §2 anticipated a 1:1 mimic coupling for the four non-actuated joints of each
+hand (indices 4, 8, 12, 16 in URDF document order: the finger-root abduction rolls). They are
+imported as ordinary position-driven joints commanded to zero instead.
+
+**Why.** Two independent reasons agree.
+
+* `wholebody/dex5/limits.py` records that these four "read as exactly dead in the recorded dataset".
+  Dead is not the same as coupled — a coupled joint moves.
+* A 1:1 coupling is not physically possible on this hand. Abduction range is ±0.3840 rad while the
+  flexion it would follow runs 0 → 1.5708 rad. The coupling would drive the abduction joint into
+  its hard stop before the finger was half closed, and PhysX would then fight the drive for the
+  rest of the motion.
+
+**Numbers.** 16 of 20 joints actuated per hand, 32 of 40 across both. Passive joints resolve to
+`Roll_21`, `Roll_31`, `Roll_41`/`Link_41L`, `Roll_51` — note Unitree name index 12 `Roll_41R` on the
+right and `Link_41L` on the left, an upstream naming asymmetry that any name-based mapping must
+carry.
+
+**Consequence.** A grasp that on the real hand relies on passive abduction splay will close
+slightly narrower in sim. No Ferox code commands these joints.
+
+**Would close by** Unitree documenting the real coupling ratio, or a measurement from the hand. This
+is the single place it would change.
+
+---
+
+## C-14 — sim hand DOFs are interleaved; index-based hand commands do not transfer
+
+**Class C, interface.** `limits.py` clamps a flat 20-vector per hand in URDF document order, and
+that is the order the real driver speaks. Isaac orders articulation DOFs breadth-first over the
+whole robot, so each hand's 20 joints land at scattered, non-contiguous indices interleaved with the
+other hand's:
+
+```
+limits.py index :  0   1   2   3   4   5  ...  19
+isaac DOF (left): 33  43  53  63  30  40  ...  62      block 29..63, not contiguous
+isaac DOF (right):38  48  58  68  34  44  ...  67      block 34..68, not contiguous
+```
+
+**Consequence.** Any hand command path must map **by joint name**, never by index. Copying a
+20-vector straight into `set_joint_positions` writes fingers of both hands at random. This is the
+same failure shape as W6 (hand observed as Dex3, commanded as Dex5) arriving through a different
+door, which is why it is written down rather than quietly worked around.
+
+**Not a geometry deviation.** Limits, masses and mount pose are exact (Class A/B). Only the
+*ordering convention* differs, and it differs because Isaac's articulation layout is not something
+the asset chooses.
+
+**Would close by** nothing — this is inherent to PhysX articulation layout. The mitigation is the
+name-based map, which is asserted by `tools/tests/test_twin_isaac.py`.
+
+---
+
 ## Anticipated entries (not yet opened — listed so the shape is known)
 
 These are named in campaign §2 as expected Class-C items. They are **not** deviations yet; each

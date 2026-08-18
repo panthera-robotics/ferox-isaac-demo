@@ -358,7 +358,7 @@ def build_hands(robot: str, variant: str = "dex5_1p"):
         # the sim steps. The flange is a fixed joint in the URDF
         # (left_hand_palm_joint, type="fixed"), so it is a fixed joint here.
         palm = f"{node.GetPath()}/{HAND_PALM_LINK[side]}"
-        jpath = f"/{default_name}/{spec['parent']}/{variant}_{side}_flange"
+        jpath = f"/{default_name}/joints/{variant}_{side}_flange"
         joint = UsdPhysics.FixedJoint.Define(hl, jpath)
         joint.CreateBody0Rel().SetTargets([f"/{default_name}/{spec['parent']}"])
         joint.CreateBody1Rel().SetTargets([palm])
@@ -368,6 +368,18 @@ def build_hands(robot: str, variant: str = "dex5_1p"):
         joint.CreateLocalPos1Attr().Set(Gf.Vec3f(0.0, 0.0, 0.0))
         joint.CreateLocalRot0Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
         joint.CreateLocalRot1Attr().Set(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+        # Each imported hand carries its OWN ArticulationRootAPI, because it was
+        # imported as a standalone robot. PhysX honours that: it builds three
+        # articulations (pelvis + two palms) and the flange joint above becomes a
+        # link BETWEEN articulations, not a link within one. The stage still shows
+        # all 40 finger joints and the correct 2.003615 kg -- but the G1's
+        # articulation reports 29 DOF, so nothing can command a finger. Deleting
+        # the API on the palms is what merges the fingers into the G1's own
+        # articulation, which is the whole point of mounting them.
+        palm_over = hl.OverridePrim(palm)
+        palm_over.RemoveAPI(UsdPhysics.ArticulationRootAPI)
+        for schema in ("PhysxArticulationAPI",):
+            palm_over.RemoveAppliedSchema(schema)
         node.SetCustomDataByKey("twin:provenance", "assumed")
         node.SetCustomDataByKey(
             "twin:source",
