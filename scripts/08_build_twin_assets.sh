@@ -32,6 +32,19 @@ docker exec \
   "$SIM_CONTAINER" /isaac-sim/python.sh \
   /workspace/ferox_tools/build_twin_assets.py ${@:-g1}
 
+# --hands also rewrites the robot's top-level stub (it gains a Hand variant set),
+# so that file has to come back too.
+if [[ " $* " == *" --hands "* ]]; then
+  _r="${1:-g1}"
+  docker cp "$SIM_CONTAINER:$STAGE/${_r}.usd" "$DEMO_DIR/isaac/assets/${_r}/usd/${_r}.usd"
+  for _f in $(docker exec "$SIM_CONTAINER" bash -lc "ls $STAGE/*_hands_*.usd 2>/dev/null"); do
+    docker cp "$SIM_CONTAINER:$_f" "$DEMO_DIR/isaac/assets/${_r}/usd/configuration/$(basename $_f)"
+    echo "  installed configuration/$(basename $_f)"
+  done
+  echo "  installed ${_r}.usd (Hand variant set)"
+  exit 0
+fi
+
 for _r in ${@:-g1}; do
   case "$_r" in
     g1)  _name=g1_29dof_rev_1_0_sensor.usd; _dst="$DEMO_DIR/isaac/assets/g1/usd/configuration" ;;

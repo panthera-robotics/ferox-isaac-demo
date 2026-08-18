@@ -145,6 +145,84 @@ def test_camera_intrinsics_solve_from_contract_K():
           f"VFOV {got['vfov_deg']:.2f} deg")
 
 
+# --- hand mount (DT3) -------------------------------------------------------
+# These four are drift tripwires for the composed asset, not for the importer.
+# Every one of them was a real failure during DT3: the reference resolved one
+# directory too shallow (mass 0, joints 0) while the mount transform and the
+# flange joint both still looked perfect. Composition is the thing that has to
+# be asserted -- authoring it correctly is not evidence that it arrived.
+HAND_STUB = "/workspace/ferox_isaac/assets/g1/usd/g1.usd"
+EXPECT_HAND_MASS = 1.025045 + 0.978570      # L + R, from the URDFs
+EXPECT_HAND_JOINTS = 40                     # 2 x 20 revolute
+EXPECT_BODY_JOINTS = 29
+HAND_MOUNT = {
+    "left":  ("left_wrist_yaw_link",  (0.0415, 0.003, 0.0)),
+    "right": ("right_wrist_yaw_link", (0.0415, -0.003, 0.0)),
+}
+
+
+def _hand_stage():
+    from pxr import Usd
+    st = Usd.Stage.Open(HAND_STUB)
+    vs = st.GetDefaultPrim().GetVariantSets()
+    assert "Hand" in vs.GetNames(), f"no Hand variant set: {vs.GetNames()}"
+    assert vs.GetVariantSet("Hand").GetVariantSelection() == "dex5_1p"
+    return st
+
+
+def test_hand_variant_set_offers_none():
+    st = _hand_stage()
+    names = st.GetDefaultPrim().GetVariantSets().GetVariantSet("Hand").GetVariantNames()
+    assert sorted(names) == ["None", "dex5_1p"], names
+
+
+def test_hand_composes_with_mass_and_joints():
+    from pxr import UsdPhysics
+    st = _hand_stage()
+    body = hand = 0
+    mass = 0.0
+    for prim in st.Traverse():
+        is_hand = "dex5_1p_" in str(prim.GetPath())
+        if prim.IsA(UsdPhysics.RevoluteJoint):
+            hand, body = (hand + 1, body) if is_hand else (hand, body + 1)
+        if is_hand and prim.HasAPI(UsdPhysics.MassAPI):
+            m = UsdPhysics.MassAPI(prim).GetMassAttr().Get()
+            mass += float(m or 0.0)
+    assert hand == EXPECT_HAND_JOINTS, f"hand joints {hand} != {EXPECT_HAND_JOINTS}"
+    assert body == EXPECT_BODY_JOINTS, f"body joints {body} != {EXPECT_BODY_JOINTS}"
+    assert abs(mass - EXPECT_HAND_MASS) < 1e-4, f"hand mass {mass} != {EXPECT_HAND_MASS}"
+
+
+def test_hand_flange_is_a_fixed_joint():
+    from pxr import UsdPhysics
+    st = _hand_stage()
+    found = {}
+    for prim in st.Traverse():
+        if prim.IsA(UsdPhysics.FixedJoint) and "flange" in prim.GetName():
+            j = UsdPhysics.FixedJoint(prim)
+            found[prim.GetName()] = (j.GetBody0Rel().GetTargets(),
+                                     j.GetBody1Rel().GetTargets())
+    assert len(found) == 2, f"expected 2 flange joints, got {sorted(found)}"
+    for name, (b0, b1) in found.items():
+        assert b0 and b1, f"{name} has an unset body relationship: {b0} {b1}"
+
+
+def test_hand_mount_offsets_match_urdf():
+    from pxr import Usd, UsdGeom
+    st = _hand_stage()
+    cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+    root = st.GetDefaultPrim().GetName()
+    for side, (parent, want) in HAND_MOUNT.items():
+        prim = st.GetPrimAtPath(f"/{root}/{parent}/dex5_1p_{side}")
+        assert prim and prim.IsValid(), f"{side} hand prim missing"
+        rel = (cache.GetLocalToWorldTransform(prim)
+               * cache.GetLocalToWorldTransform(
+                   st.GetPrimAtPath(f"/{root}/{parent}")).GetInverse()).ExtractTranslation()
+        for i, axis in enumerate("xyz"):
+            assert abs(rel[i] - want[i]) < 1e-6, \
+                f"{side} {axis}: {rel[i]:.6f} != {want[i]:.6f}"
+
+
 def main():
     create_new_stage()
     define_prim("/World", "Xform")
@@ -156,6 +234,10 @@ def main():
     check("mid360 g1 elevation span", lambda: test_elevation_span_matches_datasheet("g1"))
     check("unknown lidar config never silently accepted", test_unknown_config_is_never_silently_accepted)
     check("camera intrinsics solve from contract K", test_camera_intrinsics_solve_from_contract_K)
+    check("hand variant set offers None", test_hand_variant_set_offers_none)
+    check("hand composes with mass and joints", test_hand_composes_with_mass_and_joints)
+    check("hand flange is a fixed joint", test_hand_flange_is_a_fixed_joint)
+    check("hand mount offsets match urdf", test_hand_mount_offsets_match_urdf)
 
     out = open("/tmp/twin_isaac_tests.txt", "w")
     failed = 0
