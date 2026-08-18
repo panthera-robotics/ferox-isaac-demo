@@ -33,6 +33,7 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 | [C-4](#c-4) | C | RealSense intra-camera TF values unknown (edges confirmed, numbers absent) | DT1 | OPEN — needs OQ-1 |
 | [C-5](#c-5) | C | Aligned-depth metric scale (mm) is convention, never written down | DT1 | OPEN — needs OQ-1 |
 | [C-6](#c-6) | C | Mid-360 non-repetitive rosette modelled as a uniform rotary grid | DT2 | OPEN — inherent to Isaac's RTX lidar |
+| [C-7](#c-7) | B→C | Sim USD waist chain is 10 mm shorter than the robot's URDF | DT2 | OPEN — body asset, not patched by design |
 
 ---
 
@@ -210,6 +211,42 @@ README says the file name is the `config` argument to `IsaacSensorCreateRtxLidar
 fully-formed **default** lidar, and a silent rename to `/World/World_bogus_lidar`. `isaac/twin/lidar.py`
 therefore builds from the supported `Example_Rotary` asset, overwrites the `omni:sensor:Core:*`
 attributes from the contract, and **reads every one back**, raising if any did not take.
+
+---
+
+## C-7 — the sim's G1 USD has torso_link 10 mm lower than the robot's URDF {#c-7}
+
+**Opened:** DT2 · **Class:** B measured, carried as C · **Status:** OPEN, deliberately not patched
+
+The pelvis→torso_link offset differs between the sim body asset and the robot's URDF:
+
+| | x | y | z |
+|---|---|---|---|
+| Robot URDF (`evidence/fw2026q3/g1_29dof.urdf`): `waist_yaw` (0,0,0) + `waist_roll` (−0.0039635, 0, 0.035) + `waist_pitch` (0, 0, 0.019) | −0.0039635 | 0 | **0.054** |
+| Sim USD `g1_29dof_rev_1_0` (composed, waist at zero) | −0.0039635 | 0 | **0.044** |
+| Δ | 0 | 0 | **−0.010 m** |
+
+x matches to the digit, so this is not a units or convention error — the sim asset is a
+different sub-revision of the same model.
+
+**Consequence.** Every torso-mounted sensor — Mid-360, D435i, and their whole subtree — sits
+**10 mm lower in `base_link`** in the sim than on the robot. Each sensor's pose *relative to
+`torso_link`* is contract-exact; the error is entirely in the body between pelvis and torso.
+It also fully explains the 10 mm the D435i z appeared to be "off" by: the camera frame is right,
+the link it hangs from is low.
+
+**Why it is not patched.** Campaign §4.2 says reuse the tuned physics layer verbatim, and rule 9
+forbids adjusting an offset to make something fit. Editing the body to close a 10 mm gap would
+mean re-deriving mass and inertia from an asset we did not import, to chase a discrepancy whose
+own reference (the standing pelvis height) is itself provisional — see [C-1](#c-1). Recorded,
+not silently corrected.
+
+**Where it shows up.** In the `base_link → livox_frame` and `base_link → camera_link` composites,
+as a −10 mm z bias. It does NOT affect `torso_link`-relative geometry, the sensor mount
+attitudes (which compose exactly), or the p2l slice, which is expressed in `base_link` against a
+floor the sim also renders.
+
+**Re-check** if the body asset is ever regenerated from the current URDF.
 
 ---
 
