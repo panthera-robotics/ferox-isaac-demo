@@ -51,9 +51,18 @@ def _env_robot():
         return yaml.load(fh, Loader=_TupleTolerantLoader)["scene"]["robot"]
 
 
+class Skip(Exception):
+    """Raised when a test cannot run, so the runner counts it as a SKIP.
+
+    A test that quietly degrades to a no-op and still reports PASS is worse than a
+    missing test: "13/13 passed" then means three of them asserted nothing. The three
+    cross-repo tests here need ferox-g1-locomotion beside this repo, and a bare clone
+    does not have it -- so they must be visibly skipped, not silently green.
+    """
+
+
 def _skipped(reason):
-    print(f"  SKIP  {reason}")
-    return True
+    raise Skip(reason)
 
 
 # --------------------------------------------------------------- the core claim
@@ -247,15 +256,23 @@ def test_module_imports_without_isaac_lab():
 def main() -> int:
     tests = [(n, o) for n, o in sorted(globals().items())
              if n.startswith("test_") and callable(o)]
-    failed = []
+    failed, skipped = [], []
     for name, fn in tests:
         try:
             fn()
             print(f"  PASS  {name}")
+        except Skip as exc:
+            skipped.append(name)
+            print(f"  SKIP  {name}: {exc}")
         except Exception as exc:
             failed.append(name)
             print(f"  FAIL  {name}: {type(exc).__name__}: {exc}")
-    print(f"\n{len(tests) - len(failed)}/{len(tests)} passed")
+    ran = len(tests) - len(skipped)
+    line = f"\n{ran - len(failed)}/{ran} passed"
+    if skipped:
+        line += (f", {len(skipped)} SKIPPED (needs ferox-g1-locomotion beside this "
+                 f"repo): {', '.join(skipped)}")
+    print(line)
     return 1 if failed else 0
 
 

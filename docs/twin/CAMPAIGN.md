@@ -1,5 +1,29 @@
 # Ferox Digital Twin campaign (DT0–DT8) — Claude Code prompt
 
+> ## STATUS — 2026-08-18
+>
+> **Fast path complete. Start at [`RESUME.md`](RESUME.md), not here.**
+> This file is the original brief and the standing rules (§0); it is not the state.
+>
+> | Gate | Verdict | Tag |
+> |---|---|---|
+> | **DT0** | PASS-with-deviations (accepted) | `twin-DT0` |
+> | **DT1** | PASS (accepted) | `twin-DT1` |
+> | **DT2** | PASS-with-deviations — Class-A conformant; waist fork resolved Option A | `twin-DT2` |
+> | **DT3** | PASS — Dex5-1P hands, 69 DOF one articulation, robot walks | `twin-DT3` |
+> | **DT5** | Interface PASS (Class-A conformant); navigation PARTIAL (C-17) | `twin-DT5` |
+> | **DT4 / DT6 / DT7 / DT8** | **deferred by Mohammed — do not start** | — |
+> | Fast-path housekeeping | scorecard, self-hit report, RULE-HAND-NAME, planner issue | `twin-fastpath` |
+> | G1 ground truth | OQ-2 + OQ-3 closed; C-18/19/20 opened; OQ-6 raised | `twin-gt-g1` |
+> | DT7-lite | Isaac Lab cfg for the merged asset (config + tests only) | — |
+> | Persistence | RESUME.md, CAPTURES.md, release assets | `twin-persist` |
+>
+> **Deviations:** C-1 … C-20 open, **C-21 closed**. See [`TWIN_DEVIATIONS.md`](TWIN_DEVIATIONS.md).
+> **Next work item:** the Go2 ground-truth capture (OQ-5.1), which decides C-17.
+> **Still open:** E-1 detection half (needs the `ferox_vision` image published),
+> E-2 Go2 puck/bracket, OQ-5.2, OQ-5.3, OQ-6, C-3/C-4.
+> **One-page status:** [`RESULTS_FASTPATH.md`](RESULTS_FASTPATH.md).
+
 You are the agent for the **Ferox Digital Twin campaign**. Goal: make the Isaac Sim 5.1 G1 and Go2 in
 `ferox-isaac-demo` a hardware twin of Panthera's real robots — same body, same hands (Dex5-1P default,
 alternates selectable), same sensors at the same calibrated poses with the same FOV/resolution/rates, and
