@@ -155,12 +155,12 @@ def check_topics(contract: Dict[str, Any], obs: Observation) -> List[Finding]:
                 out.append(Finding("B", "topic/rate", name, f"{want_rate} Hz", "no messages", FAIL))
             elif spec.get("rate_rule") == "camera":
                 out.append(Finding("B", "topic/rate", name, f">={CAMERA_MIN_RATE_HZ} Hz (target {want_rate})",
-                                   f"{t.rate_hz:.2f} Hz",
+                                   f"{t.rate_hz:.2f} Hz ({t.rate_basis})",
                                    OK if t.rate_hz >= CAMERA_MIN_RATE_HZ else FAIL))
             else:
                 lo, hi = want_rate * (1 - TOL_RATE_FRACTION), want_rate * (1 + TOL_RATE_FRACTION)
                 out.append(Finding("B", "topic/rate", name, f"{want_rate} Hz +-10%",
-                                   f"{t.rate_hz:.2f} Hz",
+                                   f"{t.rate_hz:.2f} Hz ({t.rate_basis})",
                                    OK if lo <= t.rate_hz <= hi else FAIL))
     return out
 
@@ -212,6 +212,19 @@ def check_tf_static(contract: Dict[str, Any], obs: Observation) -> List[Finding]
     return out
 
 
+def _deviation_for(spec: Dict[str, Any], check: str) -> str:
+    """Return the declared deviation id for a check, or "" if it is not declared.
+
+    A contract topic may list `deviations: {check: "C-n reason"}`. Those checks are
+    reported at Class C instead of A, so they no longer gate the exit code -- but
+    they are still RUN and still printed with the measured difference. The point is
+    that an accepted approximation stays visible every single run; deleting the
+    check would make the sim look conformant, which is the failure mode this whole
+    campaign exists to prevent.
+    """
+    return (spec.get("deviations") or {}).get(check, "")
+
+
 def check_payloads(contract: Dict[str, Any], obs: Observation) -> List[Finding]:
     """LaserScan geometry, PointCloud2 field layout, CameraInfo intrinsics."""
     out: List[Finding] = []
@@ -256,14 +269,17 @@ def check_payloads(contract: Dict[str, Any], obs: Observation) -> List[Finding]:
         if pc:
             got = [(f["name"], f["datatype"], f["count"]) for f in ex.get("fields", [])]
             wanted = [(f["name"], f["datatype"], f.get("count", 1)) for f in pc]
-            out.append(Finding("A", "pointcloud/fields", name,
+            dev = _deviation_for(spec, "pointcloud/fields")
+            ok = got == wanted
+            out.append(Finding("C" if (dev and not ok) else "A", "pointcloud/fields", name,
                                ", ".join(f"{n}:{d}" for n, d, _ in wanted),
                                ", ".join(f"{n}:{d}" for n, d, _ in got) or "-",
-                               OK if got == wanted else FAIL))
+                               OK if ok else (SKIP if dev else FAIL), dev))
             if expect.get("point_step") is not None:
-                out.append(Finding("A", "pointcloud/point_step", name,
+                ok = ex.get("point_step") == expect["point_step"]
+                out.append(Finding("C" if (dev and not ok) else "A", "pointcloud/point_step", name,
                                    _f(expect["point_step"]), _f(ex.get("point_step")),
-                                   OK if ex.get("point_step") == expect["point_step"] else FAIL))
+                                   OK if ok else (SKIP if dev else FAIL), dev))
 
         ci = expect.get("camera_info")
         if ci:

@@ -1119,10 +1119,12 @@ class RobotRosRunner(object):
               flush=True)
 
         imu = twin_sensors.create_imu(contract, root)
-        try:
-            imu.initialize()
-        except Exception:
-            pass
+        livox_imu = twin_sensors.create_livox_imu(contract, root)
+        for _s in (imu, livox_imu):
+            try:
+                _s.initialize()
+            except Exception:
+                pass
 
         # Render products need a few frames before they yield anything.
         for _ in range(5):
@@ -1133,7 +1135,8 @@ class RobotRosRunner(object):
         print(f"[TWIN] /tf_static: {len(edges)} edges "
               f"({', '.join(e['parent'] + '->' + e['child'] for e in edges)})", flush=True)
 
-        twin_pub.setup_lidar_cloud(contract, lidar_prim)
+        render_hz = (1.0 / self._render_dt) if self._render_dt else 60.0
+        twin_pub.setup_lidar_cloud(contract, lidar_prim, render_hz=render_hz)
         print("[TWIN] Mid-360 -> /livox/lidar", flush=True)
 
         # IMU via rclpy, NOT OmniGraph. ROS2PublishImu builds without error, logs
@@ -1148,6 +1151,16 @@ class RobotRosRunner(object):
         self._twin_imu_frame = imu_frame
         self._twin_imu_period = 1.0 / float(imu_spec["rate_hz"])
         self._twin_imu_next = 0.0
+
+        livox_spec = twin_pub._topic(contract, "/livox/imu")
+        self._twin_rclpy.add_imu("livox", livox_spec["name"], reliable=True)
+        self._twin_livox_imu = livox_imu
+        self._twin_livox_frame = livox_spec["frame_id"]
+        self._twin_livox_period = 1.0 / float(livox_spec["rate_hz"])
+        self._twin_livox_next = 0.0
+        print(f"[TWIN] Livox IMU -> {livox_spec['name']} "
+              f"(frame {livox_spec['frame_id']}, {livox_spec['rate_hz']} Hz, rclpy)",
+              flush=True)
         print(f"[TWIN] IMU -> {imu_spec['name']} (frame {imu_frame}, "
               f"{imu_spec['rate_hz']} Hz, rclpy)", flush=True)
 
@@ -1177,10 +1190,15 @@ class RobotRosRunner(object):
     def _twin_pump(self) -> None:
         """Publish the rclpy-side twin topics, rate-limited on SIM time.
 
-        Rate-limiting on sim time rather than wall time is deliberate: the sim runs
-        at ~0.4x real time, so a wall-clock limiter would emit 100 Hz of wall time
-        and roughly 250 Hz of sim time — a rate the audit would correctly flag and
-        that no consumer expects.
+        Called from the PHYSICS callback, not the render loop. The render loop steps
+        at render_dt (60 Hz of sim time), so an IMU driven from there tops out around
+        60 Hz and can never reach the contract's 100 -- measured 65.75 Hz before this
+        moved. Physics runs at 200 Hz, so 100 Hz is a clean 2:1 decimation of it.
+
+        Rate-limiting on SIM time rather than wall time is the other half: the sim
+        runs at well under real time, so a wall-clock limiter would emit 100 Hz of
+        wall time and several hundred Hz of sim time -- a rate no consumer expects
+        and the audit would correctly flag.
         """
         if getattr(self, "_twin_rclpy", None) is None:
             return
@@ -1188,21 +1206,24 @@ class RobotRosRunner(object):
             t = float(self._world.current_time)
         except Exception:
             return
-        if t < self._twin_imu_next:
-            return
-        self._twin_imu_next = t + self._twin_imu_period
-        try:
-            frame = self._twin_imu_sensor.get_current_frame()
-        except Exception:
-            return
-        lin = frame.get("lin_acc")
-        ang = frame.get("ang_vel")
-        ori = frame.get("orientation")
-        if lin is None or ang is None:
-            return
-        self._twin_rclpy.publish_imu(
-            "body", self._twin_imu_frame, t, lin, ang,
-            orientation_wxyz=ori if ori is not None else None)
+        for key, sensor, frame_id, period_attr, next_attr in (
+                ("body", self._twin_imu_sensor, self._twin_imu_frame,
+                 "_twin_imu_period", "_twin_imu_next"),
+                ("livox", getattr(self, "_twin_livox_imu", None),
+                 getattr(self, "_twin_livox_frame", ""),
+                 "_twin_livox_period", "_twin_livox_next")):
+            if sensor is None or t < getattr(self, next_attr, 0.0):
+                continue
+            setattr(self, next_attr, t + getattr(self, period_attr))
+            try:
+                frame = sensor.get_current_frame()
+            except Exception:
+                continue
+            lin, ang, ori = frame.get("lin_acc"), frame.get("ang_vel"), frame.get("orientation")
+            if lin is None or ang is None:
+                continue
+            self._twin_rclpy.publish_imu(key, frame_id, t, lin, ang,
+                                         orientation_wxyz=ori if ori is not None else None)
 
     def _get_cmd_vel(self) -> Optional[np.ndarray]:
         if self._linear_attr is None or self._angular_attr is None:
@@ -1234,6 +1255,8 @@ class RobotRosRunner(object):
         Physics call back, initialize robot (first frame) and call controller forward function.
 
         """
+        if self._twin:
+            self._twin_pump()
         if self.first_step:
             self._robot.initialize()
             self.first_step = False
@@ -1280,8 +1303,6 @@ class RobotRosRunner(object):
             t0 = time.time()
             self._world.step(render=True)
             viewport_follow.maybe_step(self)  # PANTHERA: no-op unless VIEWPORT_FOLLOW
-            if self._twin:
-                self._twin_pump()
             if self._world.is_stopped():
                 self.needs_reset = True
             if real_time:

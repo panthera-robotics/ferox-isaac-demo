@@ -186,6 +186,13 @@ def validate(contract: Dict[str, Any]) -> Dict[str, Any]:
                 f"{where}: qos.durability must be 'volatile' or 'transient_local'",
             )
         _validate_expect(t.get("expect"), where)
+        devs = t.get("deviations")
+        if devs is not None:
+            _require(isinstance(devs, dict), f"{where}.deviations must be a mapping")
+            for check, reason in devs.items():
+                _require(isinstance(reason, str) and reason.strip(),
+                         f"{where}.deviations[{check!r}] needs a reason naming the "
+                         "TWIN_DEVIATIONS entry")
 
     edges = contract.get("tf_static") or []
     _require(isinstance(edges, list), "'tf_static' must be a list")

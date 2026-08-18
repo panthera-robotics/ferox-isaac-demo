@@ -112,7 +112,8 @@ def setup_tf_static(contract: Dict[str, Any], camera_tf: bool = False):
     return edges
 
 
-def setup_lidar_cloud(contract: Dict[str, Any], lidar_prim, resolution=(1, 1)):
+def setup_lidar_cloud(contract: Dict[str, Any], lidar_prim, resolution=(1, 1),
+                      render_hz: float = 60.0):
     """RTX lidar -> PointCloud2 on the contract's cloud topic.
 
     NOTE ON FIELDS: RtxLidarROS2PublishPointCloud emits x,y,z only (measured on the
@@ -130,6 +131,28 @@ def setup_lidar_cloud(contract: Dict[str, Any], lidar_prim, resolution=(1, 1)):
     w.initialize(frameId=spec["frame_id"], nodeNamespace="",
                  topicName=spec["name"], queueSize=10)
     w.attach([rp])
+
+    # DECIMATE TO THE SENSOR'S SCAN RATE. Without this the writer fires once per
+    # RENDER frame (~60 Hz of sim time), so every published message is a PARTIAL
+    # sweep -- measured 66.44 Hz against a contract rate of 10. The robot emits one
+    # message per full revolution. A partial sweep still looks like a valid cloud to
+    # every consumer, just with a fraction of the points and a rate nothing expects,
+    # which is exactly the sort of wrong that passes a topic-level check.
+    if render_hz:
+        step = max(1, int(round(render_hz / float(spec["rate_hz"]))))
+        # set_node_attributes wants the render product PATH; rep.create.render_product
+        # returns a HydraTexture object, whose .path carries it.
+        rp_path = getattr(rp, "path", None) or str(rp)
+        try:
+            import omni.syntheticdata
+            omni.syntheticdata.SyntheticData.Get().set_node_attributes(
+                "PostProcessDispatchIsaacSimulationGate", {"inputs:step": step}, rp_path)
+        except Exception as exc:
+            raise PublisherError(
+                f"could not decimate {spec['name']} to {spec['rate_hz']} Hz "
+                f"(render {render_hz} Hz, step {step}): {exc}. Without decimation "
+                "every message is a partial sweep."
+            ) from exc
     return rp, spec
 
 

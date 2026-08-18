@@ -40,6 +40,7 @@ class TopicObs:
     qos_reliability: str = ""
     qos_durability: str = ""
     encoding: str = ""
+    rate_basis: str = ""
     extras: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -162,6 +163,7 @@ def observe_live(topic_names: List[str], duration: float, node_name: str = "twin
 
         graph = dict(node.get_topic_names_and_types())
         counts: Dict[str, int] = {}
+        stamps: Dict[str, List[float]] = {}
         first: Dict[str, Any] = {}
         subs = []
 
@@ -204,6 +206,19 @@ def observe_live(topic_names: List[str], duration: float, node_name: str = "twin
                     counts[topic_name] = counts.get(topic_name, 0) + 1
                     if topic_name not in first:
                         first[topic_name] = (msg, type_str)
+                    # Record header stamps so the rate can be measured in SIM
+                    # time. Wall-clock rate is the wrong quantity here: the sim
+                    # runs at roughly 0.4x real time, so a 100 Hz publisher shows
+                    # up as ~40 Hz on a wall clock and the audit would report a
+                    # failure that says more about the GPU than the interface.
+                    # What a consumer actually experiences is messages per second
+                    # of SIM time, and that is what hardware's rate compares to.
+                    h = getattr(msg, "header", None)
+                    if h is not None:
+                        t = h.stamp.sec + h.stamp.nanosec * 1e-9
+                        st = stamps.setdefault(topic_name, [])
+                        if not st or t > st[-1]:
+                            st.append(t)
                 return cb
 
             subs.append(node.create_subscription(msg_cls, name, make_cb(name, t.type), sub_qos))
@@ -235,7 +250,15 @@ def observe_live(topic_names: List[str], duration: float, node_name: str = "twin
 
         for name, n in counts.items():
             t = obs.topic(name)
-            t.rate_hz = (n / elapsed) if elapsed > 0 else None
+            st = stamps.get(name) or []
+            if len(st) >= 2 and (st[-1] - st[0]) > 0.5:
+                # SIM-time rate: messages per second of the clock the stamps are
+                # in. This is the number that compares to hardware.
+                t.rate_hz = (len(st) - 1) / (st[-1] - st[0])
+                t.rate_basis = "sim-time stamps"
+            else:
+                t.rate_hz = (n / elapsed) if elapsed > 0 else None
+                t.rate_basis = "wall clock"
             if name in first:
                 msg, type_str = first[name]
                 t.frame_id, t.encoding, t.extras = probe_message(msg, type_str)

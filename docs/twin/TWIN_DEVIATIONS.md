@@ -34,6 +34,8 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 | [C-5](#c-5) | C | Aligned-depth metric scale (mm) is convention, never written down | DT1 | OPEN — needs OQ-1 |
 | [C-6](#c-6) | C | Mid-360 non-repetitive rosette modelled as a uniform rotary grid | DT2 | OPEN — inherent to Isaac's RTX lidar |
 | [C-7](#c-7) | B→C | Sim USD waist chain is 10 mm shorter than the robot's URDF | DT2 | OPEN — body asset, not patched by design |
+| [C-8](#c-8) | C | Mid-360 cloud is xyz-only; Isaac has no node that emits the livox field layout | DT2 | OPEN — Isaac bridge limitation |
+| [C-9](#c-9) | C | Rendered depth has no stereo baseline, so no occlusion shadows | DT2 | OPEN — inherent to rendered depth |
 
 ---
 
@@ -247,6 +249,53 @@ attitudes (which compose exactly), or the p2l slice, which is expressed in `base
 floor the sim also renders.
 
 **Re-check** if the body asset is ever regenerated from the current URDF.
+
+---
+
+## C-8 — the Mid-360 cloud carries xyz only {#c-8}
+
+**Opened:** DT2 · **Class:** C · **Status:** OPEN (Isaac bridge limitation)
+
+| | Fields | `point_step` |
+|---|---|---|
+| Contract (livox_ros_driver2) | x, y, z, intensity `FLOAT32`; tag, line `UINT8`; timestamp `FLOAT64` | 26 |
+| Twin | x, y, z `FLOAT32` | **12** |
+
+`RtxLidarROS2PublishPointCloud` is the only node in the Isaac Sim 5.1 ROS 2 bridge that turns
+an RTX lidar into a `PointCloud2`, and it emits xyz only — measured, and consistent with the
+legacy `/unitree_lidar` stream this sim has always produced (3 fields, `point_step 12`). No
+bridge node adds intensity, tag, line or per-point timestamp.
+
+**Consequence.** Anything consuming intensity (reflectivity-based segmentation), `line`
+(ring-based ground removal), or per-point `timestamp` (motion compensation / deskewing) has
+nothing to consume. `pointcloud_to_laserscan` needs only xyz, so `/scan` — and therefore Nav2
+and SLAM — is unaffected. FAST-LIO2 would care, which is why this is worth closing eventually.
+
+**How it is reported.** The contract keeps the REAL layout and marks these two checks as
+declared deviations, so `twin_audit` still runs them and still prints the difference every
+run; they simply no longer gate the exit code. Deleting the checks would make the sim look
+conformant, which is the failure mode this campaign exists to prevent.
+
+**Would close by** publishing the cloud from the RTX lidar annotator through a custom node
+that packs the full layout, in the same place the camera converter already lives.
+
+---
+
+## C-9 — rendered depth has no stereo occlusion shadows {#c-9}
+
+**Opened:** DT2 · **Class:** C · **Status:** OPEN (inherent)
+
+A real D435i derives depth by stereo matching, so it produces occlusion shadows: a band of
+invalid pixels the colour sensor can see but the right IR sensor cannot, whose width scales
+with the baseline and inversely with range. Rendered depth has no baseline and therefore no
+shadows.
+
+**Consequence.** Twin depth is denser and cleaner at depth discontinuities than the robot's,
+particularly along the near edges of foreground objects. Perception tuned on shadow geometry —
+or on the invalid-pixel fraction as a confidence proxy — will not transfer. The compensating
+approximation is deliberate: because colour and depth are rendered from ONE camera prim, the
+alignment and the shared timestamp are exact rather than approximate, which is the parity that
+actually matters to the consumers we have.
 
 ---
 

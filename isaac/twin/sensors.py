@@ -179,6 +179,31 @@ def create_lidar(contract: Dict[str, Any], robot_root: str):
 # --------------------------------------------------------------- imu
 
 
+def create_livox_imu(contract: Dict[str, Any], robot_root: str):
+    """Create the Mid-360's internal IMU at the authored livox_imu frame.
+
+    The robot publishes /livox/imu at 200 Hz and nothing consumes it yet
+    (FW_MIGRATION_REPORT: "published, unconsumed"). The twin publishes it anyway,
+    because fast_lio2 will want it and because an interface that is missing a topic
+    is not the interface.
+    """
+    import numpy as np
+    from isaacsim.sensors.physics import IMUSensor
+    from isaacsim.core.utils.prims import is_prim_path_valid
+
+    spec = _sensor(contract, "livox_mid360")
+    frame = f"{robot_root}/{spec['parent_link']}/livox_frame/livox_imu"
+    if not is_prim_path_valid(frame):
+        raise SensorAuthoringError(
+            f"{frame} is not in the stage -- run scripts/08_build_twin_assets.sh")
+    rate = _topic(contract, "/livox/imu")["rate_hz"]
+    return IMUSensor(
+        prim_path=f"{frame}/imu", name="livox_imu", frequency=int(round(rate)),
+        translation=np.array([0.0, 0.0, 0.0]),
+        orientation=np.array([1.0, 0.0, 0.0, 0.0]),
+    )
+
+
 def create_imu(contract: Dict[str, Any], robot_root: str):
     """Create the body IMU as an identity child of the authored dog_imu_link."""
     import numpy as np

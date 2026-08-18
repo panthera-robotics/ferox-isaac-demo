@@ -277,10 +277,17 @@ topics:
     direction: publish
     frame_id: base_link
     rate_hz: 10.0
-    qos: {reliability: reliable, durability: volatile}
+    # best_effort is pointcloud_to_laserscan's OWN publisher default, which this
+    # package does not set on either side. The robot runs the identical node with
+    # the identical parameters, so the QoS matches by construction rather than by
+    # configuration. Recorded as measured, not as an aspiration.
+    qos: {reliability: best_effort, durability: volatile}
     parity_class: A
-    provenance: configured
-    source: panthera-g1-driver/.../g1_driver_hw.launch.py:138 (scan_topic), :230 (remap)
+    provenance: measured
+    source: >-
+      panthera-g1-driver/.../g1_driver_hw.launch.py:138 (scan_topic), :230 (remap).
+      QoS is the p2l default (not set by the driver); measured best_effort in the twin,
+      and the same node produces the same default on the robot.
     expect:
       laserscan:
         ray_count: 723
@@ -364,6 +371,13 @@ topics:
         - {name: line,      datatype: UINT8,   offset: 17, count: 1}
         - {name: timestamp, datatype: FLOAT64, offset: 18, count: 1}
       point_step: 26
+    deviations:
+      # RtxLidarROS2PublishPointCloud emits x,y,z only (point_step 12) -- measured,
+      # and there is no Isaac 5.1 node that adds intensity/tag/line/timestamp to an
+      # RTX lidar cloud. The check still RUNS and still prints the difference every
+      # audit; it just no longer gates the exit code. See TWIN_DEVIATIONS C-8.
+      pointcloud/fields: "C-8: Isaac RTX lidar cloud is xyz-only; no bridge node emits the livox layout"
+      pointcloud/point_step: "C-8: xyz-only cloud is point_step 12, not 26"
 
   - name: /livox/imu
     type: sensor_msgs/msg/Imu
