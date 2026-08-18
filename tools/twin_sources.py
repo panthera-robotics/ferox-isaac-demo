@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import glob
 import json
+import math
 import os
 import re
 from dataclasses import dataclass, field
@@ -67,6 +68,38 @@ class Observation:
 # ---------------------------------------------------------------- message probes
 
 
+SELF_HIT_M = 0.35
+"""Rays closer than this, in the scan's target frame, are reported as self-hits.
+
+0.35 m, not the driver's 0.30 m range_min: the interesting rays are the ones that
+sit just ABOVE range_min and therefore survive into /scan, which is precisely the
+C-17 case. A threshold at range_min would report exactly nothing.
+"""
+
+
+def _bearing_runs(hits, angle_min, angle_increment, gap=2):
+    """Group hit indices into contiguous bearing runs, as one entry per run.
+
+    One run is one object. The Go2's cluster is a single 6.4-degree run off its own
+    nose; a wall ahead would be one wide run; scattered noise would be many tiny
+    ones. The shape is what distinguishes them, so it is reported rather than a
+    bare count.
+    """
+    if not hits:
+        return []
+    runs, start, prev = [], hits[0][0], hits[0][0]
+    for i, _ in hits[1:]:
+        if i - prev > gap:
+            runs.append((start, prev))
+            start = i
+        prev = i
+    runs.append((start, prev))
+    return [{"rays": hi - lo + 1,
+             "azimuth_lo_deg": math.degrees(angle_min + lo * angle_increment),
+             "azimuth_hi_deg": math.degrees(angle_min + hi * angle_increment)}
+            for lo, hi in runs]
+
+
 def probe_message(msg, type_str: str) -> Tuple[str, str, Dict[str, Any]]:
     """Pull (frame_id, encoding, extras) out of one message, per type.
 
@@ -101,6 +134,34 @@ def probe_message(msg, type_str: str) -> Tuple[str, str, Dict[str, Any]]:
             frac_below_range_min=(len(below) / len(ranges)) if ranges else 0.0,
             n_finite=len(finite),
         )
+        # SELF-HIT REPORT (C-17). Every ray closer than SELF_HIT_M in the scan's own
+        # target frame, with its bearing. Reported unconditionally, pass or fail,
+        # because the whole point is to hold the sim's number next to a hardware
+        # capture and compare them one-to-one -- and a check that only prints when
+        # it trips cannot do that.
+        #
+        # Measured in the TARGET frame on purpose. pointcloud_to_laserscan applies
+        # range_min there, not in the sensor frame, which is exactly why the Go2's
+        # self-hits at 0.10-0.15 m from the sensor survive as 0.30+ m rays: the
+        # sensor sits 0.187 m forward of base_link. Reporting sensor-frame distances
+        # here would measure a different thing from the one that reaches Nav2.
+        hits = [(i, r) for i, r in enumerate(ranges)
+                if r == r and abs(r) != float("inf") and r < SELF_HIT_M]
+        extras["self_hit"] = {
+            "threshold_m": SELF_HIT_M,
+            "count": len(hits),
+            "frame": frame_id,
+            "range_min_m": min((r for _, r in hits), default=None),
+            "range_max_m": max((r for _, r in hits), default=None),
+            "azimuth_min_deg": (
+                math.degrees(msg.angle_min + hits[0][0] * msg.angle_increment)
+                if hits else None),
+            "azimuth_max_deg": (
+                math.degrees(msg.angle_min + hits[-1][0] * msg.angle_increment)
+                if hits else None),
+            # Contiguous bearing runs -- one body part is one run; a wall is not.
+            "runs": _bearing_runs(hits, msg.angle_min, msg.angle_increment),
+        }
     elif short == "PointCloud2":
         extras.update(
             fields=[

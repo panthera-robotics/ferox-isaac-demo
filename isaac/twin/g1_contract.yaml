@@ -507,3 +507,25 @@ cmd_vel_clamps:
   angular_z: [-0.5, 0.5]
   provenance: configured
   source: panthera-g1-driver config g1_driver.yaml (cmd_vel_to_loco)
+
+rules:
+  # Named rules a CONSUMER of this contract must follow. Not checkable from the wire
+  # -- these constrain how code uses the interface, not what the interface carries --
+  # so each names the test that enforces it.
+  - id: RULE-HAND-NAME
+    summary: hand joints map by name; never slice by index
+    applies_to: any reader or writer of Dex5-1P joint state
+    detail: >-
+      limits.py clamps a flat 20-vector per hand in URDF document order, which is what
+      the driver speaks. Isaac orders articulation DOFs breadth-first over the whole
+      robot, so each hand's 20 joints land at scattered, non-contiguous, interleaved
+      indices: left occupies 29..63 and right 34..68, neither contiguous, and the two
+      interleave. Copying a 20-vector straight into set_joint_positions writes fingers
+      of BOTH hands at random -- the W6 Dex3/Dex5 failure shape through a different
+      door. Build the map by joint name. Slicing the BODY block by index is fine and
+      is asserted separately; it is the hand block, and only that, which is forbidden.
+    hand_dof_block: [29, 68]
+    deviation: C-14
+    enforced_by: >-
+      tools/tests/test_twin_contract.py::test_rule_hand_name_no_numeric_hand_indexing
+    also_documented_in: [CLAUDE.md, docs/twin/TWIN_DEVIATIONS.md]

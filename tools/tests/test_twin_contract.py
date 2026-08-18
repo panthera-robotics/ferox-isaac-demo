@@ -21,6 +21,7 @@ Or under pytest:
 
 from __future__ import annotations
 
+import ast
 import copy
 import math
 import os
@@ -35,6 +36,7 @@ import twin_contract  # noqa: E402
 
 G1_PATH = os.path.join(REPO, "isaac", "twin", "g1_contract.yaml")
 GO2_PATH = os.path.join(REPO, "isaac", "twin", "go2_contract.yaml")
+ISAAC_TWIN = os.path.join(REPO, "isaac", "twin")
 
 
 def _edge(contract, parent, child):
@@ -459,6 +461,122 @@ def test_mid360_rate_differs_between_robots():
     go2 = _sensor(twin_contract.load(GO2_PATH), "livox_mid360")["model_params"]
     assert g1["scan_rate_hz"] == 10.0
     assert go2["scan_rate_hz"] == 20.0
+
+
+# --- RULE-HAND-NAME (C-14) --------------------------------------------------
+
+JOINTISH = ("dof", "joint_position", "joint_velocit", "joint_name", "joint_state",
+            "joint_target", "joint_effort", "q_hand", "hand_q")
+
+
+def _hand_dof_block(contract_path):
+    """The forbidden index range, read from the contract rather than hardcoded."""
+    c = twin_contract.load(contract_path)
+    rules = {r["id"]: r for r in c.get("rules", [])}
+    assert "RULE-HAND-NAME" in rules, f"{contract_path} does not declare RULE-HAND-NAME"
+    lo, hi = rules["RULE-HAND-NAME"]["hand_dof_block"]
+    return int(lo), int(hi)
+
+
+def _int_constants(node):
+    """Every integer literal appearing anywhere in a subscript's index."""
+    out = []
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Constant) and isinstance(sub.value, int) \
+                and not isinstance(sub.value, bool):
+            out.append(sub.value)
+    return out
+
+
+def _subscript_target_name(node):
+    """A readable name for whatever is being subscripted."""
+    v = node.value
+    while isinstance(v, ast.Call):
+        v = v.func
+    if isinstance(v, ast.Attribute):
+        return v.attr
+    if isinstance(v, ast.Name):
+        return v.id
+    if isinstance(v, ast.Subscript):
+        return _subscript_target_name(v)
+    return ""
+
+
+def test_rule_hand_name_no_numeric_hand_indexing():
+    """No joint array may be indexed with a literal in the hand DOF block.
+
+    RULE-HAND-NAME, enforcing C-14. Isaac interleaves the hand DOFs (left 29..63,
+    right 34..68, neither contiguous), so a literal index into that block is either
+    already wrong or one Unitree URDF revision away from being wrong -- and it fails
+    silently, moving fingers on the wrong hand.
+
+    Body-block indices are deliberately NOT flagged: dof_names[:29] is legitimate and
+    is asserted bit-identical by the Isaac suite. Only the hand block is forbidden.
+    """
+    lo, hi = _hand_dof_block(os.path.join(ISAAC_TWIN, "g1_contract.yaml"))
+    roots = [os.path.join(REPO, d) for d in ("isaac", "tools")]
+    offenders = []
+    for root in roots:
+        for dirpath, _dirs, files in os.walk(root):
+            if "__pycache__" in dirpath:
+                continue
+            for fn in files:
+                if not fn.endswith(".py"):
+                    continue
+                path = os.path.join(dirpath, fn)
+                try:
+                    tree = ast.parse(open(path, encoding="utf-8").read())
+                except SyntaxError:
+                    continue
+                for node in ast.walk(tree):
+                    if not isinstance(node, ast.Subscript):
+                        continue
+                    target = _subscript_target_name(node).lower()
+                    if not any(tok in target for tok in JOINTISH):
+                        continue
+                    for val in _int_constants(node.slice):
+                        if lo <= val <= hi:
+                            offenders.append(
+                                f"{os.path.relpath(path, REPO)}:{node.lineno}: "
+                                f"{target}[...{val}...] indexes the hand DOF block "
+                                f"[{lo},{hi}]")
+    assert not offenders, (
+        "RULE-HAND-NAME violated -- hand joints must map by name (C-14):\n  "
+        + "\n  ".join(offenders))
+
+
+def test_rule_hand_name_is_declared_everywhere():
+    """The rule must be in both contracts and in CLAUDE.md, or it is not a rule."""
+    for robot in ("g1", "go2"):
+        lo, hi = _hand_dof_block(os.path.join(ISAAC_TWIN, f"{robot}_contract.yaml"))
+        assert (lo, hi) == (29, 68), f"{robot}: hand block {(lo, hi)} != (29, 68)"
+    claude = os.path.join(REPO, "CLAUDE.md")
+    assert os.path.exists(claude), "CLAUDE.md is missing"
+    text = open(claude, encoding="utf-8").read()
+    assert "RULE-HAND-NAME" in text, "CLAUDE.md does not carry RULE-HAND-NAME"
+    assert "never slice by index" in text
+
+
+def test_rule_hand_name_catches_a_violation():
+    """The check must actually fire -- a linter that cannot fail is decoration."""
+    bad = ast.parse("hand = art.get_joint_positions()\nx = hand_q[33]\n")
+    lo, hi = 29, 68
+    hits = []
+    for node in ast.walk(bad):
+        if isinstance(node, ast.Subscript):
+            target = _subscript_target_name(node).lower()
+            if any(tok in target for tok in JOINTISH):
+                hits += [v for v in _int_constants(node.slice) if lo <= v <= hi]
+    assert hits == [33], f"the RULE-HAND-NAME check did not fire: {hits}"
+
+    good = ast.parse("i = names.index('Pitch_13L')\nx = joint_positions[i]\n")
+    hits = []
+    for node in ast.walk(good):
+        if isinstance(node, ast.Subscript):
+            target = _subscript_target_name(node).lower()
+            if any(tok in target for tok in JOINTISH):
+                hits += [v for v in _int_constants(node.slice) if lo <= v <= hi]
+    assert hits == [], f"the check fired on a name-based lookup: {hits}"
 
 
 def main() -> int:

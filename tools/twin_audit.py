@@ -272,6 +272,32 @@ def check_payloads(contract: Dict[str, Any], obs: Observation) -> List[Finding]:
                 out.append(Finding("C", "laserscan/below_range_min", name,
                                    "reported (self-hit fraction)", f"{below:.2%}", SKIP))
 
+            # SELF-HIT REPORT (C-17). Always emitted, never a pass/fail: this exists
+            # so the sim's number and a hardware capture can be read side by side and
+            # compared one-to-one. On the Go2 the sim currently reports 13-14 rays at
+            # 0.300-0.313 m over a single 6.4-degree run off the robot's own nose; if
+            # a robot capture reports the same, C-17 is faithful and the fix belongs
+            # in the driver. If it reports nothing, C-17 is a sim artefact.
+            sh = ex.get("self_hit")
+            if sh is not None:
+                if sh["count"] == 0:
+                    detail = f"none under {sh['threshold_m']:.2f} m"
+                else:
+                    detail = (f"{sh['count']} rays "
+                              f"{sh['range_min_m']:.3f}-{sh['range_max_m']:.3f} m "
+                              f"in {len(sh['runs'])} run(s)")
+                out.append(Finding("C", "laserscan/self_hit", name,
+                                   f"reported in {sh['frame'] or 'target frame'} "
+                                   f"(<{sh['threshold_m']:.2f} m)",
+                                   detail, SKIP))
+                for run in sh["runs"]:
+                    out.append(Finding(
+                        "C", "laserscan/self_hit_run", name,
+                        "azimuth span of one contiguous run",
+                        f"{run['rays']} rays  "
+                        f"{run['azimuth_lo_deg']:+.1f}..{run['azimuth_hi_deg']:+.1f} deg",
+                        SKIP))
+
         pc = expect.get("pointcloud_fields")
         if pc:
             got = [(f["name"], f["datatype"], f["count"]) for f in ex.get("fields", [])]
