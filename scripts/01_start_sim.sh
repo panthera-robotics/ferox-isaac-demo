@@ -132,13 +132,27 @@ SIM_CMD_VEL_TOPIC="/ferox/${ROBOT_ID}/cmd_vel"
 # so decimating the lidar by round(60/10)=6 gave 11.11 Hz against a 10 Hz contract --
 # a miss that reads as sensor jitter and is really arithmetic.
 #
-# 0.02 s is EXACTLY four physics substeps: 50 Hz render, decimation 5, exactly 10 Hz
-# lidar. physics_dt is untouched, so the walking policy (200 Hz physics, decimation 4,
-# 50 Hz policy) is unaffected. Legacy mode:=sim keeps its old default.
+# The lidar is decimated from the render clock by an INTEGER step, so the render rate
+# has to be an integer multiple of the contract's lidar rate or the sensor lands on
+# the wrong one -- and it lands there silently, looking like jitter.
+#
+#   G1   10 Hz lidar: 0.020 s = 4 physics substeps = 50 Hz render, step 5 -> 10 Hz
+#   Go2  20 Hz lidar: 0.025 s = 5 physics substeps = 40 Hz render, step 2 -> 20 Hz
+#
+# 0.02 s on the Go2 gives 50/20 = 2.5, which is not an integer: the gate rounds to 2
+# and every cloud, scan and accumulated cloud comes out at 25 Hz. That is exactly
+# what the first Go2 audit measured.
+#
+# physics_dt is untouched either way, so the walking policy (200 Hz physics,
+# decimation 4, 50 Hz policy) is unaffected. Legacy mode:=sim keeps its old default.
 TWIN_RENDER_ARG=""
 if [ "${TWIN:-0}" = "1" ]; then
-  TWIN_RENDER_ARG="--render_dt ${TWIN_RENDER_DT:-0.02}"
-  echo "  twin render step: ${TWIN_RENDER_DT:-0.02}s (exact multiple of physics_dt)"
+  case "$ROBOT" in
+    go2) _default_render_dt=0.025 ;;
+    *)   _default_render_dt=0.02 ;;
+  esac
+  TWIN_RENDER_ARG="--render_dt ${TWIN_RENDER_DT:-$_default_render_dt}"
+  echo "  twin render step: ${TWIN_RENDER_DT:-$_default_render_dt}s (exact multiple of physics_dt)"
 fi
 # SIM_WORLD selects the environment USD (default dso_block_a); run.py reads it
 # from the env. docker exec does not inherit the host env, so pass it explicitly.

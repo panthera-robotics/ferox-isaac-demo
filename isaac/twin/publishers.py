@@ -170,6 +170,7 @@ def setup_lidar_cloud(contract: Dict[str, Any], lidar_prim, resolution=(1, 1),
             f"expected exactly one published PointCloud2 in {lidar_frame!r}, got "
             f"{[t['name'] for t in clouds]}")
     spec = clouds[0]
+    print(f"[TWIN] Mid-360 -> {spec['name']}", flush=True)
     rp = rep.create.render_product(
         lidar_prim.GetPath().pathString, resolution=resolution, name="twin_mid360_rp")
     w = rep.writers.get("RtxLidarROS2PublishPointCloud")

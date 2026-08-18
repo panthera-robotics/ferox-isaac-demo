@@ -1217,8 +1217,10 @@ class RobotRosRunner(object):
         render_hz = 1.0 / render_dt if render_dt else 60.0
         print(f"[TWIN] rendering_dt={render_dt:.6f}s ({render_hz:.2f} Hz) "
               f"requested {self._render_dt:.6f}s", flush=True)
+        # setup_lidar_cloud prints the topic it selected -- it is the only thing
+        # that knows which one the contract chose, and hardcoding "/livox/lidar"
+        # here printed the G1's topic during a Go2 run.
         twin_pub.setup_lidar_cloud(contract, lidar_prim, render_hz=render_hz)
-        print("[TWIN] Mid-360 -> /livox/lidar", flush=True)
 
         # IMU via rclpy, NOT OmniGraph. ROS2PublishImu builds without error, logs
         # success, and advertises nothing -- baseline defect B-4, still reproducible.
@@ -1263,11 +1265,18 @@ class RobotRosRunner(object):
         ros_utils.setup_joint_states_publisher(
             simulation_app, robot_type=self._robot_type)
 
-        self._sensors = {"twin_camera": camera, "twin_lidar": lidar_prim, "twin_imu": imu}
+        self._sensors = {"twin_lidar": lidar_prim}
+        if camera is not None:
+            self._sensors["twin_camera"] = camera
+        for spec, sensor in imus:
+            self._sensors[f"twin_imu_{spec['frame_id']}"] = sensor
         self._twin_report = {
-            "lidar": lidar_derived, "camera_K": K_got,
+            "lidar": lidar_derived,
             "tf_static_edges": [f"{e['parent']}->{e['child']}" for e in edges],
+            "imu_topics": [spec["name"] for spec, _ in imus],
         }
+        if camera is not None:
+            self._twin_report["camera_K"] = K_got
         print("[TWIN] interface up", flush=True)
 
     def _twin_pump(self) -> None:

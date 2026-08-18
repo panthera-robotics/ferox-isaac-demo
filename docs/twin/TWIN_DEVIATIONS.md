@@ -482,6 +482,68 @@ name-based map, which is asserted by `tools/tests/test_twin_isaac.py`.
 
 ---
 
+## C-15 — Go2 /odom is 100 Hz, not the robot's 148.7 Hz
+
+**Class C.** The twin's odometry is emitted from the physics callback with a sim-time
+limiter, so its rate can only be the physics rate divided by a whole number of steps.
+Physics runs at 200 Hz:
+
+```
+200 / 148.7 = 1.345 steps   ->  the limiter fires every 2 steps  ->  100.0 Hz
+achievable rates near the target:  200 Hz (1 step),  100 Hz (2 steps)
+```
+
+Neither 200 nor 100 is inside ±10 % of 148.7, so the contract's rate is **not
+reachable at 200 Hz physics**. 100 Hz is the closer of the two and is what the twin
+publishes.
+
+**Why not raise the physics rate.** Physics dt is what the locomotion policy runs
+against (200 Hz physics, decimation 4, 50 Hz policy). Changing it to make a topic
+rate come out round would change how the robot walks, which is a far larger deviation
+than the one being fixed. Campaign rule: never retune the robot to flatter a number.
+
+**Consequence.** Anything integrating odometry gets 100 samples per second instead of
+149. Nav2, SLAM Toolbox and AMCL all consume odom through TF and interpolate, so none
+of them care. A consumer that counts messages, or that assumes a fixed dt between
+them, would.
+
+**Contrast with the G1**, where the same arithmetic lands inside tolerance:
+`200 / 51.4 = 3.89 -> 4 steps -> 50.0 Hz`, and 50.0 is within ±10 % of 51.4. The G1
+passes this check for a reason that is luck, not design.
+
+**Would close by** driving odometry from a real-time-independent timer, at the cost of
+its stamps no longer being exact physics-step times.
+
+---
+
+## C-16 — Go2 /utlidar/imu is 200 Hz, not 250 Hz
+
+**Class C.** Same cause as C-15 and a harder version of it: the IMU is published from
+the physics callback, physics runs at 200 Hz, and **250 Hz is above the physics rate
+entirely**. One sample per physics step is the ceiling, so 200 Hz is not a rounding
+choice, it is the maximum.
+
+```
+requested 250 Hz  ->  0.004 s period
+physics step      ->  0.005 s
+=> the limiter fires every step, and every step is 5 ms
+```
+
+**Consequence.** The IMU stream is 80 % of the hardware rate, evenly spaced rather
+than dropped, so its spectrum is clean up to 100 Hz instead of 125 Hz. Nothing in the
+Ferox stack consumes `/utlidar/imu` today; a future LIO would notice.
+
+**Related.** C-10 records the same coupling on the G1's IMUs and cameras. This entry
+exists separately because the Go2's target is above the physics rate rather than
+merely not a divisor of it, which is a different fix.
+
+**Would close by** raising physics_dt for the Go2 twin specifically -- the Go2 has no
+learned locomotion policy in this sim, so unlike the G1 there is no policy to disturb.
+Not done here because DT5's scope is the interface, and it would want its own
+before/after on gait and contact behaviour.
+
+---
+
 ## Anticipated entries (not yet opened — listed so the shape is known)
 
 These are named in campaign §2 as expected Class-C items. They are **not** deviations yet; each

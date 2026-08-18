@@ -1,0 +1,78 @@
+Auditing ROBOT=go2 against isaac/twin/go2_contract.yaml ...
+
+twin_audit  contract=isaac/twin/go2_contract.yaml
+            source=live ROS 2 graph
+
+CLS STATUS CHECK                      SUBJECT                         EXPECTED -> ACTUAL
+--------------------------------------------------------------------------------------------------------------------------------
+A   PASS   topic/present              /scan                           published  ->  published
+A   PASS   topic/type                 /scan                           sensor_msgs/msg/LaserScan  ->  sensor_msgs/msg/LaserScan
+A   PASS   topic/frame_id             /scan                           base_link  ->  base_link
+B   PASS   topic/rate                 /scan                           20.0 Hz +-10%  ->  20.00 Hz (sim-time stamps)
+A   PASS   topic/present              /odom                           published  ->  published
+A   PASS   topic/type                 /odom                           nav_msgs/msg/Odometry  ->  nav_msgs/msg/Odometry
+A   PASS   topic/frame_id             /odom                           odom  ->  odom
+A   PASS   topic/qos                  /odom                           reliable  ->  reliable
+B   FAIL   topic/rate                 /odom                           148.7 Hz +-10%  ->  100.00 Hz (sim-time stamps)
+A   PASS   topic/present              /unitree/slam_lidar/points      published  ->  published
+A   PASS   topic/type                 /unitree/slam_lidar/points      sensor_msgs/msg/PointCloud2  ->  sensor_msgs/msg/PointCloud2
+A   PASS   topic/frame_id             /unitree/slam_lidar/points      livox_frame  ->  livox_frame
+A   PASS   topic/qos                  /unitree/slam_lidar/points      reliable  ->  reliable
+B   PASS   topic/rate                 /unitree/slam_lidar/points      20.0 Hz +-10%  ->  20.00 Hz (sim-time stamps)
+B   PASS   topic/present              /mid360/points_accum            published  ->  published
+B   PASS   topic/type                 /mid360/points_accum            sensor_msgs/msg/PointCloud2  ->  sensor_msgs/msg/PointCloud2
+B   PASS   topic/frame_id             /mid360/points_accum            livox_frame  ->  livox_frame
+B   PASS   topic/qos                  /mid360/points_accum            reliable  ->  reliable
+B   PASS   topic/rate                 /mid360/points_accum            20.0 Hz +-10%  ->  20.00 Hz (sim-time stamps)
+B   PASS   topic/present              /utlidar/imu                    published  ->  published
+B   PASS   topic/type                 /utlidar/imu                    sensor_msgs/msg/Imu  ->  sensor_msgs/msg/Imu
+B   PASS   topic/frame_id             /utlidar/imu                    utlidar_imu  ->  utlidar_imu
+B   PASS   topic/qos                  /utlidar/imu                    reliable  ->  reliable
+B   FAIL   topic/rate                 /utlidar/imu                    250.0 Hz +-10%  ->  200.00 Hz (sim-time stamps)
+C   SKIP   topic/subscribe            /ferox/go2_01/cmd_vel           accepted by sim  ->  present
+                                      note: input topic -- presence depends on the commanding side
+C   FAIL   topic/present              /ferox/go2_01/driver_heartbeat  published  ->  ABSENT
+A   PASS   tf_static/edge             base_link -> livox_frame        present  ->  present
+A   PASS   tf_static/xyz              base_link -> livox_frame        [0.187, 0.0, 0.0803] (<=0.0001 m)  ->  [0.187, 0.0, 0.0803] (d=0.00e+00 m)
+A   PASS   tf_static/rpy              base_link -> livox_frame        [0.0, 0.2249, 0.0] rad (<=0.0001 rad)  ->  d=0.00e+00 rad
+A   PASS   tf_static/edge             base_link -> robot_center       present  ->  present
+A   PASS   tf_static/xyz              base_link -> robot_center       [0.0, 0.0, 0.0] (<=0.0001 m)  ->  [0.0, 0.0, 0.0] (d=0.00e+00 m)
+A   PASS   tf_static/rpy              base_link -> robot_center       [0.0, 0.0, 0.0] rad (<=0.0001 rad)  ->  d=0.00e+00 rad
+A   PASS   tf_static/edge             base_link -> utlidar_imu        present  ->  present
+A   PASS   tf_static/xyz              base_link -> utlidar_imu        [0.28, 0.0, 0.075] (<=0.0001 m)  ->  [0.28, 0.0, 0.075] (d=0.00e+00 m)
+A   PASS   tf_static/rpy              base_link -> utlidar_imu        [0.0, 0.0, 0.0] rad (<=0.0001 rad)  ->  d=0.00e+00 rad
+A   PASS   tf_static/edge             base_link -> utlidar_lidar      present  ->  present
+A   PASS   tf_static/xyz              base_link -> utlidar_lidar      [0.28, 0.0, 0.075] (<=0.0001 m)  ->  [0.28, 0.0, 0.075] (d=0.00e+00 m)
+A   PASS   tf_static/rpy              base_link -> utlidar_lidar      [0.0, 0.0, 0.0] rad (<=0.0001 rad)  ->  d=0.00e+00 rad
+A   PASS   tf_static/edge             livox_frame -> livox_imu        present  ->  present
+A   PASS   tf_static/xyz              livox_frame -> livox_imu        [0.0, 0.0, 0.0] (<=0.0001 m)  ->  [0.0, 0.0, 0.0] (d=0.00e+00 m)
+A   PASS   tf_static/rpy              livox_frame -> livox_imu        [0.0, 0.0, 0.0] rad (<=0.0001 rad)  ->  d=0.00e+00 rad
+A   PASS   laserscan/ray_count        /scan                           723  ->  723
+A   PASS   laserscan/angle_min        /scan                           -3.14159  ->  -3.14159012
+A   PASS   laserscan/angle_max        /scan                           3.14159  ->  3.14159012
+A   PASS   laserscan/angle_increment  /scan                           0.0087  ->  0.00870000012
+B   PASS   laserscan/scan_time        /scan                           0.1  ->  0.100000001
+A   PASS   laserscan/range_min        /scan                           0.3  ->  0.300000012
+A   PASS   laserscan/range_max        /scan                           6  ->  6
+B   PASS   laserscan/in_range         /scan                           >=99% of finite returns  ->  100.0%
+C   SKIP   laserscan/below_range_min  /scan                           reported (self-hit fraction)  ->  0.00%
+C   SKIP   pointcloud/fields          /unitree/slam_lidar/points      x:FLOAT32, y:FLOAT32, z:FLOAT32, intensity:FLOAT32, ring:UINT16, time:FLOAT32  ->  x:FLOAT32, y:FLOAT32, z:FLOAT32
+                                      note: C-8: Isaac's RTX lidar point-cloud writer emits xyz only. Same deviation as the G1's /livox/lidar and for the same reason -- the writer has no intensity, ring or time channel to give. Declared, not worked around.
+C   SKIP   pointcloud/point_step      /unitree/slam_lidar/points      22  ->  12
+                                      note: C-8: Isaac's RTX lidar point-cloud writer emits xyz only. Same deviation as the G1's /livox/lidar and for the same reason -- the writer has no intensity, ring or time channel to give. Declared, not worked around.
+C   SKIP   provenance/assumed         sensor livox_imu pose           calibrated or datasheet  ->  assumed
+                                      note: go2_driver_hw.launch.py:395-405, hardcoded identity. The launch comment states it plainly: "identity by assumption (Mid-360 internal IMU colocated with the optical frame)" and "the live Mid-360 IMU messages carry an EMPTY frame_id, so nothing consumes livox_imu via TF today; this edge exists for tree completeness. Revisit only if LIO is added, using the Livox datasheet offset." NOTE the asymmetry with the G1, where this same edge IS the datasheet offset (0.011, 0.02329, -0.04412).
+C   SKIP   provenance/assumed         sensor utlidar_l1 pose          calibrated or datasheet  ->  assumed
+                                      note: go2_driver_hw.launch.py:299-301 (lidar_x/y/z), published at :332-358. The launch comment flags the hidden assumption: "rotation is identity here, but the physical L1 is pitched DOWN (community URDFs suggest ~2.87 rad; UNVERIFIED). The lidar_x/y/z are config placeholders marked 'MEASURE' and are likewise unverified." OFF the /scan critical path -- the L1 was retired from /scan.
+C   SKIP   provenance/assumed         sensor utlidar_imu pose         calibrated or datasheet  ->  assumed
+                                      note: go2_driver_hw.launch.py:302-306 (utlidar_imu_x/y/z, SEPARATE args from lidar_*, defaults intentionally equal), published at :367-375. Unlike the L1 lidar edge this one is UNGATED.
+C   SKIP   provenance/assumed         tf livox_frame->livox_imu       calibrated  ->  assumed
+                                      note: go2_driver_hw.launch.py:395-405, hardcoded identity by assumption. Ungated.
+C   SKIP   provenance/assumed         tf base_link->utlidar_lidar     calibrated  ->  assumed
+                                      note: go2_driver_hw.launch.py:299-301 (args), :332-358 (node), :359-366 (guard log)
+C   SKIP   provenance/assumed         tf base_link->utlidar_imu       calibrated  ->  assumed
+                                      note: go2_driver_hw.launch.py:302-306 (args), :367-375 (node). UNGATED.
+
+summary: 45 pass, 0 Class-A FAIL, 3 Class-B fail, 10 skipped, 58 checks
+
+RESULT: conformant on Class A.

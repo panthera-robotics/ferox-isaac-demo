@@ -236,6 +236,14 @@ topics:
       (138,258 samples). ROOT namespace.
 
   - name: /unitree/slam_lidar/points
+    deviations:
+      pointcloud/fields: >-
+        C-8: Isaac's RTX lidar point-cloud writer emits xyz only. Same deviation as
+        the G1's /livox/lidar and for the same reason -- the writer has no intensity,
+        ring or time channel to give. Declared, not worked around.
+      pointcloud/point_step: >-
+        C-8: 12 bytes (xyz float32) against the driver's 22. Follows directly from
+        the missing fields; nothing is packed differently.
     type: sensor_msgs/msg/PointCloud2
     direction: publish
     frame_id: livox_frame
