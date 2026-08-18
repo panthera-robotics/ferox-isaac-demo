@@ -158,6 +158,17 @@ def _resolve_command_limits(
     return cmd_min, cmd_max
 
 
+# Unitree name the Dex5-1P joints Yaw_11L, Roll_12L, Pitch_13L, ... and Link_41L.
+# Every G1 body joint ends in "_joint", so the two sets cannot be confused -- but
+# matching on the hand's own prefixes states the intent and fails loudly if Unitree
+# ever renames them, rather than silently reclassifying a finger as a body joint.
+_HAND_JOINT_PREFIXES = ("Yaw_", "Roll_", "Pitch_", "Link_")
+
+
+def _is_hand_joint(name: str) -> bool:
+    return name.startswith(_HAND_JOINT_PREFIXES)
+
+
 def _resolve_usd_path(env_cfg: dict, robot_type: str = ROBOT_GO2) -> str:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -612,13 +623,34 @@ class G1VelocityPolicy(PolicyController):
 
         self.robot.get_articulation_controller().switch_control_mode("position")
 
-        dof_count = len(self.robot.dof_names)
-        logger.info("[G1] Articulation has %d DOFs", dof_count)
-        logger.info("[G1] Joint names: %s", self.robot.dof_names)
+        all_names = list(self.robot.dof_names)
+        logger.info("[G1] Articulation has %d DOFs", len(all_names))
+        logger.info("[G1] Joint names: %s", all_names)
+
+        # The locomotion policy drives the 29 BODY joints. With HAND=dex5_1p the
+        # articulation also carries 40 finger joints, and Isaac interleaves them
+        # (left 29..63, right 34..68, neither contiguous -- C-14), so the policy's
+        # vectors are mapped onto a name-defined slice rather than a prefix. Hand
+        # joints keep the position drives the URDF import gave them and hold their
+        # commanded pose; the policy never writes them.
+        self._policy_dofs = np.array(
+            [i for i, n in enumerate(all_names) if not _is_hand_joint(n)],
+            dtype=np.int32,
+        )
+        self._hand_dofs = np.array(
+            [i for i, n in enumerate(all_names) if _is_hand_joint(n)], dtype=np.int32
+        )
+        dof_count = len(self._policy_dofs)
+        if len(self._hand_dofs):
+            logger.info("[G1] %d hand DOFs held outside the policy: %s",
+                        len(self._hand_dofs),
+                        [all_names[i] for i in self._hand_dofs[:4]] + ["..."])
 
         if len(self._default_pos_sim) != dof_count:
             raise ValueError(
-                f"deploy.yaml default_joint_pos has {len(self._default_pos_sim)} values, expected {dof_count}"
+                f"deploy.yaml default_joint_pos has {len(self._default_pos_sim)} values, "
+                f"expected {dof_count} body joints "
+                f"(articulation has {len(all_names)} DOFs, {len(self._hand_dofs)} of them hand)"
             )
 
         self.default_pos = self._default_pos_sim.copy()
@@ -631,11 +663,17 @@ class G1VelocityPolicy(PolicyController):
                 if len(self._damping_sdk) == dof_count
                 else None
             )
-            self.robot._articulation_view.set_gains(stiffness_sim, damping_sim)
+            self.robot._articulation_view.set_gains(
+                stiffness_sim, damping_sim, joint_indices=self._policy_dofs
+            )
             logger.info("[G1] Applied stiffness/damping from deploy.yaml")
 
-        self.robot.set_joint_positions(self.default_pos)
-        self.robot.set_joint_velocities(self.default_vel)
+        self.robot.set_joint_positions(self.default_pos, joint_indices=self._policy_dofs)
+        self.robot.set_joint_velocities(self.default_vel, joint_indices=self._policy_dofs)
+        if len(self._hand_dofs):
+            zeros = np.zeros(len(self._hand_dofs), dtype=np.float32)
+            self.robot.set_joint_positions(zeros, joint_indices=self._hand_dofs)
+            self.robot.set_joint_velocities(zeros, joint_indices=self._hand_dofs)
         logger.info("[G1] Set initial joint positions")
 
         self._action_scale = _expand_param(
@@ -689,8 +727,8 @@ class G1VelocityPolicy(PolicyController):
         ang_vel_b = np.matmul(R_BI, ang_vel_I)
         gravity_b = np.matmul(R_BI, np.array([0.0, 0.0, -1.0]))
 
-        current_joint_pos = self.robot.get_joint_positions()
-        current_joint_vel = self.robot.get_joint_velocities()
+        current_joint_pos = self.robot.get_joint_positions()[self._policy_dofs]
+        current_joint_vel = self.robot.get_joint_velocities()[self._policy_dofs]
         joint_pos_rel = current_joint_pos - self.default_pos
 
         current_terms = {
@@ -733,7 +771,9 @@ class G1VelocityPolicy(PolicyController):
             self._previous_action = self.action.copy()
 
         target_pos = self._action_offset + (self._action_scale * self.action)
-        action = ArticulationAction(joint_positions=target_pos)
+        action = ArticulationAction(
+            joint_positions=target_pos, joint_indices=self._policy_dofs
+        )
         self.robot.apply_action(action)
         self._policy_counter += 1
 

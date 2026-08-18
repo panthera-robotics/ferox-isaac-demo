@@ -1,0 +1,9 @@
+articulation DOF 69, hand DOFs 40
+right palm at [0.310699999332428, -0.10090000182390213, 1.4866000413894653], camera at [1.2607, -1.0509, 1.7866]
+camera at [1.261, -1.051, 1.787] looking at [0.3109999895095825, -0.10100000351667404, 1.4869999885559082], mean pixel 172.3 std 39.0
+rest               -> /tmp/hand_poses/hand_rest.png  joints set 33  max |commanded-reached| 0.0010 rad
+open               -> /tmp/hand_poses/hand_open.png  joints set 33  max |commanded-reached| 0.0001 rad
+fist               -> /tmp/hand_poses/hand_fist.png  joints set 33  max |commanded-reached| 0.0000 rad
+thumb_opposition   -> /tmp/hand_poses/hand_thumb_opposition.png  joints set 33  max |commanded-reached| 0.0000 rad
+
+RESULT: PASS

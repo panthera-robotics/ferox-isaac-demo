@@ -1,0 +1,15 @@
+[fwd        ] cmd(vx=+0.50,vy=+0.00,wz=+0.00) | body vel vx=+0.506 vy=+0.007 wz=+0.012 | disp fwd=+1.83 lat=+0.03 dyaw=+0.03 | zmin=0.75
+[reverse    ] cmd(vx=-0.40,vy=+0.00,wz=+0.00) | body vel vx=-0.349 vy=+0.005 wz=-0.000 | disp fwd=-1.23 lat=-0.13 dyaw=+0.04 | zmin=0.77
+[strafeL    ] cmd(vx=+0.00,vy=+0.30,wz=+0.00) | body vel vx=+0.026 vy=+0.245 wz=-0.028 | disp fwd=+0.06 lat=+0.90 dyaw=-0.06 | zmin=0.77
+[strafeR    ] cmd(vx=+0.00,vy=-0.30,wz=+0.00) | body vel vx=+0.013 vy=-0.222 wz=+0.008 | disp fwd=+0.03 lat=-0.75 dyaw=+0.02 | zmin=0.77
+[rot_ccw    ] cmd(vx=+0.00,vy=+0.00,wz=+0.20) | body vel vx=+0.001 vy=+0.004 wz=-0.015 | disp fwd=+0.01 lat=-0.01 dyaw=+0.01 | zmin=0.79
+[rot_cw     ] cmd(vx=+0.00,vy=+0.00,wz=-0.20) | body vel vx=+0.002 vy=+0.002 wz=-0.010 | disp fwd=+0.00 lat=-0.00 dyaw=-0.01 | zmin=0.79
+[walk+strafe] cmd(vx=+0.30,vy=+0.30,wz=+0.00) | body vel vx=+0.307 vy=+0.232 wz=-0.008 | disp fwd=+1.11 lat=+0.75 dyaw=-0.00 | zmin=0.76
+[walk+turn  ] cmd(vx=+0.30,vy=+0.00,wz=+0.20) | body vel vx=+0.318 vy=-0.004 wz=+0.155 | disp fwd=+1.14 lat=+0.27 dyaw=+0.55 | zmin=0.76
+
+=== VERDICT (body-frame velocity tracking) ===
+  forward : PASS
+  reverse : PASS
+  strafe  : PASS (reliable while walking; pure-strafe is flaky)
+  rotate  : FAIL (in-place; known FAIL on this checkpoint)
+  upright : PASS (all zmin > 0.45 m)
