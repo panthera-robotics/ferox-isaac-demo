@@ -175,7 +175,12 @@ def check_tf_static(contract: Dict[str, Any], obs: Observation) -> List[Finding]
     for key in sorted(want):
         label = f"{key[0]} -> {key[1]}"
         if key not in have:
-            out.append(Finding("A", "tf_static/edge", label, "present", "MISSING", FAIL))
+            if want[key].get("default_published") is False:
+                out.append(Finding("A", "tf_static/edge", label, "published only when enabled",
+                                   "absent (gate off)", SKIP,
+                                   want[key].get("conditional", "")))
+            else:
+                out.append(Finding("A", "tf_static/edge", label, "present", "MISSING", FAIL))
             continue
         out.append(Finding("A", "tf_static/edge", label, "present", "present", OK))
 

@@ -255,7 +255,11 @@ def test_g1_hardware_tf_static_edge_set_is_exactly_session_a():
     An extra edge in the twin is a Class-A failure; the sim inventing frames is the
     baseline defect this campaign exists to remove."""
     c = twin_contract.load(G1_PATH)
-    got = {(e["parent"], e["child"]) for e in c["tf_static"]}
+    # Only edges published BY DEFAULT count towards the robot's live set. A gated edge
+    # is still contracted -- its values must be right when someone enables it -- but its
+    # absence is what the robot actually does.
+    got = {(e["parent"], e["child"]) for e in c["tf_static"]
+           if e.get("default_published", True)}
     expected = {
         ("base_link", "dog_imu_link"),
         ("base_link", "livox_frame"),
@@ -266,9 +270,38 @@ def test_g1_hardware_tf_static_edge_set_is_exactly_session_a():
         ("camera_depth_frame", "camera_depth_optical_frame"),
     }
     assert got == expected, f"missing {expected - got}, extra {got - expected}"
-    # base_link -> camera_link is NOT in the set: the driver ships camera_tf_enable:false
-    # (g1_driver.yaml:186), so the camera subtree is an orphan root on the real robot.
+    # base_link -> camera_link is NOT in the default set: the driver ships
+    # camera_tf_enable:false (g1_driver.yaml:186), so camera_link is an ORPHAN ROOT on
+    # the real robot with the RealSense subtree beneath it. The twin mirrors that.
     assert ("base_link", "camera_link") not in got
+
+
+def test_g1_camera_link_edge_is_contracted_but_gated_off():
+    """F-6. The edge exists in the contract with URDF-exact values so CAMERA_TF=1 (sim)
+    / camera_tf_enable (driver) produces the right transform -- but default_published is
+    False, so twin_audit SKIPs it when absent instead of failing."""
+    e = _edge(twin_contract.load(G1_PATH), "base_link", "camera_link")
+    assert e["default_published"] is False
+    assert "CAMERA_TF" in e["conditional"], e["conditional"]
+    assert e["xyz"] == [0.0576235, 0.01753, 0.41987], e["xyz"]
+    _close(e["rpy"][1], 0.8307767239493009, 0.0, "gated camera edge pitch")
+
+
+def test_g1_cloud_layout_is_the_sidecar_driver_not_the_retired_unitree_stream():
+    """OQ-2. /livox/lidar comes from OUR livox_ros_driver2 sidecar, so the default layout
+    is that driver's: x,y,z,intensity FLOAT32 + tag,line UINT8 + timestamp FLOAT64,
+    point_step 26 -- NOT the retired Unitree /utlidar/cloud_livox_mid360 layout
+    (ring UINT16 + time FLOAT32, point_step 22). Marked assumed until an echo confirms."""
+    t = _topic(twin_contract.load(G1_PATH), "/livox/lidar")
+    fields = [(f["name"], f["datatype"]) for f in t["expect"]["pointcloud_fields"]]
+    assert fields == [("x", "FLOAT32"), ("y", "FLOAT32"), ("z", "FLOAT32"),
+                      ("intensity", "FLOAT32"), ("tag", "UINT8"), ("line", "UINT8"),
+                      ("timestamp", "FLOAT64")], fields
+    assert t["expect"]["point_step"] == 26
+    assert t["provenance"] == "assumed", "the field layout is not measured yet"
+    # The Go2's stream layout is genuinely unknown and stays on the captured Unitree one.
+    go2 = _topic(twin_contract.load(GO2_PATH), "/unitree/slam_lidar/points")
+    assert go2["expect"]["point_step"] == 22
 
 
 def test_g1_camera_wire_matches_realsense_driver():
@@ -296,19 +329,23 @@ def test_g1_camera_wire_matches_realsense_driver():
         assert (ci["width"], ci["height"]) == (1280, 720), name
 
 
-def test_g1_odom_rate_is_the_qos_matched_measurement():
-    """26.20 Hz, from evidence/fw2026q3/session_a/30_evidence.txt (QoS-matched rclpy
-    subscriber, 524 msgs / 20 s, gap median 38.54 ms).
+def test_g1_odom_rate_is_51_4_not_the_aliased_capture():
+    """51.4 Hz, the driver's true pass-through of the 51.45 Hz source.
 
-    NOT 51.4 Hz. That figure is the SOURCE topic /state_estimator/odom_pelvis measured
-    with `ros2 topic hz`, and the driver repo's own evidence collector says "QoS-matched
-    rclpy subscribers, never `ros2 topic hz`". The driver does not decimate
-    (odom_publish_rate_hz default 0.0 = pass-through), and a gap median of 38.54 ms
-    rules out a startup gap. This test exists so nobody "corrects" the contract back to
-    the brief's number without reading that reasoning. See OQ-3."""
+    NOT 26.2 Hz. evidence/fw2026q3/session_a/30_evidence.txt measures 26.20 Hz on this
+    topic with a QoS-matched subscriber -- but that capture (companion now()
+    1786465672, 2026-08-11T16:27:52Z) PREDATES driver commit abd0d0a (1786466558,
+    2026-08-11T16:42:38Z) by 14.8 minutes. abd0d0a, "fix: odom rate aliasing (26.6 Hz
+    not 50)", sets odom_publish_rate_hz 50.0 -> 0.0 because a 50 Hz gate against a
+    51.45 Hz source (19.44 ms interval vs 20 ms gate period) drops nearly every second
+    sample. The capture recorded the bug, not the interface.
+
+    This test exists in BOTH directions: it stops anyone restoring 26.2 from the
+    evidence file without reading the commit, and it pins the rate the twin must hit."""
     t = _topic(twin_contract.load(G1_PATH), "/ferox/g1_01/odom")
-    assert t["rate_hz"] == 26.2, t["rate_hz"]
-    assert t["provenance"] == "measured"
+    assert t["rate_hz"] == 51.4, t["rate_hz"]
+    # Guard the trap itself: 26.2 is the aliased value and must never come back.
+    assert t["rate_hz"] != 26.2
 
 
 def test_go2_mid360_mount_matches_driver():

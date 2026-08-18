@@ -63,6 +63,11 @@ if [ "$(stat -c '%u' "$CACHE_DIR" 2>/dev/null)" != "$SIM_CONTAINER_UID" ]; then
   sudo chown -R "$SIM_CONTAINER_UID:$SIM_CONTAINER_UID" "$CACHE_DIR"
 fi
 
+# tools/ is mounted read-only so the sim can import the SAME contract loader and
+# validator the audit uses (tools/twin_contract.py). One validator, one definition
+# of a valid contract -- a second copy inside isaac/ would drift, and a contract
+# the sim accepts but the audit rejects is worse than no contract at all.
+#
 # G1 policy source-of-truth: when the ferox-g1-locomotion repo is present
 # (G1_POLICY_DIR resolved in lib/env.sh) and we're launching the G1, overlay
 # its policy/ onto the G1 checkpoint slot so the sim runs that policy with no
@@ -98,6 +103,7 @@ docker run -d --name "$SIM_CONTAINER" --runtime=nvidia --gpus all \
   -v "$CACHE_DIR/compute":/isaac-sim/.nv/ComputeCache:rw \
   -v "$CACHE_DIR/warp":/isaac-sim/.cache/warp:rw \
   -v "$DEMO_DIR/isaac":/workspace/ferox_isaac:rw \
+  -v "$DEMO_DIR/tools":/workspace/ferox_tools:ro \
   $G1_POLICY_MOUNT \
   --entrypoint bash \
   "$ISAAC_IMAGE" \

@@ -207,6 +207,13 @@ def validate(contract: Dict[str, Any]) -> Dict[str, Any]:
         _vec(e.get("xyz"), 3, f"{where}.xyz")
         _vec(e.get("rpy"), 3, f"{where}.rpy")
         _check_provenanced(e, where)
+        # An edge the robot ships DISABLED is still part of the contract: its values must
+        # be right when someone turns it on, but its absence must not read as a failure.
+        if "default_published" in e:
+            _require(isinstance(e["default_published"], bool),
+                     f"{where}: default_published must be a boolean")
+            _require(bool(str(e.get("conditional", "")).strip()),
+                     f"{where}: default_published requires a 'conditional' explaining the gate")
 
     # The TF static edges must form a forest (no cycles).
     for child, parent in seen_child.items():

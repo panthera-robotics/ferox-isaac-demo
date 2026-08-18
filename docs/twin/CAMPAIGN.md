@@ -374,10 +374,34 @@ Keep prose short. Tables over paragraphs. Numbers with units and provenance.
    extension's bundled binary is not shared with the shell.
 2. Mint a fresh fine-grained PAT: `contents:read` on `panthera-g1-driver`, `panthera-go2-driver`,
    `realsense_driver`, `panthera-g1-wbc`; `contents:write` on `ferox-isaac-demo`, `Ferox`,
-   `ferox-g1-locomotion`. `export GH_TOKEN=…` in the shell only. Clone with
-   `git -c http.extraheader="Authorization: Bearer $GH_TOKEN" clone https://github.com/panthera-robotics/<repo>.git`
-   so the token never lands in a remote URL. Revoke it once the clones are done; pushes use a new one the
-   same way, per gate.
+   `ferox-g1-locomotion`. Revoke it once the clones are done; pushes use a new one the same way, per gate.
+
+   **Use Basic auth, not Bearer.** GitHub's REST API accepts `Authorization: Bearer <pat>`, but the
+   **git transport rejects it** for fine-grained PATs — you get
+   `fatal: could not read Username for 'https://github.com'`, which reads like a missing credential
+   rather than a rejected one. Git wants `Basic base64("x-access-token:<pat>")`.
+
+   Pass it through `GIT_CONFIG_*` rather than `git -c`, so the token stays out of `ps` output too
+   (`git -c` puts it in argv). It never touches a file, a remote URL, or `.git/config`:
+
+   ```bash
+   T='github_pat_…'                                    # this shell only, never a file
+   B=$(printf 'x-access-token:%s' "$T" | base64 -w0)
+   export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader \
+          GIT_CONFIG_VALUE_0="Authorization: Basic $B" GIT_TERMINAL_PROMPT=0
+
+   git clone https://github.com/panthera-robotics/<repo>.git
+   git push origin mohammed/twin-campaign && git push origin twin-DT<n>
+
+   unset T B GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 GIT_TERMINAL_PROMPT
+   ```
+
+   Then verify nothing leaked before reporting done:
+   ```bash
+   grep -rl 'github_pat_' ~/panthera/ ; \
+   grep -il 'extraheader\|authorization' ~/panthera/*/.git/config ~/panthera/ref/*/.git/config ; \
+   git -C <repo> remote get-url origin
+   ```
 3. Save this file as `~/panthera/ferox-isaac-demo/docs/twin/CAMPAIGN.md` (committed in DT0).
 4. First message to Claude Code (cwd `~/panthera/ferox-isaac-demo`):
    `Read docs/twin/CAMPAIGN.md end to end. Then execute DT0 only. Stop after RESULTS_DT0.md and wait.`

@@ -28,10 +28,11 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 | ID | Class | Subject | Opened | Status |
 |---|---|---|---|---|
 | [C-1](#c-1) | C | G1 standing height: 0.791 m sim vs 0.731 m real (~60 mm) | DT1 | OPEN — re-check at DT2 |
-| [C-2](#c-2) | C | Mid-360 PointCloud2 field layout is not recorded for either robot's live stream | DT1 | OPEN — needs OQ-2 |
+| [C-2](#c-2) | C | Mid-360 PointCloud2 field layout is not recorded for either robot's live stream | DT1 | OPEN — G1 defaulted to the sidecar driver's layout at DT2; Go2 still unknown |
 | [C-3](#c-3) | C | D435i intrinsics (K/D) are factory-typical placeholders | DT1 | OPEN — needs OQ-1 |
 | [C-4](#c-4) | C | RealSense intra-camera TF values unknown (edges confirmed, numbers absent) | DT1 | OPEN — needs OQ-1 |
 | [C-5](#c-5) | C | Aligned-depth metric scale (mm) is convention, never written down | DT1 | OPEN — needs OQ-1 |
+| [C-6](#c-6) | C | Mid-360 non-repetitive rosette modelled as a uniform rotary grid | DT2 | OPEN — inherent to Isaac's RTX lidar |
 
 ---
 
@@ -92,13 +93,17 @@ The live G1 stream comes from our own `livox_ros_driver2` sidecar, not from Unit
 so the retired Unitree layout is a *plausible* but unproven stand-in — `livox_ros_driver2`'s
 own PointCloud2 output conventionally carries `tag`/`line`/`timestamp`, not `ring`/`time`.
 
-**Decision.** Both contracts declare the captured `/utlidar/cloud_livox_mid360` layout, marked
-in-file as a declared approximation. It is the only field layout anyone has actually measured
-on this hardware. The campaign's stated fallback (§4.3: "if not derivable, xyz+intensity and
-declare") would discard real information we hold, so we keep the richer measured layout instead
-and declare it here.
+**Decision (Mohammed, DT1 acceptance).** The two robots are defaulted differently, because the
+provenance differs:
 
-**Closes when** OQ-2 lands: one `ros2 topic echo --no-arr` of each live cloud.
+| Robot | Default layout | Why |
+|---|---|---|
+| **G1** `/livox/lidar` | **livox_ros_driver2's**: x,y,z,intensity `FLOAT32`; tag,line `UINT8`; timestamp `FLOAT64`; `point_step 26` | The stream comes from **our own** `livox_ros_driver2` sidecar, not Unitree firmware (`cloud_restamper.py` header, `phase1_diffs.patch:446`). The publisher is known even though its output was never captured. |
+| **Go2** `/unitree/slam_lidar/points` | the captured `/utlidar/cloud_livox_mid360` layout (`point_step 22`) | Publisher is the Mid-360S sidecar SDK; nothing pins its layout, so the only measured layout on this hardware stands in. |
+
+Both are `assumed`, and `twin_audit` lists every `assumed` value in its own section.
+
+**Closes when** OQ-2 lands: one `ros2 topic echo --once --no-arr` of each live cloud.
 
 ---
 
@@ -169,6 +174,45 @@ class of error that survives every sim test and fails on the robot.
 
 ---
 
+## C-6 — the Mid-360's non-repetitive rosette is modelled as a uniform rotary grid {#c-6}
+
+**Opened:** DT2 · **Class:** C · **Status:** OPEN (inherent; no closing action)
+
+The real Mid-360 draws a **non-repetitive rosette**: no two revolutions trace the same pattern,
+so coverage density *grows with dwell time* and fine structure emerges the longer the robot
+looks at something. Isaac Sim 5.1's RTX lidar has no such `scanType` — the primitives are
+`ROTARY` and solid-state. We model the sensor as `ROTARY` and spend the real point budget on a
+uniform grid.
+
+| | Real Mid-360 | Twin |
+|---|---|---|
+| Scan pattern | non-repetitive rosette | uniform grid, identical every revolution |
+| Points/second | 200 000 | **200 000** (exact) |
+| Elevation FOV | −7° … +52° | **−7° … +52°** (exact), 40 emitters, 1.5128° step |
+| Azimuth FOV | 360° | **360°**, G1 500 columns (0.72°), Go2 250 columns (1.44°) |
+| Rate | G1 10 Hz, Go2 20 Hz | **same** |
+| Range / accuracy | 0.1–40 m, ±2 cm | **same** |
+| Angular precision | < 0.15° | σ = 0.05° assumed (read as ~3σ) |
+
+**What transfers:** per-frame point count, the range and FOV envelope, the raw sensor-frame
+un-self-filtered character that makes `range_min 0.30` necessary, and therefore everything
+`pointcloud_to_laserscan` derives from it.
+
+**What does not:** anything depending on rosette coverage growth — a thin obstacle that the real
+sensor resolves only after dwelling on it appears immediately (or never) in the twin, and
+accumulation over N frames adds no new angles here whereas on hardware it does. This matters for
+`cloud_accumulator` behaviour (Go2) and for any perception tuned on dwell.
+
+**Note on the mechanism, because it is a trap.** Isaac ships JSON lidar profiles whose folder
+README says the file name is the `config` argument to `IsaacSensorCreateRtxLidar`. That is stale:
+5.1 resolves `config` against a hardcoded dict of **USD asset paths**, and an unknown name does
+**not** raise — measured in this container, `config="Livox_Mid360"` produced a warning, a
+fully-formed **default** lidar, and a silent rename to `/World/World_bogus_lidar`. `isaac/twin/lidar.py`
+therefore builds from the supported `Example_Rotary` asset, overwrites the `omni:sensor:Core:*`
+attributes from the contract, and **reads every one back**, raising if any did not take.
+
+---
+
 ## Anticipated entries (not yet opened — listed so the shape is known)
 
 These are named in campaign §2 as expected Class-C items. They are **not** deviations yet; each
@@ -176,7 +220,6 @@ opens in the gate that builds the thing.
 
 | Expected ID | Subject | Opens at |
 |---|---|---|
-| — | Mid-360 non-repetitive rosette scan pattern approximated by an RTX rotary/solid-state proxy | DT2 (G1), DT5 (Go2) |
 | — | G1 head-shell self-hit cluster (real returns at 0.10–0.20 m) not reproduced unless cheap | DT2 |
 | — | Tactile: 12 contact-sensor zones per hand vs 94 real taxels (Dex5-1P) | DT3 / DT6 |
 | — | PhysX finger-contact grasp physics vs real compliant contact | DT3 |

@@ -218,12 +218,28 @@ tf_static:
     provenance: assumed
     source: EDGE confirmed at session_a/31_tf_static.txt. REP-103 optical convention.
 
-# NOTE ON base_link -> camera_link: the driver CAN publish it (camera_child_frame:
-# camera_link, camera_mount_* in g1_driver.yaml:186-193) but ships it DISABLED
-# (camera_tf_enable: false) pending a floor-plane check. It is therefore absent from
-# session_a/31_tf_static.txt, and the camera subtree is an orphan root on the real robot
-# today. The twin reproduces that: it does NOT publish base_link -> camera_link until the
-# driver enables it. Campaign DT2 step 2 assumed this edge is published -- it is not.
+  # GATED, OFF BY DEFAULT -- mirrors the driver exactly.
+  # The driver CAN publish this edge (camera_child_frame: camera_link, camera_mount_* at
+  # g1_driver.yaml:186-193) but ships it DISABLED (camera_tf_enable: false) pending a
+  # floor-plane check, so it is absent from session_a/31_tf_static.txt and camera_link is
+  # an ORPHAN ROOT on the real robot with the RealSense subtree hanging beneath it.
+  # The twin reproduces that: CAMERA_TF=1 (env -> run.py) is the sim's counterpart of
+  # camera_tf_enable. Default off. twin_audit SKIPs a gated edge that is absent and
+  # checks its values normally when it is present.
+  - parent: base_link
+    child: camera_link
+    xyz: [0.0576235, 0.01753, 0.41987]
+    rpy: [0.0, 0.8307767239493009, 0.0]
+    provenance: urdf_nominal
+    default_published: false
+    conditional: >-
+      Sim: CAMERA_TF=1. Driver: camera_tf_enable (g1_driver.yaml:186, default false).
+      NOTE the driver composes this through the waist chain when waist_tf_bridge is
+      active; these numbers are the torso_link -> d435_link tail evaluated at the
+      standing pose, same convention as the base_link -> livox_frame row.
+    source: >-
+      panthera-g1-driver/config/g1_driver.yaml:186-193; URDF-exact per
+      evidence/fw2026q3/camera_extrinsics_provenance.md:35,41-47.
 
 # ---------------------------------------------------------------------------
 # pointcloud_to_laserscan — the driver's exact parameters. Class A, reproduced
@@ -279,30 +295,31 @@ topics:
     type: nav_msgs/msg/Odometry
     direction: publish
     frame_id: odom
-    # 26.2 Hz, NOT the 51.4 Hz the campaign brief lists. See the note below -- this is
-    # the one number in this contract that contradicts the brief on measurement method
-    # rather than on transcription, and it is flagged as OQ-3.
-    rate_hz: 26.2
+    # 51.4 Hz. RESOLVED at DT2 -- see the source note; the 26.20 Hz figure measured in
+    # the Session-A capture was an ALIASING BUG that has since been fixed on the robot.
+    rate_hz: 51.4
     qos: {reliability: reliable, durability: volatile}
     parity_class: A
-    provenance: measured
+    provenance: configured
     source: >-
       panthera-g1-driver/.../g1_driver_hw.launch.py:275 (out_topic), republished from
       /state_estimator/odom_pelvis with child_frame relabelled pelvis -> base_link.
       Covariance is all-zero on hardware and inject_static_covariance is false
       (g1_driver.yaml:85) -- the twin matches that.
-      RATE: 26.20 Hz measured on THIS topic by a QoS-matched rclpy subscriber over a
-      20 s window (evidence/fw2026q3/session_a/30_evidence.txt: 524 msgs, gap median
-      38.54 ms, gap max 55.69 ms). The 51.4 Hz figure in the campaign brief is the
-      SOURCE topic /state_estimator/odom_pelvis measured with `ros2 topic hz`
-      (evidence/fw2026q3/rates_host.txt: 51.523 / 51.511) -- and that repo's own
-      evidence collector header says, verbatim, "QoS-matched rclpy subscribers, never
-      `ros2 topic hz`". The driver does not decimate (odom_publish_rate_hz defaults to
-      0.0 = pass-through, odom_tf_bridge.py:207), and the gap MEDIAN of 38.54 ms rules
-      out a startup gap: a 51.5 Hz stream interrupted once would keep a ~19.4 ms median
-      with a single outlier, not double its median. The end-to-end rate a Ferox consumer
-      actually sees is therefore ~26 Hz. Campaign section 4.3 asks the twin for 50 Hz
-      odom; that target is NOT what the robot delivers. See OQ-3.
+      RATE PROVENANCE (this number moved once; do not move it again without reading
+      this). evidence/fw2026q3/session_a/30_evidence.txt measures 26.20 Hz on this exact
+      topic with a QoS-matched subscriber. That capture is stamped
+      companion now() = 1786465672 (2026-08-11T16:27:52Z) and PREDATES driver commit
+      abd0d0a (1786466558, 2026-08-11T16:42:38Z) by 14.8 minutes. abd0d0a is titled
+      "fix: odom rate aliasing (26.6 Hz not 50)" and changes odom_publish_rate_hz from
+      50.0 to 0.0: "a 50.0 Hz gate against the 51.45 Hz source emitted only 26.6 Hz,
+      because the source interval (19.44 ms) sits just BELOW the gate period (20 ms), so
+      nearly every second sample is dropped. The shipped limiter fed a synthetic
+      51.447 Hz stream reproduces it exactly: 25.72 Hz out." The same commit records
+      "Spec corrected to ~51.4 Hz". So 26.20 Hz was the aliasing bug, not the interface;
+      the gate is gone and the driver is now true pass-through of the 51.45 Hz source.
+      The 2:1 decimation this contract's earlier note inferred from the gap median
+      (38.54 ms) was real -- it was the gate, not the measurement method.
 
   - name: /ferox/g1_01/imu/data
     type: sensor_msgs/msg/Imu
@@ -323,26 +340,30 @@ topics:
     rate_hz: 10.0
     qos: {reliability: reliable, durability: volatile}
     parity_class: A
-    provenance: measured
+    provenance: assumed
     source: >-
       panthera-g1-driver/evidence/fw2026q3/session_a/13_livox_lidar.txt
       (average rate 10.000, frame_id livox_frame, 19968-20064 points/msg, Jetson-stamped).
-      Published by our own livox_ros_driver2 sidecar, not by Unitree firmware.
+      Published by our own livox_ros_driver2 sidecar, not by Unitree firmware -- which is
+      what fixes the field layout below. Topic/frame/rate are MEASURED; the FIELD LAYOUT
+      is `assumed` from livox_ros_driver2 and is the reason this row is not `measured`.
     expect:
-      # DECLARED APPROXIMATION -- see TWIN_DEVIATIONS.md. The field layout of the CURRENT
-      # /livox/lidar stream is NOT recorded anywhere in the driver repo. The only real
-      # layout we hold is for the RETIRED Unitree stream /utlidar/cloud_livox_mid360
-      # (evidence/phase0/streams_90s.json: point_step 22, x/y/z/intensity FLOAT32,
-      # ring UINT16, time FLOAT32). The twin publishes that layout until a real capture
-      # of /livox/lidar arrives. See OQ-2.
+      # DECLARED APPROXIMATION (C-2), resolved to the SIDECAR's layout at DT2.
+      # /livox/lidar on the G1 comes from OUR OWN livox_ros_driver2 sidecar, not from
+      # Unitree firmware (cloud_restamper.py header; phase1_diffs.patch:446). So the
+      # right default is livox_ros_driver2's PointCloud2 layout, NOT the retired Unitree
+      # stream /utlidar/cloud_livox_mid360 (which was x,y,z,intensity FLOAT32 + ring
+      # UINT16 + time FLOAT32, point_step 22 -- evidence/phase0/streams_90s.json).
+      # Marked `assumed` until an --no-arr echo of the live topic confirms it (OQ-2).
       pointcloud_fields:
         - {name: x,         datatype: FLOAT32, offset: 0,  count: 1}
         - {name: y,         datatype: FLOAT32, offset: 4,  count: 1}
         - {name: z,         datatype: FLOAT32, offset: 8,  count: 1}
         - {name: intensity, datatype: FLOAT32, offset: 12, count: 1}
-        - {name: ring,      datatype: UINT16,  offset: 16, count: 1}
-        - {name: time,      datatype: FLOAT32, offset: 18, count: 1}
-      point_step: 22
+        - {name: tag,       datatype: UINT8,   offset: 16, count: 1}
+        - {name: line,      datatype: UINT8,   offset: 17, count: 1}
+        - {name: timestamp, datatype: FLOAT64, offset: 18, count: 1}
+      point_step: 26
 
   - name: /livox/imu
     type: sensor_msgs/msg/Imu
