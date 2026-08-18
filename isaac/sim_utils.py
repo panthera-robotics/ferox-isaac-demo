@@ -669,8 +669,93 @@ def setup_static_tfs(simulation_app) -> None:
     simulation_app.update()
 
 
-def setup_odom_publisher(simulation_app) -> None:
-    """Publish nav_msgs/Odometry on /odom topic."""
+def setup_clock_publisher() -> None:
+    """Publish /clock. Needed by BOTH the legacy path and the twin.
+
+    Extracted from setup_ros_publishers so the twin can have it without dragging
+    in the legacy sensor wiring. Without /clock, every use_sim_time consumer sits
+    at time zero and Nav2 silently never plans -- which is what the twin's first
+    boot did before this was pulled out.
+    """
+    import omni.graph.core as og
+    from isaacsim.core.utils.prims import is_prim_path_valid
+
+    graph_path = "/ClockGraph"
+    if not is_prim_path_valid(graph_path):
+        og.Controller.edit(
+            {
+                "graph_path": graph_path,
+                "evaluator_name": "execution",
+                "pipeline_stage": og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_SIMULATION,
+            },
+            {
+                og.Controller.Keys.CREATE_NODES: [
+                    ("OnTick", "omni.graph.action.OnTick"),
+                    ("Clock", "isaacsim.core.nodes.IsaacReadSimulationTime"),
+                    ("Pub", "isaacsim.ros2.bridge.ROS2PublishClock"),
+                ],
+                og.Controller.Keys.CONNECT: [
+                    ("OnTick.outputs:tick", "Pub.inputs:execIn"),
+                    ("Clock.outputs:simulationTime", "Pub.inputs:timeStamp"),
+                ],
+            },
+        )
+    logger.info("[ROS2] Clock publisher -> /clock")
+
+
+def setup_odom_tf_publisher() -> None:
+    """Publish the dynamic odom -> base_link TF on /tf. Shared by both paths.
+
+    The frame names are identical on hardware and in both sim modes, so this is
+    the one TF the twin does NOT take from the contract's static block -- it is
+    dynamic, and the driver's odom_tf_bridge is its hardware counterpart.
+    """
+    import omni.graph.core as og
+    from isaacsim.core.utils.prims import is_prim_path_valid
+
+    global odom_tf_trans_attr, odom_tf_rot_attr
+    if not is_prim_path_valid(odom_graph_path):
+        og.Controller.edit(
+            {
+                "graph_path": odom_graph_path,
+                "evaluator_name": "execution",
+                "pipeline_stage": og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_SIMULATION,
+            },
+            {
+                og.Controller.Keys.CREATE_NODES: [
+                    ("OnTick", "omni.graph.action.OnTick"),
+                    ("Clock", "isaacsim.core.nodes.IsaacReadSimulationTime"),
+                    ("Ctx", "isaacsim.ros2.bridge.ROS2Context"),
+                    ("TF", "isaacsim.ros2.bridge.ROS2PublishRawTransformTree"),
+                ],
+                og.Controller.Keys.CONNECT: [
+                    ("OnTick.outputs:tick", "TF.inputs:execIn"),
+                    ("Clock.outputs:simulationTime", "TF.inputs:timeStamp"),
+                    ("Ctx.outputs:context", "TF.inputs:context"),
+                ],
+                og.Controller.Keys.SET_VALUES: [
+                    ("Ctx.inputs:useDomainIDEnvVar", True),
+                    ("TF.inputs:parentFrameId", "odom"),
+                    ("TF.inputs:childFrameId", "base_link"),
+                    ("TF.inputs:topicName", "/tf"),
+                ],
+            },
+        )
+    odom_tf_trans_attr = og.Controller.attribute(
+        odom_graph_path + "/TF.inputs:translation"
+    )
+    odom_tf_rot_attr = og.Controller.attribute(odom_graph_path + "/TF.inputs:rotation")
+    logger.info("[ROS2] Odom TF -> /tf (odom->base_link)")
+
+
+def setup_odom_publisher(simulation_app, topic: str = "/odom") -> None:
+    """Publish nav_msgs/Odometry.
+
+    `topic` defaults to the legacy root-namespace /odom so mode:=sim is unchanged.
+    The twin passes the contract's namespaced topic instead — on the G1 that is
+    /ferox/g1_01/odom, which is where the real driver publishes and where the G1
+    Nav2 profile's RELATIVE odom_topic already resolves.
+    """
     import omni.graph.core as og
     from isaacsim.core.utils.prims import is_prim_path_valid
 
@@ -701,7 +786,7 @@ def setup_odom_publisher(simulation_app) -> None:
             ],
             og.Controller.Keys.SET_VALUES: [
                 ("Ctx.inputs:useDomainIDEnvVar", True),
-                ("OdomPub.inputs:topicName", "/odom"),
+                ("OdomPub.inputs:topicName", topic),
                 ("OdomPub.inputs:odomFrameId", "odom"),
                 ("OdomPub.inputs:chassisFrameId", "base_link"),
                 ("OdomPub.inputs:queueSize", 10),
@@ -953,28 +1038,7 @@ def setup_ros_publishers(
     import omni.syntheticdata._syntheticdata as sd
     from isaacsim.core.utils.prims import is_prim_path_valid
 
-    # Clock publisher
-    graph_path = "/ClockGraph"
-    if not is_prim_path_valid(graph_path):
-        og.Controller.edit(
-            {
-                "graph_path": graph_path,
-                "evaluator_name": "execution",
-                "pipeline_stage": og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_SIMULATION,
-            },
-            {
-                og.Controller.Keys.CREATE_NODES: [
-                    ("OnTick", "omni.graph.action.OnTick"),
-                    ("Clock", "isaacsim.core.nodes.IsaacReadSimulationTime"),
-                    ("Pub", "isaacsim.ros2.bridge.ROS2PublishClock"),
-                ],
-                og.Controller.Keys.CONNECT: [
-                    ("OnTick.outputs:tick", "Pub.inputs:execIn"),
-                    ("Clock.outputs:simulationTime", "Pub.inputs:timeStamp"),
-                ],
-            },
-        )
-    logger.info("[ROS2] Clock publisher -> /clock")
+    setup_clock_publisher()
 
     # IMU publisher
     if not is_prim_path_valid("/ImuGraph"):
@@ -1062,40 +1126,7 @@ def setup_ros_publishers(
     # Setup static TFs for sensor frames
     setup_static_tfs(simulation_app)
 
-    # Odom TF publisher (dynamic - updated each frame)
-    global odom_tf_trans_attr, odom_tf_rot_attr
-    if not is_prim_path_valid(odom_graph_path):
-        og.Controller.edit(
-            {
-                "graph_path": odom_graph_path,
-                "evaluator_name": "execution",
-                "pipeline_stage": og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_SIMULATION,
-            },
-            {
-                og.Controller.Keys.CREATE_NODES: [
-                    ("OnTick", "omni.graph.action.OnTick"),
-                    ("Clock", "isaacsim.core.nodes.IsaacReadSimulationTime"),
-                    ("Ctx", "isaacsim.ros2.bridge.ROS2Context"),
-                    ("TF", "isaacsim.ros2.bridge.ROS2PublishRawTransformTree"),
-                ],
-                og.Controller.Keys.CONNECT: [
-                    ("OnTick.outputs:tick", "TF.inputs:execIn"),
-                    ("Clock.outputs:simulationTime", "TF.inputs:timeStamp"),
-                    ("Ctx.outputs:context", "TF.inputs:context"),
-                ],
-                og.Controller.Keys.SET_VALUES: [
-                    ("Ctx.inputs:useDomainIDEnvVar", True),
-                    ("TF.inputs:parentFrameId", "odom"),
-                    ("TF.inputs:childFrameId", "base_link"),
-                    ("TF.inputs:topicName", "/tf"),
-                ],
-            },
-        )
-    odom_tf_trans_attr = og.Controller.attribute(
-        odom_graph_path + "/TF.inputs:translation"
-    )
-    odom_tf_rot_attr = og.Controller.attribute(odom_graph_path + "/TF.inputs:rotation")
-    logger.info("[ROS2] Odom TF -> /tf (odom->base_link)")
+    setup_odom_tf_publisher()
 
     simulation_app.update()
 

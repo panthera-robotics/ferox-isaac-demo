@@ -767,6 +767,7 @@ class RobotRosRunner(object):
         enable_keyboard: bool,
         robot_type: str = ROBOT_GO2,
         ros_namespace: str = "",
+        twin: bool = False,
     ) -> None:
         """
         Creates the simulation world with preset physics_dt and render_dt and creates a robot inside the warehouse.
@@ -889,6 +890,8 @@ class RobotRosRunner(object):
         self._cmd_vel_only = cmd_vel_only
         self._enable_sensors = enable_sensors
         self._enable_keyboard = enable_keyboard
+        self._twin = twin
+        self._twin_report = {}
 
         self._vx_max = vx_max
         self._vy_max = vy_max
@@ -957,6 +960,24 @@ class RobotRosRunner(object):
 
         for _ in range(10):
             self._world.step(render=True)
+
+        # TWIN PATH. Everything below the branch is the legacy mode:=sim wiring —
+        # arbitrary sensor offsets, Go2 static TFs on both robots, camera at
+        # 480x270 in a frame no robot publishes. It stays until DT7 retires it.
+        # The twin path shares none of it: poses come from the USD sensor layer,
+        # topics and frames come from isaac/twin/<robot>_contract.yaml.
+        if self._twin:
+            # A twin that fails to come up must say so. Without this the exception
+            # unwinds into Isaac's shutdown path and the log shows only
+            # "Simulation App Shutting Down" -- no traceback, no cause.
+            try:
+                self._setup_twin_ros()
+            except Exception:
+                import traceback
+                print("[TWIN] FATAL: twin interface setup failed", flush=True)
+                traceback.print_exc()
+                raise
+            return
 
         render_hz = None
         if self._render_dt:
@@ -1054,6 +1075,135 @@ class RobotRosRunner(object):
             simulation_app, robot_type=self._robot_type
         )
 
+    def _setup_twin_ros(self) -> None:
+        """Publish the hardware interface, entirely from the contract.
+
+        Only the G1 is wired for the twin at DT2; the Go2 follows at DT5. A robot
+        without a contract raises rather than quietly falling back to the legacy
+        path, because a twin that is silently not a twin is the failure this whole
+        campaign exists to prevent.
+        """
+        import sys
+
+        for extra in ("/workspace/ferox_tools", "/workspace/ferox_isaac/twin"):
+            if extra not in sys.path:
+                sys.path.insert(0, extra)
+        import twin_contract
+        import sensors as twin_sensors
+        import publishers as twin_pub
+
+        contract_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "twin",
+            f"{self._robot_type}_contract.yaml")
+        contract = twin_contract.load(contract_path)
+        ns = contract["robot"]["namespace"]
+        if ns != self._ros_namespace:
+            raise RuntimeError(
+                f"contract namespace {ns} != --ros_namespace {self._ros_namespace}; "
+                "refusing to publish a twin under the wrong namespace")
+
+        root = self._robot_root
+        camera_tf = os.environ.get("CAMERA_TF", "0") == "1"
+
+        print(f"[TWIN] contract {contract_path}", flush=True)
+        print(f"[TWIN] namespace {ns}  CAMERA_TF={int(camera_tf)}", flush=True)
+
+        # --- devices, as identity children of the authored frames --------------
+        lidar_prim, lidar_derived = twin_sensors.create_lidar(contract, root)
+        print(f"[TWIN] Mid-360 at {lidar_prim.GetPath()} {lidar_derived}", flush=True)
+
+        camera, K_got = twin_sensors.create_camera(contract, root)
+        print(f"[TWIN] D435i K readback fx={K_got['fx']:.3f} fy={K_got['fy']:.3f} "
+              f"cx={K_got['cx']:.3f} cy={K_got['cy']:.3f} "
+              f"(HFOV {K_got['hfov_deg']:.2f} deg, VFOV {K_got['vfov_deg']:.2f} deg)",
+              flush=True)
+
+        imu = twin_sensors.create_imu(contract, root)
+        try:
+            imu.initialize()
+        except Exception:
+            pass
+
+        # Render products need a few frames before they yield anything.
+        for _ in range(5):
+            self._world.step(render=True)
+
+        # --- the wire ---------------------------------------------------------
+        edges = twin_pub.setup_tf_static(contract, camera_tf=camera_tf)
+        print(f"[TWIN] /tf_static: {len(edges)} edges "
+              f"({', '.join(e['parent'] + '->' + e['child'] for e in edges)})", flush=True)
+
+        twin_pub.setup_lidar_cloud(contract, lidar_prim)
+        print("[TWIN] Mid-360 -> /livox/lidar", flush=True)
+
+        # IMU via rclpy, NOT OmniGraph. ROS2PublishImu builds without error, logs
+        # success, and advertises nothing -- baseline defect B-4, still reproducible.
+        # sim_utils already publishes cmd_vel through rclpy for the same reason.
+        import rclpy_pub as twin_rclpy
+        imu_spec = twin_pub._topic(contract, "imu/data")
+        imu_frame = imu_spec["frame_id"]
+        self._twin_rclpy = twin_rclpy.TwinRclpyPublishers()
+        self._twin_rclpy.add_imu("body", imu_spec["name"], reliable=True)
+        self._twin_imu_sensor = imu
+        self._twin_imu_frame = imu_frame
+        self._twin_imu_period = 1.0 / float(imu_spec["rate_hz"])
+        self._twin_imu_next = 0.0
+        print(f"[TWIN] IMU -> {imu_spec['name']} (frame {imu_frame}, "
+              f"{imu_spec['rate_hz']} Hz, rclpy)", flush=True)
+
+        twin_pub.setup_camera_color(contract, camera, ns)
+        depth_topic = twin_pub.setup_camera_depth_raw(contract, camera, ns)
+        print(f"[TWIN] camera colour -> {ns}/camera/color/image_raw", flush=True)
+        print(f"[TWIN] raw depth (32FC1, converter seam) -> {ns}/{depth_topic}", flush=True)
+
+        # /clock first: without it every use_sim_time consumer sits at time zero
+        # and Nav2 silently never plans.
+        ros_utils.setup_clock_publisher()
+        odom_spec = twin_pub._topic(contract, "odom")
+        ros_utils.setup_odom_publisher(simulation_app, topic=odom_spec["name"])
+        ros_utils.setup_odom_tf_publisher()
+        print(f"[TWIN] odom -> {odom_spec['name']}", flush=True)
+
+        ros_utils.setup_joint_states_publisher(
+            simulation_app, robot_type=self._robot_type)
+
+        self._sensors = {"twin_camera": camera, "twin_lidar": lidar_prim, "twin_imu": imu}
+        self._twin_report = {
+            "lidar": lidar_derived, "camera_K": K_got,
+            "tf_static_edges": [f"{e['parent']}->{e['child']}" for e in edges],
+        }
+        print("[TWIN] interface up", flush=True)
+
+    def _twin_pump(self) -> None:
+        """Publish the rclpy-side twin topics, rate-limited on SIM time.
+
+        Rate-limiting on sim time rather than wall time is deliberate: the sim runs
+        at ~0.4x real time, so a wall-clock limiter would emit 100 Hz of wall time
+        and roughly 250 Hz of sim time — a rate the audit would correctly flag and
+        that no consumer expects.
+        """
+        if getattr(self, "_twin_rclpy", None) is None:
+            return
+        try:
+            t = float(self._world.current_time)
+        except Exception:
+            return
+        if t < self._twin_imu_next:
+            return
+        self._twin_imu_next = t + self._twin_imu_period
+        try:
+            frame = self._twin_imu_sensor.get_current_frame()
+        except Exception:
+            return
+        lin = frame.get("lin_acc")
+        ang = frame.get("ang_vel")
+        ori = frame.get("orientation")
+        if lin is None or ang is None:
+            return
+        self._twin_rclpy.publish_imu(
+            "body", self._twin_imu_frame, t, lin, ang,
+            orientation_wxyz=ori if ori is not None else None)
+
     def _get_cmd_vel(self) -> Optional[np.ndarray]:
         if self._linear_attr is None or self._angular_attr is None:
             return None
@@ -1130,6 +1280,8 @@ class RobotRosRunner(object):
             t0 = time.time()
             self._world.step(render=True)
             viewport_follow.maybe_step(self)  # PANTHERA: no-op unless VIEWPORT_FOLLOW
+            if self._twin:
+                self._twin_pump()
             if self._world.is_stopped():
                 self.needs_reset = True
             if real_time:
@@ -1198,6 +1350,14 @@ def main():
     parser.add_argument(
         "--no_keyboard", action="store_true", help="Disable keyboard control"
     )
+    # TWIN MODE. Publishes the hardware interface from isaac/twin/<robot>_contract.yaml
+    # instead of the legacy root-namespace topics and invented frames. Env TWIN=1 is
+    # equivalent, so scripts/01_start_sim.sh can pass it through without an argv change.
+    parser.add_argument(
+        "--twin", action="store_true",
+        default=os.environ.get("TWIN", "0") == "1",
+        help="publish the hardware-shaped twin interface (contract-driven) instead "
+             "of the legacy sim topics")
     parser.add_argument("--real_time", action="store_true", default=False)
     parser.add_argument("--physics_dt", type=float, default=1 / 200.0)
     parser.add_argument("--render_dt", type=float, default=1 / 60.0)
@@ -1244,6 +1404,7 @@ def main():
             enable_keyboard=not args.no_keyboard,
             robot_type=args.robot_type,
             ros_namespace=ros_ns,
+            twin=args.twin,
         )
         print("[PANTHERA-MARK] RobotRosRunner constructed, before reset", flush=True)
         simulation_app.update()

@@ -109,7 +109,7 @@ def read_back_K(prim, width: int, height: int) -> Dict[str, float]:
     }
 
 
-def create_camera(contract: Dict[str, Any], robot_root: str):
+def create_camera(contract: Dict[str, Any], robot_root: str):  # noqa: C901
     """Create the D435i colour camera at the authored optical frame.
 
     ONE camera prim, at camera_color_optical_frame. Depth is rendered from this
@@ -119,6 +119,7 @@ def create_camera(contract: Dict[str, Any], robot_root: str):
     NOT aligned to the colour one, while still being published on a topic whose
     name promises it is.
     """
+    import numpy as np
     from isaacsim.sensors.camera import Camera
     from isaacsim.core.utils.prims import is_prim_path_valid
 
@@ -126,14 +127,26 @@ def create_camera(contract: Dict[str, Any], robot_root: str):
     mp = cam_spec["model_params"]
     width, height = mp["color_resolution"]
 
-    path = (f"{robot_root}/{cam_spec['parent_link']}/camera_link"
-            f"/camera_color_frame/camera_color_optical_frame")
-    if not is_prim_path_valid(path):
+    optical = (f"{robot_root}/{cam_spec['parent_link']}/camera_link"
+               f"/camera_color_frame/camera_color_optical_frame")
+    if not is_prim_path_valid(optical):
         raise SensorAuthoringError(
-            f"{path} is not in the stage. The sensor USD layer was not composed -- "
+            f"{optical} is not in the stage. The sensor USD layer was not composed -- "
             "run scripts/08_build_twin_assets.sh and check the Sensor variant is 'Sensors'.")
 
-    cam = Camera(prim_path=path, name="d435i_color", resolution=(width, height))
+    # The optical frame is an Xform carrying the REP-103 optical convention
+    # (+x right, +y down, +z forward). A USD camera looks along -Z with +Y up. So
+    # the camera prim is a child rotated 180 degrees about X: that maps ROS +Z
+    # forward onto USD -Z forward and ROS +y down onto USD +y up. Placing the
+    # camera at identity here instead would point it BACKWARDS -- and it would
+    # still publish happily on the right topic in the right frame, which is
+    # exactly the kind of wrong that survives every string-level check.
+    path = f"{optical}/camera"
+    cam = Camera(
+        prim_path=path, name="d435i_color", resolution=(width, height),
+        translation=np.array([0.0, 0.0, 0.0]),
+        orientation=np.array([0.0, 1.0, 0.0, 0.0]),  # wxyz: 180 deg about X
+    )
     cam.initialize()
     # MinZ from the datasheet; far clip past clip_distance so the converter, not
     # the renderer, is what enforces the contract's 4.0 m Z clip.
