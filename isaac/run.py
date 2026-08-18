@@ -1135,7 +1135,18 @@ class RobotRosRunner(object):
         print(f"[TWIN] /tf_static: {len(edges)} edges "
               f"({', '.join(e['parent'] + '->' + e['child'] for e in edges)})", flush=True)
 
-        render_hz = (1.0 / self._render_dt) if self._render_dt else 60.0
+        # Use the ACTUAL rendering dt, not the requested one. Isaac quantises
+        # rendering_dt to a multiple of physics_dt, so --render_dt 1/60 against
+        # --physics_dt 1/200 becomes 0.015 s = 66.67 Hz. Dividing by the requested
+        # 60 gave decimation step 6 and a 11.11 Hz lidar against a 10 Hz contract --
+        # a miss that looks like sensor jitter and is actually arithmetic.
+        try:
+            render_dt = float(self._world.get_rendering_dt())
+        except Exception:
+            render_dt = self._render_dt or (1.0 / 60.0)
+        render_hz = 1.0 / render_dt if render_dt else 60.0
+        print(f"[TWIN] rendering_dt={render_dt:.6f}s ({render_hz:.2f} Hz) "
+              f"requested {self._render_dt:.6f}s", flush=True)
         twin_pub.setup_lidar_cloud(contract, lidar_prim, render_hz=render_hz)
         print("[TWIN] Mid-360 -> /livox/lidar", flush=True)
 
@@ -1173,7 +1184,16 @@ class RobotRosRunner(object):
         # and Nav2 silently never plans.
         ros_utils.setup_clock_publisher()
         odom_spec = twin_pub._topic(contract, "odom")
-        ros_utils.setup_odom_publisher(simulation_app, topic=odom_spec["name"])
+        # Odometry via rclpy, not the OmniGraph publisher. The graph is OnTick, so
+        # it emits once per RENDER frame (~66 Hz measured) and there is no divisor
+        # of 60 that lands on the contract's 51.4. Driving it from the physics
+        # callback with a sim-time limiter hits the rate exactly. The TF graph
+        # stays -- odom -> base_link is a transform, not a topic, and consumers
+        # want it at the highest rate available.
+        self._twin_rclpy.add_odom("odom", odom_spec["name"])
+        self._twin_odom_frame = odom_spec["frame_id"]
+        self._twin_odom_period = 1.0 / float(odom_spec["rate_hz"])
+        self._twin_odom_next = 0.0
         ros_utils.setup_odom_tf_publisher()
         print(f"[TWIN] odom -> {odom_spec['name']}", flush=True)
 
@@ -1202,9 +1222,8 @@ class RobotRosRunner(object):
         """
         if getattr(self, "_twin_rclpy", None) is None:
             return
-        try:
-            t = float(self._world.current_time)
-        except Exception:
+        t = getattr(self, "_twin_sim_time", None)
+        if t is None:
             return
         for key, sensor, frame_id, period_attr, next_attr in (
                 ("body", self._twin_imu_sensor, self._twin_imu_frame,
@@ -1224,6 +1243,18 @@ class RobotRosRunner(object):
                 continue
             self._twin_rclpy.publish_imu(key, frame_id, t, lin, ang,
                                          orientation_wxyz=ori if ori is not None else None)
+
+        if getattr(self, "_twin_odom_next", None) is not None and t >= self._twin_odom_next:
+            self._twin_odom_next = t + self._twin_odom_period
+            try:
+                pos_w, quat_wxyz = self._robot.robot.get_world_pose()
+                lin_vel = self._robot.robot.get_linear_velocity()
+                ang_vel = self._robot.robot.get_angular_velocity()
+            except Exception:
+                return
+            self._twin_rclpy.publish_odom(
+                "odom", self._twin_odom_frame, "base_link", t,
+                pos_w, quat_wxyz, lin_vel, ang_vel)
 
     def _get_cmd_vel(self) -> Optional[np.ndarray]:
         if self._linear_attr is None or self._angular_attr is None:
@@ -1256,6 +1287,12 @@ class RobotRosRunner(object):
 
         """
         if self._twin:
+            # Accumulate sim time from the PHYSICS step. self._world.current_time
+            # only advances once per world.step(), i.e. per RENDER frame, so using
+            # it here let exactly one publish through per render tick and pinned
+            # both IMUs at ~66 Hz no matter what period was requested. step_size is
+            # the physics dt, which is the clock these sensors actually run on.
+            self._twin_sim_time = getattr(self, "_twin_sim_time", 0.0) + float(step_size)
             self._twin_pump()
         if self.first_step:
             self._robot.initialize()

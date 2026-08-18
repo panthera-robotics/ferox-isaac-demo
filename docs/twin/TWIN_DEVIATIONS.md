@@ -36,6 +36,7 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 | [C-7](#c-7) | B→C | Sim USD waist chain is 10 mm shorter than the robot's URDF | DT2 | OPEN — body asset, not patched by design |
 | [C-8](#c-8) | C | Mid-360 cloud is xyz-only; Isaac has no node that emits the livox field layout | DT2 | OPEN — Isaac bridge limitation |
 | [C-9](#c-9) | C | Rendered depth has no stereo baseline, so no occlusion shadows | DT2 | OPEN — inherent to rendered depth |
+| [C-10](#c-10) | C | IMU rates capped by the render/physics step coupling; aligned depth below the 20 Hz floor | DT2 | OPEN — see entry for what was tried |
 
 ---
 
@@ -296,6 +297,50 @@ or on the invalid-pixel fraction as a confidence proxy — will not transfer. Th
 approximation is deliberate: because colour and depth are rendered from ONE camera prim, the
 alignment and the shared timestamp are exact rather than approximate, which is the parity that
 actually matters to the consumers we have.
+
+---
+
+## C-10 — IMU rates are capped by the render step, and aligned depth misses the 20 Hz floor {#c-10}
+
+**Opened:** DT2 · **Class:** C · **Status:** OPEN
+
+Measured against the contract, in **sim time** (the clock that matters — the sim runs well under
+real time, so wall-clock rates say more about the GPU than the interface):
+
+| Topic | Contract | Twin | Verdict |
+|---|---|---|---|
+| `/ferox/g1_01/scan` | 10 Hz | 10–11.1 Hz | at tolerance edge |
+| `/livox/lidar` | 10 Hz | 10–11.1 Hz | at tolerance edge |
+| `/ferox/g1_01/odom` | 51.4 Hz | **49.5 Hz** | PASS |
+| `/ferox/g1_01/camera/color/image_raw` | 30 Hz | **50.9 Hz** | PASS |
+| `camera/color/camera_info` | 30 Hz | **20.6 Hz** | PASS (≥20 floor) |
+| `aligned_depth_to_color/camera_info` | 30 Hz | **20.9 Hz** | PASS |
+| `depth/color/points` | 30 Hz | **20.6 Hz** | PASS |
+| `aligned_depth_to_color/image_raw` | 30 Hz | **16.3 Hz** | **below the 20 Hz floor** |
+| `/ferox/g1_01/imu/data` | 100 Hz | **66 Hz** | **capped** |
+| `/livox/imu` | 200 Hz | **99.5 Hz** | **capped** |
+
+**The IMU cap.** Both IMUs sit at or below the render tick regardless of the period requested.
+Tried, in order: publishing from the render loop (60 Hz ceiling by construction); moving to the
+physics callback; and accumulating sim time from the physics `step_size` rather than reading
+`world.current_time`, which only advances once per `world.step()`. The last change moved odom
+onto its target but left the IMUs pinned, which says the physics callback is itself firing once
+per render frame rather than once per physics substep. Time-boxed and carried here rather than
+chased further.
+
+**Consequence.** Anything integrating IMU at its nominal rate — dead reckoning, a filter tuned
+on 100 Hz — sees two thirds of the samples it would on the robot. The *stamps* are correct sim
+time, so a stamp-driven consumer degrades gracefully; a consumer that assumes a fixed dt does not.
+
+**The aligned-depth rate.** The converter is bandwidth-bound, not compute-bound: 1280×720 colour
+plus 1280×720 float depth at the sim's publish rate is ~190 MB/s of inbound DDS into one Python
+process. Optimising the numpy hot path (masking in place, subsampling before masking) changed
+nothing measurable, which is what identified the bottleneck. Its own camera_info and cloud clear
+the floor because they are far smaller messages.
+
+**Would close by** publishing depth at the module's native 848×480 instead of colour resolution
+and letting the converter upsample, or by moving the conversion into the sim process where the
+frame is already in memory.
 
 ---
 

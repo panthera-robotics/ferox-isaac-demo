@@ -87,5 +87,50 @@ class TwinRclpyPublishers:
         # inventing an uncertainty the robot does not report.
         pub.publish(m)
 
+    # ----------------------------------------------------------------- odom
+
+    def add_odom(self, key: str, topic: str) -> None:
+        from nav_msgs.msg import Odometry
+        from rclpy.qos import (QoSProfile, QoSReliabilityPolicy,
+                               QoSHistoryPolicy, QoSDurabilityPolicy)
+        qos = QoSProfile(depth=10, history=QoSHistoryPolicy.KEEP_LAST,
+                         reliability=QoSReliabilityPolicy.RELIABLE,
+                         durability=QoSDurabilityPolicy.VOLATILE)
+        self._pubs[key] = self._node.create_publisher(Odometry, topic, qos)
+
+    def publish_odom(self, key: str, frame_id: str, child_frame_id: str,
+                     sim_time: float, pos, quat_wxyz, lin_vel, ang_vel) -> None:
+        """Publish nav_msgs/Odometry stamped in SIM time.
+
+        Covariance is left all-zero, which is what the robot publishes:
+        inject_static_covariance is false on the driver. Filling in a plausible
+        covariance here would be inventing an uncertainty the hardware does not
+        report, and any consumer that weights by it would behave differently on
+        the robot.
+        """
+        from nav_msgs.msg import Odometry
+        pub = self._pubs.get(key)
+        if pub is None:
+            return
+        m = Odometry()
+        m.header.stamp.sec = int(sim_time)
+        m.header.stamp.nanosec = int((sim_time - int(sim_time)) * 1e9)
+        m.header.frame_id = frame_id
+        m.child_frame_id = child_frame_id
+        m.pose.pose.position.x = float(pos[0])
+        m.pose.pose.position.y = float(pos[1])
+        m.pose.pose.position.z = float(pos[2])
+        m.pose.pose.orientation.w = float(quat_wxyz[0])
+        m.pose.pose.orientation.x = float(quat_wxyz[1])
+        m.pose.pose.orientation.y = float(quat_wxyz[2])
+        m.pose.pose.orientation.z = float(quat_wxyz[3])
+        m.twist.twist.linear.x = float(lin_vel[0])
+        m.twist.twist.linear.y = float(lin_vel[1])
+        m.twist.twist.linear.z = float(lin_vel[2])
+        m.twist.twist.angular.x = float(ang_vel[0])
+        m.twist.twist.angular.y = float(ang_vel[1])
+        m.twist.twist.angular.z = float(ang_vel[2])
+        pub.publish(m)
+
     def shutdown(self) -> None:
         self._stop = True

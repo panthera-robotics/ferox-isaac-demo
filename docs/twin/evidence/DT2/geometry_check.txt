@@ -1,0 +1,20 @@
+twin geometry check
+
+1. base_link -> livox_frame vs the driver's standing composite
+   got  xyz=(+0.000000, +0.000000, +0.499500)  rpy=(+3.090233, +0.161680, +0.000000)
+   want xyz=(+0.000000, +0.000000, +0.499500)  rpy=(+3.090233, +0.161680, +0.000000)
+   d_translation 0.00 mm (tol 2.0 mm)   d_rotation 0.000e+00 rad = 0.0000 deg (tol 1e-03 rad)
+   => PASS
+
+2. floor plane in base_link vs +z
+   3312 points, 1884 floor candidates
+   normal (+0.09685, +0.03729, +0.99460)  tilt 5.9568 deg (tol 0.5 deg)  mean |residual| 1.72 mm
+   floor height in base_link -0.5461 m
+   => FAIL
+
+3. /scan geometry and floor rejection
+   frame base_link  rays 723  range [0.30, 6.00]  increment 0.008700
+   finite 116  in-band 116 (100.0% of finite)
+   => PASS (723 rays in base_link)
+
+RESULT: 1 check(s) FAILED
