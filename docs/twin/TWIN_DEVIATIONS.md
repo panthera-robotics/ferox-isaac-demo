@@ -544,6 +544,58 @@ before/after on gait and contact behaviour.
 
 ---
 
+## C-17 — the Go2 twin's Mid-360 sees the robot's own front face, and /scan keeps it
+
+**Class C, and it blocks navigation.** The sim's Mid-360 returns a persistent cluster
+off the Go2's own body:
+
+```
+sensor frame (livox_frame) : 134 points at 0.100 .. 0.152 m
+                             x +0.090..+0.150  y -0.044..+0.000  z -0.019..+0.016
+base_link                  : x +0.272..+0.332  y -0.044..+0.000  z +0.029..+0.072
+/scan after p2l            : 13-14 rays at 0.300 .. 0.313 m, bearings -6.5 .. -0.1 deg
+```
+
+Body-fixed: identical across consecutive scans, and unchanged after the robot drove
+1.4 m and rotated. The patch is roughly 6 cm x 4.4 cm at the robot's nose, which is
+where the Go2's front face is.
+
+**Why `range_min` does not remove it.** `pointcloud_to_laserscan` applies `range_min`
+in its **target frame**, not the sensor frame. These returns are 0.10–0.15 m from the
+sensor -- far inside the driver's 0.30 m -- but the sensor is mounted 0.187 m forward
+of `base_link`, so in `base_link` the same points sit at 0.27–0.33 m and the ones at
+or beyond 0.30 survive the filter. Nothing is misconfigured; the threshold is doing
+exactly what it is documented to do, in a frame where these points are legitimately
+far enough away.
+
+**Consequence, and it is not cosmetic.** The local costmap carries a permanent
+obstacle 0.30 m directly ahead. Nav2 accepts a goal, fails to find an admissible
+path, runs 21 recoveries and aborts without the robot moving. Every DT5 navigation
+goal failed this way. Driving on `/ferox/go2_01/cmd_vel` directly works fine
+(1.616 m in 6 s at a commanded 0.4 m/s), so the control path is sound -- it is the
+perception path that is blocked.
+
+**Contrast with C-12**, which records the *opposite* asymmetry on the G1: there the
+sim has NO self-hit cluster while the robot does. The two robots differ because the
+G1's sensor is 0.50 m up on the torso looking out, and the Go2's is 0.08 m up and
+0.187 m forward, looking across its own nose.
+
+**Open question before choosing a fix.** It is not established that this is a sim
+artefact at all. If the real Go2's Mid-360 also sees its own nose, then hardware
+`/scan` carries the same cluster and the same Nav2 behaviour -- which would make this
+a faithful reproduction of a real problem rather than a twin defect, and exactly the
+kind of finding the campaign exists to surface. Resolving it needs one real capture:
+a `/scan` and a `/unitree/slam_lidar/points` sample from the robot standing still, to
+see whether returns exist at 0.10–0.15 m in `livox_frame`. Recorded as OQ-5.1.
+
+**Would close by**, if it IS a sim artefact: excluding the robot's own prims from the
+RTX lidar's visibility -- the campaign's listed fallback for the G1 head shell,
+carried over. Deliberately NOT done blind: the twin's Class-A interface is currently
+clean, and hiding geometry from a sensor to make a number look better, without first
+knowing what the robot does, is the exact move this campaign exists to prevent.
+
+---
+
 ## Anticipated entries (not yet opened — listed so the shape is known)
 
 These are named in campaign §2 as expected Class-C items. They are **not** deviations yet; each
