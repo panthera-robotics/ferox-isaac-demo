@@ -593,6 +593,99 @@ RTX lidar's visibility -- the campaign's listed fallback for the G1 head shell,
 carried over. Deliberately NOT done blind: the twin's Class-A interface is currently
 clean, and hiding geometry from a sensor to make a number look better, without first
 knowing what the robot does, is the exact move this campaign exists to prevent.
+---
+
+## C-18 — the real Mid-360 cloud is 53 % zero-padding; the twin's is fully valid
+
+**Class C.** Ground truth (`ref/captures/g1/captures/g1_twin_gt`) shows `/livox/lidar`
+is a **fixed-width** cloud in which just over half the points are exact zeros:
+
+| | Real G1 | Twin |
+|---|---|---|
+| width per sweep | 19872 – 20064 | ~20000 |
+| exact-zero xyz points | **10450 – 10823 (52.7 %)** | 0 |
+| **valid** returns | **~9443** | ~20000 |
+| `is_dense` | `true` | `true` |
+
+`is_dense: true` is a claim that there are no invalid points, and it is wrong on the
+robot: the non-returns are encoded as `(0, 0, 0)` rather than NaN, so every consumer
+that trusts `is_dense` and skips the NaN check ingests ~10 500 points at the sensor
+origin. Their `intensity` is not zero either (0–150), so intensity does not separate
+them.
+
+**Consequence.** The twin's cloud is **~2.1× denser in valid returns** than the
+robot's at the same nominal width. Anything tuned on point count — a voxel filter's
+leaf size, a clustering threshold, an occupancy hit count — will behave differently.
+`pointcloud_to_laserscan` is unaffected because a (0,0,0) point falls under
+`range_min` and is dropped.
+
+**Would close by** the twin emitting the same padding, which is easy and is
+deliberately not done yet: it would make the twin's cloud *worse* on purpose, and
+which of the two behaviours downstream code should be written against is a decision,
+not a detail.
+
+---
+
+## C-19 — `/livox/imu` reports acceleration in **g**, and stamps `livox_frame`
+
+**Class C, and it is a factor of 9.8.** From the same capture, robot standing still:
+
+| | Real `/livox/imu` | Twin `/livox/imu` | Real `/ferox/g1_01/imu/data` |
+|---|---|---|---|
+| `frame_id` | **`livox_frame`** | `livox_imu` | `dog_imu_link` |
+| mean \|linear_acceleration\| | **1.00595** | ~9.81 | **9.79534** |
+| unit implied | **g** | m/s² | m/s² (correct) |
+| `orientation` | identity, not populated | populated | populated |
+
+The body IMU is in correct SI. The **Livox** IMU is in g — a known
+`livox_ros_driver2` behaviour, and exactly the class of silent factor-of-N error that
+C-5 flags for depth units. `sensor_msgs/Imu` documents
+`linear_acceleration` as m/s², so the robot's stream does not conform to the message
+definition it uses.
+
+The `frame_id` mismatch is separate and smaller: the `livox_frame → livox_imu` TF edge
+exists and its values are **confirmed exact** by this capture, but the sidecar stamps
+its messages `livox_frame` and never uses the child frame. The contract now records
+`livox_frame`, because that is what the robot puts on the wire.
+
+**Consequence.** A consumer integrating `/livox/imu` for LIO would be out by 9.80665.
+Nothing in Ferox consumes it today (`FW_MIGRATION_REPORT`: "published, unconsumed"),
+which is the only reason this has not already bitten.
+
+**Would close by** deciding which side is wrong. Making the twin emit g reproduces the
+robot faithfully; fixing the sidecar makes the robot correct. That is Kevin's call,
+not a sim change — logged, not applied.
+
+---
+
+## C-20 — the robot's `/odom` z is ~0; the twin's is the standing height
+
+**Class C.** Also from the capture, and it resolves the open question C-1 flagged
+about `odom_pelvis` z semantics:
+
+| | Real | Twin |
+|---|---|---|
+| `/ferox/g1_01/odom` z | **+0.00675 m**, constant over 34.6 s | **0.791 m** |
+| `/state_estimator/odom_pelvis` z | **+0.00675 m**, constant | — |
+| body pitch from odom | +0.518° (`base_link`) / −0.108° (`pelvis`) | ~1° lean |
+
+The robot's odometry is **ground-referenced**: z stays at ~6.75 mm whether the frame is
+`base_link` or `pelvis`. The twin publishes the pelvis's actual height above the
+world plane, 0.791 m.
+
+**This retires the premise of C-1's comparison.** C-1 set "0.791 m sim vs 0.731 m real"
+and called the hardware number provisional pending `odom_pelvis` z semantics. The
+semantics are now settled: the driver's odom z is not a height at all, so the two
+numbers were never measuring the same thing. C-1's *consequence* — the p2l slice sitting
+60 mm higher off the floor in sim — stands and is measured independently by the floor
+fit; only the odom-z part of its evidence is withdrawn.
+
+**Consequence.** Anything reading `odom.pose.position.z` sees 0.79 m in sim and 0.007 m
+on the robot. Nav2, SLAM Toolbox and AMCL are all planar and never read it.
+
+**Would close by** the twin publishing ground-referenced z. Small change, real decision:
+it makes the twin's odom less informative in exchange for matching the robot, and it
+should be made deliberately rather than as a side effect of this capture.
 
 ---
 

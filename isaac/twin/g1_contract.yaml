@@ -23,6 +23,10 @@
 
 schema_version: 1
 
+# Ground-truth capture used to close OQ-2, OQ-3 and the provenance below.
+gt_bag: &gt_bag >-
+  ref/captures/g1/captures/g1_twin_gt (rosbag2, 34.571 s, G1 #1 standing still, driver + livox sidecar up, no camera container)
+
 robot:
   type: g1
   id: g1_01
@@ -154,7 +158,8 @@ tf_static:
     child: dog_imu_link
     xyz: [0.0, 0.0, 0.0]
     rpy: [-0.000966, -0.010877, 0.0]
-    provenance: calibrated
+    # CONFIRMED EXACTLY by the ground-truth bag (was calibrated): every component matched to 0.00e+00.
+    provenance: captured
     source: panthera-g1-driver/.../g1_driver_hw.launch.py:363-368, defaults :501,:508
 
   # STATIC-MODE composite. In the driver's default waist-bridge mode this edge is
@@ -188,7 +193,8 @@ tf_static:
     child: livox_imu
     xyz: [0.011, 0.02329, -0.04412]
     rpy: [0.0, 0.0, 0.0]
-    provenance: datasheet
+    # CONFIRMED EXACTLY by the ground-truth bag (was datasheet): every component matched to 0.00e+00.
+    provenance: captured
     source: panthera-g1-driver/.../g1_driver_hw.launch.py:495-497, published at :349-354
 
   # ---- RealSense intra-camera subtree ----
@@ -315,10 +321,11 @@ topics:
     frame_id: odom
     # 51.4 Hz. RESOLVED at DT2 -- see the source note; the 26.20 Hz figure measured in
     # the Session-A capture was an ALIASING BUG that has since been fixed on the robot.
+    # OQ-3 CLOSED: measured 51.46 Hz over 34.571 s in the ground-truth bag.
     rate_hz: 51.4
     qos: {reliability: reliable, durability: volatile}
     parity_class: A
-    provenance: configured
+    provenance: captured
     source: >-
       panthera-g1-driver/.../g1_driver_hw.launch.py:275 (out_topic), republished from
       /state_estimator/odom_pelvis with child_frame relabelled pelvis -> base_link.
@@ -343,22 +350,33 @@ topics:
     type: sensor_msgs/msg/Imu
     direction: publish
     frame_id: dog_imu_link
-    rate_hz: 100.0
+    # CAPTURED 93.70 Hz. Was 100.0 (configured). The nominal is 100; the robot delivers 93.7, inside the +-10% band either way, so the contract now carries what the robot does rather than what its config says.
+    rate_hz: 93.7
     qos: {reliability: reliable, durability: volatile}
     parity_class: A
-    provenance: configured
+    provenance: captured
     source: >-
       panthera-g1-driver/.../g1_driver_hw.launch.py:289 (out_topic), downsampled by
       imu_republisher from /lowstate.imu_state.
 
   - name: /livox/lidar
+    # OQ-2 CLOSED at the ground-truth capture. The layout below is no longer the
+    # livox_ros_driver2 default taken on faith -- it was read out of the bag and
+    # matches what was assumed, field for field, offset for offset:
+    #   x:FLOAT32@0  y:FLOAT32@4  z:FLOAT32@8  intensity:FLOAT32@12
+    #   tag:UINT8@16 line:UINT8@17 timestamp:FLOAT64@18   point_step 26
+    # width 19872-20064 per sweep, height 1, is_dense true, frame livox_frame.
+    # See also C-18: 52.7% of those points are exact zeros (non-returns), so the
+    # VALID count is ~9.4k, not ~20k.
+    captured_from: *gt_bag
     type: sensor_msgs/msg/PointCloud2
     direction: publish
     frame_id: livox_frame
     rate_hz: 10.0
     qos: {reliability: reliable, durability: volatile}
     parity_class: A
-    provenance: assumed
+    # OQ-2 CLOSED: field layout read from the ground-truth bag, matches what was assumed.
+    provenance: captured
     source: >-
       panthera-g1-driver/evidence/fw2026q3/session_a/13_livox_lidar.txt
       (average rate 10.000, frame_id livox_frame, 19968-20064 points/msg, Jetson-stamped).
@@ -393,11 +411,19 @@ topics:
   - name: /livox/imu
     type: sensor_msgs/msg/Imu
     direction: publish
-    frame_id: livox_imu
+    # CAPTURED: the real messages carry frame_id 'livox_frame', NOT 'livox_imu'. The livox_imu TF edge exists and is correct, but the sidecar does not stamp with it.
+    frame_id: livox_frame
+    # The WIRE frame and the MOUNT frame differ on this topic, and only on this
+    # one. The sidecar stamps livox_frame; the device physically sits at
+    # livox_imu, whose TF edge this same capture confirmed exactly. Without
+    # mount_frame the twin would place the IMU prim at livox_frame and quietly
+    # move the sensor by the datasheet offset [0.011, 0.02329, -0.04412] --
+    # 4 cm, and invisible to every topic-level check.
+    mount_frame: livox_imu
     rate_hz: 200.0
     qos: {reliability: reliable, durability: volatile}
     parity_class: B
-    provenance: measured
+    provenance: captured
     source: >-
       Published and currently unconsumed on the robot
       (panthera-g1-driver/FW_MIGRATION_REPORT.md:635; livox_driver_node log in

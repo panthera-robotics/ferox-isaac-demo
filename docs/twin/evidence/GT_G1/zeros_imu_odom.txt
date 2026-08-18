@@ -1,0 +1,44 @@
+==============================================================================
+5. Zero-point padding in /livox/lidar
+==============================================================================
+  width 19968, is_dense True
+  exact-zero xyz points : 10525 of 19968 (52.7%)
+  their intensity       : min 0.000 max 150.000
+  VALID (non-zero) pts  : 9443
+  valid range           : min 0.0991 m  max 15.331 m
+  across 8 sweeps: zeros [10525, 10689, 10655, 10543, 10450, 10823, 10599, 10498]
+                    widths [19968, 20064, 19968, 20064, 19872, 20064, 20064, 19968]
+
+==============================================================================
+6. Head-shell self-hit cluster, valid points only
+==============================================================================
+  sweep 0: r_min 0.0991 m, 267 valid pts under 0.30 m
+    span 0.0991..0.1985 m; x -0.129..+0.104 y -0.147..+0.150 z -0.005..+0.141
+  sweep 1: r_min 0.0986 m, 299 valid pts under 0.30 m
+    span 0.0986..0.2057 m; x -0.077..+0.091 y -0.156..+0.138 z -0.003..+0.137
+  sweep 2: r_min 0.0988 m, 243 valid pts under 0.30 m
+    span 0.0988..0.1987 m; x -0.082..+0.113 y -0.147..+0.150 z +0.000..+0.141
+
+==============================================================================
+7. IMU units and bias, robot standing still
+==============================================================================
+  /livox/imu  (600 msgs, frame 'livox_frame')
+    lin_acc mean = [-0.04920, +0.00032, -1.00474]
+    |lin_acc|    = 1.00595   -> G UNITS (1 g = 9.80665 m/s^2)
+    ang_vel mean = [+0.001653, -0.001311, +0.005705] rad/s
+    orientation  = (+0.0000, +0.0000, +0.0000, +1.0000)  (identity -- not populated)
+  /ferox/g1_01/imu/data  (600 msgs, frame 'dog_imu_link')
+    lin_acc mean = [+0.11007, +0.14479, +9.79348]
+    |lin_acc|    = 9.79534   -> m/s^2 (1 g = 9.80665 m/s^2)
+    ang_vel mean = [-0.001403, +0.010251, -0.000781] rad/s
+    orientation  = (+0.0139, -0.0010, -0.0084, +0.9999)
+
+==============================================================================
+8. Odometry: standing height and body attitude
+==============================================================================
+  /ferox/g1_01/odom: child='base_link' frame='odom'
+    z mean +0.00675 m  (min +0.00675 max +0.00675)
+    body pitch +0.5179 deg
+  /state_estimator/odom_pelvis: child='pelvis' frame='odom'
+    z mean +0.00675 m  (min +0.00675 max +0.00675)
+    body pitch -0.1081 deg

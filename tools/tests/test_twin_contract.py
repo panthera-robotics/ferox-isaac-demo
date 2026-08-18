@@ -311,15 +311,23 @@ def test_g1_cloud_layout_is_the_sidecar_driver_not_the_retired_unitree_stream():
     """OQ-2. /livox/lidar comes from OUR livox_ros_driver2 sidecar, so the default layout
     is that driver's: x,y,z,intensity FLOAT32 + tag,line UINT8 + timestamp FLOAT64,
     point_step 26 -- NOT the retired Unitree /utlidar/cloud_livox_mid360 layout
-    (ring UINT16 + time FLOAT32, point_step 22). Marked assumed until an echo confirms."""
+    (ring UINT16 + time FLOAT32, point_step 22).
+
+    OQ-2 is now CLOSED. The layout was read out of the ground-truth bag and matched
+    the assumption exactly, field for field and offset for offset, so this tripwire
+    now guards a CAPTURED fact rather than a pending one. It fired when the
+    provenance changed, which is what it is for."""
     t = _topic(twin_contract.load(G1_PATH), "/livox/lidar")
     fields = [(f["name"], f["datatype"]) for f in t["expect"]["pointcloud_fields"]]
     assert fields == [("x", "FLOAT32"), ("y", "FLOAT32"), ("z", "FLOAT32"),
                       ("intensity", "FLOAT32"), ("tag", "UINT8"), ("line", "UINT8"),
                       ("timestamp", "FLOAT64")], fields
     assert t["expect"]["point_step"] == 26
-    assert t["provenance"] == "assumed", "the field layout is not measured yet"
-    # The Go2's stream layout is genuinely unknown and stays on the captured Unitree one.
+    assert t["provenance"] == "captured", (
+        "OQ-2 is closed -- the layout came out of "
+        "ref/captures/g1/captures/g1_twin_gt and must stay 'captured'")
+    # The Go2's stream layout is still genuinely unknown -- its capture comes later --
+    # and stays on the retired Unitree layout with `assumed` provenance.
     go2 = _topic(twin_contract.load(GO2_PATH), "/unitree/slam_lidar/points")
     assert go2["expect"]["point_step"] == 22
 
@@ -577,6 +585,60 @@ def test_rule_hand_name_catches_a_violation():
             if any(tok in target for tok in JOINTISH):
                 hits += [v for v in _int_constants(node.slice) if lo <= v <= hi]
     assert hits == [], f"the check fired on a name-based lookup: {hits}"
+
+
+def test_livox_imu_wire_frame_differs_from_its_mount_frame():
+    """The G1's /livox/imu stamps livox_frame but the device sits at livox_imu.
+
+    Both facts come from the ground-truth capture: the messages carry frame_id
+    'livox_frame', and the livox_frame -> livox_imu edge is confirmed exact. If
+    mount_frame is ever dropped, the twin places the IMU prim at the wire frame and
+    the sensor silently moves by that edge -- 4 cm, and invisible to every check that
+    looks at topics rather than geometry.
+    """
+    t = _topic(twin_contract.load(G1_PATH), "/livox/imu")
+    assert t["frame_id"] == "livox_frame", "captured: the sidecar stamps livox_frame"
+    assert t.get("mount_frame") == "livox_imu", (
+        "mount_frame is what keeps the sensor on the device rather than on the "
+        "frame the messages happen to be stamped with")
+    edge = _edge(twin_contract.load(G1_PATH), "livox_frame", "livox_imu")
+    assert edge["xyz"] == [0.011, 0.02329, -0.04412], edge["xyz"]
+    assert edge["provenance"] == "captured"
+    # Every other Imu topic must have wire == mount, or it needs its own reason.
+    for path in (G1_PATH, GO2_PATH):
+        for topic in twin_contract.load(path)["topics"]:
+            if topic["type"] != "sensor_msgs/msg/Imu":
+                continue
+            if topic["name"] == "/livox/imu":
+                continue
+            assert topic.get("mount_frame") in (None, topic["frame_id"]), \
+                f"{topic['name']} splits wire and mount frames without a documented reason"
+
+
+def test_ground_truth_closed_oq2_and_oq3():
+    """The two questions the G1 capture settled stay settled."""
+    c = twin_contract.load(G1_PATH)
+    lidar = _topic(c, "/livox/lidar")
+    assert lidar["provenance"] == "captured", "OQ-2"
+    assert lidar["expect"]["point_step"] == 26
+    odom = _topic(c, "/ferox/g1_01/odom")
+    assert odom["provenance"] == "captured", "OQ-3"
+    assert odom["rate_hz"] == 51.4
+    # Nothing about the camera may be upgraded by this capture: it ran with no
+    # camera container, so the bag is silent on every camera topic and edge. The
+    # topics are `configured` (wired from realsense_driver's config) and the
+    # INTRINSICS are `assumed` (C-3); neither may become `captured` until a capture
+    # with the camera running actually lands.
+    for topic in c["topics"]:
+        if "camera" in topic["name"]:
+            assert topic["provenance"] != "captured", (
+                f"{topic['name']} claims captured, but the G1 ground-truth bag "
+                "had no camera container")
+    for edge in c["tf_static"]:
+        if "camera" in edge["child"] or "camera" in edge["parent"]:
+            assert edge["provenance"] != "captured", (
+                f"{edge['parent']}->{edge['child']} claims captured, but the bag "
+                "carries no camera TF at all")
 
 
 def main() -> int:

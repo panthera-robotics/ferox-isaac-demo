@@ -1,0 +1,19 @@
+
+Files:             g1_twin_gt_0.db3
+Bag size:          315.4 MiB
+Storage id:        sqlite3
+Duration:          34.571276801s
+Start:             Aug 18 2026 14:02:46.283270016 (1787061766.283270016)
+End:               Aug 18 2026 14:03:20.854546817 (1787061800.854546817)
+Messages:          52210
+Topic information: Topic: /tf | Type: tf2_msgs/msg/TFMessage | Count: 1777 | Serialization Format: cdr
+                   Topic: /state_estimator/odom_pelvis | Type: nav_msgs/msg/Odometry | Count: 1777 | Serialization Format: cdr
+                   Topic: /livox/lidar | Type: sensor_msgs/msg/PointCloud2 | Count: 346 | Serialization Format: cdr
+                   Topic: /livox/imu | Type: sensor_msgs/msg/Imu | Count: 6911 | Serialization Format: cdr
+                   Topic: /lowstate | Type: unitree_hg/msg/LowState | Count: 35998 | Serialization Format: cdr
+                   Topic: /ferox/g1_01/scan | Type: sensor_msgs/msg/LaserScan | Count: 346 | Serialization Format: cdr
+                   Topic: /ferox/g1_01/odom | Type: nav_msgs/msg/Odometry | Count: 1778 | Serialization Format: cdr
+                   Topic: /ferox/g1_01/imu/data | Type: sensor_msgs/msg/Imu | Count: 3240 | Serialization Format: cdr
+                   Topic: /tf_static | Type: tf2_msgs/msg/TFMessage | Count: 3 | Serialization Format: cdr
+                   Topic: /ferox/g1_01/clock_offset | Type: diagnostic_msgs/msg/DiagnosticStatus | Count: 34 | Serialization Format: cdr
+

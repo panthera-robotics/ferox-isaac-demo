@@ -224,7 +224,13 @@ def create_imu_for(contract: Dict[str, Any], robot_root: str, topic_name: str,
     from isaacsim.core.utils.prims import is_prim_path_valid
 
     spec = _topic(contract, topic_name)
-    frame = frame_path(contract, robot_root, spec["frame_id"])
+    # WIRE frame vs MOUNT frame. They are the same on every topic except the G1's
+    # /livox/imu, where the sidecar stamps livox_frame while the device sits at
+    # livox_imu -- confirmed by the ground-truth capture, which also confirmed the
+    # livox_frame -> livox_imu edge exactly. Taking the mount from frame_id would
+    # move the sensor by that edge (4 cm) and no topic-level check would see it.
+    frame = frame_path(contract, robot_root,
+                       spec.get("mount_frame") or spec["frame_id"])
     if not is_prim_path_valid(frame):
         raise SensorAuthoringError(
             f"{frame} is not in the stage -- run scripts/08_build_twin_assets.sh")

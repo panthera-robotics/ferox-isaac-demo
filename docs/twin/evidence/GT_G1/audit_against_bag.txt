@@ -1,0 +1,82 @@
+Auditing ROBOT=g1 against isaac/twin/g1_contract.yaml ...
+
+twin_audit  contract=isaac/twin/g1_contract.yaml
+            source=rosbag /tmp/gt
+
+CLS STATUS CHECK                      SUBJECT                                       EXPECTED -> ACTUAL
+----------------------------------------------------------------------------------------------------------------------------------------------
+A   PASS   topic/present              /ferox/g1_01/scan                             published  ->  published
+A   PASS   topic/type                 /ferox/g1_01/scan                             sensor_msgs/msg/LaserScan  ->  sensor_msgs/msg/LaserScan
+A   PASS   topic/frame_id             /ferox/g1_01/scan                             base_link  ->  base_link
+A   SKIP   topic/qos                  /ferox/g1_01/scan                             best_effort  ->  not observable
+B   PASS   topic/rate                 /ferox/g1_01/scan                             10.0 Hz +-10%  ->  10.00 Hz ()
+A   PASS   topic/present              /ferox/g1_01/odom                             published  ->  published
+A   PASS   topic/type                 /ferox/g1_01/odom                             nav_msgs/msg/Odometry  ->  nav_msgs/msg/Odometry
+A   PASS   topic/frame_id             /ferox/g1_01/odom                             odom  ->  odom
+A   SKIP   topic/qos                  /ferox/g1_01/odom                             reliable  ->  not observable
+B   PASS   topic/rate                 /ferox/g1_01/odom                             51.4 Hz +-10%  ->  51.46 Hz ()
+A   PASS   topic/present              /ferox/g1_01/imu/data                         published  ->  published
+A   PASS   topic/type                 /ferox/g1_01/imu/data                         sensor_msgs/msg/Imu  ->  sensor_msgs/msg/Imu
+A   PASS   topic/frame_id             /ferox/g1_01/imu/data                         dog_imu_link  ->  dog_imu_link
+A   SKIP   topic/qos                  /ferox/g1_01/imu/data                         reliable  ->  not observable
+B   PASS   topic/rate                 /ferox/g1_01/imu/data                         93.7 Hz +-10%  ->  93.70 Hz ()
+A   PASS   topic/present              /livox/lidar                                  published  ->  published
+A   PASS   topic/type                 /livox/lidar                                  sensor_msgs/msg/PointCloud2  ->  sensor_msgs/msg/PointCloud2
+A   PASS   topic/frame_id             /livox/lidar                                  livox_frame  ->  livox_frame
+A   SKIP   topic/qos                  /livox/lidar                                  reliable  ->  not observable
+B   PASS   topic/rate                 /livox/lidar                                  10.0 Hz +-10%  ->  10.00 Hz ()
+B   PASS   topic/present              /livox/imu                                    published  ->  published
+B   PASS   topic/type                 /livox/imu                                    sensor_msgs/msg/Imu  ->  sensor_msgs/msg/Imu
+B   PASS   topic/frame_id             /livox/imu                                    livox_frame  ->  livox_frame
+B   SKIP   topic/qos                  /livox/imu                                    reliable  ->  not observable
+B   PASS   topic/rate                 /livox/imu                                    200.0 Hz +-10%  ->  200.00 Hz ()
+A   FAIL   topic/present              /ferox/g1_01/camera/color/image_raw           published  ->  ABSENT
+A   FAIL   topic/present              /ferox/g1_01/camera/color/camera_info         published  ->  ABSENT
+A   FAIL   topic/present              /ferox/g1_01/camera/aligned_depth_to_color/i  published  ->  ABSENT
+A   FAIL   topic/present              /ferox/g1_01/camera/aligned_depth_to_color/c  published  ->  ABSENT
+A   FAIL   topic/present              /ferox/g1_01/camera/depth/color/points        published  ->  ABSENT
+C   SKIP   topic/subscribe            /ferox/g1_01/cmd_vel                          accepted by sim  ->  no publisher seen
+                                      note: input topic -- presence depends on the commanding side
+A   SKIP   tf_static/edge             base_link -> camera_link                      published only when enabled  ->  absent (gate off)
+                                      note: Sim: CAMERA_TF=1. Driver: camera_tf_enable (g1_driver.yaml:186, default false). NOTE the driver composes this through the waist chain when waist_tf_bridge is active; these numbers are the torso_link -> d435_link tail evaluated at the standing pose, same convention as the base_link -> livox_frame row.
+A   PASS   tf_static/edge             base_link -> dog_imu_link                     present  ->  present
+A   PASS   tf_static/xyz              base_link -> dog_imu_link                     [0.0, 0.0, 0.0] (<=0.0001 m)  ->  [0.0, 0.0, 0.0] (d=0.00e+00 m)
+A   PASS   tf_static/rpy              base_link -> dog_imu_link                     [-0.000966, -0.010877, 0.0] rad (<=0.0001 rad)  ->  d=0.00e+00 rad
+A   FAIL   tf_static/edge             camera_color_frame -> camera_color_optical_f  present  ->  MISSING
+A   FAIL   tf_static/edge             camera_depth_frame -> camera_depth_optical_f  present  ->  MISSING
+A   FAIL   tf_static/edge             camera_link -> camera_color_frame             present  ->  MISSING
+A   FAIL   tf_static/edge             camera_link -> camera_depth_frame             present  ->  MISSING
+A   PASS   tf_static/edge             livox_frame -> livox_imu                      present  ->  present
+A   PASS   tf_static/xyz              livox_frame -> livox_imu                      [0.011, 0.02329, -0.04412] (<=0.0001 m)  ->  [0.011, 0.02329, -0.04412] (d=0.00e+00 m)
+A   PASS   tf_static/rpy              livox_frame -> livox_imu                      [0.0, 0.0, 0.0] rad (<=0.0001 rad)  ->  d=0.00e+00 rad
+A   FAIL   tf_static/extra            base_link -> livox_frame                      not in contract  ->  PUBLISHED ANYWAY
+                                      note: an edge the robot does not publish
+A   FAIL   tf_dynamic/edge            base_link -> livox_frame                      on /tf at >=50 Hz  ->  ABSENT from /tf
+A   PASS   laserscan/ray_count        /ferox/g1_01/scan                             723  ->  723
+A   PASS   laserscan/angle_min        /ferox/g1_01/scan                             -3.14159265  ->  -3.14159274
+A   PASS   laserscan/angle_max        /ferox/g1_01/scan                             3.14159265  ->  3.14159274
+A   PASS   laserscan/angle_increment  /ferox/g1_01/scan                             0.0087  ->  0.00870000012
+B   PASS   laserscan/scan_time        /ferox/g1_01/scan                             0.1  ->  0.100000001
+A   PASS   laserscan/range_min        /ferox/g1_01/scan                             0.3  ->  0.300000012
+A   PASS   laserscan/range_max        /ferox/g1_01/scan                             6  ->  6
+B   PASS   laserscan/in_range         /ferox/g1_01/scan                             >=99% of finite returns  ->  100.0%
+C   SKIP   laserscan/below_range_min  /ferox/g1_01/scan                             reported (self-hit fraction)  ->  0.00%
+C   SKIP   laserscan/self_hit         /ferox/g1_01/scan                             reported in base_link (<0.35 m)  ->  none under 0.35 m
+A   PASS   pointcloud/fields          /livox/lidar                                  x:FLOAT32, y:FLOAT32, z:FLOAT32, intensity:FLOAT32, tag:UINT8, line:UINT8, timestamp:FLOAT64  ->  x:FLOAT32, y:FLOAT32, z:FLOAT32, intensity:FLOAT32, tag:UINT8, line:UINT8, timestamp:FLOAT64
+                                      note: C-8: Isaac RTX lidar cloud is xyz-only; no bridge node emits the livox layout
+A   PASS   pointcloud/point_step      /livox/lidar                                  26  ->  26
+                                      note: C-8: Isaac RTX lidar cloud is xyz-only; no bridge node emits the livox layout
+C   SKIP   provenance/assumed         tf camera_link->camera_color_frame            calibrated  ->  assumed
+                                      note: EDGE confirmed at panthera-g1-driver/evidence/fw2026q3/session_a/31_tf_static.txt. VALUES unknown: absent from realsense_driver (zero grep hits for camera_link). Placeholder identity -- MUST be replaced from a real /tf_static capture (OQ-1).
+C   SKIP   provenance/assumed         tf camera_color_frame->camera_color_optical_  calibrated  ->  assumed
+                                      note: EDGE confirmed at session_a/31_tf_static.txt. Rotation is the fixed REP-103 body-style -> optical-style convention (-pi/2, 0, -pi/2), not a measurement.
+C   SKIP   provenance/assumed         tf camera_link->camera_depth_frame            calibrated  ->  assumed
+                                      note: EDGE confirmed at session_a/31_tf_static.txt. VALUES unknown, see OQ-1.
+C   SKIP   provenance/assumed         tf camera_depth_frame->camera_depth_optical_  calibrated  ->  assumed
+                                      note: EDGE confirmed at session_a/31_tf_static.txt. REP-103 optical convention.
+
+[source note] bag source: QoS not recorded per message; QoS checks are skipped
+
+summary: 36 pass, 11 Class-A FAIL, 0 Class-B fail, 13 skipped, 60 checks
+
+RESULT: NON-CONFORMANT -- 11 Class-A difference(s) from the contract.

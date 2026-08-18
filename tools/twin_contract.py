@@ -20,7 +20,12 @@ import yaml
 
 SCHEMA_VERSION = 1
 
-PROVENANCE = {"calibrated", "urdf_nominal", "datasheet", "measured", "configured", "assumed"}
+# "captured" is the strongest tier: read out of a rosbag recorded on the robot,
+# rather than from an evidence text file ("measured"), a datasheet, or a config
+# ("configured"). It exists so a value that a real capture has PROVEN cannot be
+# confused with one that merely agrees with a number somebody wrote down.
+PROVENANCE = {"calibrated", "urdf_nominal", "datasheet", "measured", "configured",
+              "captured", "assumed"}
 PARITY_CLASSES = {"A", "B", "C"}
 DIRECTIONS = {"publish", "subscribe"}
 
