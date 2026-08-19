@@ -1,0 +1,62 @@
+verifying /workspace/ferox_isaac/assets/worlds/panthera_lab/panthera_lab.usd (7131 bytes)
+  ok   up axis is Z
+  ok   metersPerUnit is 1.0
+  ok   /panthera_lab/shell exists
+  ok   CLEAR interior X = 8.000 m (want 8.0)
+  ok   CLEAR interior Y = 6.000 m (want 6.0)
+  ok   CLEAR ceiling height = 2.700 m (want 2.7)
+  ok   outer X = 8.200 m (want 8.2 incl. walls)
+  ok   door leaf exists
+  ok   door leaf width = 0.900 m (want 0.9)
+  ok   door leaf height = 2.100 m (want 2.1)
+  ok   door leaf mass = 35.0 kg (want 35.0)
+  ok   hinge joint exists
+  ok   hinge axis is Z
+  ok   hinge lower limit 0 deg
+  ok   hinge upper limit 110.0 deg
+  ok   closer spring stiffness > 0
+  ok   hinge damping > 0
+  ok   door is an articulation root
+  ok   outside apron floor exists
+  ok   apron reaches y = 5.500 m, past the door_outside waypoint at 3.60 with >=0.30 m to spare
+  ok   apron starts at y = 3.100 m, flush with the wall (no gap to step over)
+  ok   lever handle exists
+  ok   handle centre z = 1.050 m (want 1.05)
+  ok   object soup_can exists
+  ok     soup_can mass = 0.3490000069141388 kg (want 0.349)
+  ok     soup_can reference composed (5 prims; 1 means unresolved)
+  ok     soup_can extents 0.068 x 0.102 x 0.068 m vs YCB 0.066 x 0.066 x 0.101 (max axis error 2 mm, orientation-independent)
+  ok     soup_can stands 0.102 m tall (published 0.101)
+  ok     soup_can rests on the table top (min z 0.752, table 0.75)
+  ok   object mustard exists
+  ok     mustard mass = 0.6029999852180481 kg (want 0.603)
+  ok     mustard reference composed (5 prims; 1 means unresolved)
+  ok     mustard extents 0.096 x 0.191 x 0.058 m vs YCB 0.058 x 0.095 x 0.190 (max axis error 1 mm, orientation-independent)
+  ok     mustard stands 0.191 m tall (published 0.19)
+  ok     mustard rests on the table top (min z 0.752, table 0.75)
+  ok   object cracker_box exists
+  ok     cracker_box mass = 0.41100001335144043 kg (want 0.411)
+  ok     cracker_box reference composed (5 prims; 1 means unresolved)
+  ok     cracker_box extents 0.164 x 0.213 x 0.072 m vs YCB 0.060 x 0.158 x 0.210 (max axis error 12 mm, orientation-independent)
+  ok     cracker_box stands 0.213 m tall (published 0.21)
+  ok     cracker_box rests on the table top (min z 0.752, table 0.75)
+  ok   object sugar_box exists
+  ok     sugar_box mass = 0.5139999985694885 kg (want 0.514)
+  ok     sugar_box reference composed (5 prims; 1 means unresolved)
+  ok     sugar_box extents 0.093 x 0.176 x 0.045 m vs YCB 0.038 x 0.089 x 0.175 (max axis error 7 mm, orientation-independent)
+  ok     sugar_box stands 0.176 m tall (published 0.175)
+  ok     sugar_box rests on the table top (min z 0.752, table 0.75)
+  ok   object mug exists
+  ok     mug mass = 0.11800000071525574 kg (want 0.118)
+  ok     mug reference composed (5 prims; 1 means unresolved)
+  ok     mug extents 0.117 x 0.081 x 0.093 m vs YCB 0.080 x 0.116 x 0.082 (max axis error 11 mm, orientation-independent)
+  ok   object banana exists
+  ok     banana mass = 0.06599999964237213 kg (want 0.066)
+  ok     banana reference composed (5 prims; 1 means unresolved)
+  ok     banana extents 0.197 x 0.039 x 0.074 m vs YCB 0.039 x 0.074 x 0.197 (max axis error 0 mm, orientation-independent)
+  ok   object cube_5cm exists
+  ok     cube_5cm mass = 0.10000000149011612 kg (want 0.1)
+  ok   object brochure_box exists
+  ok     brochure_box mass = 0.18000000715255737 kg (want 0.18)
+
+PASS: 0 failed check(s)

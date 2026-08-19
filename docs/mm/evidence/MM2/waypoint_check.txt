@@ -1,0 +1,51 @@
+venue panthera_lab vs isaac/assets/worlds/panthera_lab/objects.json
+room interior x [-4.00, 4.00] y [-3.00, 3.00], inflation 0.55 m
+  ok   home (-2.60, 0.00) is over floor (room)
+  ok   home is not inside table
+  ok   home clears table by 4.37 m (need 0.55)
+  ok   home is not inside counter
+  ok   home clears counter by 2.10 m (need 0.55)
+  ok   home is not inside shelf
+  ok   home clears shelf by 1.60 m (need 0.55)
+  ok   home clears the nearest wall by 1.40 m
+  ok   table_approach (2.20, -0.20) is over floor (room)
+  ok   table_approach is not inside table
+  ok   table_approach clears table by 1.00 m (need 0.55)
+  ok   table_approach is not inside counter
+  ok   table_approach clears counter by 4.27 m (need 0.55)
+  ok   table_approach is not inside shelf
+  ok   table_approach clears shelf by 5.00 m (need 0.55)
+  ok   table_approach clears the nearest wall by 1.80 m
+  ok   table (2.20, -0.40) is over floor (room)
+  ok   table is not inside table
+  ok   table clears table by 0.80 m (need 0.55)
+  ok   table is not inside counter
+  ok   table clears counter by 4.38 m (need 0.55)
+  ok   table is not inside shelf
+  ok   table clears shelf by 4.95 m (need 0.55)
+  ok   table clears the nearest wall by 1.80 m
+  ok   shelf (-1.80, -1.80) is over floor (room)
+  ok   shelf is not inside table
+  ok   shelf clears table by 3.40 m (need 0.55)
+  ok   shelf is not inside counter
+  ok   shelf clears counter by 3.90 m (need 0.55)
+  ok   shelf is not inside shelf
+  ok   shelf clears shelf by 0.80 m (need 0.55)
+  ok   shelf clears the nearest wall by 1.20 m
+  ok   door_inside (2.00, 1.90) is over floor (room)
+  ok   door_inside is not inside table
+  ok   door_inside clears table by 3.10 m (need 0.55)
+  ok   door_inside is not inside counter
+  ok   door_inside clears counter by 3.41 m (need 0.55)
+  ok   door_inside is not inside shelf
+  ok   door_inside clears shelf by 5.78 m (need 0.55)
+  ok   door_inside clears the nearest wall by 1.10 m (door waypoint, wall clearance not required)
+  ok   door_outside (2.00, 3.60) is over floor (apron)
+  ok   door_outside is not inside table
+  ok   door_outside clears table by 4.80 m (need 0.55)
+  ok   door_outside is not inside counter
+  ok   door_outside clears counter by 3.52 m (need 0.55)
+  ok   door_outside is not inside shelf
+  ok   door_outside clears shelf by 6.94 m (need 0.55)
+
+PASS: 0 failed check(s)

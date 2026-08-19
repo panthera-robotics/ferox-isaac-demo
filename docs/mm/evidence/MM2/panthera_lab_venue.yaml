@@ -1,0 +1,68 @@
+# ============================================================================
+# panthera_lab — the twin's own lab, built by
+# ferox-isaac-demo/tools/build_lab_world.py (MM campaign §4.3, gate MM2).
+#
+# The room is an 8.0 x 6.0 m CLEAR interior centred on the world origin, so the
+# walls are at x = ±4.0 and y = ±3.0 and every coordinate below is in metres in
+# that frame. The map frame coincides with it once SLAM has run from the `home`
+# spawn, which is why `home` is the sim's spawn pose and not just another point.
+#
+# Waypoints are placed with the Nav2 footprint in mind: the G1's footprint radius
+# is 0.35 m and MM1 raised the local inflation radius to 0.55 m, so a goal must
+# sit at least ~0.6 m clear of any wall or furniture or the planner will never
+# find a pose it considers valid. Each entry below records what it is clear of.
+#
+# Furniture (from the same builder, keep in sync):
+#   table    1.20 x 0.80 x 0.75 m centred (2.20, -1.60)
+#   counter  2.40 x 0.60 x 0.90 m centred (-2.60,  2.40)
+#   shelf    1.60 x 0.40 x 1.80 m centred (-3.40, -1.80)
+#   door     0.90 m leaf, hinge at x=1.55 on the north wall (y=+3.0)
+# ============================================================================
+
+venue_id: panthera_lab
+display_name: "Panthera Lab (Isaac twin)"
+
+# No map_yaml_path: the map is built by SLAM on first run and saved to
+# docs/mm/evidence/MM2/. Add the path here once that map is promoted to a venue
+# asset; until then this venue runs in SLAM mode like lab_dryrun.
+
+waypoints:
+  # NOT (-2.8, -1.9): that is inside the shelf's footprint
+  # (x [-4.20, -2.60], y [-2.00, -1.60]). Caught by checking these coordinates
+  # against the builder's own geometry before ever driving there.
+  - name: home
+    label: "Home (spawn, west side, clear of shelf and counter)"
+    pose: { x: -2.6, y: 0.0, yaw: 0.0 }
+    tags: [spawn, mm2]
+
+  - name: table_approach
+    label: "Table approach (1.0 m north of the table edge)"
+    pose: { x: 2.20, y: -0.20, yaw: -1.5708 }
+    tags: [manipulation, mm2, mm5]
+
+  # 0.80 m clear of the table edge (y=-1.20). The local inflation radius is 0.55 m
+  # after the MM1 nav fix, so a goal any closer sits inside the inflated band and
+  # the planner never returns a valid pose -- that was the MM0 nav failure.
+  - name: table
+    label: "At the table (0.80 m from the edge, facing it)"
+    pose: { x: 2.20, y: -0.40, yaw: -1.5708 }
+    tags: [manipulation, mm2, mm5]
+
+  # 0.80 m clear of the shelf's east face (x=-2.60), facing it.
+  - name: shelf
+    label: "At the shelf (0.80 m from its face, facing west)"
+    pose: { x: -1.80, y: -1.80, yaw: 3.1416 }
+    tags: [manipulation, mm2]
+
+  - name: door_inside
+    label: "Inside the door, facing it"
+    pose: { x: 2.00, y: 1.90, yaw: 1.5708 }
+    tags: [door, mm2, mm5]
+
+  # On the apron the builder authors north of the wall. Before that apron existed
+  # this waypoint had NO FLOOR under it -- the slab ended at y=3.10 -- so
+  # "walk through the door" was a walk off the edge of the world.
+  - name: door_outside
+    label: "Through the doorway, on the outside apron"
+    pose: { x: 2.00, y: 3.60, yaw: 1.5708 }
+    tags: [door, mm2, mm5, outside]

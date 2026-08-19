@@ -195,6 +195,17 @@ SIM_WORLDS = {
         "usd": "/Isaac/Environments/Hospital/hospital.usd",
         "spawn": {"xy": (7.8, 2.0), "yaw": 1.57},
     },
+    # Panthera's own lab (MM2, campaign §4.3), authored by
+    # tools/build_lab_world.py. 8 x 6 m CLEAR interior centred on the origin, so
+    # the walls are at x=+-4.0 and y=+-3.0. Spawn is the "home" waypoint: the
+    # west side facing +x down the long axis, with ~6 m of clear floor ahead. NOT
+    # (-2.8, -1.9), which is inside the shelf's footprint. Unlike the built-in worlds this one is a LOCAL
+    # path, so it is resolved relative to the isaac/ tree rather than the Nucleus
+    # asset root.
+    "panthera_lab": {
+        "usd": "@LOCAL@/assets/worlds/panthera_lab/panthera_lab.usd",
+        "spawn": {"xy": (-2.6, 0.0), "yaw": 0.0},
+    },
 }
 
 
@@ -370,7 +381,17 @@ def _resolve_world(assets_root_path: str) -> Tuple[str, dict]:
             f"Add one with a single line in SIM_WORLDS (name -> usd + spawn)."
         )
 
-    world_usd = assets_root_path + entry["usd"]
+    # A world can live in this repo rather than on the Nucleus asset server.
+    # @LOCAL@ resolves against run.py's own directory, which is the isaac/ tree
+    # inside the container, so the same entry works wherever that tree is mounted.
+    # The stat check below is unchanged and applies to local worlds too -- a
+    # missing local file must fail as loudly as a missing remote one.
+    if entry["usd"].startswith("@LOCAL@"):
+        world_usd = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            entry["usd"][len("@LOCAL@/"):])
+    else:
+        world_usd = assets_root_path + entry["usd"]
     try:
         import omni.client
 

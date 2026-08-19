@@ -1,0 +1,180 @@
+{
+  "seed": 0,
+  "room_m": [
+    8.0,
+    6.0,
+    2.7
+  ],
+  "table": {
+    "sx": 1.2,
+    "sy": 0.8,
+    "h": 0.75,
+    "x": 2.2,
+    "y": -1.6
+  },
+  "counter": {
+    "sx": 2.4,
+    "sy": 0.6,
+    "h": 0.9,
+    "x": -2.6,
+    "y": 2.4
+  },
+  "shelf": {
+    "sx": 1.6,
+    "sy": 0.4,
+    "h": 1.8,
+    "x": -3.4,
+    "y": -1.8
+  },
+  "apron": {
+    "sx": 3.6,
+    "sy": 2.4,
+    "y0": 3.1,
+    "y1": 5.5,
+    "x0": 0.19999999999999996,
+    "x1": 3.8
+  },
+  "door": {
+    "w": 0.9,
+    "h": 2.1,
+    "leaf_kg": 35.0,
+    "limit_deg": 110.0,
+    "handle_z": 1.05,
+    "hinge_x": 1.55,
+    "wall_y": 3.0
+  },
+  "objects": [
+    {
+      "name": "soup_can",
+      "kind": "ycb",
+      "source": "YCB 005",
+      "mass_kg": 0.349,
+      "static_friction": 0.7,
+      "dynamic_friction": 0.6,
+      "usd": "005_tomato_soup_can.usd",
+      "stood_upright": true,
+      "yaw_deg": 151.406,
+      "pos": [
+        1.7706,
+        -1.476,
+        0.8029
+      ]
+    },
+    {
+      "name": "mustard",
+      "kind": "ycb",
+      "source": "YCB 006",
+      "mass_kg": 0.603,
+      "static_friction": 0.7,
+      "dynamic_friction": 0.6,
+      "usd": "006_mustard_bottle.usd",
+      "stood_upright": true,
+      "yaw_deg": 145.776,
+      "pos": [
+        1.9309,
+        -1.6868,
+        0.8477
+      ]
+    },
+    {
+      "name": "cracker_box",
+      "kind": "ycb",
+      "source": "YCB 003",
+      "mass_kg": 0.411,
+      "static_friction": 0.6,
+      "dynamic_friction": 0.5,
+      "usd": "003_cracker_box.usd",
+      "stood_upright": true,
+      "yaw_deg": 171.575,
+      "pos": [
+        2.0943,
+        -1.4978,
+        0.8587
+      ]
+    },
+    {
+      "name": "sugar_box",
+      "kind": "ycb",
+      "source": "YCB 004",
+      "mass_kg": 0.514,
+      "static_friction": 0.6,
+      "dynamic_friction": 0.5,
+      "usd": "004_sugar_box.usd",
+      "stood_upright": true,
+      "yaw_deg": 181.687,
+      "pos": [
+        2.3226,
+        -1.57,
+        0.8401
+      ]
+    },
+    {
+      "name": "mug",
+      "kind": "ycb",
+      "source": "YCB 025",
+      "mass_kg": 0.118,
+      "static_friction": 0.7,
+      "dynamic_friction": 0.6,
+      "usd": "025_mug.usd",
+      "stood_upright": false,
+      "yaw_deg": 222.613,
+      "pos": [
+        2.4905,
+        -1.6785,
+        0.7985
+      ]
+    },
+    {
+      "name": "banana",
+      "kind": "ycb",
+      "source": "YCB 011",
+      "mass_kg": 0.066,
+      "static_friction": 0.5,
+      "dynamic_friction": 0.4,
+      "usd": "011_banana.usd",
+      "stood_upright": false,
+      "yaw_deg": 353.803,
+      "pos": [
+        2.6828,
+        -1.6898,
+        0.789
+      ]
+    },
+    {
+      "name": "cube_5cm",
+      "kind": "authored",
+      "source": "authored primitive",
+      "mass_kg": 0.1,
+      "static_friction": 0.8,
+      "dynamic_friction": 0.7,
+      "size_m": [
+        0.05,
+        0.05,
+        0.05
+      ],
+      "pos": [
+        2.5536,
+        -1.4883,
+        0.777
+      ]
+    },
+    {
+      "name": "brochure_box",
+      "kind": "authored",
+      "source": "authored primitive",
+      "mass_kg": 0.18,
+      "static_friction": 0.6,
+      "dynamic_friction": 0.5,
+      "size_m": [
+        0.21,
+        0.15,
+        0.03
+      ],
+      "pos": [
+        2.6684,
+        -1.6683,
+        0.767
+      ]
+    }
+  ]
+}
