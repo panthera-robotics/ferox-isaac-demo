@@ -547,7 +547,38 @@ Per Mohammed, 2026-08-19: every clip on this box is shot with the converged path
 is marked **"visually clean, numeric ghost gate deferred to 4090"** — the mask
 read-back segfaults here (C-23, widened).
 
-No MM1 clips shot yet.
+**No MM1 clip was shot, and the reason is a defect in the film harness, not a
+scheduling slip.**
+
+The standing order is that every gate ends with a clip shot through `film.py`'s
+converged path. `film.py` as delivered at MM0 drives the robot with `orbit_walk` —
+a sine on six joints. That is fine as the tool's self-test and unusable for a
+locomotion gate: a montage captioned "the twin walks" must show the policy walking,
+not an animation of a robot shaped like walking. So `--drive policy` was added,
+importing the same `G1VelocityPolicy` the twin runs.
+
+Three real bugs surfaced and were fixed, each of which had produced plausible
+output:
+
+| # | symptom | cause | fixed |
+|---|---|---|---|
+| 1 | 600 frames whose first and last differ by **0.31 of 255** — a static picture | `converge()` pauses the timeline so rendering does not advance sim time; after warm-up every `world.step()` was a no-op. `orbit_walk` never noticed because it poses joints kinematically and needs no physics | resume with `world.play()`. Note `world.is_playing()` reported `True` throughout, so the timeline interface was not the thing that mattered |
+| 2 | robot at **z = 0.116 m**, lying down | `scene()` drops the reference at the origin | spawn z read from `env.yaml` `scene.robot.init_state.pos`, the same source the twin uses |
+| 3 | 2.9 m of travel **backwards** under a +0.5 m/s forward command | `World` defaulted to a 1/60 s physics step; the policy's decimation of 4 is defined against 200 Hz, so 50 Hz control silently became 15 Hz | `physics_dt=1/200`, matching `run.py --physics_dt` |
+
+**What is still wrong.** With all three fixed the G1 is *flung*: z reaches 2.2 m and
+it travels −7 m while the command is still `(0,0,0)`. That is a physics blow-up, not
+a gait. The leading suspect is two `ArticulationView`s over the same `/World/G1`
+prim — `scene()`'s and the policy's — both writing targets. **The twin itself walks
+correctly under the identical policy and checkpoint** (the §3 table above, N@0.2 at
+2.4 % error), so this is a defect in the filming harness and not in the robot.
+
+**Default taken:** `--drive policy` is marked incomplete in the tool with the
+evidence above, and **nothing is shot with it**. A montage of a robot being thrown
+across a room, captioned as a walk, is precisely what the campaign's media rules
+exist to prevent. MM1's clip is carried to MM2, where the honest route is to film
+the live sim — which demonstrably walks — rather than to re-implement the twin
+inside the camera tool.
 
 ---
 

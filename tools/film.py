@@ -207,8 +207,15 @@ class Shot:
         return m
 
 
-def scene(asset, world_usd=None):
-    world = World(stage_units_in_meters=1.0)
+def scene(asset, world_usd=None, physics_dt=1.0 / 200.0, render_dt=1.0 / 60.0):
+    # The same physics rate the twin runs (run.py --physics_dt default). It is not a
+    # cosmetic choice: the locomotion policy's decimation of 4 is defined against a
+    # 200 Hz clock, so World's 1/60 default silently turns 50 Hz control into 15 Hz
+    # and the G1 tumbles instead of walking -- which is exactly what the first
+    # working policy-drive run did, travelling 2.9 m BACKWARDS under a +0.5 m/s
+    # forward command.
+    world = World(stage_units_in_meters=1.0, physics_dt=physics_dt,
+                  rendering_dt=render_dt)
     world.scene.add_default_ground_plane()
     UsdLux.DomeLight.Define(world.stage, Sdf.Path("/World/dome")).CreateIntensityAttr(1200.0)
     k = UsdLux.DistantLight.Define(world.stage, Sdf.Path("/World/key"))
@@ -344,14 +351,39 @@ def _parse_schedule(spec):
 def _policy_drive(world, args):
     """Drive the articulation with the REAL locomotion policy, not a scripted swing.
 
-    A locomotion gate's clip has to show the policy walking. orbit_walk is a sine on
-    six joints -- fine as the tool's own self-test, a lie in a montage captioned
-    "the twin walks". This imports the same G1VelocityPolicy the twin runs, so what
-    the camera sees is what MM1 measured.
+    *** INCOMPLETE. DOES NOT YET PRODUCE A USABLE CLIP. ***
 
-    Returns a callable taking the frame's sim time; it advances physics at the
-    policy's own rate between rendered frames rather than stepping once per frame,
-    because the policy's decimation is defined against the physics clock.
+    Three real bugs were found and fixed getting this far, and they are worth
+    keeping because each one produced a plausible-looking output:
+
+      1. The clip was 600 static frames. converge() pauses the timeline so that
+         rendering does not advance sim time, so after the warm-up every
+         world.step() was a no-op. orbit_walk never noticed because it poses joints
+         kinematically and needs no physics at all. Fixed by resuming via
+         world.play() -- and note world.is_playing() reported True the whole time,
+         so the timeline interface was not the thing that mattered.
+      2. The robot was spawned lying on the floor at z=0.116, because scene() drops
+         the reference at the origin. Now taken from env.yaml's
+         scene.robot.init_state.pos, the same source the twin uses.
+      3. World defaulted to a 1/60 s physics step. The policy's decimation of 4 is
+         defined against 200 Hz, so that quietly turned 50 Hz control into 15 Hz.
+
+    What remains: with all three fixed the G1 is FLUNG -- it reaches z=2.2 m and
+    -7 m of travel while the command is still (0,0,0). That is a physics blow-up,
+    not a gait, and the leading suspect is two ArticulationViews over the same
+    /World/G1 prim (scene()'s and the policy's) both writing targets. The twin
+    itself walks correctly under the identical policy and checkpoint -- see the
+    MM1 motion suite -- so this is a defect in this harness, not in the robot.
+
+    Until it is fixed, a locomotion clip must be filmed from the live sim, and
+    NOTHING should be shot with --drive policy: a montage of a robot being thrown
+    across a room, captioned as a walk, is precisely the failure the campaign's
+    media rules exist to prevent.
+
+    It imports the same G1VelocityPolicy the twin runs, and returns a callable
+    taking the frame's sim time; it advances physics at the policy's own rate
+    between rendered frames rather than stepping once per frame, because the
+    policy's decimation is defined against the physics clock.
     """
     import run as twin_run
 
@@ -364,6 +396,23 @@ def _policy_drive(world, args):
         policy_path=args.policy, env_path=args.env_yaml,
         deploy_path=args.deploy_yaml,
     )
+    # Spawn height comes from the SAME place the twin gets it -- env.yaml's
+    # scene.robot.init_state.pos -- not from a number chosen to make the shot look
+    # right. film.py's scene() drops the reference at the origin, which leaves the
+    # G1 lying on the floor at z=0.116, and a policy asked to walk from there is
+    # being filmed failing at a task it was never given.
+    # run.py's own loader, not yaml.safe_load: env.yaml carries
+    # python/tuple tags that safe_load refuses.
+    _z = 0.8
+    if args.env_yaml and os.path.isfile(args.env_yaml):
+        _cfg = twin_run._load_yaml(args.env_yaml) or {}
+        _pos = (_cfg.get("scene", {}).get("robot", {})
+                .get("init_state", {}).get("pos"))
+        if _pos is not None and len(_pos) >= 3:
+            _z = float(_pos[2])
+    pol.robot.set_world_pose(position=np.array([0.0, 0.0, _z], dtype=np.float32))
+    print(f"  policy drive: spawn z={_z:.3f} (from env.yaml init_state.pos)", flush=True)
+
     pol.initialize()
     schedule = _parse_schedule(args.cmd_schedule)
     phys_dt = float(world.get_physics_dt())
@@ -377,13 +426,39 @@ def _policy_drive(world, args):
                 return cmd
         return schedule[-1][1] if schedule else (0.0, 0.0, 0.0)
 
+    import omni.timeline as _timeline
+
+    tl = _timeline.get_timeline_interface()
+
     def _step_to(target_t):
         import numpy as _np
+        # converge() pauses the timeline so that rendering does not advance sim
+        # time, which is right for the render and fatal for physics: after the
+        # warm-up converges, world.step() is a no-op and the robot stands frozen.
+        # The first shoot produced 600 frames whose first and last differ by 0.3
+        # of 255 -- a static picture of a robot that never moved. Resume the
+        # timeline before every physics burst.
+        if not world.is_playing():
+            world.play()          # SimulationContext.play(), not the timeline iface
         while state["t"] < target_t:
             cmd = _np.array(_cmd_at(state["t"]), dtype=_np.float32)
             pol.forward(phys_dt, cmd)
             world.step(render=False)
             state["t"] += phys_dt
+        # A clip of a locomotion gate is worthless if the robot did not move, and
+        # "it looks like it is walking" is exactly the judgement this campaign does
+        # not accept. Report the pose so the shoot is checkable from its own log.
+        if int(state["t"] * 2) != state.get("last_report"):
+            state["last_report"] = int(state["t"] * 2)
+            try:
+                pp, _ = pol.robot.get_world_pose()
+                pp = _np.asarray(pp).reshape(-1)
+                print(f"    t={state['t']:5.2f}s cmd={_cmd_at(state['t'])} "
+                      f"pos=({pp[0]:.3f}, {pp[1]:.3f}, {pp[2]:.3f}) "
+                      f"playing={world.is_playing()} sim_t={world.current_time:.3f}",
+                      flush=True)
+            except Exception as exc:  # noqa: BLE001
+                print(f"    pose report failed: {exc}", flush=True)
 
     return _step_to
 
@@ -411,7 +486,7 @@ def main() -> int:
     ap.add_argument("--drive", default="orbit_walk",
                     choices=("orbit_walk", "hold", "policy"),
                     help="orbit_walk (the tool's scripted self-test swing), hold, or "
-                         "policy (the real locomotion policy under a cmd schedule)")
+                         "policy (INCOMPLETE -- see the note on _policy_drive)")
     ap.add_argument("--cmd-schedule", default="6:0.0,0,0;12:0.5,0,0;6:0.0,0,0",
                     help="policy drive only: 'seconds:vx,vy,wz;...' in SIM seconds")
     ap.add_argument("--policy", default=os.environ.get("FILM_POLICY", ""),

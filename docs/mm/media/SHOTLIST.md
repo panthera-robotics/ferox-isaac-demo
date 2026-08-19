@@ -39,6 +39,17 @@ Marketing-grade 10–15 s, one per gate that has one.
 
 ## Why MM1's clips are not here yet
 
+**Second, harder reason as of 2026-08-19: `film.py` cannot yet film the real policy
+at all.** Its `orbit_walk` drive is a sine on six joints — the tool's self-test, not
+locomotion. `--drive policy` was added and three genuine bugs fixed behind it
+(paused timeline → 600 static frames; robot spawned lying down at z=0.116; a 1/60 s
+physics step that turned 50 Hz control into 15 Hz), but the robot is still flung
+rather than walked. Details and evidence in `RESULTS_MM1` §4. **Nothing is to be
+shot with `--drive policy` until that is fixed** — the twin walks fine, the camera
+harness does not.
+
+
+
 MM1's hero shot is **the turning walk**, and yaw does not work yet
 (`RESULTS_MM1` §2). Filming a robot that cannot turn and captioning it "turning
 walk" would be the montage lying, which is the one thing the DT campaign's media
@@ -46,5 +57,5 @@ rules forbid. MM1's clips land when the yaw item closes — either because it st
 turning, or because the gate reports honestly that it does not and the clip shows
 what it actually does.
 
-The nav fix (MM1 §1) does have a shootable result and gets its clip:
-`mm1_nav_goal_reached.mp4`.
+The nav fix (MM1 §1) does have a shootable result, but it too needs the live sim
+rather than `film.py`'s standalone scene, so it moves to MM2 with the walk clip.
