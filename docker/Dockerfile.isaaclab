@@ -1,0 +1,46 @@
+# Isaac Lab 2.3.2 + unitree_rl_lab, for MM1b (the G1 omni retrain).
+#
+# Baked rather than pip-installed into a running container, per CLAUDE.md's Docker
+# immutability rule: anything installed into a live container is gone on the next
+# `up`, and this image has to survive an overnight run and be reproducible after it.
+#
+# Quirks this image exists to encode, each of which cost time the first time:
+#   * isaaclab.sh wants a real TTY (it calls `tabs`); we install by pip directly.
+#   * pip must run as root here -- the Isaac image's default user is UID 1234 and
+#     the mounted trees are root-owned.
+#   * isaaclab_tasks cannot be imported before AppLauncher starts kit, because warp
+#     lives inside Isaac rather than on PyPI.
+#   * rsl-rl-lib needs flatdict and h5py, which the base image does not carry.
+FROM nvcr.io/nvidia/isaac-sim:5.1.0
+
+USER root
+SHELL ["/bin/bash", "-lc"]
+
+ENV ACCEPT_EULA=Y PRIVACY_CONSENT=Y PYTHONDONTWRITEBYTECODE=1
+ENV OMNI_KIT_ACCEPT_EULA=YES
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git cmake build-essential ncurses-bin \
+    && rm -rf /var/lib/apt/lists/*
+
+# Deps the training stack needs on top of the Isaac image.
+# The editable installs in the entrypoint use --no-deps so that pip cannot swap the
+# image's torch out from under Isaac, so every dependency Isaac Lab and rsl_rl need
+# is named here explicitly instead.
+RUN /isaac-sim/python.sh -m pip install --no-cache-dir \
+        flatdict h5py tensorboard "rsl-rl-lib==2.3.1" toml tqdm \
+        gymnasium trimesh pyglet scipy pillow prettytable \
+        "numpy<2" hidapi imageio "moviepy<2"
+
+# Isaac Lab and unitree_rl_lab are mounted at run time (they are reference trees in
+# the repo, not vendored), and installed editable here so imports resolve.
+ENV ISAACLAB_PATH=/workspace/IsaacLab
+WORKDIR /workspace
+
+# Writable caches for UID 1234 -> warp's kernel cache is the one that fails loudly.
+RUN mkdir -p /isaac-sim/.cache/warp /isaac-sim/.cache/ov /isaac-sim/kit/cache \
+    && chmod -R 777 /isaac-sim/.cache /isaac-sim/kit/cache
+
+COPY docker/isaaclab_entrypoint.sh /usr/local/bin/isaaclab_entrypoint.sh
+RUN chmod +x /usr/local/bin/isaaclab_entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/isaaclab_entrypoint.sh"]

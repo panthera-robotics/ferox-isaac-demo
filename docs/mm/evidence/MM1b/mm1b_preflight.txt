@@ -1,0 +1,10 @@
+limit_ranges  vx=(-0.6, 1.0) vy=(-0.5, 0.5) wz=(-1.0, 1.0)
+curriculum terms: ['ang_vel_cmd_levels', 'lin_vel_cmd_levels', 'terrain_levels']
+robot usd: /workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.usd
+actuator groups: ['N5020-16', 'N7520-14.3', 'N7520-22.5', 'W4010-25', 'dex5_1p']
+num_envs: 16
+command class: WeightedVelocityCommand
+env built. action dim (16, 69)  obs (16, 1080)
+sampled 16 cmds: 3 are in-place turns (lin==0, |wz|>=0.3)
+  wz range in sample: [-0.935, 0.827]
+  vx range in sample: [-0.443, 0.929]

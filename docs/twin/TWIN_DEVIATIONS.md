@@ -32,7 +32,8 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 | [C-3](#c-3) | C | D435i intrinsics (K/D) are factory-typical placeholders | DT1 | OPEN — needs OQ-1 |
 | [C-4](#c-4) | C | RealSense intra-camera TF values unknown (edges confirmed, numbers absent) | DT1 | OPEN — needs OQ-1 |
 | [C-5](#c-5) | C | Aligned-depth metric scale (mm) is convention, never written down | DT1 | OPEN — needs OQ-1 |
-| [C-6](#c-6) | C | Mid-360 non-repetitive rosette modelled as a uniform rotary grid | DT2 | OPEN — inherent to Isaac's RTX lidar |
+| [C-6](#c-6) | C | Mid-360 non-repetitive rosette modelled as a uniform rotary grid | DT2 | OPEN — inherent to Isaac's RTX lidar; **quantified at MM2**: twin 45–58 % finite vs robot 70 %, pose-independent |
+| [C-24](#c-24) | — | **WITHDRAWN** — claimed a missing `cloud_accumulator`; the real G1 driver has none either. Duplicate of C-6 | MM2 | WITHDRAWN same day |
 | [C-7](#c-7) | B→C | Sim USD waist chain is 10 mm shorter than the robot's URDF | DT2 | OPEN — body asset, not patched by design |
 | [C-8](#c-8) | C | Mid-360 cloud is xyz-only; Isaac has no node that emits the livox field layout | DT2 | OPEN — Isaac bridge limitation |
 | [C-9](#c-9) | C | Rendered depth has no stereo baseline, so no occlusion shadows | DT2 | OPEN — inherent to rendered depth |
@@ -931,82 +932,57 @@ opens in the gate that builds the thing.
 | — | `HandState_` published at ≥200 Hz from sim vs 1 kHz on the real hand (campaign amendment 3) | DT6 |
 | — | D435i intrinsics `assumed` from factory-typical values until a real `camera_info` capture arrives (§8 Q1) | DT2 |
 
-## C-24 — the G1 twin's `/scan` is one Mid-360 frame, not an accumulated cloud
+## C-24 — WITHDRAWN. The G1 driver has no accumulator either; this is C-6
 
-**Class B.** Found at MM2, and it retroactively explains MM0.
+**WITHDRAWN 2026-08-19, same day it was opened. The measurement stands; the cause I
+attached to it was wrong, and the fix it implied would have made the twin *less*
+faithful.**
 
-`/scan` is produced by `pointcloud_to_laserscan` consuming `/livox/lidar` directly.
-`ferox_nav_sim`'s `cloud_accumulator` — the sliding-window, motion-compensated
-accumulator that exists precisely because "an accumulator that merely resembles the
-robot's is not a twin" — is wired into `twin_bridge_go2.launch.py` only. The G1 twin
-bridge never spawns it, so every `/scan` the G1 twin has ever published is a single
-non-repetitive Mid-360 sweep.
+I claimed the G1 twin's `/scan` is degraded because the twin bridge never spawns
+`cloud_accumulator` while the real driver does. The second half is false. The real
+G1 driver's chain, from
+`panthera-g1-driver/src/panthera_g1_driver/launch/g1_driver_hw.launch.py:185-232`:
 
-**Evidence that it is this and not geometry or range:**
+```
+/livox/lidar -> cloud_restamper -> cloud_out -> pointcloud_to_laserscan -> /scan
+```
+
+There is **no accumulator anywhere in it**. `cloud_accumulator` is a
+**panthera-go2-driver** component, which is why `twin_bridge_go2.launch.py` spawns
+it and `twin_bridge.launch.py` does not. And even on the Go2, the accumulator feeds
+`/mid360/points_accum`; that bridge's `pointcloud_to_laserscan` still consumes the
+**raw** cloud, exactly as the G1's does.
+
+So the G1 twin's `/scan` being built from a single Mid-360 frame is **precisely what
+the robot does**. Adding an accumulator, or repointing `pointcloud_to_laserscan` at
+an accumulated cloud, would have made the twin diverge from the robot it exists to
+reproduce — the opposite of the point.
+
+**What the measurement actually shows.** The numbers are unchanged and still real:
 
 | measurement | value |
 |---|---|
 | finite ratio at `home` (−2.60, 0.00) | 58.5 % |
 | finite ratio at (0.87, 0.16), mid-room | 57.7 % |
-| predicted from room geometry at `home` | 83.3 % (farthest wall 7.25 m vs 6.0 m `range_max`) |
-| predicted from room geometry mid-room | ~100 % (farthest wall < 6.0 m) |
+| predicted from room geometry at `home` | 83.3 % |
+| predicted from room geometry mid-room | ~100 % |
+| hospital, twin (MM0) | 45.2–45.5 % |
+| hospital, real robot bag (MM0) | 70 % |
 
-The measured ratio is **pose-independent to within 0.8 points** while the geometric
-prediction moves by 17 points. Nothing about the room explains it. A single Mid-360
-frame simply does not illuminate ~42 % of the 723 azimuth bins.
+Pose-independent to 0.8 points while the geometric prediction moves 17. The cause is
+the one already on the books: **[C-6](#c-6)** — the RTX proxy models the Mid-360's
+non-repetitive rosette as a uniform rotary grid, so a single revolution illuminates a
+different, sparser set of azimuth bins than the real sensor's. C-6 is Class C and
+already marked "OPEN — inherent to Isaac's RTX lidar".
 
-Same signature at MM0: hospital measured 45.2–45.5 % from the twin against **70 %**
-from the real robot's bag on the identical scene and identical scan geometry. The
-real driver accumulates; the G1 twin does not.
+**Consequence for MM2.** The `/scan ≥ 60 %` requirement still reads **58.4 % —
+FAIL**, but it is a **C-6** failure, not a new defect, and there is no bridge change
+that fixes it honestly. The gate threshold assumes the real sensor's fill rate.
 
-**Consequence:** MM2's `/scan` requirement (≥60 % finite) reads **58.4 % — FAIL**,
-and the failure is the missing accumulator rather than the world. The MM0 hospital
-figure of 45 % was accepted as "the correct scene answer"; that acceptance stands
-for the corridor geometry, but the twin-vs-robot gap it sat inside now has a name.
+**How this got through.** I read `twin_bridge_go2.launch.py`, saw an accumulator the
+G1 bridge lacked, and inferred the G1 was missing something rather than checking the
+G1 driver. The check that would have caught it — read the *driver*, not the other
+twin — took four minutes once I did it. Recorded because the campaign's premise is
+that the twin follows the robot, and a change authorized on my wrong diagnosis would
+have silently broken exactly that.
 
-**Not fixed here.** The fix is to spawn `cloud_accumulator` in the G1 twin bridge as
-the Go2 bridge already does, and to point `pointcloud_to_laserscan` at
-`/mid360/points_accum`. That is a change to the Ferox launch graph, and the only
-Ferox change authorized in this campaign was the Nav2 footprint/inflation item at
-MM1. Flagged for a decision rather than taken.
-
-## C-25 — the panthera_lab door exposes a joint DOF and cannot be moved
-
-**Class B, open.** Six attempts, recorded in `docs/mm/RESULTS_MM2.md`. The door
-reports DOF `hinge`, sane gains, correct limits (0–110°) and drive type, and does
-not move under 500 N·m of directly applied joint effort — a kinematic lock, not a
-force limit. Deactivating the lever handle shifts the resting angle (−0.333° →
-−1.435°) without freeing it, so the handle (a static collider parented under the
-articulation root, coincident with the leaf) is one constraint but not the only one.
-
-Two general lessons, both worth more than the door:
-
-* **A USD articulation can pass every static check and have zero DOF.** Joint
-  present, axis correct, limits and drive authored, `ArticulationRootAPI` applied —
-  and PhysX builds nothing, because a static collider cannot be a link. Only a
-  physics-stepping test finds this.
-* **Writing `DriveAPI` attributes after `world.reset()` does nothing.** PhysX builds
-  the articulation at reset. The USD edit succeeds and the solver never sees it.
-
-Next thing to try: restructure the leaf as an Xform link holding the slab and handle
-as child geometry, so the handle belongs to the moving link rather than being
-adopted by the fixed base.
-
-## C-26 — the twin cannot navigate a furnished room; it is the MM1 yaw defect
-
-**Class A for the campaign, open, blocking.** `MoveToNamed` reached 0 of 6
-panthera_lab waypoints. Not a Nav2 tuning issue and not a venue issue:
-
-* Nav2 commands only its **Spin recovery** (480 messages, vx ∈ [−0.05, 0],
-  mean wz +0.213), and MM1 measured this policy's in-place yaw at **0.0000 rad/s**.
-  The recovery Nav2 falls back to is the one manoeuvre the robot cannot perform.
-* `planner_server` reports `no valid path found`. A flood fill over the global
-  costmap shows every waypoint's own cell is free while the robot sits in a
-  2 220-cell (5.5 m²) pocket of mapped space. `map → odom` is 0.22 m, so it is not
-  localisation.
-* The map stays partial because mapping means driving the room, and the robot jams
-  on furniture and cannot escape: escaping needs in-place rotation (0 %) or reverse
-  (35–70 % error at MM1), and it has neither.
-
-**Consequence:** MM1b, the retrain, is now on the critical path for MM2 and
-everything after it.
