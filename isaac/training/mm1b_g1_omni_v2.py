@@ -273,8 +273,16 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
         #     joints keeps the deployment contract exactly as it is.
         from isaaclab.managers import SceneEntityCfg
 
-        self.actions.JointPositionAction.joint_names = list(BODY_JOINT_EXPRS)
-        _body_cfg = SceneEntityCfg("robot", joint_names=list(BODY_JOINT_EXPRS))
+        # CONCRETE names, not the regexes: SceneEntityCfg resolves joint_names to
+        # joint_ids and then checks the two agree, so 13 regexes resolving to 29
+        # joints fails as "not consistent". BODY_JOINTS_SIM is the 29 body joints in
+        # Isaac's own DOF order, derived at DT7 from deploy.yaml's joint_ids_map and
+        # asserted by the twin tests -- and it names them, per RULE-HAND-NAME.
+        from twin.isaaclab.g1_dex5 import BODY_JOINTS_SIM
+
+        if len(BODY_JOINTS_SIM) != 29:
+            raise RuntimeError(f"expected 29 body joints, got {len(BODY_JOINTS_SIM)}")
+        self.actions.JointPositionAction.joint_names = list(BODY_JOINTS_SIM)
         for grp in ("policy", "critic"):
             g = getattr(self.observations, grp, None)
             if g is None:
@@ -283,7 +291,11 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
                 t = getattr(g, term, None)
                 if t is not None:
                     t.params = dict(t.params or {})
-                    t.params["asset_cfg"] = _body_cfg
+                    # A FRESH cfg per term: SceneEntityCfg.resolve() mutates the
+                    # object it is given, so one shared instance would carry the
+                    # first term's resolved ids into the second.
+                    t.params["asset_cfg"] = SceneEntityCfg(
+                        "robot", joint_names=list(BODY_JOINTS_SIM))
 
         # 1. widen the envelope
         lim = self.commands.base_velocity.limit_ranges

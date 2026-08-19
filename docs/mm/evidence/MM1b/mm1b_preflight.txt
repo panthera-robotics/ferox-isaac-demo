@@ -4,7 +4,9 @@ robot usd: /workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.usd
 actuator groups: ['N5020-16', 'N7520-14.3', 'N7520-22.5', 'W4010-25', 'dex5_1p']
 num_envs: 16
 command class: WeightedVelocityCommand
-env built. action dim (16, 69)  obs (16, 1080)
-sampled 16 cmds: 3 are in-place turns (lin==0, |wz|>=0.3)
-  wz range in sample: [-0.935, 0.827]
-  vx range in sample: [-0.443, 0.929]
+env built. actions=29  obs=480
+CONTRACT actions==29 : PASS
+CONTRACT obs==480    : PASS
+sampled 16 cmds: 2 are in-place turns (lin==0, |wz|>=0.3)
+  wz range in sample: [-0.887, 0.956]
+  vx range in sample: [-0.448, 0.699]
