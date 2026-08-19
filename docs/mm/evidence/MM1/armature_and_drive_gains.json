@@ -1,0 +1,116 @@
+{
+  "twin_bare_g1": {
+    "n_revolute": 29,
+    "armature_values": [
+      "0.0"
+    ],
+    "key_joints": [
+      {
+        "joint": "left_hip_pitch_joint",
+        "armature": 0.0,
+        "stiffness": 24.844928741455078,
+        "damping": 0.009937971830368042,
+        "maxForce": 88.0
+      },
+      {
+        "joint": "left_hip_yaw_joint",
+        "armature": 0.0,
+        "stiffness": 150.4769287109375,
+        "damping": 0.06019077077507973,
+        "maxForce": 88.0
+      },
+      {
+        "joint": "left_knee_joint",
+        "armature": 0.0,
+        "stiffness": 230.08995056152344,
+        "damping": 0.09203597903251648,
+        "maxForce": 139.0
+      },
+      {
+        "joint": "right_hip_pitch_joint",
+        "armature": 0.0,
+        "stiffness": 24.844932556152344,
+        "damping": 0.009937972761690617,
+        "maxForce": 88.0
+      },
+      {
+        "joint": "right_hip_yaw_joint",
+        "armature": 0.0,
+        "stiffness": 150.47637939453125,
+        "damping": 0.06019055098295212,
+        "maxForce": 88.0
+      },
+      {
+        "joint": "right_knee_joint",
+        "armature": 0.0,
+        "stiffness": 230.08103942871094,
+        "damping": 0.09203241765499115,
+        "maxForce": 139.0
+      },
+      {
+        "joint": "waist_yaw_joint",
+        "armature": 0.0,
+        "stiffness": 27.7011775970459,
+        "damping": 0.011080470867455006,
+        "maxForce": 88.0
+      }
+    ]
+  },
+  "twin_g1_dex5": {
+    "n_revolute": 69,
+    "armature_values": [
+      "0.0"
+    ],
+    "key_joints": [
+      {
+        "joint": "left_hip_pitch_joint",
+        "armature": 0.0,
+        "stiffness": 625.0,
+        "damping": 0.0,
+        "maxForce": 88.0
+      },
+      {
+        "joint": "left_hip_yaw_joint",
+        "armature": 0.0,
+        "stiffness": 625.0,
+        "damping": 0.0,
+        "maxForce": 88.0
+      },
+      {
+        "joint": "left_knee_joint",
+        "armature": 0.0,
+        "stiffness": 625.0,
+        "damping": 0.0,
+        "maxForce": 139.0
+      },
+      {
+        "joint": "right_hip_pitch_joint",
+        "armature": 0.0,
+        "stiffness": 625.0,
+        "damping": 0.0,
+        "maxForce": 88.0
+      },
+      {
+        "joint": "right_hip_yaw_joint",
+        "armature": 0.0,
+        "stiffness": 625.0,
+        "damping": 0.0,
+        "maxForce": 88.0
+      },
+      {
+        "joint": "right_knee_joint",
+        "armature": 0.0,
+        "stiffness": 625.0,
+        "damping": 0.0,
+        "maxForce": 139.0
+      },
+      {
+        "joint": "waist_yaw_joint",
+        "armature": 0.0,
+        "stiffness": 625.0,
+        "damping": 0.0,
+        "maxForce": 88.0
+      }
+    ]
+  }
+}

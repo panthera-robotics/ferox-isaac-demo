@@ -268,15 +268,59 @@ magnitude — is not a deadband and is not explained by anything in §2.1–2.7.
 Against the §2 acceptance (≤0.1 rad/s absolute error on yaw) every row fails,
 including −1.00 at 0.5–0.67 rad/s of error.
 
-### 2.9 Where that leaves §4.1
+### 2.9 §4.1(a) — IT TURNS IN ISAAC LAB. The difference is our sim.
+
+The decisive test: `unitree_rl_lab`'s `Unitree-G1-29dof-Velocity` — the task this
+policy was trained on — driven by **our exported TorchScript**, so the policy under
+test is byte-identical to the twin's. Isaac Lab **2.3.2**, which pairs with Isaac
+Sim **5.1.0**, exactly the container's version. The env's observation came out
+**(1, 480)**, matching our policy's input without adaptation, which is an
+independent confirmation of §2.1.
+
+| cmd wz | **Isaac Lab (training env)** | **our twin** |
+|---|---|---|
+| −1.00 | **58.9 %** (zmin 0.775) | 37 % (33–51) |
+| **+1.00** | **36.6 %** (zmin 0.772) | **0.1 %** |
+| +0.50 | 4.9 % | −0.7 % |
+| −0.50 | 5.7 % | −0.6 % |
+
+**Two separate problems, and they need separate answers:**
+
+1. **The policy is genuinely weak at yaw, in its own training environment.** 4.9 %
+   at 0.5 rad/s and 37–59 % at 1.0 rad/s all fail the campaign's ≤0.1 rad/s
+   acceptance. That is a **retrain** item (§4.1(d)) and no amount of sim fixing
+   reaches the gate without it.
+2. **Our twin additionally destroys one direction entirely** — +1.00 goes from
+   36.6 % in Isaac Lab to 0.1 % here. That asymmetry is **ours**, not the weights',
+   and §4.1(c) says fix it on our side.
+
+### 2.10 The twin/training articulation diff — armature is zero here
+
+| property | training (`unitree_rl_lab` `UNITREE_G1_29DOF_CFG`) | twin USD |
+|---|---|---|
+| **armature**, every actuator group | **0.01** | **0.0** (all 29 / all 69 joints) |
+| hip_pitch stiffness / damping | 100.0 / 2.0 | 24.84 / 0.0099 (bare), 625.0 / 0.0 (dex5) |
+| hip_yaw stiffness / damping | 100.0 / 2.0 | 150.48 / 0.060 (bare), 625.0 / 0.0 (dex5) |
+| knee stiffness / damping | 150.0 / 4.0 | 230.09 / 0.092 (bare), 625.0 / 0.0 (dex5) |
+| effort limit hip / knee | 88 / 139 | 88 / 139 ✅ |
+
+`run.py` overwrites stiffness and damping at load from `deploy.yaml`, so the USD's
+drive gains are not necessarily what runs — but **nothing anywhere sets armature**,
+and it is 0.0 in both twin assets against 0.01 in training. Armature is rotor
+inertia reflected through the gearbox; at zero the joint is "lighter" than the one
+the policy learned on, which changes the PD response and is a standard sim-to-sim
+gap. It is the leading candidate for §2.9's asymmetry and is the next thing tested.
+
+### 2.11 Where that leaves §4.1
 
 | §4.1 branch | status |
 |---|---|
 | (b) obs layout / scales / history / command index & units | **checked, clean** |
 | (c) "turns in Isaac Lab but not in run.py → contract bug" | **not supported** — the network responds to wz; nothing truncates it |
-| (a) play the checkpoint in Isaac Lab with wz commands | **not yet run** |
+| (a) play the checkpoint in Isaac Lab with wz commands | **RUN — IT TURNS THERE, both directions** |
 | **contact physics** | **MISMATCH FOUND (§2.6) and CORRECTED (§2.7); effect INCONCLUSIVE — one sign turns at 58 %, the other does not** |
-| (d) retrain | **still not indicated** — §2.7's follow-up runs first |
+| (c) fix our sim | **INDICATED** — Isaac Lab turns +1.00 at 36.6 %, we get 0.1 % |
+| (d) retrain | **ALSO INDICATED, separately** — the policy fails the gate even in its own env (4.9 % at 0.5 rad/s) |
 
 §4.1(a) was going to ask "is the difference our sim's physics?" — and §2.6 answers
 that directly, without the Isaac Lab clone: **yes, there is a measured physics
