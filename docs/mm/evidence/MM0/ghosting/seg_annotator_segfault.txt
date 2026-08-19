@@ -1,0 +1,4 @@
+Process 2285: /isaac-sim/kit/python/bin/python3 /tmp/isaacrun/film.py --orbit-ab --shots chase --frames 45 --subframes 32 --out /tmp/film/ab2
+Python v3.11.13 (/isaac-sim/kit/python/bin/python3.11)
+
+Thread 2285 (idle): "MainThread"

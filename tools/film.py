@@ -133,6 +133,23 @@ class Shot:
         self.cam.set_clipping_range(0.1, 200.0)
         self.prim = self.cam.prim
         self.lagged = None
+        # Instance segmentation, for the ghost metric. The mask is what makes
+        # "robot pixels where the robot is not" a decidable question; without it
+        # the only available statistic is whole-frame, and a whole-frame statistic
+        # is exactly what missed this defect the first time.
+        self.seg = None
+        # FILM_NOSEG=1: skip the instance-seg annotator entirely. Needed on a box
+        # with C-23, where annotator.get_data() segfaults in the warp
+        # device-to-host copy exactly as the ROS 2 image writer does -- so C-23 is
+        # "any synthetic-data annotator host copy", not just the image writer.
+        if os.environ.get("FILM_NOSEG") == "1":
+            return
+        try:
+            import omni.replicator.core as rep
+            self.seg = rep.AnnotatorRegistry.get_annotator("instance_id_segmentation_fast")
+            self.seg.attach([self.cam.get_render_product_path()])
+        except Exception as exc:                       # pragma: no cover
+            print(f"[film] no instance seg on {name}: {exc}", flush=True)
 
     def place(self, robot_xy, robot_z, lag=0.12):
         x, y = float(robot_xy[0]), float(robot_xy[1])
@@ -162,6 +179,32 @@ class Shot:
         if a is None or a.size == 0 or a.ndim != 3:
             return None
         return a[:, :, :3].astype(np.uint8)
+
+    def mask(self):
+        """Boolean mask of the robot in the current frame, from instance seg."""
+        if self.seg is None:
+            return None
+        d = self.seg.get_data()
+        arr = d.get("data") if isinstance(d, dict) else d
+        if arr is None or np.size(arr) == 0:
+            return None
+        arr = np.asarray(arr)
+        if arr.ndim == 3:
+            arr = arr[:, :, 0]
+        # Background/unlabelled ids are 0 or negative; the ground plane gets its
+        # own id, so "not background and not the largest non-robot region" would
+        # be fragile. Instead take every id whose pixels overlap the robot's
+        # bounding behaviour: in this scene the robot is the only articulated
+        # asset, and the ground plane is the single largest id. Drop that one.
+        ids, counts = np.unique(arr, return_counts=True)
+        if len(ids) < 2:
+            return None
+        order = np.argsort(-counts)
+        bg_ids = {int(ids[order[0]])}
+        if len(order) > 1 and counts[order[1]] > 0.35 * arr.size:
+            bg_ids.add(int(ids[order[1]]))          # sky/dome as well as floor
+        m = ~np.isin(arr, list(bg_ids))
+        return m
 
 
 def scene(asset, world_usd=None):
@@ -246,7 +289,43 @@ def ghost_test(world, art, shot, subframes, out_dir, path="converged"):
     return float(d)
 
 
-GHOST_MAX = 0.01     # 1 % of full scale; a visible trail scores far above this
+GHOST_MAX = 0.01     # legacy whole-frame score, kept only for continuity
+
+# Mohammed's metric, 2026-08-19, and the one that actually decides:
+#   ghost pixels = robot-coloured pixels OUTSIDE the current mask but INSIDE the
+#   union of the previous N masks, as a fraction of the current mask's area.
+#   PASS = under 0.5 % on every frame.
+# "Robot-coloured" is self-calibrating: a candidate pixel counts if its colour is
+# closer to the mean colour INSIDE this frame's mask than to the mean colour of
+# the background outside it. No background plate needed, and it cannot be fooled
+# by a scene relight.
+GHOST_MASK_MAX = 0.005
+GHOST_HISTORY = 6
+
+
+def ghost_pixels(rgb, mask, prev_masks):
+    """(fraction, count, mask_area) for one frame. None if the mask is unusable."""
+    if mask is None or not mask.any() or not prev_masks:
+        return None
+    union = np.zeros_like(mask)
+    for m in prev_masks:
+        if m is not None and m.shape == mask.shape:
+            union |= m
+    cand = union & ~mask
+    if not cand.any():
+        return (0.0, 0, int(mask.sum()))
+    f = rgb.astype(np.float32)
+    fg = f[mask].mean(axis=0)
+    bgmask = ~union
+    if not bgmask.any():
+        return None
+    bg = f[bgmask].mean(axis=0)
+    c = f[cand]
+    d_fg = np.linalg.norm(c - fg, axis=1)
+    d_bg = np.linalg.norm(c - bg, axis=1)
+    ghosts = int((d_fg < d_bg).sum())
+    area = int(mask.sum())
+    return (ghosts / max(1, area), ghosts, area)
 
 
 def main() -> int:
@@ -258,6 +337,13 @@ def main() -> int:
     ap.add_argument("--out", default=os.environ.get("FILM_OUT", "/tmp/film/out"))
     ap.add_argument("--ghost-test", action="store_true")
     ap.add_argument("--calibrate", action="store_true")
+    ap.add_argument("--orbit-path", default="both", choices=("both", "legacy", "converged"),
+                    help="run only one render path. The two must not share a process: "
+                         "45 legacy world.step(render=True) calls followed by the "
+                         "converged path segfaults, so each path gets its own run.")
+    ap.add_argument("--orbit-ab", action="store_true",
+                    help="orbit the camera around a static robot and score the mask "
+                         "ghost metric on BOTH render paths -- the A/B that decides")
     ap.add_argument("--negative-control", action="store_true",
                     help="also score the legacy (unconverged) render path, to show "
                          "the ghost test can fail")
@@ -284,6 +370,70 @@ def main() -> int:
 
     report = {"asset": args.asset, "subframes": args.subframes,
               "shots": kinds, "ghost_max": GHOST_MAX}
+
+    if args.orbit_ab:
+        # The exact shot that ghosts: camera orbiting a STATIC robot. The DT-era
+        # path (world.step(render=True) + grab) against the converged path
+        # (rep.orchestrator.step(rt_subframes=N)), same geometry, same frames.
+        import omni.replicator.core as rep
+        shot = shots[0]
+        (rx, ry), rz = robot_pose(art)
+        results = {}
+        paths = (("legacy", "converged") if args.orbit_path == "both"
+                 else (args.orbit_path,))
+        for label in paths:
+            prev, rows = [], []
+            outd = os.path.join(args.out, label)
+            os.makedirs(outd, exist_ok=True)
+            for i in range(args.frames):
+                a = 2.0 * math.pi * i / max(1, args.frames)
+                eye = (rx + 4.6 * math.cos(a), ry + 4.6 * math.sin(a), rz + 0.9)
+                look_at(shot.prim, eye, (rx, ry, rz - 0.05))
+                if label == "legacy":
+                    world.step(render=True)
+                else:
+                    world.step(render=False)
+                    converge(args.subframes)
+                fr, mk = shot.grab(), shot.mask()
+                if fr is None:
+                    continue
+                g = ghost_pixels(fr, mk, prev[-GHOST_HISTORY:])
+                if g is not None:
+                    rows.append({"frame": i, "ghost_frac": g[0],
+                                 "ghost_px": g[1], "mask_px": g[2]})
+                if mk is not None:
+                    prev.append(mk)
+                if i % 15 == 0:
+                    Image.fromarray(fr).save(os.path.join(outd, f"f{i:04d}.png"))
+            fr_all = [r["ghost_frac"] for r in rows]
+            results[label] = {
+                "frames_scored": len(rows),
+                "ghost_frac_mean": float(np.mean(fr_all)) if fr_all else None,
+                "ghost_frac_max": float(np.max(fr_all)) if fr_all else None,
+                "frames_over_threshold": int(sum(1 for v in fr_all if v > GHOST_MASK_MAX)),
+                "pass": bool(fr_all) and max(fr_all) <= GHOST_MASK_MAX,
+                "rows": rows,
+            }
+            r = results[label]
+            print(f"  {label:10s} scored {r['frames_scored']:3d}  "
+                  f"ghost mean {r['ghost_frac_mean']:.5f}  max {r['ghost_frac_max']:.5f}  "
+                  f"over-threshold {r['frames_over_threshold']}  "
+                  f"{'PASS' if r['pass'] else 'FAIL'}", flush=True)
+        report["orbit_ab"] = results
+        report["threshold"] = GHOST_MASK_MAX
+        json.dump(report, open(os.path.join(args.out, "film_report.json"), "w"), indent=2)
+        app.close()
+        # The test is only meaningful if it can fail. Demand that legacy FAILS
+        # and converged PASSES; anything else means the metric is not measuring
+        # what it claims and must not be used as a gate.
+        ok = (results.get("legacy", {}).get("pass") is False
+              and results.get("converged", {}).get("pass") is True)
+        if args.orbit_path != "both":
+            print(f"(single-path run: {args.orbit_path}; no A/B verdict)")
+            return 0
+        print("\nA/B verdict:", "metric HAS POWER and the fix works"
+              if ok else "INCONCLUSIVE -- do not gate on this yet")
+        return 0 if ok else 1
 
     if args.calibrate:
         rows = []

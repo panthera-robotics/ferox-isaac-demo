@@ -39,7 +39,7 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 | [C-10](#c-10) | C | IMU rates capped by the render/physics step coupling; aligned depth below the 20 Hz floor | DT2 | OPEN — floor relaxed to 15 Hz for DT2 |
 | [C-11](#c-11) | C | The sim stands with waist = 0; the real G1 stands pitched ~6.2° | DT2 | OPEN — policy property, not geometry |
 | [C-12](#c-12) | C | No head-shell self-hit cluster: sim r_min 1.10 m vs real 0.0985 m | DT2 | OPEN — accepted, `range_min` still reproduced |
-| [C-23](#c-23) | C | Isaac's ROS 2 image writer segfaults on this box (RTX 4080 SUPER 16 GB) | 2026-08-19 | **ENVIRONMENT, accepted — it is the GPU.** Camera work waits for a 4090; check `nvidia-smi` first |
+| [C-23](#c-23) | C | Isaac's synthetic-data HOST COPIES segfault on this box (RTX 4080 SUPER 16 GB) — ROS 2 image writer *and* segmentation annotators | 2026-08-19 | **ENVIRONMENT, accepted — it is the GPU.** Camera work *and any mask-based metric* wait for a 4090; check `nvidia-smi` first |
 
 ---
 
@@ -818,7 +818,24 @@ camera prim, which is where the bug was.
 
 ---
 
-## C-23 — Isaac's synthetic-data pipeline segfaults on this box when a camera exists {#c-23}
+## C-23 — Isaac's synthetic-data HOST COPIES segfault on this box {#c-23}
+
+> **SCOPE WIDENED 2026-08-19 (MM0).** This was opened as "whenever a camera
+> exists" and the mechanism is broader: **any synthetic-data annotator whose data
+> is copied device-to-host**. Two now confirmed on this box, with the same warp
+> `context.py::copy` at the bottom of both stacks:
+>
+> * the **ROS 2 image writer** (the original finding), and
+> * `rep.AnnotatorRegistry.get_annotator("instance_id_segmentation_fast")` →
+>   `annotator.get_data()`, which segfaults in
+>   `annotator_utils.py::_reshape_output_ptr` → `warp/types.py::numpy`.
+>
+> `camera.get_rgba()` does **not** crash — it takes a different route — which is
+> why offscreen RGB rendering works here while segmentation does not. Practical
+> consequence: any metric needing a **mask** needs a 4090.
+> Evidence: `docs/mm/evidence/MM0/ghosting/seg_annotator_segfault.txt`.
+
+
 
 **Class C, ENVIRONMENT — this is about the box, not the twin.** Opened 2026-08-19.
 
