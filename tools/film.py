@@ -207,7 +207,8 @@ class Shot:
         return m
 
 
-def scene(asset, world_usd=None, physics_dt=1.0 / 200.0, render_dt=1.0 / 60.0):
+def scene(asset, world_usd=None, physics_dt=1.0 / 200.0, render_dt=1.0 / 60.0,
+          own_articulation=True):
     # The same physics rate the twin runs (run.py --physics_dt default). It is not a
     # cosmetic choice: the locomotion policy's decimation of 4 is defined against a
     # 200 Hz clock, so World's 1/60 default silently turns 50 Hz control into 15 Hz
@@ -223,6 +224,14 @@ def scene(asset, world_usd=None, physics_dt=1.0 / 200.0, render_dt=1.0 / 60.0):
     k.CreateAngleAttr(1.0)
     add_reference_to_stage(asset, "/World/G1")
     world.reset()
+    if not own_articulation:
+        # In policy mode the POLICY owns the articulation. Creating a second
+        # Articulation view over the same /World/G1 prim and posing it here left
+        # two objects writing joint targets to one robot, which is the remaining
+        # suspect for the clip where the G1 was flung across the scene rather than
+        # walked. The caller passes its own handle back in.
+        world.step(render=False)
+        return world, None
     art = Articulation("/World/G1")
     art.initialize()
     names = list(art.dof_names)
@@ -460,7 +469,7 @@ def _policy_drive(world, args):
             except Exception as exc:  # noqa: BLE001
                 print(f"    pose report failed: {exc}", flush=True)
 
-    return _step_to
+    return _step_to, pol.robot
 
 
 def main() -> int:
@@ -501,11 +510,12 @@ def main() -> int:
             "The PiP track is a 4090 item -- see docs/mm/CAMPAIGN.md status header.")
 
     os.makedirs(args.out, exist_ok=True)
-    world, art = scene(args.asset)
+    world, art = scene(args.asset, own_articulation=(args.drive != "policy"))
     kinds = [k.strip() for k in args.shots.split(",") if k.strip()]
     shots = [Shot(k, world, k) for k in kinds]
-    for s in shots:
-        s.place(*robot_pose(art))
+    if art is not None:
+        for s in shots:
+            s.place(*robot_pose(art))
     for _ in range(6):                  # warm the render products
         converge(args.subframes)
         for s in shots:
@@ -615,16 +625,22 @@ def main() -> int:
         return 0 if report["ghost_pass"] else 1
 
     # ---- the actual shoot --------------------------------------------------
-    names = list(art.dof_names)
-    q0 = np.asarray(art.get_joint_positions())
-    q0 = q0[0] if q0.ndim > 1 else q0
     dirs = {k: os.path.join(args.out, k) for k in kinds}
     for d in dirs.values():
         os.makedirs(d, exist_ok=True)
 
+    # In policy mode the articulation does not exist until the policy makes it,
+    # so the drive is built FIRST and hands its handle back. orbit_walk still
+    # needs the rest pose, and only orbit_walk uses it.
     policy_drive = None
     if args.drive == "policy":
-        policy_drive = _policy_drive(world, args)
+        policy_drive, art = _policy_drive(world, args)
+
+    names, q0 = [], None
+    if art is not None and policy_drive is None:
+        names = list(art.dof_names)
+        q0 = np.asarray(art.get_joint_positions())
+        q0 = q0[0] if q0.ndim > 1 else q0
 
     for i in range(args.frames):
         t = i / 30.0
