@@ -1088,6 +1088,7 @@ class RobotRosRunner(object):
         self._last_cmd_vel_time: Optional[float] = None
         self._last_cmd_vel_count: int = 0
         self._cmd_vel_count_attr = None
+        self._reset_latch = None
 
         cmd_scale = np.maximum(np.abs(self._cmd_min), np.abs(self._cmd_max))
         vx, vy, wz = cmd_scale.tolist()
@@ -1135,6 +1136,10 @@ class RobotRosRunner(object):
         self._linear_attr, self._angular_attr, self._cmd_vel_count_attr = (
             ros_utils.setup_cmd_vel_graph(self._cmd_vel_topic)
         )
+        # A re-spawn request from outside. See setup_reset_sub for why this
+        # exists; it reuses the world.reset path the stop-button already takes,
+        # so there is exactly one reset implementation and it is the tested one.
+        self._reset_latch = ros_utils.setup_reset_sub("/twin/reset")
         if not self._enable_sensors:
             return
 
@@ -1509,6 +1514,8 @@ class RobotRosRunner(object):
             self._robot.initialize()
             self.first_step = False
             return
+        if self._reset_latch is not None and self._reset_latch.take():
+            self.needs_reset = True
         if self.needs_reset:
             self._world.reset(True)
             self.needs_reset = False

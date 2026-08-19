@@ -428,3 +428,57 @@ docker exec ferox_nav python3 /tmp/yaw_sweep.py
 # does the network respond to wz at all (no Isaac needed beyond torch)
 docker exec ferox_isaac_sim /isaac-sim/python.sh /tmp/isaacrun/probe_policy.py
 ```
+
+---
+
+## §3 — Motion suite
+
+**Box:** RTX 4080 SUPER 16376 MiB · `TWIN_CAMERA=0` (C-23) · Isaac Sim 5.1.0 · hospital
+
+`scripts/motion_suite.py`: 8 directions × {0.2, 0.5, 0.8} m/s, rotate at
+±0.3/±0.6/±1.0 rad/s, walk-and-turn at ±0.5, and a stop-from-0.8. Markdown + JSON.
+
+### Three defects the suite found in itself before it found anything about the robot
+
+These are recorded because each one produced a plausible-looking table that was
+wrong, and two of them were caught by reading output rather than by any assertion.
+
+**1. The experimental physics flags make the walk worse.** The first run went out
+with `TWIN_CONTACT_MATERIAL=1` and `TWIN_ARMATURE=0.01` still set from the yaw
+diagnosis (§2.6, §2.11). Forward tracking against the same test, same box:
+
+| test | with the flags | shipped defaults |
+|---|---|---|
+| N@0.2 | 0.155 m/s, **22.7 %** error | 0.197 m/s, **1.7 %** error |
+| N@0.5 | 0.245 m/s, 51.0 % error | 0.254 m/s, 49.3 % error |
+
+At 0.2 m/s the "training-matched" friction and armature are **thirteen times**
+further off. This is evidence against adopting them, not for it, and both stay off
+by default. It also means every number in §2.6 and §2.11 was measured under a
+configuration that degrades the gait — the yaw conclusions there stand (they were
+about direction, not magnitude), but the magnitudes should not be quoted elsewhere.
+Partial run kept at `evidence/MM1/motion_suite_experimental_flags_partial.txt`.
+
+**2. The suite never put the robot back on its feet.** There was no reset between
+tests, so the first fall contaminated every later row. In the invalid run
+(`evidence/MM1/motion_suite_noreset_invalid.txt`) the robot goes down at N@0.8
+(zmin 0.071 m) and the suite then cheerfully reports "E@0.2 speed 0.655 m/s" — a
+robot sliding on its side — and two rows with **zmin 1.332 m and 1.395 m**, which is
+a base *above* standing height and physically means the corpse was being dragged.
+Every row after the third in that file is meaningless. Fixed by adding a re-spawn:
+
+* `isaac/sim_utils.py::setup_reset_sub` — a `std_msgs/Empty` latch on `/twin/reset`.
+* `isaac/run.py` — the latch feeds the **existing** `needs_reset` path
+  (`world.reset(True)` → `first_step` → `G1VelocityPolicy.initialize()`), so there is
+  one reset implementation and it is the one the stop button already used. That path
+  also rebuilds the per-term observation-history buffers and `_previous_action`,
+  which a pose-only reset would have left holding the fall.
+* `scripts/motion_suite.py::reset` — publishes, then **waits for ~2 s of continuously
+  upright odom** before measuring. If the robot never comes back it returns
+  `no_reset` and the row is disqualified rather than measured anyway.
+
+**3. `NE` was `NW`.** `DIRECTIONS` had `("NE", 1, 1)` and `("NW", 1, 1)` — the same
+command twice under two names, and no north-east test in an "8 directions" suite.
+With +x forward and +y left, east is the robot's right, so NE is `(1, -1)`. Caught by
+reading the table, not by running it; a suite that tests 7 directions and reports 8
+is exactly the kind of quiet gap this campaign's audit rule exists for.

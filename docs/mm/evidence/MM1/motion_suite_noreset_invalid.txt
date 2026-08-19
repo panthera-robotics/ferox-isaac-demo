@@ -1,0 +1,10 @@
+  N@0.2     ok   speed 0.197/0.20 m/s err 1.7%  zmin 0.769
+  N@0.5     ok   speed 0.254/0.50 m/s err 49.3%  zmin 0.750
+  N@0.8     FELL speed 0.104/0.80 m/s err 87.0%  zmin 0.071
+  NE@0.2    FELL speed 0.371/0.20 m/s err 85.4%  zmin 0.069
+  NE@0.5    FELL speed 0.005/0.50 m/s err 99.0%  zmin 0.147
+  NE@0.8    FELL speed 0.043/0.80 m/s err 94.7%  zmin 0.060
+  E@0.2     FELL speed 0.655/0.20 m/s err 227.3%  zmin 0.082
+  E@0.5     FELL speed 0.007/0.50 m/s err 98.6%  zmin 1.332
+  E@0.8     FELL speed 0.000/0.80 m/s err 99.9%  zmin 1.395
+  SE@0.2    FELL speed 0.001/0.20 m/s err 99.3%  zmin 1.396

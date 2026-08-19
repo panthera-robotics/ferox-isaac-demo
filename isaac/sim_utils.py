@@ -196,6 +196,70 @@ def setup_cmd_vel_graph(
     return linear_attr, angular_attr, count_attr
 
 
+def setup_reset_sub(topic_name: str = "/twin/reset") -> object:
+    """PANTHERA: a latch on std_msgs/Empty that asks the sim to re-spawn.
+
+    Added because the motion suite had no way to put the robot back on its feet
+    between tests. Without it the first fall contaminates every later row -- the
+    run recorded in docs/mm/evidence/MM1/motion_suite_noreset_invalid.txt walks
+    N@0.8 over, then reports lateral and diagonal "results" measured on a robot
+    lying on the floor. Those are not results.
+
+    Returns an object with .take(), true exactly once per message received, so the
+    physics callback consumes the request rather than latching on it forever.
+    """
+    import threading
+
+    import rclpy
+    from std_msgs.msg import Empty
+
+    class _Latch:
+        def __init__(self):
+            self._n = 0
+            self._seen = 0
+            self._lock = threading.Lock()
+
+        def post(self):
+            with self._lock:
+                self._n += 1
+
+        def take(self) -> bool:
+            with self._lock:
+                if self._n == self._seen:
+                    return False
+                self._seen = self._n
+                return True
+
+    latch = _Latch()
+
+    if not rclpy.ok():
+        rclpy.init()
+
+    node = rclpy.create_node("ferox_twin_reset_listener")
+
+    def _cb(_msg: Empty) -> None:
+        latch.post()
+        print("[PANTHERA] reset requested on " + topic_name, flush=True)
+
+    node.create_subscription(Empty, topic_name, _cb, 10)
+
+    from rclpy.executors import SingleThreadedExecutor
+
+    executor = SingleThreadedExecutor()
+    executor.add_node(node)
+
+    def _spin():
+        try:
+            while rclpy.ok():
+                executor.spin_once(timeout_sec=0.1)
+        except Exception as exc:  # noqa: BLE001 - mirrors the cmd_vel spin thread
+            print(f"[PANTHERA] reset spin thread exited: {exc}", flush=True)
+
+    threading.Thread(target=_spin, daemon=True).start()
+    print(f"[PANTHERA] reset subscriber active on {topic_name}", flush=True)
+    return latch
+
+
 
 def add_warehouse_environment() -> bool:
     """Add the warehouse environment."""

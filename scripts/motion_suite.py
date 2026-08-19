@@ -27,11 +27,15 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from geometry_msgs.msg import Twist
+from std_msgs.msg import Empty
 from nav_msgs.msg import Odometry
 
 UPRIGHT_MIN_Z, TILT_MAX_DEG = 0.55, 25.0
 SPEEDS = (0.2, 0.5, 0.8)
-DIRECTIONS = [("N", 1, 0), ("NE", 1, 1), ("E", 0, -1), ("SE", -1, -1),
+# +x forward, +y left. E is the robot's right, so E = (0, -1).
+# NE was written (1, 1) here, which is NW -- the same test run twice under two
+# names, and no north-east row at all. Caught by reading the table, not by the run.
+DIRECTIONS = [("N", 1, 0), ("NE", 1, -1), ("E", 0, -1), ("SE", -1, -1),
               ("S", -1, 0), ("SW", -1, 1), ("W", 0, 1), ("NW", 1, 1)]
 YAW_RATES = (0.3, 0.6, 1.0, -0.3, -0.6, -1.0)
 
@@ -50,6 +54,7 @@ class Suite(Node):
         ns = f"/ferox/{rid}"
         s.topic = f"{ns}/cmd_vel"
         s.pub = s.create_publisher(Twist, s.topic, 10)
+        s.reset_pub = s.create_publisher(Empty, "/twin/reset", 10)
         q = QoSProfile(depth=20, reliability=ReliabilityPolicy.BEST_EFFORT,
                        history=HistoryPolicy.KEEP_LAST)
         s.create_subscription(Odometry, f"{ns}/odom", s._cb, q)
@@ -68,7 +73,42 @@ class Suite(Node):
     def other_publishers(s):
         return max(0, s.count_publishers(s.topic) - 1)
 
+    def reset(s, timeout=25.0):
+        """Put the robot back on its feet and wait until it is actually up.
+
+        Every test starts from a re-spawn. Without this the first fall poisons
+        every later row: the no-reset run in
+        docs/mm/evidence/MM1/motion_suite_noreset_invalid.txt reports lateral and
+        diagonal "speeds" for a robot lying on the floor, and one row has zmin
+        1.395 m, which is the base being dragged upward by the re-spawn of the
+        NEXT test. Returns False if the robot never comes back upright, and the
+        row is then marked no_reset rather than quietly measured anyway.
+        """
+        s.pub.publish(Twist())
+        s.reset_pub.publish(Empty())
+        t0 = time.time()
+        settled = 0
+        while time.time() - t0 < timeout:
+            rclpy.spin_once(s, timeout_sec=0.05)
+            m = s.last
+            if m is None:
+                continue
+            r, p = rp_of(m.pose.pose.orientation)
+            up = (m.pose.pose.position.z >= UPRIGHT_MIN_Z
+                  and math.degrees(math.hypot(r, p)) <= TILT_MAX_DEG)
+            settled = settled + 1 if up else 0
+            if settled >= 40:          # ~2 s of continuously upright odom
+                s.spin(1.0)
+                return True
+        return False
+
     def move(s, name, vx, vy, wz, dur):
+        if not s.reset():
+            return {"name": name, "cmd": [vx, vy, wz], "no_reset": True, "fell": True,
+                    "sim_dt": None, "fwd": None, "lat": None, "dyaw": None,
+                    "speed_cmd": math.hypot(vx, vy), "speed_meas": None,
+                    "speed_err_pct": None, "yaw_rate_meas": None, "yaw_err_abs": None,
+                    "zmin": None, "tilt_max_deg": None}
         s.pub.publish(Twist()); s.spin(2.0)
         a = s.last
         x0, y0 = a.pose.pose.position.x, a.pose.pose.position.y
@@ -104,7 +144,20 @@ class Suite(Node):
                 "yaw_rate_meas": acc/dt,
                 "yaw_err_abs": abs(acc/dt - wz) if wz else None,
                 "zmin": zmin, "tilt_max_deg": tilt,
+                "no_reset": False,
                 "fell": (zmin < UPRIGHT_MIN_Z) or (tilt > TILT_MAX_DEG)}
+
+
+def fmt(r):
+    tag = "NO-RESET" if r.get("no_reset") else ("FELL" if r["fell"] else "ok  ")
+    out = f"{r['name']:13s} {tag:8s}"
+    if r.get("no_reset"):
+        return out + " robot never came back upright"
+    if r["speed_cmd"]:
+        out += f" speed {r['speed_meas']:.3f}/{r['speed_cmd']:.2f} m/s err {r['speed_err_pct']:.1f}%"
+    if r["cmd"][2]:
+        out += f" yaw {r['yaw_rate_meas']:+.4f}/{r['cmd'][2]:+.2f} rad/s"
+    return out + f"  zmin {r['zmin']:.3f} tilt {r['tilt_max_deg']:.1f}deg"
 
 
 def main():
@@ -135,18 +188,14 @@ def main():
         for sp in SPEEDS:
             norm = math.hypot(sx, sy) or 1.0
             rows.append(n.move(f"{label}@{sp}", sp*sx/norm, sp*sy/norm, 0.0, a.duration))
-            print(f"  {rows[-1]['name']:9s} {'FELL' if rows[-1]['fell'] else 'ok  '} "
-                  f"speed {rows[-1]['speed_meas']:.3f}/{sp:.2f} m/s "
-                  f"err {rows[-1]['speed_err_pct']:.1f}%  zmin {rows[-1]['zmin']:.3f}", flush=True)
+            print("  " + fmt(rows[-1]), flush=True)
     for wz in YAW_RATES:
         rows.append(n.move(f"rot{wz:+.1f}", 0.0, 0.0, wz, a.duration))
         r = rows[-1]
-        print(f"  {r['name']:9s} {'FELL' if r['fell'] else 'ok  '} "
-              f"yaw {r['yaw_rate_meas']:+.4f}/{wz:+.2f} rad/s "
-              f"err {r['yaw_err_abs']:.3f}  zmin {r['zmin']:.3f}", flush=True)
+        print("  " + fmt(r), flush=True)
     for wz in (0.5, -0.5):
         rows.append(n.move(f"walk+turn{wz:+.1f}", 0.4, 0.0, wz, a.duration))
-        print(f"  {rows[-1]['name']:9s} {'FELL' if rows[-1]['fell'] else 'ok  '}", flush=True)
+        print("  " + fmt(rows[-1]), flush=True)
     rows.append(n.move("stop_from_0.8", 0.8, 0.0, 0.0, a.duration))
 
     lines = ["| test | cmd | measured | error | zmin | tilt | verdict |", "|---|---|---|---|---|---|---|"]
