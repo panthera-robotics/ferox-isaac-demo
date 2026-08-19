@@ -1,0 +1,5 @@
+usd: /workspace/ferox_isaac/assets/g1_dex5/g1_29dof_trainhands.usd
+bodies with contact force at spawn (env 0):
+   total bodies in contact: 0 of 79
+   foot contact: [0.0, 0.0]
+   NON-FOOT contacts at spawn: none

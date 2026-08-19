@@ -1,0 +1,9 @@
+usd: /workspace/ferox_isaac/assets/g1_dex5/g1_29dof_trainhands.usd
+bodies with contact force at spawn (env 0):
+   left_wrist_pitch_link           8794.53 N
+   base_link00L                    8794.53 N
+   right_wrist_pitch_link          7909.25 N
+   base_link00                     7909.25 N
+   total bodies in contact: 4 of 79
+   foot contact: [0.0, 0.0]
+   NON-FOOT contacts at spawn: [('left_wrist_pitch_link', 8794.5), ('base_link00L', 8794.5), ('right_wrist_pitch_link', 7909.3), ('base_link00', 7909.3)]

@@ -1,0 +1,5 @@
+usd: /workspace/ferox_isaac/assets/g1/usd/g1.usd
+bodies with contact force at spawn (env 0):
+   total bodies in contact: 0 of 30
+   foot contact: [0.0, 0.0]
+   NON-FOOT contacts at spawn: none

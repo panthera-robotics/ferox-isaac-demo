@@ -48,6 +48,21 @@ def hand_names():
         return set(hand_joint_names())
 
 
+def _palms(src, targets):
+    """Hand root links: drive a hand joint, are never driven by one."""
+    driven, roots = set(), set()
+    for p in src.Traverse():
+        if p.IsA(UsdPhysics.RevoluteJoint) and p.GetName() in targets:
+            for t in UsdPhysics.RevoluteJoint(p).GetBody1Rel().GetTargets():
+                driven.add(str(t))
+    for p in src.Traverse():
+        if p.IsA(UsdPhysics.RevoluteJoint) and p.GetName() in targets:
+            for t in UsdPhysics.RevoluteJoint(p).GetBody0Rel().GetTargets():
+                if str(t) not in driven:
+                    roots.add(str(t))
+    return roots
+
+
 def total_mass(stage):
     m = 0.0
     for prim in stage.Traverse():
@@ -63,6 +78,11 @@ def main() -> int:
     ap.add_argument("--src", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--report", default="")
+    ap.add_argument("--palm-collider", action="store_true",
+                    help="keep ONE collider per hand -- the palm's own geometry -- "
+                         "and drop the 19 finger colliders. Fingers cannot "
+                         "self-collide or hit the forearm, the hand still has a "
+                         "body the world can touch, and no shape is invented.")
     ap.add_argument("--no-hand-collision", action="store_true",
                     help="also disable collision on the hand links. Fixing a joint "
                          "removes its DOF, not its collider: 40 finger colliders "
@@ -155,6 +175,7 @@ def main() -> int:
     # with 236 of 1024 envs terminating on bad_orientation. Colliders are the
     # remaining difference.
     disabled = 0
+    keep = set()
     if a.no_hand_collision:
         # Each link is an Xform with `visuals` and `collisions` child Xforms; the
         # meshes themselves live in a referenced payload. Deactivating the
@@ -162,7 +183,38 @@ def main() -> int:
         # removes every collider under it whatever type they are -- and does not
         # depend on HasAPI(CollisionAPI), which reports False for every prim in
         # this asset and already sent one probe down a blind alley.
-        for lp in sorted(hand_link_paths):
+        # The hand's ROOT link (the palm) is the one that drives a hand joint but
+        # is never driven by one -- found from the joint graph, not by name
+        # guessing. Keeping its collider gives the hand a body the world can touch
+        # while the 19 finger colliders, which are what actually explode, go away.
+        keep = set()
+        if a.palm_collider:
+            driven = set()
+            for _p in src.Traverse():
+                if _p.IsA(UsdPhysics.RevoluteJoint) and _p.GetName() in targets:
+                    for _t in UsdPhysics.RevoluteJoint(_p).GetBody1Rel().GetTargets():
+                        driven.add(str(_t))
+            for _p in src.Traverse():
+                if _p.IsA(UsdPhysics.RevoluteJoint) and _p.GetName() in targets:
+                    for _t in UsdPhysics.RevoluteJoint(_p).GetBody0Rel().GetTargets():
+                        if str(_t) not in driven:
+                            keep.add(str(_t))
+            lines.append(f"  palm links kept as colliders: {sorted(keep)}")
+
+        # The palms are included whether or not --palm-collider asked to keep them,
+        # unless it did. They are body0-only in the joint graph, so they were never
+        # in hand_link_paths and their colliders survived every earlier variant --
+        # which is why two supposedly different assets plateaued at the identical
+        # 9.05. The spawn-contact check found 8794 N and 7909 N between each palm
+        # and its OWN wrist_pitch_link: the collider interpenetrates the link it
+        # hangs from, so the solver starts every episode resolving a 9 kN
+        # penetration. The upstream reference reports zero contacts at spawn.
+        _all_hand = set(hand_link_paths)
+        if not a.palm_collider:
+            _all_hand |= _palms(src, targets)
+        for lp in sorted(_all_hand):
+            if lp in keep:
+                continue
             rel = lp
             if src_default and rel.startswith(str(src_default.GetPath())):
                 rel = rel[len(str(src_default.GetPath())):]
@@ -203,7 +255,7 @@ def main() -> int:
     chk_(len(out_fixed) >= len(targets),
          f"fixed joints authored: {len(out_fixed)} (>= {len(targets)})")
     if a.no_hand_collision:
-        still = [lp for lp in sorted(hand_link_paths)
+        still = [lp for lp in sorted(hand_link_paths - keep)
                  if (lambda pr: bool(pr) and pr.IsActive())(
                      chk.GetPrimAtPath(
                          str(root.GetPath())

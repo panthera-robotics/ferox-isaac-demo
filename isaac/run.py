@@ -1641,9 +1641,23 @@ class RobotRosRunner(object):
         Step simulation based on rendering downtime.
 
         """
+        # Offscreen follow camera on THIS sim -- the one that actually walks.
+        # Inert unless TWIN_FILM=1, so the default graph is unchanged.
+        try:
+            from twin.film_live import LiveFilm
+
+            self._film = LiveFilm(lambda: getattr(
+                getattr(self, "_robot", None), "robot", None))
+            self._film.start()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[FILM] disabled: {exc}", flush=True)
+            self._film = None
+
         while simulation_app.is_running():
             t0 = time.time()
             self._world.step(render=True)
+            if getattr(self, "_film", None) is not None:
+                self._film.tick(getattr(self, "_twin_sim_time", 0.0) or time.time())
             viewport_follow.maybe_step(self)  # PANTHERA: no-op unless VIEWPORT_FOLLOW
             if self._world.is_stopped():
                 self.needs_reset = True
