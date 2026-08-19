@@ -365,10 +365,15 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
             rng.ang_vel_z = (-1.0, 1.0)
             if hasattr(self.curriculum, "ang_vel_cmd_levels"):
                 delattr(self.curriculum, "ang_vel_cmd_levels")
-            _off.add("sampler")
+            # ...unless the caller explicitly asks for the weighting on top, which
+            # is what step (c) is: the v1 recipe PLUS in-place/lateral weighting.
+            if _os.environ.get("FEROX_MM1B_SAMPLER", "0") != "1":
+                _off.add("sampler")
             print("[MM1b] REFERENCE recipe (from the checkpoint's env.yaml): "
                   "yaw pinned at +-1.0, linear under curriculum, no yaw curriculum, "
-                  "no weighted sampler.", flush=True)
+                  + ("WITH the in-place/lateral weighted sampler."
+                     if _os.environ.get("FEROX_MM1B_SAMPLER", "0") == "1"
+                     else "no weighted sampler."), flush=True)
         if "ranges" in _off:
             lim.lin_vel_x, lim.lin_vel_y, lim.ang_vel_z = \
                 (-0.5, 1.0), (-0.3, 0.3), (-0.2, 0.2)
