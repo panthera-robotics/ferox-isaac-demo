@@ -1,0 +1,26 @@
+  wz=+0.20 run1 ok   dyaw= -0.015 rad rate=-0.0017 (  -0.8%) zmin=0.790 tilt=2.5deg
+  wz=+0.20 run2 ok   dyaw= -0.014 rad rate=-0.0016 (  -0.8%) zmin=0.789 tilt=2.5deg
+  wz=+0.20 run3 ok   dyaw= -0.015 rad rate=-0.0016 (  -0.8%) zmin=0.790 tilt=2.5deg
+  wz=+0.50 run1 ok   dyaw= -0.030 rad rate=-0.0034 (  -0.7%) zmin=0.788 tilt=1.8deg
+  wz=+0.50 run2 ok   dyaw= -0.029 rad rate=-0.0034 (  -0.7%) zmin=0.788 tilt=1.9deg
+  wz=+0.50 run3 ok   dyaw= -0.030 rad rate=-0.0033 (  -0.7%) zmin=0.788 tilt=1.8deg
+  wz=+1.00 run1 ok   dyaw= +0.005 rad rate=+0.0006 (  +0.1%) zmin=0.788 tilt=2.6deg
+  wz=+1.00 run2 ok   dyaw= +0.006 rad rate=+0.0007 (  +0.1%) zmin=0.789 tilt=2.5deg
+  wz=+1.00 run3 ok   dyaw= +0.006 rad rate=+0.0006 (  +0.1%) zmin=0.789 tilt=2.6deg
+  wz=-0.20 run1 ok   dyaw= +0.014 rad rate=+0.0016 (  -0.8%) zmin=0.790 tilt=2.3deg
+  wz=-0.20 run2 ok   dyaw= +0.015 rad rate=+0.0017 (  -0.8%) zmin=0.790 tilt=2.4deg
+  wz=-0.20 run3 ok   dyaw= +0.015 rad rate=+0.0016 (  -0.8%) zmin=0.790 tilt=2.4deg
+  wz=-0.50 run1 ok   dyaw= +0.028 rad rate=+0.0032 (  -0.6%) zmin=0.787 tilt=1.4deg
+  wz=-0.50 run2 ok   dyaw= +0.027 rad rate=+0.0031 (  -0.6%) zmin=0.788 tilt=1.0deg
+  wz=-0.50 run3 ok   dyaw= +0.028 rad rate=+0.0031 (  -0.6%) zmin=0.787 tilt=1.0deg
+  wz=-1.00 run1 ok   dyaw= -3.289 rad rate=-0.3696 ( +37.0%) zmin=0.779 tilt=3.3deg
+  wz=-1.00 run2 ok   dyaw= -4.707 rad rate=-0.5105 ( +51.1%) zmin=0.770 tilt=2.6deg
+  wz=-1.00 run3 ok   dyaw= -3.059 rad rate=-0.3310 ( +33.1%) zmin=0.780 tilt=3.6deg
+
+=== SUMMARY (falls disqualified) ===
+  wz=+0.20  3/3 upright  median -0.8% of commanded
+  wz=+0.50  3/3 upright  median -0.7% of commanded
+  wz=+1.00  3/3 upright  median +0.1% of commanded
+  wz=-0.20  3/3 upright  median -0.8% of commanded
+  wz=-0.50  3/3 upright  median -0.6% of commanded
+  wz=-1.00  3/3 upright  median +37.0% of commanded

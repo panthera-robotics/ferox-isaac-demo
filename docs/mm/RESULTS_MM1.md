@@ -234,7 +234,41 @@ that, and I cannot separate them yet:
 fall is distinguishable from a turn, and repeat each command 3× to see whether the
 asymmetry is stable. Nothing about friction is claimed until that runs.
 
-### 2.8 Where that leaves §4.1
+### 2.8 CLEAN measurement — and Nav2 was contaminating every earlier one
+
+**A confound found in a routine sanity check.** `sim.log` showed
+`cmd_vel #31350: lin=-0.05, ang=-0.40` while my sweep was supposedly the only
+publisher. −0.40 is exactly Ferox `g1.yaml`'s `max_angular_z`: **Nav2 was
+publishing continuously** — a leftover recovery spin — and every yaw number before
+this point was a fight between two publishers on one topic. The 57.9 % row in
+§2.7 was Nav2's spin, not the policy responding.
+
+Re-measured with the nav stack **stopped** (`cmd_vel` log lines frozen at 632
+over 8 s, i.e. nothing publishing), from a throwaway probe container, 3 repeats
+per command, base height and tilt recorded so a fall cannot masquerade as a turn:
+
+| cmd wz | median tracking | upright | zmin | tilt |
+|---|---|---|---|---|
+| +0.20 | −0.8 % | 3/3 | 0.790 | 2.5° |
+| +0.50 | −0.7 % | 3/3 | 0.788 | 1.8° |
+| +1.00 | +0.1 % | 3/3 | 0.789 | 2.6° |
+| −0.20 | −0.8 % | 3/3 | 0.790 | 2.4° |
+| −0.50 | −0.6 % | 3/3 | 0.788 | 1.0° |
+| **−1.00** | **+37.0 %** (33–51 across runs) | **3/3** | 0.770–0.780 | 2.6–3.6° |
+
+Positive tracking means the correct direction. Repeats agree to 0.1 % everywhere
+except −1.00, which varies 33–51 %.
+
+**So the policy does have a yaw channel, and it is badly broken rather than
+absent:** it produces 33–51 % of commanded rate at −1.0 rad/s **while standing**
+(zmin 0.770–0.780 against a 0.79 standing height, tilt under 3.6° — not a fall),
+and essentially nothing at ±0.2, ±0.5 or **+1.0**. That asymmetry — one sign, one
+magnitude — is not a deadband and is not explained by anything in §2.1–2.7.
+
+Against the §2 acceptance (≤0.1 rad/s absolute error on yaw) every row fails,
+including −1.00 at 0.5–0.67 rad/s of error.
+
+### 2.9 Where that leaves §4.1
 
 | §4.1 branch | status |
 |---|---|
