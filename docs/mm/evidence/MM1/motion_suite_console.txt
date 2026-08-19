@@ -1,0 +1,70 @@
+  N@0.2         ok       speed 0.195/0.20 m/s err 2.4%  zmin 0.766 tilt 3.1deg
+  N@0.5         ok       speed 0.460/0.50 m/s err 8.1%  zmin 0.747 tilt 6.9deg
+  N@0.8         FELL     speed 0.595/0.80 m/s err 25.6%  zmin 0.060 tilt 193.8deg
+  NE@0.2        ok       speed 0.160/0.20 m/s err 19.8%  zmin 0.772 tilt 3.3deg
+  NE@0.5        ok       speed 0.398/0.50 m/s err 20.5%  zmin 0.759 tilt 5.9deg
+  NE@0.8        ok       speed 0.516/0.80 m/s err 35.5%  zmin 0.748 tilt 8.3deg
+  E@0.2         ok       speed 0.099/0.20 m/s err 50.5%  zmin 0.770 tilt 5.1deg
+  E@0.5         ok       speed 0.111/0.50 m/s err 77.9%  zmin 0.768 tilt 3.0deg
+  E@0.8         ok       speed 0.113/0.80 m/s err 85.9%  zmin 0.768 tilt 2.7deg
+  SE@0.2        ok       speed 0.066/0.20 m/s err 66.9%  zmin 0.777 tilt 2.6deg
+  SE@0.5        ok       speed 0.196/0.50 m/s err 60.8%  zmin 0.772 tilt 6.1deg
+  SE@0.8        ok       speed 0.166/0.80 m/s err 79.2%  zmin 0.760 tilt 6.4deg
+  S@0.2         ok       speed 0.131/0.20 m/s err 34.7%  zmin 0.775 tilt 2.7deg
+  S@0.5         ok       speed 0.234/0.50 m/s err 53.2%  zmin 0.769 tilt 4.4deg
+  S@0.8         ok       speed 0.239/0.80 m/s err 70.1%  zmin 0.769 tilt 5.2deg
+  SW@0.2        ok       speed 0.123/0.20 m/s err 38.5%  zmin 0.774 tilt 2.6deg
+  SW@0.5        ok       speed 0.294/0.50 m/s err 41.3%  zmin 0.772 tilt 4.4deg
+  SW@0.8        ok       speed 0.302/0.80 m/s err 62.2%  zmin 0.766 tilt 5.7deg
+  W@0.2         ok       speed 0.000/0.20 m/s err 99.9%  zmin 0.783 tilt 3.5deg
+  W@0.5         ok       speed 0.109/0.50 m/s err 78.1%  zmin 0.746 tilt 11.7deg
+  W@0.8         FELL     speed 0.543/0.80 m/s err 32.2%  zmin 0.066 tilt 196.5deg
+  NW@0.2        ok       speed 0.137/0.20 m/s err 31.5%  zmin 0.774 tilt 4.4deg
+  NW@0.5        ok       speed 0.344/0.50 m/s err 31.1%  zmin 0.753 tilt 6.0deg
+  NW@0.8        ok       speed 0.554/0.80 m/s err 30.7%  zmin 0.742 tilt 7.3deg
+  rot+0.3       ok       yaw +0.0001/+0.30 rad/s  zmin 0.790 tilt 2.3deg
+  rot+0.6       ok       yaw +0.0001/+0.60 rad/s  zmin 0.789 tilt 2.3deg
+  rot+1.0       ok       yaw +0.0036/+1.00 rad/s  zmin 0.787 tilt 2.4deg
+  rot-0.3       ok       yaw +0.0000/-0.30 rad/s  zmin 0.790 tilt 2.3deg
+  rot-0.6       ok       yaw -0.0000/-0.60 rad/s  zmin 0.789 tilt 2.2deg
+  rot-1.0       ok       yaw -0.5428/-1.00 rad/s  zmin 0.781 tilt 3.9deg
+  walk+turn+0.5 ok       speed 0.059/0.40 m/s err 85.3% yaw +0.3616/+0.50 rad/s  zmin 0.741 tilt 10.2deg
+  walk+turn-0.5 ok       speed 0.042/0.40 m/s err 89.6% yaw -0.3342/-0.50 rad/s  zmin 0.753 tilt 6.5deg
+
+| test | cmd | measured | error | zmin | tilt | verdict |
+|---|---|---|---|---|---|---|
+| N@0.2 | 0.20 m/s | 0.195 m/s | 2.4 % | 0.766 | 3.1° | PASS |
+| N@0.5 | 0.50 m/s | 0.460 m/s | 8.1 % | 0.747 | 6.9° | PASS |
+| N@0.8 | 0.80 m/s | 0.595 m/s | 25.6 % | 0.060 | 193.8° | FAIL |
+| NE@0.2 | 0.20 m/s | 0.160 m/s | 19.8 % | 0.772 | 3.3° | PASS |
+| NE@0.5 | 0.50 m/s | 0.398 m/s | 20.5 % | 0.759 | 5.9° | FAIL |
+| NE@0.8 | 0.80 m/s | 0.516 m/s | 35.5 % | 0.748 | 8.3° | FAIL |
+| E@0.2 | 0.20 m/s | 0.099 m/s | 50.5 % | 0.770 | 5.1° | FAIL |
+| E@0.5 | 0.50 m/s | 0.111 m/s | 77.9 % | 0.768 | 3.0° | FAIL |
+| E@0.8 | 0.80 m/s | 0.113 m/s | 85.9 % | 0.768 | 2.7° | FAIL |
+| SE@0.2 | 0.20 m/s | 0.066 m/s | 66.9 % | 0.777 | 2.6° | FAIL |
+| SE@0.5 | 0.50 m/s | 0.196 m/s | 60.8 % | 0.772 | 6.1° | FAIL |
+| SE@0.8 | 0.80 m/s | 0.166 m/s | 79.2 % | 0.760 | 6.4° | FAIL |
+| S@0.2 | 0.20 m/s | 0.131 m/s | 34.7 % | 0.775 | 2.7° | FAIL |
+| S@0.5 | 0.50 m/s | 0.234 m/s | 53.2 % | 0.769 | 4.4° | FAIL |
+| S@0.8 | 0.80 m/s | 0.239 m/s | 70.1 % | 0.769 | 5.2° | FAIL |
+| SW@0.2 | 0.20 m/s | 0.123 m/s | 38.5 % | 0.774 | 2.6° | FAIL |
+| SW@0.5 | 0.50 m/s | 0.294 m/s | 41.3 % | 0.772 | 4.4° | FAIL |
+| SW@0.8 | 0.80 m/s | 0.302 m/s | 62.2 % | 0.766 | 5.7° | FAIL |
+| W@0.2 | 0.20 m/s | 0.000 m/s | 99.9 % | 0.783 | 3.5° | FAIL |
+| W@0.5 | 0.50 m/s | 0.109 m/s | 78.1 % | 0.746 | 11.7° | FAIL |
+| W@0.8 | 0.80 m/s | 0.543 m/s | 32.2 % | 0.066 | 196.5° | FAIL |
+| NW@0.2 | 0.20 m/s | 0.137 m/s | 31.5 % | 0.774 | 4.4° | FAIL |
+| NW@0.5 | 0.50 m/s | 0.344 m/s | 31.1 % | 0.753 | 6.0° | FAIL |
+| NW@0.8 | 0.80 m/s | 0.554 m/s | 30.7 % | 0.742 | 7.3° | FAIL |
+| rot+0.3 | wz +0.30 | +0.0001 rad/s | 0.300 rad/s | 0.790 | 2.3° | FAIL |
+| rot+0.6 | wz +0.60 | +0.0001 rad/s | 0.600 rad/s | 0.789 | 2.3° | FAIL |
+| rot+1.0 | wz +1.00 | +0.0036 rad/s | 0.996 rad/s | 0.787 | 2.4° | FAIL |
+| rot-0.3 | wz -0.30 | +0.0000 rad/s | 0.300 rad/s | 0.790 | 2.3° | FAIL |
+| rot-0.6 | wz -0.60 | -0.0000 rad/s | 0.600 rad/s | 0.789 | 2.2° | FAIL |
+| rot-1.0 | wz -1.00 | -0.5428 rad/s | 0.457 rad/s | 0.781 | 3.9° | FAIL |
+| walk+turn+0.5 | wz +0.50 | +0.3616 rad/s | 0.138 rad/s | 0.741 | 10.2° | FAIL |
+| walk+turn-0.5 | wz -0.50 | -0.3342 rad/s | 0.166 rad/s | 0.753 | 6.5° | FAIL |
+| stop_from_0.8 | 0.80 m/s | 0.274 m/s | 65.8 % | 0.101 | 190.2° | FAIL |
+
+falls: 3 of 33

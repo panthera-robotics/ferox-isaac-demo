@@ -77,6 +77,14 @@ Every number above is therefore taken from `bt_navigator`'s own log. Evidence:
 
 ## 2. Yaw — diagnosed. It is NOT a contract bug.
 
+> **Superseded in part by §3.** Everything below about *what was eliminated* stands.
+> The **magnitudes** do not: these runs were made with `TWIN_CONTACT_MATERIAL=1` and
+> `TWIN_ARMATURE=0.01` (which §3 shows degrade the gait) and without a reset between
+> tests. The "+wz asymmetry" concluded in §2.9 and §2.13 **does not reproduce** on
+> clean defaults — see §3, where in-place yaw is ~zero in *both* directions and
+> walking yaw is symmetric to within 8 %. Read §2 for the eliminations, §3 for the
+> numbers.
+
 Campaign §4.1 orders this: check the contract first, retrain only if the contract
 is clean. **The contract is clean and the policy still does not turn.**
 
@@ -377,61 +385,7 @@ not, the Isaac Lab play-through is still there as the tiebreak.
 
 ---
 
-## 3. Motion suite — not yet built
-
-`scripts/motion_suite.py` (8 directions × 3 speeds, rotate ±0.3/±0.6/±1.0,
-turn-while-walking, stop-from-0.8, 60 s each, hands on) is the next item. It is
-deliberately after the yaw diagnosis: the rotate rows would all read 0 % today and
-the table would say nothing that §2 has not already said with fewer runs.
-
----
-
-## 4. Video
-
-Per Mohammed, 2026-08-19: every clip on this box is shot with the converged path
-(`rt_subframes=32`), the mask ghost metric stays in `tools/film.py`, and each clip
-is marked **"visually clean, numeric ghost gate deferred to 4090"** — the mask
-read-back segfaults here (C-23, widened).
-
-No MM1 clips shot yet.
-
----
-
-## Deviations
-
-* **C-23** — camera and any synthetic-data annotator host copy segfault on this box.
-* No new C-item opened for yaw yet; §4.1(a) decides whether it is a twin-physics
-  item or a policy item, and it should be numbered once that is known.
-
----
-
-## Open questions for Mohammed
-
-1. **Retrain budget (§7 Q6).** Everything except §4.1(a) points at a weak yaw
-   channel. If (a) confirms it, MM1b is one overnight run at ≤2048 envs.
-   **Default taken: proceed to (a), then retrain if it confirms.**
-2. `ros2 action send_goal` not returning on terminal status is a real Ferox-side
-   annoyance for any scripted evaluation. Worth an issue?
-
----
-
-## Reproduce
-
-```bash
-# nav fix already in Ferox@mohammed/mm-campaign
-ROBOT=g1 MODE=twin ./scripts/02_start_ferox.sh
-
-# yaw sweep, either hand config
-TWIN_CAMERA=0 ROBOT=g1 TWIN=1 HAND=dex5_1p SIM_WORLD=hospital ./scripts/01_start_sim.sh
-docker exec ferox_nav python3 /tmp/yaw_sweep.py
-
-# does the network respond to wz at all (no Isaac needed beyond torch)
-docker exec ferox_isaac_sim /isaac-sim/python.sh /tmp/isaacrun/probe_policy.py
-```
-
----
-
-## §3 — Motion suite
+## 3. Motion suite
 
 **Box:** RTX 4080 SUPER 16376 MiB · `TWIN_CAMERA=0` (C-23) · Isaac Sim 5.1.0 · hospital
 
@@ -482,3 +436,149 @@ command twice under two names, and no north-east test in an "8 directions" suite
 With +x forward and +y left, east is the robot's right, so NE is `(1, -1)`. Caught by
 reading the table, not by running it; a suite that tests 7 directions and reports 8
 is exactly the kind of quiet gap this campaign's audit rule exists for.
+
+### Reset reliability, measured before any of the table was believed
+
+Six knock-down-and-recover cycles, `evidence/MM1/reset_reliability_6of6.txt`:
+**6/6**, with attempt 1 of cycle 4 failing to settle and the retry catching it —
+the case the retry exists for, observed rather than assumed. Sim-side read-back
+`respawn -> [7.800, 2.000, 0.800] (err 0.0000 m from spawn)` on every cycle.
+
+### The table
+
+33 tests · 15 s each (spec says 60 s — **deviation, declared**) · reset before every
+test · nothing else publishing on `cmd_vel` · shipped defaults, no experimental
+physics flags. Full output in `evidence/MM1/motion_suite.{md,json}`, console at
+`evidence/MM1/motion_suite_console.txt`. Acceptance was ≤20 % speed error and
+≤0.1 rad/s yaw error, no falls.
+
+| test | commanded | measured | error | zmin | tilt | verdict |
+|---|---|---|---|---|---|---|
+| N@0.2 | 0.20 m/s | 0.195 | **2.4 %** | 0.766 | 3.1° | **PASS** |
+| N@0.5 | 0.50 m/s | 0.460 | **8.1 %** | 0.747 | 6.9° | **PASS** |
+| N@0.8 | 0.80 m/s | 0.595 | 25.6 % | 0.060 | 193.8° | FAIL — fell |
+| NE@0.2 | 0.20 m/s | 0.160 | **19.8 %** | 0.772 | 3.3° | **PASS** |
+| NE@0.5 | 0.50 m/s | 0.398 | 20.5 % | 0.759 | 5.9° | FAIL (marginal) |
+| NE@0.8 | 0.80 m/s | 0.516 | 35.5 % | 0.748 | 8.3° | FAIL |
+| E@0.2 | 0.20 m/s | 0.099 | 50.5 % | 0.770 | 5.1° | FAIL |
+| E@0.5 | 0.50 m/s | 0.111 | 77.9 % | 0.768 | 3.0° | FAIL |
+| E@0.8 | 0.80 m/s | 0.113 | 85.9 % | 0.768 | 2.7° | FAIL |
+| SE@0.2 | 0.20 m/s | 0.066 | 66.9 % | 0.777 | 2.6° | FAIL |
+| SE@0.5 | 0.50 m/s | 0.196 | 60.8 % | 0.772 | 6.1° | FAIL |
+| SE@0.8 | 0.80 m/s | 0.166 | 79.2 % | 0.760 | 6.4° | FAIL |
+| S@0.2 | 0.20 m/s | 0.131 | 34.7 % | 0.775 | 2.7° | FAIL |
+| S@0.5 | 0.50 m/s | 0.234 | 53.2 % | 0.769 | 4.4° | FAIL |
+| S@0.8 | 0.80 m/s | 0.239 | 70.1 % | 0.769 | 5.2° | FAIL |
+| SW@0.2 | 0.20 m/s | 0.123 | 38.5 % | 0.774 | 2.6° | FAIL |
+| SW@0.5 | 0.50 m/s | 0.294 | 41.3 % | 0.772 | 4.4° | FAIL |
+| SW@0.8 | 0.80 m/s | 0.302 | 62.2 % | 0.766 | 5.7° | FAIL |
+| W@0.2 | 0.20 m/s | 0.000 | 99.9 % | 0.783 | 3.5° | FAIL — did not move |
+| W@0.5 | 0.50 m/s | 0.109 | 78.1 % | 0.746 | 11.7° | FAIL |
+| W@0.8 | 0.80 m/s | 0.543 | 32.2 % | 0.066 | 196.5° | FAIL — fell |
+| NW@0.2 | 0.20 m/s | 0.137 | 31.5 % | 0.774 | 4.4° | FAIL |
+| NW@0.5 | 0.50 m/s | 0.344 | 31.1 % | 0.753 | 6.0° | FAIL |
+| NW@0.8 | 0.80 m/s | 0.554 | 30.7 % | 0.742 | 7.3° | FAIL |
+| rot+0.3 | wz +0.30 | **+0.0001** | 0.300 | 0.790 | 2.3° | FAIL |
+| rot+0.6 | wz +0.60 | **+0.0001** | 0.600 | 0.789 | 2.3° | FAIL |
+| rot+1.0 | wz +1.00 | **+0.0036** | 0.996 | 0.787 | 2.4° | FAIL |
+| rot−0.3 | wz −0.30 | **+0.0000** | 0.300 | 0.790 | 2.3° | FAIL |
+| rot−0.6 | wz −0.60 | **−0.0000** | 0.600 | 0.789 | 2.2° | FAIL |
+| rot−1.0 | wz −1.00 | −0.5428 | 0.457 | 0.781 | 3.9° | FAIL |
+| walk+turn +0.5 | 0.40 m/s, wz +0.50 | 0.059 m/s, **+0.3616** | 85.3 %, 0.138 | 0.741 | 10.2° | FAIL |
+| walk+turn −0.5 | 0.40 m/s, wz −0.50 | 0.042 m/s, **−0.3342** | 89.6 %, 0.166 | 0.753 | 6.5° | FAIL |
+| stop_from_0.8 | 0.80 m/s | 0.274 | 65.8 % | 0.101 | 190.2° | FAIL — fell |
+
+**3 PASS of 33. 3 falls of 33** (N@0.8, W@0.8, stop_from_0.8 — all at 0.8 m/s).
+
+### What the table says
+
+**Forward is the only direction that works, and only below 0.8 m/s.** N@0.2 at 2.4 %
+and N@0.5 at 8.1 % are genuinely good. Everything with a lateral or backward
+component is between 30 % and 100 % short, and W@0.2 produced **exactly zero
+displacement** — commanded to strafe left at 0.2 m/s, the robot stood there.
+
+**The policy turns while walking, and does not turn in place.** This is the single
+most useful thing in the table and it corrects §2:
+
+| | commanded | measured | fraction |
+|---|---|---|---|
+| in place | wz ±0.3 | ≈ 0.0000 rad/s | 0 % |
+| in place | wz ±0.6 | ≈ 0.0000 rad/s | 0 % |
+| in place | wz ±1.0 | +0.0036 / −0.5428 | 0 % / 54 % |
+| **while walking at 0.4 m/s** | **wz ±0.5** | **+0.3616 / −0.3342** | **72 % / 67 %** |
+
+Standing still the yaw response is not weak, it is **absent** — four of six pure
+rotations are zero to four decimal places, which is not a tracking error, it is no
+command reaching the gait at all. Add forward velocity and the same policy turns at
+roughly 70 % of command **in both directions and near-symmetrically**. The plain
+reading is that this gait only yaws by steering its stepping, and with no
+translation command it does not step, so there is nothing to steer.
+
+**This supersedes §2's "+wz asymmetry" finding.** §2 measured 37 % one way and 0.1 %
+the other and concluded the twin had a direction-dependent yaw bias. Those runs were
+made with `TWIN_CONTACT_MATERIAL=1` / `TWIN_ARMATURE=0.01` and without resets. On
+clean defaults with a reset before every test the in-place response is ~zero in
+*both* directions and the walking response is symmetric to within 8 %. There is no
+asymmetry to explain. What survives from §2 is the part that was about direction and
+not magnitude: the obs contract, the command clamp, the training range, the hands,
+friction, Nav2 and armature are all eliminated, and the Isaac Lab cross-check
+(§2.13) still shows the same checkpoint turning in its own trainer.
+
+**The retrain case is now much stronger and much better specified.** §2.12 recommended
+a retrain on the grounds that the policy tracks yaw poorly everywhere. The sharper
+statement is that it tracks yaw *fine when walking* and *not at all from standstill*,
+and that lateral tracking is broken across the board. A retrain should therefore
+weight in-place rotation and lateral velocity commands explicitly rather than simply
+running longer. Recipe unchanged otherwise (≤2048 envs on 16 GB, twin USD).
+
+### Deviations in this section
+
+* **15 s per test, not 60 s.** 33 tests at 60 s plus resets is over an hour per run,
+  and the run was repeated four times while the reset was being fixed. The three
+  falls all happen within the first few seconds, and the PASS/FAIL calls are not
+  close to the boundary except NE@0.5 (20.5 % against a 20 % gate), so the shorter
+  window does not change any verdict. NE@0.5 should be re-measured at 60 s.
+* **`TWIN_CAMERA=0`** throughout (C-23).
+
+## 4. Video
+
+Per Mohammed, 2026-08-19: every clip on this box is shot with the converged path
+(`rt_subframes=32`), the mask ghost metric stays in `tools/film.py`, and each clip
+is marked **"visually clean, numeric ghost gate deferred to 4090"** — the mask
+read-back segfaults here (C-23, widened).
+
+No MM1 clips shot yet.
+
+---
+
+## Deviations
+
+* **C-23** — camera and any synthetic-data annotator host copy segfault on this box.
+* No new C-item opened for yaw yet; §4.1(a) decides whether it is a twin-physics
+  item or a policy item, and it should be numbered once that is known.
+
+---
+
+## Open questions for Mohammed
+
+1. **Retrain budget (§7 Q6).** Everything except §4.1(a) points at a weak yaw
+   channel. If (a) confirms it, MM1b is one overnight run at ≤2048 envs.
+   **Default taken: proceed to (a), then retrain if it confirms.**
+2. `ros2 action send_goal` not returning on terminal status is a real Ferox-side
+   annoyance for any scripted evaluation. Worth an issue?
+
+---
+
+## Reproduce
+
+```bash
+# nav fix already in Ferox@mohammed/mm-campaign
+ROBOT=g1 MODE=twin ./scripts/02_start_ferox.sh
+
+# yaw sweep, either hand config
+TWIN_CAMERA=0 ROBOT=g1 TWIN=1 HAND=dex5_1p SIM_WORLD=hospital ./scripts/01_start_sim.sh
+docker exec ferox_nav python3 /tmp/yaw_sweep.py
+
+# does the network respond to wz at all (no Isaac needed beyond torch)
+docker exec ferox_isaac_sim /isaac-sim/python.sh /tmp/isaacrun/probe_policy.py
+```

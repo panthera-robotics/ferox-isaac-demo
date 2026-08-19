@@ -328,6 +328,66 @@ def ghost_pixels(rgb, mask, prev_masks):
     return (ghosts / max(1, area), ghosts, area)
 
 
+def _parse_schedule(spec):
+    """'6:0,0,0;12:0.5,0,0' -> [(6.0, (0,0,0)), (12.0, (0.5,0,0))]."""
+    out = []
+    for seg in spec.split(";"):
+        seg = seg.strip()
+        if not seg:
+            continue
+        dur, cmd = seg.split(":")
+        vx, vy, wz = (float(v) for v in cmd.split(","))
+        out.append((float(dur), (vx, vy, wz)))
+    return out
+
+
+def _policy_drive(world, args):
+    """Drive the articulation with the REAL locomotion policy, not a scripted swing.
+
+    A locomotion gate's clip has to show the policy walking. orbit_walk is a sine on
+    six joints -- fine as the tool's own self-test, a lie in a montage captioned
+    "the twin walks". This imports the same G1VelocityPolicy the twin runs, so what
+    the camera sees is what MM1 measured.
+
+    Returns a callable taking the frame's sim time; it advances physics at the
+    policy's own rate between rendered frames rather than stepping once per frame,
+    because the policy's decimation is defined against the physics clock.
+    """
+    import run as twin_run
+
+    if not args.policy:
+        raise SystemExit("--drive policy needs --policy (the TorchScript checkpoint)")
+
+    pol = twin_run.G1VelocityPolicy(
+        prim_path="/World/G1", name="G1", usd_path=None,
+        position=None, orientation=None,
+        policy_path=args.policy, env_path=args.env_yaml,
+        deploy_path=args.deploy_yaml,
+    )
+    pol.initialize()
+    schedule = _parse_schedule(args.cmd_schedule)
+    phys_dt = float(world.get_physics_dt())
+    state = {"t": 0.0}
+
+    def _cmd_at(tt):
+        acc = 0.0
+        for dur, cmd in schedule:
+            acc += dur
+            if tt < acc:
+                return cmd
+        return schedule[-1][1] if schedule else (0.0, 0.0, 0.0)
+
+    def _step_to(target_t):
+        import numpy as _np
+        while state["t"] < target_t:
+            cmd = _np.array(_cmd_at(state["t"]), dtype=_np.float32)
+            pol.forward(phys_dt, cmd)
+            world.step(render=False)
+            state["t"] += phys_dt
+
+    return _step_to
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--asset", default=os.environ.get("FILM_ASSET", ASSET_DEFAULT))
@@ -349,7 +409,15 @@ def main() -> int:
                          "the ghost test can fail")
     ap.add_argument("--pip", action="store_true")
     ap.add_argument("--drive", default="orbit_walk",
-                    help="orbit_walk (scripted gait-like arm/leg swing) or hold")
+                    choices=("orbit_walk", "hold", "policy"),
+                    help="orbit_walk (the tool's scripted self-test swing), hold, or "
+                         "policy (the real locomotion policy under a cmd schedule)")
+    ap.add_argument("--cmd-schedule", default="6:0.0,0,0;12:0.5,0,0;6:0.0,0,0",
+                    help="policy drive only: 'seconds:vx,vy,wz;...' in SIM seconds")
+    ap.add_argument("--policy", default=os.environ.get("FILM_POLICY", ""),
+                    help="policy drive only: TorchScript checkpoint (.pt)")
+    ap.add_argument("--env-yaml", default=os.environ.get("FILM_ENV", ""))
+    ap.add_argument("--deploy-yaml", default=os.environ.get("FILM_DEPLOY", ""))
     args = ap.parse_args()
 
     if args.pip:
@@ -479,9 +547,15 @@ def main() -> int:
     for d in dirs.values():
         os.makedirs(d, exist_ok=True)
 
+    policy_drive = None
+    if args.drive == "policy":
+        policy_drive = _policy_drive(world, args)
+
     for i in range(args.frames):
         t = i / 30.0
-        if args.drive == "orbit_walk":
+        if policy_drive is not None:
+            policy_drive(t)
+        elif args.drive == "orbit_walk":
             # A scripted gait-shaped swing. NOT the policy -- this is the tool's
             # own self-test motion, and any gate that films the real walk drives
             # the articulation itself and calls shoot_frame().
@@ -495,7 +569,8 @@ def main() -> int:
                 if jn in names:
                     q[names.index(jn)] = q0[names.index(jn)] + amp * math.sin(2 * math.pi * 1.2 * t + ph)
             art.set_joint_positions(q[None, :])
-        world.step(render=False)
+        if policy_drive is None:
+            world.step(render=False)   # the policy drive already advanced physics
         for s in shots:
             s.place(*robot_pose(art))
         converge(args.subframes)

@@ -12,9 +12,26 @@ Examples
   python run.py --robot_type g1    # Run G1 humanoid
 """
 
+import os
+
 from isaacsim import SimulationApp
 
-simulation_app = SimulationApp({"renderer": "RaytracedLighting", "headless": False})
+# tools/film.py imports this module to reuse G1VelocityPolicy, so that a
+# locomotion clip shows the real policy rather than a scripted joint swing. It has
+# already launched the app by then, and creating a second SimulationApp aborts the
+# process.
+#
+# The switch is an explicit environment variable and NOT a "is kit already
+# running?" probe. A probe would be one wrong answer away from leaving
+# simulation_app as None on the normal entry path and breaking the shipped sim,
+# and it would fail silently. With the variable, the default path is exactly what
+# it was before, and only a caller that knowingly owns the app opts out.
+if os.environ.get("FEROX_REUSE_KIT_APP", "0") == "1":
+    simulation_app = None
+else:
+    simulation_app = SimulationApp(
+        {"renderer": "RaytracedLighting", "headless": False}
+    )
 
 import argparse
 import logging

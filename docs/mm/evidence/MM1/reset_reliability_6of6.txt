@@ -1,0 +1,11 @@
+Error response from daemon: mounted volume is marked read-only
+cycle 1: reset=True  z=0.789 x=7.776 y=1.967
+cycle 2: reset=True  z=0.789 x=6.504 y=-1.323
+cycle 3: reset=True  z=0.790 x=7.822 y=2.135
+    reset attempt 1/4 did not settle
+cycle 4: reset=True  z=0.773 x=7.727 y=2.237
+cycle 5: reset=True  z=0.787 x=7.601 y=2.076
+cycle 6: reset=True  z=0.789 x=7.734 y=2.027
+RESET RELIABILITY: 6/6
+
+[exited with code 0]
