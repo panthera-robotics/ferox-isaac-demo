@@ -31,6 +31,7 @@ from std_msgs.msg import Empty
 from nav_msgs.msg import Odometry
 
 UPRIGHT_MIN_Z, TILT_MAX_DEG = 0.55, 25.0
+RESET_ATTEMPTS = 4
 SPEEDS = (0.2, 0.5, 0.8)
 # +x forward, +y left. E is the robot's right, so E = (0, -1).
 # NE was written (1, 1) here, which is NW -- the same test run twice under two
@@ -73,7 +74,7 @@ class Suite(Node):
     def other_publishers(s):
         return max(0, s.count_publishers(s.topic) - 1)
 
-    def reset(s, timeout=25.0):
+    def reset(s, timeout=12.0):
         """Put the robot back on its feet and wait until it is actually up.
 
         Every test starts from a re-spawn. Without this the first fall poisons
@@ -83,23 +84,31 @@ class Suite(Node):
         1.395 m, which is the base being dragged upward by the re-spawn of the
         NEXT test. Returns False if the robot never comes back upright, and the
         row is then marked no_reset rather than quietly measured anyway.
+
+        Retried, because a respawn is a drop from standing height and the policy
+        does not always catch it: in the two-cycle A/B the sim read the pose back
+        at err 0.0000 m and the robot then fell over again by itself, with nothing
+        published on cmd_vel. One attempt is not a reset, it is a coin toss.
         """
-        s.pub.publish(Twist())
-        s.reset_pub.publish(Empty())
-        t0 = time.time()
-        settled = 0
-        while time.time() - t0 < timeout:
-            rclpy.spin_once(s, timeout_sec=0.05)
-            m = s.last
-            if m is None:
-                continue
-            r, p = rp_of(m.pose.pose.orientation)
-            up = (m.pose.pose.position.z >= UPRIGHT_MIN_Z
-                  and math.degrees(math.hypot(r, p)) <= TILT_MAX_DEG)
-            settled = settled + 1 if up else 0
-            if settled >= 40:          # ~2 s of continuously upright odom
-                s.spin(1.0)
-                return True
+        for attempt in range(RESET_ATTEMPTS):
+            s.pub.publish(Twist())
+            s.reset_pub.publish(Empty())
+            t0 = time.time()
+            settled = 0
+            while time.time() - t0 < timeout:
+                rclpy.spin_once(s, timeout_sec=0.05)
+                m = s.last
+                if m is None:
+                    continue
+                r, p = rp_of(m.pose.pose.orientation)
+                up = (m.pose.pose.position.z >= UPRIGHT_MIN_Z
+                      and math.degrees(math.hypot(r, p)) <= TILT_MAX_DEG)
+                settled = settled + 1 if up else 0
+                if settled >= 40:      # ~2 s of continuously upright odom
+                    s.spin(1.0)
+                    return True
+            print(f"    reset attempt {attempt + 1}/{RESET_ATTEMPTS} did not settle",
+                  flush=True)
         return False
 
     def move(s, name, vx, vy, wz, dur):

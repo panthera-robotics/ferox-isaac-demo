@@ -1525,6 +1525,17 @@ class RobotRosRunner(object):
             except Exception:
                 art.set_linear_velocity(zeros6[:3])
                 art.set_angular_velocity(zeros6[3:])
+            # Joint velocities too. The base was zeroed above, but a robot that
+            # fell still has spinning limbs, and dropping it upright with those
+            # retained is a good way to make it fall straight back over -- which
+            # is what the second A/B cycle did after a respawn that read back at
+            # err 0.0000.
+            try:
+                art.set_joint_velocities(
+                    np.zeros(art.num_dof, dtype=np.float32)
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(f"[PANTHERA] respawn: joint-velocity zero failed: {exc}", flush=True)
             pos, _ = art.get_world_pose()
             err = float(np.linalg.norm(np.asarray(pos, dtype=np.float32) - self._spawn_pos))
             print(f"[PANTHERA] respawn -> {np.asarray(pos).tolist()} "
