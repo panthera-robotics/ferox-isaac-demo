@@ -151,7 +151,11 @@ TWIN_USD = _os.environ.get(
 # real hand weight with none of the finger dynamics that made the first runs
 # explode. With it, the articulation exposes 29 DOF and needs no hand actuator
 # group and no joint restriction: what is left IS the body.
-LOCKED_HANDS = "lockedhands" in TWIN_USD
+# Matches every hands-fixed variant, not one filename. Keying on the literal
+# "lockedhands" meant g1_dex5_1p_trainhands.usd was treated as articulated, so the
+# dex5 actuator group was applied to 40 joints that no longer exist and the run
+# died listing them.
+LOCKED_HANDS = any(k in TWIN_USD for k in ("lockedhands", "trainhands"))
 ARTICULATED_HANDS = ("dex5" in TWIN_USD) and not LOCKED_HANDS
 
 
@@ -344,6 +348,27 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
         # smokes rather than a guess. FEROX_MM1B_OFF=ranges,curriculum,sampler
         _off = {t.strip() for t in _os.environ.get("FEROX_MM1B_OFF", "").split(",")
                 if t.strip()}
+
+        # FEROX_MM1B_REFERENCE=1 reproduces the recipe that actually produced the
+        # deployed g1_omni weights, read from the checkpoint's own
+        # params/env.yaml -- NOT upstream's defaults, which differ:
+        #   ranges       lin_vel (-0.1, 0.1)  ang_vel_z (-1.0, 1.0)   <- yaw pinned
+        #   limit_ranges lin_vel (-0.6, 1.0)/(-0.5, 0.5)  ang_vel_z (-1.0, 1.0)
+        #   curriculum   terrain_levels, lin_vel_cmd_levels only
+        # The patch set yaw straight to the limit instead of curriculum-expanding
+        # it, which is why the unregistered ang_vel_cmd_levels never mattered.
+        if _os.environ.get("FEROX_MM1B_REFERENCE", "0") == "1":
+            lim.lin_vel_x, lim.lin_vel_y, lim.ang_vel_z = \
+                (-0.6, 1.0), (-0.5, 0.5), (-1.0, 1.0)
+            rng = self.commands.base_velocity.ranges
+            rng.lin_vel_x, rng.lin_vel_y = (-0.1, 0.1), (-0.1, 0.1)
+            rng.ang_vel_z = (-1.0, 1.0)
+            if hasattr(self.curriculum, "ang_vel_cmd_levels"):
+                delattr(self.curriculum, "ang_vel_cmd_levels")
+            _off.add("sampler")
+            print("[MM1b] REFERENCE recipe (from the checkpoint's env.yaml): "
+                  "yaw pinned at +-1.0, linear under curriculum, no yaw curriculum, "
+                  "no weighted sampler.", flush=True)
         if "ranges" in _off:
             lim.lin_vel_x, lim.lin_vel_y, lim.ang_vel_z = \
                 (-0.5, 1.0), (-0.3, 0.3), (-0.2, 0.2)

@@ -33,7 +33,7 @@ from isaacsim import SimulationApp
 
 _app = SimulationApp({"headless": True})
 
-from pxr import Sdf, Usd, UsdPhysics  # noqa: E402
+from pxr import Sdf, Usd, UsdGeom, UsdPhysics  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -63,6 +63,10 @@ def main() -> int:
     ap.add_argument("--src", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--report", default="")
+    ap.add_argument("--no-hand-collision", action="store_true",
+                    help="also disable collision on the hand links. Fixing a joint "
+                         "removes its DOF, not its collider: 40 finger colliders "
+                         "still self-collide and still hit the forearm at spawn.")
     a = ap.parse_args()
 
     src = Usd.Stage.Open(a.src)
@@ -86,6 +90,7 @@ def main() -> int:
     dst.SetDefaultPrim(root)
 
     locked, missed = [], []
+    hand_link_paths = set()
     for prim in src.Traverse():
         if not prim.IsA(UsdPhysics.RevoluteJoint):
             continue
@@ -137,9 +142,38 @@ def main() -> int:
         if r1 is not None:
             fixed.CreateLocalRot1Attr(r1)
         locked.append(prim.GetName())
+        for t in (b1 or []):
+            hand_link_paths.add(str(t))
 
     for n in sorted(targets - set(locked)):
         missed.append(n)
+
+    # Colliders. A fixed joint removes the DOF and leaves the geometry: 40 finger
+    # colliders per robot still collide with each other and with the forearm.
+    # Reference run (a) on the upstream asset is healthy at episode length 181;
+    # the same config on this asset with joints already fixed collapses to 1.00
+    # with 236 of 1024 envs terminating on bad_orientation. Colliders are the
+    # remaining difference.
+    disabled = 0
+    if a.no_hand_collision:
+        # Each link is an Xform with `visuals` and `collisions` child Xforms; the
+        # meshes themselves live in a referenced payload. Deactivating the
+        # `collisions` prim prunes the whole subtree from composition, which
+        # removes every collider under it whatever type they are -- and does not
+        # depend on HasAPI(CollisionAPI), which reports False for every prim in
+        # this asset and already sent one probe down a blind alley.
+        for lp in sorted(hand_link_paths):
+            rel = lp
+            if src_default and rel.startswith(str(src_default.GetPath())):
+                rel = rel[len(str(src_default.GetPath())):]
+            col_src = src.GetPrimAtPath(lp + "/collisions")
+            if not col_src:
+                continue
+            ov = dst.OverridePrim(Sdf.Path(str(root.GetPath()) + rel + "/collisions"))
+            ov.SetActive(False)
+            disabled += 1
+        lines.append(f"  hand links: {len(hand_link_paths)}, "
+                     f"collision subtrees deactivated: {disabled}")
 
     dst.GetRootLayer().Save()
     lines.append(f"  locked: {len(locked)}")
@@ -168,6 +202,18 @@ def main() -> int:
          f"active revolute joints {len(out_rev)} == {len(src_rev)} - {len(targets)}")
     chk_(len(out_fixed) >= len(targets),
          f"fixed joints authored: {len(out_fixed)} (>= {len(targets)})")
+    if a.no_hand_collision:
+        still = [lp for lp in sorted(hand_link_paths)
+                 if (lambda pr: bool(pr) and pr.IsActive())(
+                     chk.GetPrimAtPath(
+                         str(root.GetPath())
+                         + (lp[len(str(src_default.GetPath())):] if src_default
+                            and lp.startswith(str(src_default.GetPath())) else lp)
+                         + "/collisions"))]
+        chk_(not still,
+             f"no hand collision subtree is still active "
+             f"({len(still)} of {len(hand_link_paths)} remain)")
+
     rel_err = abs(out_mass - src_mass) / src_mass if src_mass else 1.0
     chk_(rel_err <= 0.01,
          f"summed link mass {out_mass:.6f} kg vs {src_mass:.6f} kg "

@@ -1,0 +1,11 @@
+joint Link_41L -> body1 ['/g1_29dof_rev_1_0/Link_41L']
+   link prim valid=True type=Xform
+   subtree (3): [('Link_41L', 'Xform'), ('visuals', 'Xform'), ('collisions', 'Xform')]
+joint Pitch_42L -> body1 ['/g1_29dof_rev_1_0/Link_42L']
+   link prim valid=True type=Xform
+   subtree (3): [('Link_42L', 'Xform'), ('visuals', 'Xform'), ('collisions', 'Xform')]
+joint Pitch_43L -> body1 ['/g1_29dof_rev_1_0/Link_43L']
+   link prim valid=True type=Xform
+   subtree (3): [('Link_43L', 'Xform'), ('visuals', 'Xform'), ('collisions', 'Xform')]
+total hand joints matched: 40
+Gprims in stage: 0, first few: []

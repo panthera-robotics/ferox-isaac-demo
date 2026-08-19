@@ -1,0 +1,2105 @@
+[MM1b] REFERENCE recipe (from the checkpoint's env.yaml): yaw pinned at +-1.0, linear under curriculum, no yaw curriculum, no weighted sampler.
+[MM1b] actions=29 obs=480
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -8229.4336
+Episode_Reward/base_angular_velocity: -3800.9373
+      Episode_Termination/time_out: 0.0044
+   Episode_Termination/base_height: 0.0002
+Episode_Termination/bad_orientation: 0.7035
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10078.2432
+Episode_Reward/base_angular_velocity: -4608.5059
+      Episode_Termination/time_out: 0.0098
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10079.2354
+Episode_Reward/base_angular_velocity: -4608.0801
+      Episode_Termination/time_out: 0.0150
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10082.9043
+Episode_Reward/base_angular_velocity: -4609.7910
+      Episode_Termination/time_out: 0.0192
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.8359
+Episode_Reward/base_angular_velocity: -4612.4268
+      Episode_Termination/time_out: 0.0214
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10159.7695
+Episode_Reward/base_angular_velocity: -4688.7412
+      Episode_Termination/time_out: 0.0263
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10095.9102
+Episode_Reward/base_angular_velocity: -4772.1338
+      Episode_Termination/time_out: 0.0342
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10229.8418
+Episode_Reward/base_angular_velocity: -5045.0830
+      Episode_Termination/time_out: 0.0390
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10397.2900
+Episode_Reward/base_angular_velocity: -5053.1675
+      Episode_Termination/time_out: 0.0431
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11446.4727
+Episode_Reward/base_angular_velocity: -5303.2788
+      Episode_Termination/time_out: 0.0464
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10082.9912
+Episode_Reward/base_angular_velocity: -4609.4141
+      Episode_Termination/time_out: 0.0502
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10085.0430
+Episode_Reward/base_angular_velocity: -4619.0581
+      Episode_Termination/time_out: 0.0543
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10087.0137
+Episode_Reward/base_angular_velocity: -4611.0674
+      Episode_Termination/time_out: 0.0572
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10174.7627
+Episode_Reward/base_angular_velocity: -4639.9658
+      Episode_Termination/time_out: 0.0599
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10421.2148
+Episode_Reward/base_angular_velocity: -4793.4551
+      Episode_Termination/time_out: 0.0650
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10114.9355
+Episode_Reward/base_angular_velocity: -4610.6396
+      Episode_Termination/time_out: 0.0672
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10621.6055
+Episode_Reward/base_angular_velocity: -4836.0312
+      Episode_Termination/time_out: 0.0758
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10095.5723
+Episode_Reward/base_angular_velocity: -4647.1919
+      Episode_Termination/time_out: 0.0811
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10099.0068
+Episode_Reward/base_angular_velocity: -4665.4873
+      Episode_Termination/time_out: 0.0868
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10969.7881
+Episode_Reward/base_angular_velocity: -4915.4897
+      Episode_Termination/time_out: 0.0938
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10104.4561
+Episode_Reward/base_angular_velocity: -4991.8994
+      Episode_Termination/time_out: 0.0972
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10149.1797
+Episode_Reward/base_angular_velocity: -5808.7144
+      Episode_Termination/time_out: 0.1019
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10081.1445
+Episode_Reward/base_angular_velocity: -4633.2446
+      Episode_Termination/time_out: 0.1062
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.6992
+Episode_Reward/base_angular_velocity: -4620.5977
+      Episode_Termination/time_out: 0.1090
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11625.5547
+Episode_Reward/base_angular_velocity: -5198.2832
+      Episode_Termination/time_out: 0.1136
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3398
+Episode_Reward/base_angular_velocity: -4820.3125
+      Episode_Termination/time_out: 0.1181
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3242
+Episode_Reward/base_angular_velocity: -4611.0308
+      Episode_Termination/time_out: 0.1205
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11426.3311
+Episode_Reward/base_angular_velocity: -4931.3647
+      Episode_Termination/time_out: 0.1226
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -12803.2812
+Episode_Reward/base_angular_velocity: -5272.8125
+      Episode_Termination/time_out: 0.1288
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10439.7178
+Episode_Reward/base_angular_velocity: -6082.6543
+      Episode_Termination/time_out: 0.1347
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10087.8818
+Episode_Reward/base_angular_velocity: -6162.1514
+      Episode_Termination/time_out: 0.1381
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11346.6777
+Episode_Reward/base_angular_velocity: -8164.5757
+      Episode_Termination/time_out: 0.1439
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10132.1641
+Episode_Reward/base_angular_velocity: -4631.0762
+      Episode_Termination/time_out: 0.1501
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11216.6172
+Episode_Reward/base_angular_velocity: -5359.3105
+      Episode_Termination/time_out: 0.1550
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5957
+Episode_Reward/base_angular_velocity: -4610.2495
+      Episode_Termination/time_out: 0.1567
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10125.1191
+Episode_Reward/base_angular_velocity: -4943.4238
+      Episode_Termination/time_out: 0.1599
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10226.5254
+Episode_Reward/base_angular_velocity: -4702.6616
+      Episode_Termination/time_out: 0.1638
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10311.0527
+Episode_Reward/base_angular_velocity: -4718.1846
+      Episode_Termination/time_out: 0.1694
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10503.9736
+Episode_Reward/base_angular_velocity: -5966.6045
+      Episode_Termination/time_out: 0.1722
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10126.0254
+Episode_Reward/base_angular_velocity: -4649.0859
+      Episode_Termination/time_out: 0.1778
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.7012
+Episode_Reward/base_angular_velocity: -4610.7432
+      Episode_Termination/time_out: 0.1798
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.8154
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -18865.7344
+Episode_Reward/base_angular_velocity: -8746.0850
+      Episode_Termination/time_out: 0.2884
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.7105
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10550.5430
+Episode_Reward/base_angular_velocity: -4745.6748
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10082.7754
+Episode_Reward/base_angular_velocity: -4609.4062
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10077.5420
+Episode_Reward/base_angular_velocity: -4607.3740
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10082.7754
+Episode_Reward/base_angular_velocity: -4609.4062
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10233.0195
+Episode_Reward/base_angular_velocity: -4655.9023
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10669.4648
+Episode_Reward/base_angular_velocity: -5849.7749
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10147.8496
+Episode_Reward/base_angular_velocity: -5047.2988
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10925.7246
+Episode_Reward/base_angular_velocity: -7094.2471
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11861.3154
+Episode_Reward/base_angular_velocity: -6839.6162
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -15774.0811
+Episode_Reward/base_angular_velocity: -7493.9937
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10085.6738
+Episode_Reward/base_angular_velocity: -4609.2744
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10102.2031
+Episode_Reward/base_angular_velocity: -4649.6187
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0273
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10374.2344
+Episode_Reward/base_angular_velocity: -4707.3496
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11074.7695
+Episode_Reward/base_angular_velocity: -5147.8906
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11505.4141
+Episode_Reward/base_angular_velocity: -5161.7354
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10157.7471
+Episode_Reward/base_angular_velocity: -4656.8213
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10117.5137
+Episode_Reward/base_angular_velocity: -4763.2529
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10203.1055
+Episode_Reward/base_angular_velocity: -4679.0449
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11906.1816
+Episode_Reward/base_angular_velocity: -5264.8853
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10130.2988
+Episode_Reward/base_angular_velocity: -5383.7979
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10209.5273
+Episode_Reward/base_angular_velocity: -6909.9834
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10083.0332
+Episode_Reward/base_angular_velocity: -4652.9189
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11524.7871
+Episode_Reward/base_angular_velocity: -5017.9326
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11309.7871
+Episode_Reward/base_angular_velocity: -5338.7021
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10088.8457
+Episode_Reward/base_angular_velocity: -4849.8086
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0273
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -12094.1240
+Episode_Reward/base_angular_velocity: -5091.1660
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -14607.2178
+Episode_Reward/base_angular_velocity: -7690.0713
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5498
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10562.6387
+Episode_Reward/base_angular_velocity: -9336.5234
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11365.8730
+Episode_Reward/base_angular_velocity: -6777.7646
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11400.9375
+Episode_Reward/base_angular_velocity: -5175.1880
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10198.4277
+Episode_Reward/base_angular_velocity: -4986.8354
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10082.7754
+Episode_Reward/base_angular_velocity: -4609.4062
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10132.3984
+Episode_Reward/base_angular_velocity: -5001.3887
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10248.0146
+Episode_Reward/base_angular_velocity: -4713.6597
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10338.8359
+Episode_Reward/base_angular_velocity: -4731.3926
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10564.1660
+Episode_Reward/base_angular_velocity: -6091.9141
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10128.9287
+Episode_Reward/base_angular_velocity: -4650.8154
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10163.3115
+Episode_Reward/base_angular_velocity: -4974.1934
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -20115.1094
+Episode_Reward/base_angular_velocity: -9132.1621
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10149.1719
+Episode_Reward/base_angular_velocity: -4622.5322
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10075.6816
+Episode_Reward/base_angular_velocity: -4606.1631
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5488
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5488
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10287.4053
+Episode_Reward/base_angular_velocity: -4655.0415
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10710.3896
+Episode_Reward/base_angular_velocity: -6301.9902
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10934.0391
+Episode_Reward/base_angular_velocity: -7094.9990
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10081.0020
+Episode_Reward/base_angular_velocity: -4608.5952
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11863.0879
+Episode_Reward/base_angular_velocity: -6840.4268
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -15770.3965
+Episode_Reward/base_angular_velocity: -7492.0132
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10100.8789
+Episode_Reward/base_angular_velocity: -4648.4453
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5498
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10255.6914
+Episode_Reward/base_angular_velocity: -4664.1895
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11179.2012
+Episode_Reward/base_angular_velocity: -5180.4233
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10100.4365
+Episode_Reward/base_angular_velocity: -4621.6553
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11583.5215
+Episode_Reward/base_angular_velocity: -5209.6006
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10113.9600
+Episode_Reward/base_angular_velocity: -4699.7710
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10128.0723
+Episode_Reward/base_angular_velocity: -4741.0576
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10259.6641
+Episode_Reward/base_angular_velocity: -4700.0332
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11816.5293
+Episode_Reward/base_angular_velocity: -5182.4863
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10184.5303
+Episode_Reward/base_angular_velocity: -5566.8667
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10143.0508
+Episode_Reward/base_angular_velocity: -6718.4404
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.8066
+Episode_Reward/base_angular_velocity: -4653.7295
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -12743.1250
+Episode_Reward/base_angular_velocity: -5637.6562
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10093.8789
+Episode_Reward/base_angular_velocity: -4957.6729
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5498
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0273
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -15957.3467
+Episode_Reward/base_angular_velocity: -5877.0352
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10745.7695
+Episode_Reward/base_angular_velocity: -6905.0127
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10081.0029
+Episode_Reward/base_angular_velocity: -4608.5952
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11718.6680
+Episode_Reward/base_angular_velocity: -11446.3691
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10211.6152
+Episode_Reward/base_angular_velocity: -4668.7305
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11513.0420
+Episode_Reward/base_angular_velocity: -5550.9951
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0273
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10130.6250
+Episode_Reward/base_angular_velocity: -5000.5781
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10219.5547
+Episode_Reward/base_angular_velocity: -4613.3008
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10365.5215
+Episode_Reward/base_angular_velocity: -4830.9414
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10483.3701
+Episode_Reward/base_angular_velocity: -4771.0449
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10211.4980
+Episode_Reward/base_angular_velocity: -5972.4951
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5488
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -13906.7949
+Episode_Reward/base_angular_velocity: -5411.6787
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -16439.8965
+Episode_Reward/base_angular_velocity: -8695.5186
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10079.1289
+Episode_Reward/base_angular_velocity: -4620.8799
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10079.2285
+Episode_Reward/base_angular_velocity: -4607.7842
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10082.7754
+Episode_Reward/base_angular_velocity: -4609.4062
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0273
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10816.5215
+Episode_Reward/base_angular_velocity: -5251.9609
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10179.5000
+Episode_Reward/base_angular_velocity: -5704.2607
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10935.8125
+Episode_Reward/base_angular_velocity: -7095.8096
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11586.5420
+Episode_Reward/base_angular_velocity: -6717.6289
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -16043.3789
+Episode_Reward/base_angular_velocity: -7613.1826
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10083.3926
+Episode_Reward/base_angular_velocity: -4609.4160
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10100.2773
+Episode_Reward/base_angular_velocity: -4648.4424
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0278
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10374.2354
+Episode_Reward/base_angular_velocity: -4707.3496
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11074.7695
+Episode_Reward/base_angular_velocity: -5147.8906
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10167.3604
+Episode_Reward/base_angular_velocity: -4612.6470
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11498.9365
+Episode_Reward/base_angular_velocity: -5206.3594
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10115.7334
+Episode_Reward/base_angular_velocity: -4700.5820
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10128.0723
+Episode_Reward/base_angular_velocity: -4741.0571
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11979.4473
+Episode_Reward/base_angular_velocity: -5263.9229
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10130.2490
+Episode_Reward/base_angular_velocity: -5383.7046
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10211.3008
+Episode_Reward/base_angular_velocity: -6910.7944
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10081.2598
+Episode_Reward/base_angular_velocity: -4652.1084
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10089.6006
+Episode_Reward/base_angular_velocity: -4628.2969
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -12741.6230
+Episode_Reward/base_angular_velocity: -5621.1982
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10092.1045
+Episode_Reward/base_angular_velocity: -4956.8623
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0278
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -12097.6719
+Episode_Reward/base_angular_velocity: -5092.7876
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -14093.4062
+Episode_Reward/base_angular_velocity: -5581.0366
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10594.8154
+Episode_Reward/base_angular_velocity: -6717.6289
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10089.6211
+Episode_Reward/base_angular_velocity: -6719.2515
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11773.5996
+Episode_Reward/base_angular_velocity: -9366.5215
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10148.0664
+Episode_Reward/base_angular_velocity: -4637.9219
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11516.5889
+Episode_Reward/base_angular_velocity: -5552.6167
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5488
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10132.3984
+Episode_Reward/base_angular_velocity: -5001.3887
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10248.0146
+Episode_Reward/base_angular_velocity: -4713.6592
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10337.0625
+Episode_Reward/base_angular_velocity: -4730.5820
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10567.7139
+Episode_Reward/base_angular_velocity: -6093.5352
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10127.1543
+Episode_Reward/base_angular_velocity: -4650.0044
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5488
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -19792.5000
+Episode_Reward/base_angular_velocity: -9372.9961
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10550.5430
+Episode_Reward/base_angular_velocity: -4745.6748
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10082.7754
+Episode_Reward/base_angular_velocity: -4609.4062
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10077.4551
+Episode_Reward/base_angular_velocity: -4606.9736
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10082.7754
+Episode_Reward/base_angular_velocity: -4609.4062
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10233.0195
+Episode_Reward/base_angular_velocity: -4655.9023
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10707.9561
+Episode_Reward/base_angular_velocity: -5863.9702
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10148.0410
+Episode_Reward/base_angular_velocity: -5047.3174
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10925.5928
+Episode_Reward/base_angular_velocity: -7094.2471
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11861.3154
+Episode_Reward/base_angular_velocity: -6839.6162
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -15773.9277
+Episode_Reward/base_angular_velocity: -7493.6279
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10081.6191
+Episode_Reward/base_angular_velocity: -4608.6055
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10102.0508
+Episode_Reward/base_angular_velocity: -4649.2529
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0273
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10374.2344
+Episode_Reward/base_angular_velocity: -4707.3496
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11074.7695
+Episode_Reward/base_angular_velocity: -5147.8906
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11505.1289
+Episode_Reward/base_angular_velocity: -5160.6494
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10157.6211
+Episode_Reward/base_angular_velocity: -4656.7354
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10117.5137
+Episode_Reward/base_angular_velocity: -4763.2529
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10203.1055
+Episode_Reward/base_angular_velocity: -4679.0449
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11906.1816
+Episode_Reward/base_angular_velocity: -5264.8853
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10130.2480
+Episode_Reward/base_angular_velocity: -5383.7046
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10209.5273
+Episode_Reward/base_angular_velocity: -6909.9834
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10083.0332
+Episode_Reward/base_angular_velocity: -4652.9189
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11524.7871
+Episode_Reward/base_angular_velocity: -5017.9326
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11309.7871
+Episode_Reward/base_angular_velocity: -5338.7021
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10088.7549
+Episode_Reward/base_angular_velocity: -4849.7227
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0273
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -12094.1240
+Episode_Reward/base_angular_velocity: -5091.1660
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -14607.2178
+Episode_Reward/base_angular_velocity: -7690.0713
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5498
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10562.6387
+Episode_Reward/base_angular_velocity: -9336.5234
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11365.8730
+Episode_Reward/base_angular_velocity: -6777.7646
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11400.9375
+Episode_Reward/base_angular_velocity: -5175.1880
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10198.4277
+Episode_Reward/base_angular_velocity: -4986.8354
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10082.7754
+Episode_Reward/base_angular_velocity: -4609.4062
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10132.3984
+Episode_Reward/base_angular_velocity: -5001.3887
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10248.0146
+Episode_Reward/base_angular_velocity: -4713.6597
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10338.8359
+Episode_Reward/base_angular_velocity: -4731.3926
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10564.1660
+Episode_Reward/base_angular_velocity: -6091.9141
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10128.9287
+Episode_Reward/base_angular_velocity: -4650.8154
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10163.3115
+Episode_Reward/base_angular_velocity: -4974.1934
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -20115.1094
+Episode_Reward/base_angular_velocity: -9132.1621
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10149.1719
+Episode_Reward/base_angular_velocity: -4622.5322
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10075.6816
+Episode_Reward/base_angular_velocity: -4606.1631
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5488
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5488
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10287.4053
+Episode_Reward/base_angular_velocity: -4655.0415
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10710.3896
+Episode_Reward/base_angular_velocity: -6301.9902
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10934.0391
+Episode_Reward/base_angular_velocity: -7094.9990
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10081.0020
+Episode_Reward/base_angular_velocity: -4608.5952
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11863.0879
+Episode_Reward/base_angular_velocity: -6840.4268
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -15770.3965
+Episode_Reward/base_angular_velocity: -7492.0132
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10100.8789
+Episode_Reward/base_angular_velocity: -4648.4453
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5498
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10255.6914
+Episode_Reward/base_angular_velocity: -4664.1895
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11179.2012
+Episode_Reward/base_angular_velocity: -5180.4233
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10100.4365
+Episode_Reward/base_angular_velocity: -4621.6553
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11583.5215
+Episode_Reward/base_angular_velocity: -5209.6006
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10113.9600
+Episode_Reward/base_angular_velocity: -4699.7710
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10128.0723
+Episode_Reward/base_angular_velocity: -4741.0576
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10259.6641
+Episode_Reward/base_angular_velocity: -4700.0332
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11816.5293
+Episode_Reward/base_angular_velocity: -5182.4863
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10184.5303
+Episode_Reward/base_angular_velocity: -5566.8667
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10143.0508
+Episode_Reward/base_angular_velocity: -6718.4404
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.8066
+Episode_Reward/base_angular_velocity: -4653.7295
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -12743.1250
+Episode_Reward/base_angular_velocity: -5637.6562
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10093.8789
+Episode_Reward/base_angular_velocity: -4957.6729
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5498
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0273
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -15957.3467
+Episode_Reward/base_angular_velocity: -5877.0352
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10745.7695
+Episode_Reward/base_angular_velocity: -6905.0127
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10081.0029
+Episode_Reward/base_angular_velocity: -4608.5952
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11718.6680
+Episode_Reward/base_angular_velocity: -11446.3691
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10211.6152
+Episode_Reward/base_angular_velocity: -4668.7305
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11513.0420
+Episode_Reward/base_angular_velocity: -5550.9951
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0273
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10130.6250
+Episode_Reward/base_angular_velocity: -5000.5781
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10219.5547
+Episode_Reward/base_angular_velocity: -4613.3008
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10365.5215
+Episode_Reward/base_angular_velocity: -4830.9414
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10483.3701
+Episode_Reward/base_angular_velocity: -4771.0449
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10211.4980
+Episode_Reward/base_angular_velocity: -5972.4951
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5488
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -13906.7949
+Episode_Reward/base_angular_velocity: -5411.6787
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -16439.8965
+Episode_Reward/base_angular_velocity: -8695.5186
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10079.1289
+Episode_Reward/base_angular_velocity: -4620.8799
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10079.2285
+Episode_Reward/base_angular_velocity: -4607.7842
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10082.7754
+Episode_Reward/base_angular_velocity: -4609.4062
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0273
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10816.5215
+Episode_Reward/base_angular_velocity: -5251.9609
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10179.5000
+Episode_Reward/base_angular_velocity: -5704.2607
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10935.8125
+Episode_Reward/base_angular_velocity: -7095.8096
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11586.5420
+Episode_Reward/base_angular_velocity: -6717.6289
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -16043.3789
+Episode_Reward/base_angular_velocity: -7613.1826
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10083.3926
+Episode_Reward/base_angular_velocity: -4609.4160
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10100.2773
+Episode_Reward/base_angular_velocity: -4648.4424
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0278
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10374.2354
+Episode_Reward/base_angular_velocity: -4707.3496
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11074.7695
+Episode_Reward/base_angular_velocity: -5147.8906
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10167.3604
+Episode_Reward/base_angular_velocity: -4612.6470
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11498.9365
+Episode_Reward/base_angular_velocity: -5206.3594
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10115.7334
+Episode_Reward/base_angular_velocity: -4700.5820
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10128.0723
+Episode_Reward/base_angular_velocity: -4741.0571
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11979.4473
+Episode_Reward/base_angular_velocity: -5263.9229
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10130.2490
+Episode_Reward/base_angular_velocity: -5383.7046
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10211.3008
+Episode_Reward/base_angular_velocity: -6910.7944
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10081.2598
+Episode_Reward/base_angular_velocity: -4652.1084
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10089.6006
+Episode_Reward/base_angular_velocity: -4628.2969
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -12741.6230
+Episode_Reward/base_angular_velocity: -5621.1982
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10092.1045
+Episode_Reward/base_angular_velocity: -4956.8623
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10086.3232
+Episode_Reward/base_angular_velocity: -4611.0278
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -12097.6719
+Episode_Reward/base_angular_velocity: -5092.7876
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -14093.4062
+Episode_Reward/base_angular_velocity: -5581.0366
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10594.8154
+Episode_Reward/base_angular_velocity: -6717.6289
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10089.6211
+Episode_Reward/base_angular_velocity: -6719.2515
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11773.5996
+Episode_Reward/base_angular_velocity: -9366.5215
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10148.0664
+Episode_Reward/base_angular_velocity: -4637.9219
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -11516.5889
+Episode_Reward/base_angular_velocity: -5552.6167
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5488
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10132.3984
+Episode_Reward/base_angular_velocity: -5001.3887
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10248.0146
+Episode_Reward/base_angular_velocity: -4713.6592
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10337.0625
+Episode_Reward/base_angular_velocity: -4730.5820
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10567.7139
+Episode_Reward/base_angular_velocity: -6093.5352
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10127.1543
+Episode_Reward/base_angular_velocity: -4650.0044
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10084.5488
+Episode_Reward/base_angular_velocity: -4610.2168
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -19792.5000
+Episode_Reward/base_angular_velocity: -9372.9961
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10550.5430
+Episode_Reward/base_angular_velocity: -4745.6748
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10082.7754
+Episode_Reward/base_angular_velocity: -4609.4062
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10077.4551
+Episode_Reward/base_angular_velocity: -4606.9736
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10082.7754
+Episode_Reward/base_angular_velocity: -4609.4062
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.65
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10233.0195
+Episode_Reward/base_angular_velocity: -4655.9023
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10707.9561
+Episode_Reward/base_angular_velocity: -5863.9702
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10148.0410
+Episode_Reward/base_angular_velocity: -5047.3174
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+                       Mean reward: -359323.64
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -10925.5928
+Episode_Reward/base_angular_velocity: -7094.2471
+      Episode_Termination/time_out: 0.7695
+   Episode_Termination/base_height: 0.0000
+Episode_Termination/bad_orientation: 0.2305
+[MM1b][smoke] termination 'time_out': 1 envs at the final step
+[MM1b][smoke] termination 'base_height': 0 envs at the final step
+[MM1b][smoke] termination 'bad_orientation': 236 envs at the final step

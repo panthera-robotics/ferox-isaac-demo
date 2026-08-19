@@ -111,6 +111,17 @@ def main() -> None:
                      init_at_random_ep_len=True)
         ep_len = float(torch.tensor(list(runner.lenbuffer)).mean()) \
             if getattr(runner, "lenbuffer", None) else float("nan")
+        # Episode length alone reads 1.00 in every configuration on this rsl-rl,
+        # so it explains nothing by itself. The termination manager knows WHY
+        # episodes end, and that is the number worth reporting.
+        try:
+            tm = env.unwrapped.termination_manager
+            for _n in tm.active_terms:
+                print(f"[MM1b][smoke] termination '{_n}': "
+                      f"{int(tm.get_term(_n).sum())} envs at the final step",
+                      flush=True)
+        except Exception as _e:  # noqa: BLE001
+            print(f"[MM1b][smoke] termination counts unavailable: {_e}", flush=True)
         print(f"[MM1b][smoke] mean episode length after {args_cli.smoke} iters: "
               f"{ep_len:.2f} (need > {args_cli.min_ep_len})", flush=True)
         env.close()
