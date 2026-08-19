@@ -1,0 +1,4 @@
+[WARN] [1787110840.206674985] [scanprobe]: New publisher discovered on topic '/ferox/g1_01/scan', offering incompatible QoS. No messages will be received from it. Last incompatible policy: RELIABILITY
+scan 1: 723 rays, 328 finite = 45.4%  amin=-3.14159 amax=3.14159 inc=0.0087 rmin=0.30000001192092896 rmax=6.0 frame=base_link
+scan 2: 723 rays, 327 finite = 45.2%  amin=-3.14159 amax=3.14159 inc=0.0087 rmin=0.30000001192092896 rmax=6.0 frame=base_link
+scan 3: 723 rays, 329 finite = 45.5%  amin=-3.14159 amax=3.14159 inc=0.0087 rmin=0.30000001192092896 rmax=6.0 frame=base_link

@@ -1,0 +1,9 @@
+### GOAL 9.0 1.0
+### OUTCOME, as measured (goal client killed after it outlived its own timeout)
+Robot start (7.80, 2.00) -> after mapping lap ~(7.69, 0.47) -> drove to (8.257, 0.800).
+Goal 1 was (9.00, 1.00): the robot closed to 0.76 m of it and stopped there.
+The NavigateToPose action never returned a terminal status; `timeout -s KILL 130`
+did not reap `ros2 action send_goal` either, so the client was killed by hand.
+Goals 2 and 3 were therefore never sent.
+Map at the time: 12692 free cells, interior x [5.54, 10.19] y [-2.17, 2.78];
+the goal was comfortably inside it, so "goal outside the map" is NOT the cause here.

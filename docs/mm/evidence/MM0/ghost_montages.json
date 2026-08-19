@@ -1,0 +1,26 @@
+[
+  {
+    "label": "DT montage 2026-08-18 (the campaign's claim)",
+    "frames": 60,
+    "mean_absdiff": 0.8384172780654948,
+    "echo_corr_mean": -0.09416087685757044,
+    "echo_corr_max": 0.10721477121114731,
+    "verdict": "no trail signature"
+  },
+  {
+    "label": "DT montage, later clip",
+    "frames": 60,
+    "mean_absdiff": 2.2915520184880034,
+    "echo_corr_mean": -0.337005087629348,
+    "echo_corr_max": 0.40840333700180054,
+    "verdict": "no trail signature"
+  },
+  {
+    "label": "G1 montage 2026-08-19 (mine)",
+    "frames": 60,
+    "mean_absdiff": 3.634590836864407,
+    "echo_corr_mean": -0.3753236249603074,
+    "echo_corr_max": -0.2580430507659912,
+    "verdict": "no trail signature"
+  }
+]

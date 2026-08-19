@@ -1,0 +1,371 @@
+{
+  "urdf": "/tmp/g1_dex5_urdf/g1_29dof_dex5_1p.urdf",
+  "robot": "g1_29dof_rev_1_0",
+  "standing_pose": {
+    "left_shoulder_pitch_joint": 0.3,
+    "right_shoulder_pitch_joint": 0.3,
+    "left_shoulder_roll_joint": 0.25,
+    "right_shoulder_roll_joint": -0.25,
+    "left_elbow_joint": 0.97,
+    "right_elbow_joint": 0.97,
+    "left_wrist_roll_joint": 0.15,
+    "right_wrist_roll_joint": -0.15
+  },
+  "sides": {
+    "L": {
+      "side": "L",
+      "wrist": "left_wrist_yaw_link",
+      "hand_root": "base_link00L",
+      "flange_xyz_in_wrist": [
+        0.04150000000000001,
+        0.0029999999999999884,
+        -5.1317491109401786e-18
+      ],
+      "hand_axes_in_wrist": {
+        "+X": [
+          -3.828521158953657e-16,
+          -5.800481622797449e-17,
+          1.0000000000000002
+        ],
+        "+Y": [
+          1.0000000000000002,
+          -3.8285913741799538e-16,
+          3.828724446860998e-16
+        ],
+        "+Z": [
+          3.828627828029549e-16,
+          1.0000000000000002,
+          -5.800481622797449e-17
+        ]
+      },
+      "hand_axes_in_wrist_nearest": {
+        "+X": "+Z (0.00 deg off)",
+        "+Y": "+X (0.00 deg off)",
+        "+Z": "+Y (0.00 deg off)"
+      },
+      "in_wrist": {
+        "palm_root": [
+          0.04150000000000001,
+          0.0029999999999999884,
+          -5.1317491109401786e-18
+        ],
+        "finger_axis": [
+          0.9999238865771185,
+          -0.012337789091930442,
+          -3.582287063227468e-06
+        ],
+        "palm_normal": [
+          -0.01233778906519734,
+          -0.9999238865565484,
+          7.391170272640131e-06
+        ],
+        "thumb_axis": [
+          0.009044395137530217,
+          -6.681427265489901e-16,
+          0.9999590986218369
+        ],
+        "index_tip_minus_palm_root": [
+          0.9972129337585585,
+          0.019218664801243797,
+          0.07209027443356138
+        ],
+        "finger_nearest": "+X (0.71 deg off)",
+        "palm_nearest": "-Y (0.71 deg off)",
+        "thumb_nearest": "+Z (0.52 deg off)"
+      },
+      "in_base_standing": {
+        "palm_root": [
+          0.014338801000077572,
+          0.25037539722647084,
+          -0.09350658808086504
+        ],
+        "finger_axis": [
+          0.2946965623737993,
+          0.22826340057928857,
+          -0.9279276674833253
+        ],
+        "palm_normal": [
+          -0.13800906786223957,
+          -0.9507041856980549,
+          -0.2776959641118216
+        ],
+        "thumb_axis": [
+          0.9482123725275395,
+          -0.20772731019178883,
+          0.2402970270023718
+        ],
+        "index_tip_minus_palm_root": [
+          0.3663031393099297,
+          0.24238953304452765,
+          -0.8983703715072897
+        ],
+        "finger_nearest": "-Z (21.89 deg off)",
+        "palm_nearest": "-Y (18.07 deg off)",
+        "thumb_nearest": "+X (18.52 deg off)"
+      },
+      "in_base_zero": {
+        "palm_root": [
+          0.24127485879952834,
+          0.1516537531205773,
+          0.09523073136184486
+        ],
+        "finger_axis": [
+          0.9999215026810978,
+          -0.012529364044267839,
+          -5.926737201120946e-05
+        ],
+        "palm_normal": [
+          -0.012529367126676148,
+          -0.999921503050646,
+          -5.1926313647691034e-05
+        ],
+        "thumb_axis": [
+          0.009099330214326195,
+          -6.174088768018317e-05,
+          0.9999585983318076
+        ],
+        "index_tip_minus_palm_root": [
+          0.9972205565778822,
+          0.0190232822140621,
+          0.07203663146138058
+        ],
+        "finger_nearest": "+X (0.72 deg off)",
+        "palm_nearest": "-Y (0.72 deg off)",
+        "thumb_nearest": "+Z (0.52 deg off)"
+      },
+      "mm0_world_zero_pose": {
+        "fingers_dot_body_x": {
+          "dot": 0.9999215026810978,
+          "min": 0.9,
+          "pass": true
+        },
+        "palm_dot_toward_sagittal": {
+          "dot": 0.999921503050646,
+          "min": 0.9,
+          "pass": true
+        },
+        "thumb_dot_world_z": {
+          "dot": 0.9999585983318076,
+          "min": 0.9,
+          "pass": true
+        }
+      },
+      "mm0_pass": true,
+      "checks": {
+        "fingers_along_wrist_x": {
+          "value_deg": 0.7069212087757892,
+          "tol_deg": 5.0,
+          "pass": true,
+          "what": "middle finger axis vs wrist +X (the forearm), zero pose"
+        },
+        "palm_toward_midline_wrist": {
+          "value_deg": 0.7069213043018063,
+          "tol_deg": 60.0,
+          "pass": true,
+          "what": "palm normal vs wrist (+0, -1, +0), zero pose"
+        },
+        "thumb_along_wrist_z": {
+          "value_deg": 0.5182127348527161,
+          "tol_deg": 75.0,
+          "pass": true,
+          "what": "thumb axis vs wrist +Z, zero pose"
+        },
+        "palm_toward_midline_standing": {
+          "value_deg": 18.065212482703732,
+          "tol_deg": 60.0,
+          "pass": true,
+          "what": "palm normal vs base_link (+0, -1, +0), standing"
+        },
+        "thumb_forward_standing": {
+          "value_deg": 18.520083820841695,
+          "tol_deg": 75.0,
+          "pass": true,
+          "what": "thumb axis vs base_link +X (forward), standing"
+        }
+      },
+      "pass": true
+    },
+    "R": {
+      "side": "R",
+      "wrist": "right_wrist_yaw_link",
+      "hand_root": "base_link00",
+      "flange_xyz_in_wrist": [
+        0.04150000000000001,
+        -0.0029999999999999884,
+        -5.1317491109401786e-18
+      ],
+      "hand_axes_in_wrist": {
+        "+X": [
+          -3.828521158953657e-16,
+          5.800481622797449e-17,
+          1.0000000000000002
+        ],
+        "+Y": [
+          1.0000000000000002,
+          -3.8285864938143397e-16,
+          3.828656684225218e-16
+        ],
+        "+Z": [
+          3.8285500358288414e-16,
+          1.0000000000000002,
+          5.800481622797449e-17
+        ]
+      },
+      "hand_axes_in_wrist_nearest": {
+        "+X": "+Z (0.00 deg off)",
+        "+Y": "+X (0.00 deg off)",
+        "+Z": "+Y (0.00 deg off)"
+      },
+      "in_wrist": {
+        "palm_root": [
+          0.04150000000000001,
+          -0.0029999999999999884,
+          -5.1317491109401786e-18
+        ],
+        "finger_axis": [
+          0.9999238849603189,
+          0.012337920099130996,
+          -3.6729255169267322e-06
+        ],
+        "palm_normal": [
+          -0.012337920099047755,
+          0.9999238849670645,
+          4.5319715706666356e-08
+        ],
+        "thumb_axis": [
+          0.00904453040652385,
+          7.216080726396539e-12,
+          0.9999590973983514
+        ],
+        "index_tip_minus_palm_root": [
+          0.9972130298330637,
+          -0.01921862937363175,
+          0.07208895488325706
+        ],
+        "finger_nearest": "+X (0.71 deg off)",
+        "palm_nearest": "+Y (0.71 deg off)",
+        "thumb_nearest": "+Z (0.52 deg off)"
+      },
+      "in_base_standing": {
+        "palm_root": [
+          0.014338801000077572,
+          -0.25036539722647083,
+          -0.09350658808086504
+        ],
+        "finger_axis": [
+          0.2946964585861807,
+          -0.22826329504642034,
+          -0.9279277264050872
+        ],
+        "palm_normal": [
+          -0.1380160525038591,
+          0.9507026736958681,
+          -0.2776976691994011
+        ],
+        "thumb_axis": [
+          0.9482124114607476,
+          0.20772727748065536,
+          0.24029690164933146
+        ],
+        "index_tip_minus_palm_root": [
+          0.3663019152963317,
+          -0.24238979950315706,
+          -0.8983707986945358
+        ],
+        "finger_nearest": "-Z (21.89 deg off)",
+        "palm_nearest": "+Y (18.07 deg off)",
+        "thumb_nearest": "+X (18.52 deg off)"
+      },
+      "in_base_zero": {
+        "palm_root": [
+          0.24127485879952834,
+          -0.1516437531205773,
+          0.09523073136184486
+        ],
+        "finger_axis": [
+          0.9999215010342188,
+          0.012529495045716729,
+          -5.935801823619768e-05
+        ],
+        "palm_normal": [
+          -0.012529498563782127,
+          0.999921500995229,
+          -5.9272156884777275e-05
+        ],
+        "thumb_axis": [
+          0.00909946548324861,
+          6.174092073836465e-05,
+          0.999958597100889
+        ],
+        "index_tip_minus_palm_root": [
+          0.9972206525731051,
+          -0.01902324684723077,
+          0.07203531190367579
+        ],
+        "finger_nearest": "+X (0.72 deg off)",
+        "palm_nearest": "+Y (0.72 deg off)",
+        "thumb_nearest": "+Z (0.52 deg off)"
+      },
+      "mm0_world_zero_pose": {
+        "fingers_dot_body_x": {
+          "dot": 0.9999215010342188,
+          "min": 0.9,
+          "pass": true
+        },
+        "palm_dot_toward_sagittal": {
+          "dot": 0.999921500995229,
+          "min": 0.9,
+          "pass": true
+        },
+        "thumb_dot_world_z": {
+          "dot": 0.999958597100889,
+          "min": 0.9,
+          "pass": true
+        }
+      },
+      "mm0_pass": true,
+      "checks": {
+        "fingers_along_wrist_x": {
+          "value_deg": 0.7069287170337338,
+          "tol_deg": 5.0,
+          "pass": true,
+          "what": "middle finger axis vs wrist +X (the forearm), zero pose"
+        },
+        "palm_toward_midline_wrist": {
+          "value_deg": 0.7069286857074655,
+          "tol_deg": 60.0,
+          "pass": true,
+          "what": "palm normal vs wrist (+0, +1, +0), zero pose"
+        },
+        "thumb_along_wrist_z": {
+          "value_deg": 0.5182204855121928,
+          "tol_deg": 75.0,
+          "pass": true,
+          "what": "thumb axis vs wrist +Z, zero pose"
+        },
+        "palm_toward_midline_standing": {
+          "value_deg": 18.06549184711213,
+          "tol_deg": 60.0,
+          "pass": true,
+          "what": "palm normal vs base_link (+0, +1, +0), standing"
+        },
+        "thumb_forward_standing": {
+          "value_deg": 18.52007679801831,
+          "tol_deg": 75.0,
+          "pass": true,
+          "what": "thumb axis vs base_link +X (forward), standing"
+        }
+      },
+      "pass": true
+    }
+  },
+  "chirality": {
+    "left_thumb_lateral": -0.20772731019178883,
+    "right_thumb_lateral": -0.20772727748065536,
+    "both_thumbs_outward": false,
+    "palms_face_each_other": true,
+    "pass": true,
+    "what": "thumbs outward on BOTH hands at once means L and R are swapped"
+  },
+  "pass": true
+}

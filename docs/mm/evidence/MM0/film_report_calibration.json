@@ -1,0 +1,41 @@
+{
+  "asset": "/workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.usd",
+  "subframes": 16,
+  "shots": [
+    "chase"
+  ],
+  "ghost_max": 0.01,
+  "calibration": [
+    {
+      "subframes": 1,
+      "ghost": 0.0006667183591543613,
+      "pass": true
+    },
+    {
+      "subframes": 4,
+      "ghost": 0.0008284906297910111,
+      "pass": true
+    },
+    {
+      "subframes": 8,
+      "ghost": 0.0009144741487129831,
+      "pass": true
+    },
+    {
+      "subframes": 16,
+      "ghost": 0.0010278420781893005,
+      "pass": true
+    },
+    {
+      "subframes": 32,
+      "ghost": 0.0011356045247317035,
+      "pass": true
+    },
+    {
+      "subframes": 64,
+      "ghost": 0.001174092103405148,
+      "pass": true
+    }
+  ],
+  "recommended_subframes": 1
+}

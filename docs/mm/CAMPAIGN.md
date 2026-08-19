@@ -2,23 +2,32 @@
 
 > ## STATUS — 2026-08-19
 >
-> **NOT STARTED. MM0 is blocked at its own first assertion: this box is an RTX 4080
-> SUPER 16 GB, and the campaign requires a 4090.**
+> **MM0 RUNNING on an RTX 4080 SUPER 16 GB, by decision. The 4090 is required for
+> CAMERA-DEPENDENT ITEMS ONLY.**
+>
+> Mohammed, 2026-08-19, amending §0/§5 of this brief as originally written:
 >
 > | | |
 > |---|---|
 > | Box | `NVIDIA GeForce RTX 4080 SUPER, 16376 MiB, driver 580.105.08` |
-> | Required | RTX 4090, 49140 MiB (RESUME.md §1) |
-> | Consequence | **C-23** — Isaac's ROS 2 image writer segfaults here, five boots for five. Accepted as the GPU by Mohammed, 2026-08-19, with an explicit "do not work around it on this box". |
+> | **camera-capable box** | **no** — C-23, the ROS 2 image writer segfaults here (5 boots for 5) |
+> | Everything else | runs here with `TWIN_CAMERA=0`, **declared in every RESULTS header** |
 >
-> The DT campaign ended at tag `twin-g1-fixed-2` on branch `mohammed/twin-campaign`.
-> This file is saved per §8.3 so the next instance on the right box has it in the
-> repository rather than in a chat log. Nothing else in MM0 has been executed.
+> **Camera-dependent items, queued for a 4090 day:**
 >
-> **What MM0 needs that this box cannot give:** the RESUME verification pass (§MM0.1)
-> asserts the 4090 before anything; the aligned-depth check and the C-21 clip (§MM0.2)
-> are camera items. See "Carry-over triage" at the foot of this file for which MM0
-> sub-items are GPU-independent, measured rather than guessed.
+> * MM0.2 — aligned-depth check and the C-21 clip
+> * anything `ferox_vision` (E-1, and MM5's `--pose vision` path)
+> * **MM6** and **MM7** entirely — GR00T runs on twin pixels, and the recorder
+>   records them
+> * MM8 — the **PiP camera** track (the montage's other tracks are offscreen renders
+>   and are fine here)
+>
+> **Everything else runs on this box**, including the SONIC x86 build (MM4) and the
+> low-level bridge (MM3). If MM1b needs a locomotion retrain, use **≤2048 envs** —
+> 16 GB is tight for 4096.
+>
+> The original text below is unchanged except where this header overrides it. Where
+> it says "never a 4080", read: never for camera items.
 
 You are the agent for the **Ferox Motion & Manipulation campaign** on the G1 digital twin. The Digital
 Twin campaign (DT0–DT8, tag `twin-g1-fixed-2`) delivered a hardware-parity G1 in Isaac Sim 5.1: Unitree
@@ -29,6 +38,10 @@ with working yaw, a lab environment with an articulated door and objects, the lo
 pick → place pipeline, GR00T plumbing plus a data-collection loop, and a proper motion video. Everything
 runs on a **fresh Vast.ai RTX 4090 VM (x86_64)** — never a 4080 (RESUME.md §1: the image writer segfaults
 there, C-23). The DGX Spark is used only for GR00T finetuning (MM7); nothing here touches a robot.
+
+> **AMENDED 2026-08-19 (see the status header):** the 4090 is required for
+> **camera-dependent items only**. Everything else runs on a 4080 with
+> `TWIN_CAMERA=0`, declared in every RESULTS header.
 
 Go2 is out of scope for this campaign.
 
@@ -164,13 +177,17 @@ Each gate: `docs/mm/RESULTS_MM<n>.md` (verdict, scorecard, evidence, deviations,
 reproduce), evidence under `docs/mm/evidence/MM<n>/`, clip under `docs/mm/media/`, commit + tag pushed.
 
 ### MM0 — box + carry-over (½–1 day)
-1. RESUME.md through verification on a **4090** (assert `nvidia-smi` model/VRAM before anything).
+1. RESUME.md through verification. `nvidia-smi` model/VRAM is read and recorded before
+   anything, but on a non-4090 box it is a **flag, not a gate**: report
+   `camera-capable box: no` and carry the camera items forward as declared open.
 2. DT carry-over, all short: hand-roll numeric check at URDF zero pose (per hand, world-frame:
    fingers·body+X, palm normal·toward-sagittal-plane, thumb·world+Z, all ≥0.9; renders top/front/side);
    aligned-depth check + C-21 clip; `/scan` clip re-shot in hospital (≥45 % finite beside the bag);
    nav 3/3 with goals inside the measured free-space bounds. Close or reopen the corresponding C items.
 3. `tools/film.py` v1 with the ghosting test; 20 s test clip of the twin walking (omni policy) — no trails.
    **PASS**: box conforms, carry-over closed, film tool proven.
+   On a non-camera box the achievable verdict is **PASS-with-deviations**: the five
+   GPU-independent sub-items closed, the camera sub-items open and queued.
 
 ### MM1 — locomotion contract + motion suite (1–2 days; MM1b +½–1 day if retrain)
 Per §4.1. Deliver `scripts/motion_suite.py` (extends `validate_motion.py`): 8 directions × {0.2, 0.5,
@@ -301,7 +318,7 @@ Recorded here because the next instance should not have to re-derive it, and bec
 | §2 nav 3/3 inside measured free-space bounds | **No** | Lidar + nav only. Bounds already measured and recorded in `RESUME.md` §0 next-steps: free space x [3.71, 12.16] m, y [−2.67, 8.18] m; robust interior x [5.16, 10.76], y [−1.42, 5.08]. Estimated ≤1 h |
 | §3 `tools/film.py` v1 + ghosting test + 20 s walk clip | **No** | Offscreen rendering plus the omni policy, both of which work here. The ghosting defect it must catch is real and is recorded against the DT montage |
 
-So **MM0 cannot PASS on a 4080** — item §1 fails by construction and the aligned-depth
-half of §2 is blocked — but five of the eight sub-items are GPU-independent and could be
-banked in advance if that is ever useful. Nothing here has been executed; this table is
-scope, not progress.
+So on a 4080 the achievable MM0 verdict is **PASS-with-deviations**: the five
+GPU-independent sub-items close normally, and the aligned-depth check plus the C-21 clip
+stay open and queued for a 4090 day. That is the decision recorded in the status header,
+and it is why the `nvidia-smi` step is a flag rather than a gate.

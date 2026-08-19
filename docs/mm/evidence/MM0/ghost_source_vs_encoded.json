@@ -1,0 +1,20 @@
+[
+  {
+    "label": "source PNGs (orbit, camera moving)",
+    "n": 60,
+    "mean_consecutive_absdiff": 3.517882524782904,
+    "max": 15.444244630915637,
+    "min": 2.7049754050925925,
+    "echo_corr_mean": -0.38505336231198806,
+    "echo_corr_max": -0.19195401668548584
+  },
+  {
+    "label": "encoded mp4, same clip",
+    "n": 60,
+    "mean_consecutive_absdiff": 3.634590836864407,
+    "max": 7.331170106738683,
+    "min": 2.907471064814815,
+    "echo_corr_mean": -0.3753236249603074,
+    "echo_corr_max": -0.2580430507659912
+  }
+]

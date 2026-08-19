@@ -1,0 +1,11 @@
+{
+  "asset": "/workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.usd",
+  "subframes": 16,
+  "shots": [
+    "chase"
+  ],
+  "ghost_max": 0.01,
+  "ghost_score_legacy": 0.0,
+  "ghost_score": 0.0010243912894375858,
+  "ghost_pass": true
+}
