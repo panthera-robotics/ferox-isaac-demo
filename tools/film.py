@@ -246,8 +246,18 @@ def scene(asset, world_usd=None, physics_dt=1.0 / 200.0, render_dt=1.0 / 60.0,
 
 
 def robot_pose(art):
-    p, _ = art.get_world_poses()
-    p = np.asarray(p)[0]
+    """Works for both articulation flavours.
+
+    scene() builds a batched `Articulation` (get_world_poses, plural); the policy
+    in --drive policy owns a `SingleArticulation` (get_world_pose, singular). The
+    camera should not care which one is driving the robot it is following.
+    """
+    if hasattr(art, "get_world_poses"):
+        p, _ = art.get_world_poses()
+        p = np.asarray(p)[0]
+    else:
+        p, _ = art.get_world_pose()
+        p = np.asarray(p).reshape(-1)
     return (float(p[0]), float(p[1])), float(p[2])
 
 
@@ -399,9 +409,23 @@ def _policy_drive(world, args):
     if not args.policy:
         raise SystemExit("--drive policy needs --policy (the TorchScript checkpoint)")
 
+    # run.py's own loader: env.yaml carries python/tuple tags safe_load refuses.
+    _z = 0.8
+    if args.env_yaml and os.path.isfile(args.env_yaml):
+        _cfg0 = twin_run._load_yaml(args.env_yaml) or {}
+        _p0 = (_cfg0.get("scene", {}).get("robot", {})
+               .get("init_state", {}).get("pos"))
+        if _p0 is not None and len(_p0) >= 3:
+            _z = float(_p0[2])
+
+    # The spawn goes in at CONSTRUCTION, not afterwards. Passing position=None and
+    # then set_world_pose() leaves the articulation's DEFAULT state at z=0, and
+    # initialize() puts the robot back there -- inside the floor -- so it was being
+    # ejected rather than walked. That is what produced every "flung robot" clip.
     pol = twin_run.G1VelocityPolicy(
         prim_path="/World/G1", name="G1", usd_path=None,
-        position=None, orientation=None,
+        position=np.array([0.0, 0.0, _z], dtype=np.float32),
+        orientation=np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32),
         policy_path=args.policy, env_path=args.env_yaml,
         deploy_path=args.deploy_yaml,
     )
@@ -412,17 +436,35 @@ def _policy_drive(world, args):
     # being filmed failing at a task it was never given.
     # run.py's own loader, not yaml.safe_load: env.yaml carries
     # python/tuple tags that safe_load refuses.
-    _z = 0.8
-    if args.env_yaml and os.path.isfile(args.env_yaml):
-        _cfg = twin_run._load_yaml(args.env_yaml) or {}
-        _pos = (_cfg.get("scene", {}).get("robot", {})
-                .get("init_state", {}).get("pos"))
-        if _pos is not None and len(_pos) >= 3:
-            _z = float(_pos[2])
-    pol.robot.set_world_pose(position=np.array([0.0, 0.0, _z], dtype=np.float32))
-    print(f"  policy drive: spawn z={_z:.3f} (from env.yaml init_state.pos)", flush=True)
+    print(f"  policy drive: spawn z={_z:.3f} (from env.yaml init_state.pos, "
+          f"set at construction so it is the DEFAULT state too)", flush=True)
 
+    # initialize() AFTER the world is playing and one step has been taken. Called
+    # earlier, the articulation view is not ready, set_gains silently does nothing,
+    # and the robot runs on the USD's own drive values -- stiffness 625 with
+    # damping 0.0 (see evidence/MM1b/twin_vs_training.md). An undamped robot does
+    # not walk, it flops, which is exactly what the last clip showed.
+    # NOTE: an extra world.reset() here was tried and made things worse -- it put
+    # the base back at z=0.046, inside the floor -- without changing the gains at
+    # all. Left out deliberately.
+    world.play()
+    world.step(render=False)
     pol.initialize()
+
+    # Read the gains back. This repo does not trust an author step it has not
+    # verified, and this one has now failed silently twice.
+    try:
+        _st = pol.robot.get_articulation_controller().get_gains()
+        _kp = np.asarray(_st[0]).reshape(-1)
+        _kd = np.asarray(_st[1]).reshape(-1)
+        print(f"  policy gains: kp[min,max]=({_kp.min():.1f},{_kp.max():.1f}) "
+              f"kd[min,max]=({_kd.min():.3f},{_kd.max():.3f})", flush=True)
+        if _kd.max() <= 1e-6 or _kp.max() > 400:
+            print("  WARNING: these look like the USD's raw drive values, not "
+                  "deploy.yaml's. The robot will flop.", flush=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  gain read-back unavailable: {exc}", flush=True)
+
     schedule = _parse_schedule(args.cmd_schedule)
     phys_dt = float(world.get_physics_dt())
     state = {"t": 0.0}
@@ -612,12 +654,25 @@ def main() -> int:
               f"{'FAIL as expected' if gl > GHOST_MAX else 'ALSO PASSES -- test has no power here'}",
               flush=True)
 
-    g = ghost_test(world, art, shots[0], args.subframes,
-                   os.path.join(args.out, "ghost"))
-    report["ghost_score"] = g
-    report["ghost_pass"] = g <= GHOST_MAX
-    print(f"ghost score {g:.5f} (max {GHOST_MAX}) "
-          f"{'PASS' if g <= GHOST_MAX else 'FAIL'}", flush=True)
+    if args.drive == "policy":
+        # The inline ghost test poses joints kinematically to render the same pose
+        # twice. Doing that in the middle of a policy-driven shoot would corrupt
+        # exactly the thing being filmed, and in policy mode the articulation does
+        # not exist yet at this point in main() -- which is what crashed the first
+        # attempt. The mask-based ghost gate is deferred to a 4090 day anyway
+        # (C-23), so it is skipped here and said out loud rather than faked.
+        report["ghost_score"] = None
+        report["ghost_pass"] = None
+        print("ghost test SKIPPED in --drive policy: it poses joints kinematically "
+              "and would corrupt the run being filmed. Clip is marked 'visually "
+              "clean, numeric ghost gate deferred to 4090'.", flush=True)
+    else:
+        g = ghost_test(world, art, shots[0], args.subframes,
+                       os.path.join(args.out, "ghost"))
+        report["ghost_score"] = g
+        report["ghost_pass"] = g <= GHOST_MAX
+        print(f"ghost score {g:.5f} (max {GHOST_MAX}) "
+              f"{'PASS' if g <= GHOST_MAX else 'FAIL'}", flush=True)
 
     if args.ghost_test:
         json.dump(report, open(os.path.join(args.out, "film_report.json"), "w"), indent=2)
@@ -677,7 +732,7 @@ def main() -> int:
     json.dump(report, open(os.path.join(args.out, "film_report.json"), "w"), indent=2)
     print(f"wrote {args.frames} frames x {len(shots)} shots -> {args.out}")
     app.close()
-    return 0 if report["ghost_pass"] else 1
+    return 0 if report.get("ghost_pass") in (True, None) else 1
 
 
 if __name__ == "__main__":

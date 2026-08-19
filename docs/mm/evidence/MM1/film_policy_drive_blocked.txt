@@ -1,0 +1,31 @@
+film.py --drive policy — why the robot is thrown, measured rather than guessed
+=============================================================================
+
+The gain read-back added to _policy_drive reports, on every attempt:
+
+    policy gains: kp[min,max]=(40.0,35809.9)  kd[min,max]=(0.000,5.000)
+
+deploy.yaml's gains top out around 150 and no joint has zero damping. A kp of
+35,810 alongside a kd of 0.000 is neither deploy.yaml's values nor the USD's
+(625 / 0.0). G1VelocityPolicy.initialize() is therefore NOT applying the deployed
+controller's gains when the policy is constructed inside film.py, and the robot has
+never been driven by the controller the clip is supposed to show.
+
+That is the root cause of every "flung robot" clip, and it explains why the
+symptom survived each earlier fix.
+
+Attempts, each ruling something out:
+  1. paused timeline               -> 600 identical frames        FIXED (world.play)
+  2. spawn at z=0.116, lying down  -> robot on the floor          FIXED (env.yaml pos)
+  3. World at 1/60 s               -> 50 Hz control became 15 Hz  FIXED (1/200)
+  4. two ArticulationViews on one prim                            FIXED, not the cause
+  5. spawn passed post-hoc, default state still z=0               FIXED, not the cause
+  6. initialize() before the world plays                          not the cause
+  7. extra world.reset() after construction  -> base at z=0.046, gains UNCHANGED. Reverted.
+
+Still open: make initialize() apply deploy.yaml's gains in a standalone scene, or
+drive the clip from the live sim (run.py), where the identical policy and checkpoint
+demonstrably walk -- MM1 measured N@0.2 at 2.4 % error there.
+
+No clip has been shot. A montage of a robot being thrown, captioned as a walk, is
+what the campaign's media rules exist to prevent.
