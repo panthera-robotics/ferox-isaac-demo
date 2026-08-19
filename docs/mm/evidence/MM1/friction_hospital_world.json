@@ -1,0 +1,5 @@
+{
+  "hospital": [],
+  "note": "hospital.usd authors NO physics materials -> PhysX scene default applies",
+  "physics_scene": "/physicsScene"
+}

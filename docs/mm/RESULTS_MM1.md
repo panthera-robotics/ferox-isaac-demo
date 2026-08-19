@@ -157,20 +157,56 @@ frame that does not match the displacement — see MM0's `validate_motion` note)
 policy was trained on — behaves identically. That kills the most plausible
 physical hypothesis (2 kg of Dex5 at the ends of the arms changing yaw inertia).
 
-### 2.6 Where that leaves §4.1
+### 2.6 CONTACT PHYSICS — the twin runs at half the friction the policy trained on
+
+Measured, not assumed:
+
+| | static | dynamic | restitution | combine |
+|---|---|---|---|---|
+| **training** (`env.yaml` terrain + sim `physics_material`) | **1.0** | **1.0** | **0.0** | multiply |
+| G1+Dex5 asset (feet, body) | **— none authored —** | | | |
+| `hospital.usd` (the floor it stands on) | **— none authored —** | | | |
+| Isaac default ground plane, for reference | 0.5 | 0.5 | **0.8** | — |
+
+**Neither surface authors a physics material.** The URDF importer wrote none onto
+the feet, and `hospital.usd` writes none onto its floor, so both fall back to the
+PhysX scene default — which is 0.5, not the 1.0 the policy was trained against.
+With `friction_combine_mode: multiply` the training contact was 1.0 × 1.0 = 1.0;
+the twin's is the PhysX default on both sides.
+
+Training also ran on **generated rough terrain** with **restitution 0.0**; Isaac's
+default plane carries restitution 0.8, which is a superball for anything that
+walks.
+
+**Why this is the leading candidate for "walks but will not turn."** Turning in
+place is friction-limited in a way translation is not: the stance foot has to
+generate a yaw moment against the floor, while walking forward mostly needs
+normal force and a little fore-aft shear. Halving μ removes the yaw moment first.
+It also explains why the failure is total rather than sluggish, and why the
+policy's action *does* change with wz (§2.4) while the body does not move.
+
+**NOT YET PROVEN.** The confirming test is to author the training material
+(1.0 / 1.0 / 0.0) and re-run the sweep. That is a legitimate twin correction with
+provenance — restoring a documented training value to a surface that currently has
+none — and not tuning-to-fit, but it is still a change and it has not been made.
+
+### 2.7 Where that leaves §4.1
 
 | §4.1 branch | status |
 |---|---|
 | (b) obs layout / scales / history / command index & units | **checked, clean** |
 | (c) "turns in Isaac Lab but not in run.py → contract bug" | **not supported** — the network responds to wz; nothing truncates it |
-| (a) play the checkpoint in Isaac Lab with wz commands | **NOT YET RUN** — the remaining discriminator |
-| (d) retrain | **indicated, pending (a)** |
+| (a) play the checkpoint in Isaac Lab with wz commands | **not yet run** |
+| **contact physics** | **MISMATCH FOUND (§2.6) — twin runs at PhysX-default friction, training at 1.0/1.0/0.0** |
+| (d) retrain | **NOT indicated yet** — fix the contact mismatch first and re-measure |
 
-The one thing (a) still decides: whether the checkpoint turns in its *own training
-environment*. If it does, the difference is our sim's physics (friction, contact,
-solver) and that is a twin-side finding. If it does not, the policy's yaw channel
-is simply weak and MM1b retrain is the answer — with the twin USD, per §4.1(d),
-and ≤2048 envs on this 16 GB card.
+§4.1(a) was going to ask "is the difference our sim's physics?" — and §2.6 answers
+that directly, without the Isaac Lab clone: **yes, there is a measured physics
+mismatch, on the one property that gates yaw specifically.** Authoring the training
+material and re-measuring is both cheaper and more decisive than porting the
+checkpoint into a second environment. If yaw returns, MM1b is not needed and the
+finding is a twin defect (a missing physics material on two surfaces). If it does
+not, the Isaac Lab play-through is still there as the tiebreak.
 
 **Nothing has been retrained and no gain has been touched.**
 

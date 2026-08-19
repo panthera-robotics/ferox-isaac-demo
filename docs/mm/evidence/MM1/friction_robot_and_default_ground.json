@@ -1,0 +1,12 @@
+{
+  "robot": [],
+  "default_ground": [
+    {
+      "path": "/World/Physics_Materials/physics_material",
+      "static": 0.5,
+      "dynamic": 0.5,
+      "restitution": 0.800000011920929,
+      "combine": "None"
+    }
+  ]
+}
