@@ -969,3 +969,44 @@ the Go2 bridge already does, and to point `pointcloud_to_laserscan` at
 `/mid360/points_accum`. That is a change to the Ferox launch graph, and the only
 Ferox change authorized in this campaign was the Nav2 footprint/inflation item at
 MM1. Flagged for a decision rather than taken.
+
+## C-25 — the panthera_lab door exposes a joint DOF and cannot be moved
+
+**Class B, open.** Six attempts, recorded in `docs/mm/RESULTS_MM2.md`. The door
+reports DOF `hinge`, sane gains, correct limits (0–110°) and drive type, and does
+not move under 500 N·m of directly applied joint effort — a kinematic lock, not a
+force limit. Deactivating the lever handle shifts the resting angle (−0.333° →
+−1.435°) without freeing it, so the handle (a static collider parented under the
+articulation root, coincident with the leaf) is one constraint but not the only one.
+
+Two general lessons, both worth more than the door:
+
+* **A USD articulation can pass every static check and have zero DOF.** Joint
+  present, axis correct, limits and drive authored, `ArticulationRootAPI` applied —
+  and PhysX builds nothing, because a static collider cannot be a link. Only a
+  physics-stepping test finds this.
+* **Writing `DriveAPI` attributes after `world.reset()` does nothing.** PhysX builds
+  the articulation at reset. The USD edit succeeds and the solver never sees it.
+
+Next thing to try: restructure the leaf as an Xform link holding the slab and handle
+as child geometry, so the handle belongs to the moving link rather than being
+adopted by the fixed base.
+
+## C-26 — the twin cannot navigate a furnished room; it is the MM1 yaw defect
+
+**Class A for the campaign, open, blocking.** `MoveToNamed` reached 0 of 6
+panthera_lab waypoints. Not a Nav2 tuning issue and not a venue issue:
+
+* Nav2 commands only its **Spin recovery** (480 messages, vx ∈ [−0.05, 0],
+  mean wz +0.213), and MM1 measured this policy's in-place yaw at **0.0000 rad/s**.
+  The recovery Nav2 falls back to is the one manoeuvre the robot cannot perform.
+* `planner_server` reports `no valid path found`. A flood fill over the global
+  costmap shows every waypoint's own cell is free while the robot sits in a
+  2 220-cell (5.5 m²) pocket of mapped space. `map → odom` is 0.22 m, so it is not
+  localisation.
+* The map stays partial because mapping means driving the room, and the robot jams
+  on furniture and cannot escape: escaping needs in-place rotation (0 %) or reverse
+  (35–70 % error at MM1), and it has neither.
+
+**Consequence:** MM1b, the retrain, is now on the critical path for MM2 and
+everything after it.
