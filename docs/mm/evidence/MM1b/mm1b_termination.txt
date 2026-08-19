@@ -1,0 +1,16 @@
+after reset root z: min 0.800 mean 0.800 max 0.800 | tilt rad: mean 0.000 max 0.000
+terrain origins z: mean 0.000
+root z relative to env origin: mean 0.800
+step 1     root z: min 0.793 mean 0.797 max 0.802 | tilt rad: mean 0.004 max 0.007
+   terminated 0 / truncated 0
+step 2     root z: min 0.775 mean 0.791 max 0.810 | tilt rad: mean 0.015 max 0.031
+   terminated 0 / truncated 0
+step 3     root z: min 0.757 mean 0.783 max 0.814 | tilt rad: mean 0.027 max 0.051
+   terminated 0 / truncated 0
+step 4     root z: min 0.735 mean 0.771 max 0.814 | tilt rad: mean 0.040 max 0.069
+   terminated 0 / truncated 0
+step 5     root z: min 0.707 mean 0.754 max 0.813 | tilt rad: mean 0.061 max 0.089
+   terminated 0 / truncated 0
+   term 'time_out' fired on 0 envs
+   term 'base_height' fired on 0 envs
+   term 'bad_orientation' fired on 0 envs

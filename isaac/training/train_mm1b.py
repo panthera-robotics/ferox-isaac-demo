@@ -20,6 +20,11 @@ parser.add_argument("--num_envs", type=int, default=2048)
 parser.add_argument("--max_iterations", type=int, default=6000)
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--log_root", default="/logs")
+parser.add_argument("--smoke", type=int, default=0,
+                    help="run N iterations, assert the physics is sane, and exit")
+parser.add_argument("--min_ep_len", type=float, default=8.0,
+                    help="smoke mode: mean episode length below this means the "
+                         "robots are exploding, not learning slowly")
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 args_cli.headless = True
@@ -95,6 +100,28 @@ def main() -> None:
         pass
 
     print(f"[MM1b] logging to {log_dir}", flush=True)
+
+    if args_cli.smoke:
+        # A short run whose only question is "is the physics sane". The first full
+        # run diverged inside 50 iterations because the PhysX contact-patch buffer
+        # was overflowing, and it still burned 47 minutes and 294M timesteps before
+        # anyone looked. Mean episode length collapsing to ~1 is that failure's
+        # signature, and it is cheap to check.
+        runner.learn(num_learning_iterations=args_cli.smoke,
+                     init_at_random_ep_len=True)
+        ep_len = float(torch.tensor(list(runner.lenbuffer)).mean()) \
+            if getattr(runner, "lenbuffer", None) else float("nan")
+        print(f"[MM1b][smoke] mean episode length after {args_cli.smoke} iters: "
+              f"{ep_len:.2f} (need > {args_cli.min_ep_len})", flush=True)
+        env.close()
+        if not (ep_len > args_cli.min_ep_len):
+            raise RuntimeError(
+                f"SMOKE FAILED: mean episode length {ep_len:.2f}. The robots are "
+                f"terminating immediately -- check the log for 'Patch buffer "
+                f"overflow' before spending hours on this.")
+        print("[MM1b][smoke] PASS", flush=True)
+        return
+
     runner.learn(num_learning_iterations=agent_cfg.max_iterations,
                  init_at_random_ep_len=True)
     env.close()

@@ -128,7 +128,13 @@ class WeightedVelocityCommandCfg(UniformLevelVelocityCommandCfg):
     class_type: type = WeightedVelocityCommand
 
 
-TWIN_USD = "/workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.usd"
+import os as _os
+
+# FEROX_MM1B_USD lets the A/B run the bare 29-DoF G1 against the twin without
+# editing this file, so "are the hands the cause?" is one env var, not a diff.
+TWIN_USD = _os.environ.get(
+    "FEROX_MM1B_USD", "/workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.usd")
+USING_HANDS = "dex5" in TWIN_USD
 
 
 # The 29 body joints, expressed the way upstream expresses them: the union of the
@@ -252,10 +258,24 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
         from twin.isaaclab.g1_dex5 import ACTUATORS as TWIN_ACTUATORS
 
         self.scene.robot.spawn.usd_path = TWIN_USD
-        _hand = TWIN_ACTUATORS.get("dex5_1p")
+        _hand = TWIN_ACTUATORS.get("dex5_1p") if USING_HANDS else None
         if _hand is not None:
             from isaaclab.actuators import ImplicitActuatorCfg
 
+            # The hands are ballast for this task, so they are damped hard rather
+            # than left as a lightly-held 40-joint chain. With the DT7 gains
+            # (stiffness 20, damping 2, armature 0.001) the first runs exploded:
+            # base |vz| ~ 22 m/s and |w| ~ 206 rad/s inferred from the
+            # base_linear_velocity / base_angular_velocity penalties, which
+            # dominated every other reward term by five orders of magnitude. Light,
+            # stiffly-coupled links at a 200 Hz step are a classic stiff-ODE
+            # blow-up. Nothing here reaches the deployed hand controller: run.py
+            # drives the Dex5 from its own limits, and this group only exists so the
+            # 40 joints are not undriven during a LOCOMOTION retrain.
+            _hand = dict(_hand)
+            _hand["stiffness"] = 50.0
+            _hand["damping"] = 10.0
+            _hand["armature"] = 0.01
             self.scene.robot.actuators["dex5_1p"] = ImplicitActuatorCfg(**_hand)
 
         # 0b. THE HANDS ARE MASS, NOT ACTUATORS.
@@ -282,7 +302,8 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
 
         if len(BODY_JOINTS_SIM) != 29:
             raise RuntimeError(f"expected 29 body joints, got {len(BODY_JOINTS_SIM)}")
-        self.actions.JointPositionAction.joint_names = list(BODY_JOINTS_SIM)
+        self.actions.JointPositionAction.joint_names = (
+            list(BODY_JOINTS_SIM) if USING_HANDS else [".*"])
         for grp in ("policy", "critic"):
             g = getattr(self.observations, grp, None)
             if g is None:
@@ -294,8 +315,9 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
                     # A FRESH cfg per term: SceneEntityCfg.resolve() mutates the
                     # object it is given, so one shared instance would carry the
                     # first term's resolved ids into the second.
-                    t.params["asset_cfg"] = SceneEntityCfg(
-                        "robot", joint_names=list(BODY_JOINTS_SIM))
+                    if USING_HANDS:
+                        t.params["asset_cfg"] = SceneEntityCfg(
+                            "robot", joint_names=list(BODY_JOINTS_SIM))
 
         # 1. widen the envelope
         lim = self.commands.base_velocity.limit_ranges
@@ -308,6 +330,19 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
 
         # 3. weighted sampling toward turn-in-place / lateral / reverse
         self.commands.base_velocity.class_type = WeightedVelocityCommand
+
+        # 4. PhysX contact-patch buffer. The first 6000-iteration run DIVERGED --
+        #    mean episode length 1.00, value loss 4.5e7 -- and the cause was in the
+        #    log from the first seconds: 1375 x "Patch buffer overflow detected,
+        #    please increase its size to at least 615685 in the scene desc". 2048
+        #    envs of a 69-DoF robot whose Dex5 hands carry 40 jointed collision
+        #    meshes each blow straight past the default 163840. With the buffer
+        #    overflowing, contacts are silently wrong, the robots explode, and
+        #    every episode terminates on step 1. Training on broken physics for 47
+        #    minutes produced a policy of exactly no value.
+        self.sim.physx.gpu_max_rigid_patch_count = 2**21      # 2,097,152
+        self.sim.physx.gpu_found_lost_pairs_capacity = 2**22
+        self.sim.physx.gpu_total_aggregate_pairs_capacity = 2**22
 
         # 16 GB box: 2048 envs is Mohammed's cap for this run.
         self.scene.num_envs = min(self.scene.num_envs, 2048)
