@@ -1,4 +1,4 @@
-verifying /workspace/ferox_isaac/assets/worlds/panthera_lab/panthera_lab.usd (7210 bytes)
+verifying /workspace/ferox_isaac/assets/worlds/panthera_lab/panthera_lab.usd (7913 bytes)
   ok   up axis is Z
   ok   metersPerUnit is 1.0
   ok   /panthera_lab/shell exists

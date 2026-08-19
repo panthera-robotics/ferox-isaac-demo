@@ -164,6 +164,42 @@ def _box(stage, path, size, pos, *, collide=True, rigid=False, mass=None,
     return c
 
 
+def _link(stage, path, size, pos, *, mass=None, color=(0.6, 0.45, 0.3)):
+    """An articulation LINK: an Xform body with UNSCALED child geometry.
+
+    PhysX does not support non-uniform scale on an articulation link. The door was
+    first authored as scaled unit cubes, and the result reported a healthy `hinge`
+    DOF while refusing to move under 500 N.m of direct joint effort -- a kinematic
+    lock, not a force limit. Geometry here is sized through UsdGeom.Cube's own
+    `size` plus an unscaled child xform, so no scale op reaches the link.
+    """
+    body = UsdGeom.Xform.Define(stage, Sdf.Path(path))
+    bx = UsdGeom.Xformable(body)
+    bx.ClearXformOpOrder()
+    bx.AddTranslateOp().Set(Gf.Vec3d(*pos))
+    UsdPhysics.RigidBodyAPI.Apply(body.GetPrim())
+    if mass is not None:
+        UsdPhysics.MassAPI.Apply(body.GetPrim()).CreateMassAttr(float(mass))
+
+    # One unit cube per axis-aligned box, sized by authoring points rather than a
+    # scale op: a Mesh with explicit extent keeps the link scale-free.
+    g = UsdGeom.Mesh.Define(stage, Sdf.Path(path + "/geom"))
+    hx_, hy_, hz_ = (v / 2.0 for v in size)
+    pts = [(-hx_, -hy_, -hz_), (hx_, -hy_, -hz_), (hx_, hy_, -hz_), (-hx_, hy_, -hz_),
+           (-hx_, -hy_, hz_), (hx_, -hy_, hz_), (hx_, hy_, hz_), (-hx_, hy_, hz_)]
+    faces = [0, 3, 2, 1,  4, 5, 6, 7,  0, 1, 5, 4,
+             1, 2, 6, 5,  2, 3, 7, 6,  3, 0, 4, 7]
+    g.CreatePointsAttr([Gf.Vec3f(*p) for p in pts])
+    g.CreateFaceVertexCountsAttr([4] * 6)
+    g.CreateFaceVertexIndicesAttr(faces)
+    g.CreateExtentAttr([Gf.Vec3f(-hx_, -hy_, -hz_), Gf.Vec3f(hx_, hy_, hz_)])
+    g.CreateDisplayColorAttr([Gf.Vec3f(*color)])
+    UsdPhysics.CollisionAPI.Apply(g.GetPrim())
+    mca = UsdPhysics.MeshCollisionAPI.Apply(g.GetPrim())
+    mca.CreateApproximationAttr("convexHull")
+    return body
+
+
 def _phys_material(stage, path, static_f, dynamic_f, restitution=0.0):
     m = UsdShade.Material.Define(stage, Sdf.Path(path))
     api = UsdPhysics.MaterialAPI.Apply(m.GetPrim())
@@ -289,25 +325,35 @@ def build(out_dir: str, seed: int) -> str:
     # articulation with ZERO DOF while passing every static USD check: the joint
     # exists, the axis is Z, limits and drive are present, the root API is applied,
     # and the door still cannot move. Only a physics-stepping test finds that.
-    frame = _box(stage, "/panthera_lab/door/frame",
-                 (FRAME_T, WALL_T + 0.02, DOOR_H + FRAME_T),
-                 (hinge_x - FRAME_T / 2, hy, (DOOR_H + FRAME_T) / 2),
-                 rigid=True, mass=50.0, color=(0.45, 0.32, 0.22))
+    frame = _link(stage, "/panthera_lab/door/frame",
+                  (FRAME_T, WALL_T + 0.02, DOOR_H + FRAME_T),
+                  (hinge_x - FRAME_T / 2, hy, (DOOR_H + FRAME_T) / 2),
+                  mass=50.0, color=(0.45, 0.32, 0.22))
     _bind_material(frame.GetPrim(), m_wood)
     base = UsdPhysics.FixedJoint.Define(
         stage, Sdf.Path("/panthera_lab/door/frame_to_world"))
     base.CreateBody1Rel().SetTargets([frame.GetPath()])   # body0 empty = world
 
-    leaf = _box(stage, "/panthera_lab/door/leaf",
-                (DOOR_W, DOOR_T, DOOR_H),
-                (hinge_x + DOOR_W / 2.0, hy, DOOR_UNDERCUT + DOOR_H / 2.0),
-                rigid=True, mass=DOOR_LEAF_KG, color=(0.62, 0.45, 0.30))
+    leaf = _link(stage, "/panthera_lab/door/leaf",
+                 (DOOR_W, DOOR_T, DOOR_H),
+                 (hinge_x + DOOR_W / 2.0, hy, DOOR_UNDERCUT + DOOR_H / 2.0),
+                 mass=DOOR_LEAF_KG, color=(0.62, 0.45, 0.30))
     _bind_material(leaf.GetPrim(), m_wood)
 
-    handle = _box(stage, "/panthera_lab/door/leaf_handle",
-                  (0.12, 0.03, 0.03),
-                  (hinge_x + DOOR_W - 0.10, hy - DOOR_T / 2 - 0.02, HANDLE_Z),
-                  rigid=False, color=(0.80, 0.78, 0.35))
+    # The handle is a GEOM OF THE LEAF, not a sibling prim. As a sibling under the
+    # articulation root it was a stray collider PhysX folded into the base link,
+    # sitting exactly where the leaf needed to swing.
+    handle = UsdGeom.Cube.Define(stage, Sdf.Path("/panthera_lab/door/leaf/handle"))
+    handle.CreateSizeAttr(1.0)
+    handle.CreateDisplayColorAttr([Gf.Vec3f(0.80, 0.78, 0.35)])
+    hxf = UsdGeom.Xformable(handle)
+    hxf.ClearXformOpOrder()
+    hxf.AddTranslateOp().Set(Gf.Vec3d(DOOR_W / 2.0 - 0.10,
+                                      -DOOR_T / 2 - 0.02,
+                                      HANDLE_Z - (DOOR_UNDERCUT + DOOR_H / 2.0)))
+    hxf.AddScaleOp().Set(Gf.Vec3f(0.12, 0.03, 0.03))
+    handle.CreateExtentAttr([Gf.Vec3f(-0.5, -0.5, -0.5), Gf.Vec3f(0.5, 0.5, 0.5)])
+    UsdPhysics.CollisionAPI.Apply(handle.GetPrim())
 
     hinge = UsdPhysics.RevoluteJoint.Define(
         stage, Sdf.Path("/panthera_lab/door/hinge"))
@@ -322,16 +368,14 @@ def build(out_dir: str, seed: int) -> str:
     hinge.CreateBody0Rel().SetTargets([frame.GetPath()])
     hinge.CreateBody1Rel().SetTargets([leaf.GetPath()])
     hinge.CreateAxisAttr("Z")
-    # With body0 = world, LocalPos0 is in WORLD coordinates: the hinge line on the
-    # west edge of the opening. LocalPos1 stays in the leaf's own frame, which is
-    # a scaled unit cube, so its west edge is at x = -0.5.
-    # Both anchors are now in their own body's local frame; both bodies are
-    # scaled unit cubes, so the frame's centre is its origin and the leaf's west
-    # edge is at x = -0.5.
-    hinge.CreateLocalPos0Attr(Gf.Vec3f(0.5, 0.0, 0.0))
-    # (leaf sits DOOR_UNDERCUT above the frame's base, so the anchors differ in z
-    #  by that amount expressed in each body's own scaled-unit-cube frame)
-    hinge.CreateLocalPos1Attr(Gf.Vec3f(-0.5, 0.0, 0.0))
+    # Anchors are in METRES in each link's own frame now, not unit-cube fractions:
+    # the links are Xforms with unscaled geometry, so there is no scale to divide by.
+    # Both must land on the same world point -- the hinge line at
+    # (hinge_x, hy, leaf centre height).
+    _axis_z = DOOR_UNDERCUT + DOOR_H / 2.0
+    hinge.CreateLocalPos0Attr(Gf.Vec3f(
+        FRAME_T / 2.0, 0.0, _axis_z - (DOOR_H + FRAME_T) / 2.0))
+    hinge.CreateLocalPos1Attr(Gf.Vec3f(-DOOR_W / 2.0, 0.0, 0.0))
     hinge.CreateLowerLimitAttr(0.0)
     hinge.CreateUpperLimitAttr(DOOR_LIMIT_DEG)
 
@@ -599,7 +643,7 @@ def verify(usd_path: str, report_path: str = "") -> int:
             f"apron starts at y = {r.GetMin()[1]:.3f} m, flush with the wall "
             f"(no gap to step over)")
 
-    handle = stage.GetPrimAtPath("/panthera_lab/door/leaf_handle")
+    handle = stage.GetPrimAtPath("/panthera_lab/door/leaf/handle")
     chk(bool(handle), "lever handle exists")
     if handle:
         r = bbox.ComputeWorldBound(handle).ComputeAlignedRange()

@@ -27,8 +27,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # The editable installs in the entrypoint use --no-deps so that pip cannot swap the
 # image's torch out from under Isaac, so every dependency Isaac Lab and rsl_rl need
 # is named here explicitly instead.
+#   * rsl-rl-lib imports tensordict, which nothing in the base image declares and
+#     which fails only once training actually starts.
+#   * The version is 3.1.2, NOT the 2.3.1 that unitree_rl_lab's own train.py
+#     checks for. That check belongs to an older Isaac Lab. The tree we mount is
+#     isaaclab 0.54.2 (Isaac Lab 2.3.x), whose isaaclab_rl/setup.py pins
+#     rsl-rl-lib==3.1.2, and whose RslRlVecEnvWrapper.get_observations returns a
+#     TensorDict rather than the (obs, extras) tuple rsl_rl 2.3.1 unpacks --
+#     "ValueError: too many values to unpack (expected 2)" at runner construction.
 RUN /isaac-sim/python.sh -m pip install --no-cache-dir \
-        flatdict h5py tensorboard "rsl-rl-lib==2.3.1" toml tqdm \
+        flatdict h5py tensorboard "rsl-rl-lib==3.1.2" onnxscript toml tqdm tensordict \
         gymnasium trimesh pyglet scipy pillow prettytable \
         "numpy<2" hidapi imageio "moviepy<2"
 
