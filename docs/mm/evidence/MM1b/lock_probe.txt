@@ -1,0 +1,9 @@
+source: default prim = /g1_29dof_rev_1_0
+   revolute total 69  active 69  fixed 9
+   hand revolute found 40, of which active 40
+      /g1_29dof_rev_1_0/joints/Link_41L  active=True
+      /g1_29dof_rev_1_0/joints/Pitch_42L  active=True
+      /g1_29dof_rev_1_0/joints/Pitch_43L  active=True
+locked: default prim = /g1_dex5_1p_lockedhands
+   revolute total 29  active 29  fixed 49
+   hand revolute found 0, of which active 0

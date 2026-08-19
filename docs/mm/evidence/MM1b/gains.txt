@@ -1,0 +1,35 @@
+usd: /workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p_lockedhands.usd
+actuator groups: ['N5020-16', 'N7520-14.3', 'N7520-22.5', 'W4010-25']
+29 joints
+joint                             stiffness    damping   armature
+left_hip_pitch_joint                100.000     2.0000    0.01000
+right_hip_pitch_joint               100.000     2.0000    0.01000
+waist_yaw_joint                     200.000     5.0000    0.01000
+left_hip_roll_joint                 100.000     2.0000    0.01000
+right_hip_roll_joint                100.000     2.0000    0.01000
+waist_roll_joint                     40.000     5.0000    0.01000
+left_hip_yaw_joint                  100.000     2.0000    0.01000
+right_hip_yaw_joint                 100.000     2.0000    0.01000
+waist_pitch_joint                    40.000     5.0000    0.01000
+left_knee_joint                     150.000     4.0000    0.01000
+right_knee_joint                    150.000     4.0000    0.01000
+left_shoulder_pitch_joint            40.000     1.0000    0.01000
+right_shoulder_pitch_joint           40.000     1.0000    0.01000
+left_ankle_pitch_joint               40.000     2.0000    0.01000
+right_ankle_pitch_joint              40.000     2.0000    0.01000
+left_shoulder_roll_joint             40.000     1.0000    0.01000
+right_shoulder_roll_joint            40.000     1.0000    0.01000
+left_ankle_roll_joint                40.000     2.0000    0.01000
+right_ankle_roll_joint               40.000     2.0000    0.01000
+left_shoulder_yaw_joint              40.000     1.0000    0.01000
+right_shoulder_yaw_joint             40.000     1.0000    0.01000
+left_elbow_joint                     40.000     1.0000    0.01000
+right_elbow_joint                    40.000     1.0000    0.01000
+left_wrist_roll_joint                40.000     1.0000    0.01000
+right_wrist_roll_joint               40.000     1.0000    0.01000
+left_wrist_pitch_joint               40.000     1.0000    0.01000
+right_wrist_pitch_joint              40.000     1.0000    0.01000
+left_wrist_yaw_joint                 40.000     1.0000    0.01000
+right_wrist_yaw_joint                40.000     1.0000    0.01000
+
+SUSPECT (damping<=0 or stiffness>400): 0 -> []

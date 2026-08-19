@@ -1,0 +1,11 @@
+source: /workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.usd
+  revolute joints: 69
+  summed link mass: 35.004757 kg
+  hand joints to lock (by name): 40
+  locked: 40
+result: /workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p_lockedhands.usd
+  ok   no active revolute hand joints remain (found 0)
+  ok   active revolute joints 29 == 69 - 40
+  ok   fixed joints authored: 49 (>= 40)
+  ok   summed link mass 35.004757 kg vs 35.004757 kg (0.0000 % — gate 1 %)
+PASS: 0 failed

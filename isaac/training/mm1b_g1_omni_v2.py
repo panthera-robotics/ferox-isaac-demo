@@ -133,8 +133,17 @@ import os as _os
 # FEROX_MM1B_USD lets the A/B run the bare 29-DoF G1 against the twin without
 # editing this file, so "are the hands the cause?" is one env var, not a diff.
 TWIN_USD = _os.environ.get(
-    "FEROX_MM1B_USD", "/workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.usd")
-USING_HANDS = "dex5" in TWIN_USD
+    "FEROX_MM1B_USD",
+    "/workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p_lockedhands.usd")
+
+# The locked-hands variant (tools/build_locked_hands_usd.py) keeps every link,
+# its geometry, mass and inertia, and converts the 40 finger joints to FIXED. Mass
+# is preserved exactly -- 35.004757 kg, 0.0000 % -- so the policy learns against the
+# real hand weight with none of the finger dynamics that made the first runs
+# explode. With it, the articulation exposes 29 DOF and needs no hand actuator
+# group and no joint restriction: what is left IS the body.
+LOCKED_HANDS = "lockedhands" in TWIN_USD
+ARTICULATED_HANDS = ("dex5" in TWIN_USD) and not LOCKED_HANDS
 
 
 # The 29 body joints, expressed the way upstream expresses them: the union of the
@@ -218,27 +227,15 @@ class WeightedVelocityCommandCfg(UniformLevelVelocityCommandCfg):
     class_type: type = WeightedVelocityCommand
 
 
-TWIN_USD = "/workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.usd"
+# (the TWIN_USD definition lives at the top of this file, driven by
+#  FEROX_MM1B_USD. A second assignment used to sit here and silently
+#  clobbered it, so every run loaded the articulated asset no matter
+#  what was configured -- the smoke reported 69 actions while the USD
+#  on disk had 29.)
 
 
-def _ordered_joint_names():
-    """The twin's 69 joint names in URDF document order.
-
-    Read from the merged URDF rather than hardcoded, so it cannot drift from the
-    asset. RULE-HAND-NAME: hands are identified BY NAME, never by index.
-    """
-    import xml.etree.ElementTree as ET
-
-    for cand in ("/workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.urdf",
-                 "/workspace/ferox_isaac/assets/g1_dex5/configuration/g1_dex5_1p.urdf"):
-        try:
-            root = ET.parse(cand).getroot()
-        except Exception:
-            continue
-        return [j.get("name") for j in root.findall("joint")
-                if j.get("type") in ("revolute", "continuous")]
-    raise RuntimeError("could not find the merged G1+Dex5 URDF to read joint order")
-
+# (_ordered_joint_names was removed: it was dead code, and this campaign has
+#  already been bitten once by a function that existed and was never called.)
 
 @configclass
 class FeroxG1VelocityV2Cfg(RobotEnvCfg):
@@ -258,7 +255,7 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
         from twin.isaaclab.g1_dex5 import ACTUATORS as TWIN_ACTUATORS
 
         self.scene.robot.spawn.usd_path = TWIN_USD
-        _hand = TWIN_ACTUATORS.get("dex5_1p") if USING_HANDS else None
+        _hand = TWIN_ACTUATORS.get("dex5_1p") if ARTICULATED_HANDS else None
         if _hand is not None:
             from isaaclab.actuators import ImplicitActuatorCfg
 
@@ -303,7 +300,7 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
         if len(BODY_JOINTS_SIM) != 29:
             raise RuntimeError(f"expected 29 body joints, got {len(BODY_JOINTS_SIM)}")
         self.actions.JointPositionAction.joint_names = (
-            list(BODY_JOINTS_SIM) if USING_HANDS else [".*"])
+            list(BODY_JOINTS_SIM) if ARTICULATED_HANDS else [".*"])
         for grp in ("policy", "critic"):
             g = getattr(self.observations, grp, None)
             if g is None:
@@ -315,7 +312,7 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
                     # A FRESH cfg per term: SceneEntityCfg.resolve() mutates the
                     # object it is given, so one shared instance would carry the
                     # first term's resolved ids into the second.
-                    if USING_HANDS:
+                    if ARTICULATED_HANDS:
                         t.params["asset_cfg"] = SceneEntityCfg(
                             "robot", joint_names=list(BODY_JOINTS_SIM))
 
@@ -328,8 +325,21 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
         # 2. wire in the yaw curriculum upstream defined and never registered
         self.curriculum.ang_vel_cmd_levels = CurrTerm(mdp.ang_vel_cmd_levels)
 
-        # 3. weighted sampling toward turn-in-place / lateral / reverse
-        self.commands.base_velocity.class_type = WeightedVelocityCommand
+        # 3. weighted sampling toward turn-in-place / lateral / reverse.
+        #    FEROX_MM1B_VANILLA=1 turns off items 1-3 so the ONLY difference from
+        #    upstream is the asset. That is the control experiment for "is the
+        #    divergence mine or the twin's?", and it should be run before blaming
+        #    either.
+        if _os.environ.get("FEROX_MM1B_VANILLA", "0") == "1":
+            print("[MM1b] VANILLA: upstream ranges, upstream sampler, no yaw "
+                  "curriculum. Only the asset differs.", flush=True)
+            lim.lin_vel_x = (-0.5, 1.0)
+            lim.lin_vel_y = (-0.3, 0.3)
+            lim.ang_vel_z = (-0.2, 0.2)
+            if hasattr(self.curriculum, "ang_vel_cmd_levels"):
+                delattr(self.curriculum, "ang_vel_cmd_levels")
+        else:
+            self.commands.base_velocity.class_type = WeightedVelocityCommand
 
         # 4. PhysX contact-patch buffer. The first 6000-iteration run DIVERGED --
         #    mean episode length 1.00, value loss 4.5e7 -- and the cause was in the
@@ -340,9 +350,26 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
         #    overflowing, contacts are silently wrong, the robots explode, and
         #    every episode terminates on step 1. Training on broken physics for 47
         #    minutes produced a policy of exactly no value.
-        self.sim.physx.gpu_max_rigid_patch_count = 2**21      # 2,097,152
-        self.sim.physx.gpu_found_lost_pairs_capacity = 2**22
-        self.sim.physx.gpu_total_aggregate_pairs_capacity = 2**22
+        #    Sized for the LOCKED-hands asset. The articulated one needed
+        #    615685 patches and 2**21 headroom, and that much GPU buffer put the
+        #    process at 15.14 GiB of a 15.57 GiB card -- PPO then OOMed trying to
+        #    allocate 24 MiB. With the fingers fixed the contact demand drops
+        #    sharply, so the buffers come back down and leave room for the policy.
+        self.sim.physx.gpu_max_rigid_patch_count = 2**19      # 524,288
+        self.sim.physx.gpu_found_lost_pairs_capacity = 2**20
+        self.sim.physx.gpu_total_aggregate_pairs_capacity = 2**20
+
+        # 5. Physics rate. FEROX_MM1B_PHYS_HZ bisects the integration step while
+        #    HOLDING the 50 Hz control rate the deployment contract fixes: the
+        #    decimation is recomputed, never the policy's own rate. Locking the
+        #    hands cut the blow-up but did not cure it, so per Mohammed the hands
+        #    were a symptom and dt is the next suspect.
+        _hz = float(_os.environ.get("FEROX_MM1B_PHYS_HZ", "200"))
+        _ctrl_hz = 50.0
+        self.sim.dt = 1.0 / _hz
+        self.decimation = max(1, int(round(_hz / _ctrl_hz)))
+        print(f"[MM1b] physics {_hz:.0f} Hz, decimation {self.decimation} "
+              f"-> control {_hz / self.decimation:.1f} Hz", flush=True)
 
         # 16 GB box: 2048 envs is Mohammed's cap for this run.
         self.scene.num_envs = min(self.scene.num_envs, 2048)

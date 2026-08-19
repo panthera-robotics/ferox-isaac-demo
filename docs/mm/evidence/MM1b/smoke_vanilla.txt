@@ -1,0 +1,8 @@
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -18.3008
+Episode_Reward/base_angular_velocity: -75.5640
+                       Mean reward: -2771.07
+               Mean episode length: 1.00
+Episode_Reward/base_linear_velocity: -18.3008
+Episode_Reward/base_angular_velocity: -75.5640
+RuntimeError: SMOKE FAILED: mean episode length nan. The robots are terminating immediately -- check the log for 'Patch buffer overflow' before spending hours on this.
