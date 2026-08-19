@@ -11,75 +11,77 @@ plausible one.
 
 ## 0. You are here
 
-**Fast path DONE. Then a video review of `twin_progress_20260818.mp4` found three
-defects no audit could see, and two of the three are fixed.**
+**G1: mount fixed, lidar 360°, camera unverified on this GPU. Go2 bag pending.
+DT6 / DT7 deferred.**
+
+| | State |
+|---|---|
+| **G1 — hand mount** | **FIXED.** Both Dex5 flanges carried `rpy="0 0 0"`; the Dex5 root is not wrist-aligned. Fingers **90.000° → 0.707°** off the forearm axis, both hands, chirality PASS. Isaac suite **13/13**. |
+| **G1 — Mid-360** | **FIXED.** Each message was one render frame's slice. Now **360° per message**, 36/36 bins, **15466** valid points (was ~72° / 4285), **10.00 Hz** exactly in sim time. |
+| **G1 — camera** | **UNVERIFIED ON THIS GPU.** Not a twin defect — **C-23**, and it is the GPU (Mohammed, 2026-08-19). See §1 before touching anything camera-shaped. |
+| **G1 — nav** | 1 of 3 goals SUCCEEDED, the first this twin has ever reached. Accepted as **not a defect**; the evidence run needs re-scoping, see below. |
+| **Go2** | **Ground-truth bag still pending** (OQ-5.1). It decides C-17 and closes the Go2's `pointcloud/fields` (C-2). Nothing else about the Go2 moved. |
+| **DT4 / DT6 / DT7 / DT8** | **deferred by Mohammed — do not start.** |
 
 | Gate | Verdict | Tag |
 |---|---|---|
 | DT0 | PASS-with-deviations (accepted) | `twin-DT0` |
 | DT1 | PASS (accepted) | `twin-DT1` |
-| DT2 | PASS-with-deviations; **nav 1 of 3 goals SUCCEEDED** (was 0 of 3) | `twin-DT2` |
-| DT3 | PASS — **hand mount orientation corrected 2026-08-19** | `twin-DT3`, `twin-g1-fixed` |
+| DT2 | PASS-with-deviations; lidar sector fixed; nav 1 of 3 | `twin-DT2` |
+| DT3 | PASS — hand mount orientation corrected 2026-08-19 | `twin-DT3` |
 | DT5 | Interface PASS, navigation PARTIAL (C-17) | `twin-DT5` |
 | G1 ground truth | OQ-2 + OQ-3 closed, C-18/19/20 opened | `twin-gt-g1` |
 | Persistence | this document | `twin-persist` |
-| **Video-review fixes** | **A fixed, B fixed, C blocked by C-23** | `twin-g1-fixed` |
-| DT4, DT6, DT7, DT8 | **deferred by Mohammed — do not start** | — |
+| **Video-review fixes** | **A fixed · B fixed · C blocked by C-23 (GPU)** | `twin-g1-fixed-2` |
 
 ### The three video-review defects
 
-* **A — Dex5 mount orientation. FIXED.** Both hands were rotated 90° on their
-  flanges for the whole of DT3 (fingers laterally outward, palm forward, thumb
-  down) and every check passed, because DT3 verified the mount's *position* and
-  nothing verified its *orientation*. `rpy = (−π/2, −π/2, 0)`, both sides,
-  derived by `tools/derive_hand_flange.py` and self-tested against Unitree's own
-  published G1+Inspire flange to 1e-16. Fingers **90.000° → 0.707°** off the
-  forearm axis. Isaac suite **13/13**. Full write-up: `RESULTS_DT3.md` §8.
-* **B — the Mid-360 published a sector. FIXED.** Each cloud was one render
-  frame's slice and the decimation sampled the same phase every time. Isaac 5.1
-  has two ROS 2 cloud writers; the twin used the non-accumulating one. Now
-  **360° per message, 15466 valid points on the G1** (was ~72° / 4285), `/scan`
-  **45%** finite (was ~20%), SLAM map known-cells **36/36 bins**, and the first
-  Nav2 goal ever to reach **SUCCEEDED**. `omni:sensor:Core:accumulateOutputs`
-  does not exist — accumulation is an annotator choice, not a prim attribute.
-* **C — the aligned-depth panel. NOT SETTLED, blocked by C-23.** It cannot be
-  measured on this box, because this box cannot run the camera at all.
+* **A — Dex5 mount orientation. FIXED.** DT3 verified the mount's *position*
+  (exact to 0.0000 mm) and nothing verified its *orientation*, so both hands sat
+  90° out — fingers laterally outward, palm forward, thumb down — for the whole
+  gate. `rpy = (−π/2, −π/2, 0)`, both sides, derived by
+  `tools/derive_hand_flange.py` from the Dex5 URDF against the convention
+  extracted from Unitree's own G1+Inspire assembly, and self-tested by
+  re-deriving Unitree's published flange to **1e-16**. Guarded on the built USD.
+  Write-up: `RESULTS_DT3.md` §8.
+* **B — the Mid-360 published a sector. FIXED.** Isaac 5.1 has two ROS 2 cloud
+  writers and the twin used the non-accumulating one.
+  `omni:sensor:Core:accumulateOutputs` **does not exist** — accumulation is an
+  annotator choice, not a prim attribute. `/scan` **20% → 45%**, SLAM map's known
+  cells **36/36 bins** (was a fixed wedge), first Nav2 goal ever **SUCCEEDED**.
+* **C — the aligned-depth panel. NOT SETTLED, and not settleable here.** See
+  C-23 and §1.
 
-### C-23 — read this before you conclude anything about the camera
+### Next steps, in the order they are worth doing
 
-**This box segfaults Isaac's synthetic-data pipeline whenever the ROS 2 image
-writer path is live.** Five boots for five, at `run.py:1201`, inside
-`libomni.syntheticdata` + `libomni.graph.image.core`. Not memory (peak VRAM
-3776 MiB of 16376), not the asset, not the world, not the depth annotator. The
-Go2 twin — same box, no camera in its contract — boots every time, and the
-**offscreen** render path (`14_capture_views.sh`, `13_capture_hands.sh`) works
-fine. `TWIN_CAMERA=0` skips the camera device and changes nothing the audit
-checks; it is what keeps the lidar/nav half workable here.
+1. **Item C + E-1 + C-21's live re-proof + the montage's camera clip** — all four
+   unblock together on a 4090 box, with no code change. `nvidia-smi` first (§1).
+2. **G1 twin nav evidence — ≤1 h on the next box.** 1 of 3 is not a defect; the
+   run was scoped wrong. Goals 2 (7.8, 6.5) and 3 (6.5, 5.0) sat outside the map
+   as it stood at the time — 150×140 cells @ 0.05 m from origin (3.712, −2.773),
+   i.e. y only reached **4.23 m**. Either:
+   * **keep `hospital` and put the goals inside the mapped free space.** Measured
+     at the end of that run (`docs/twin/evidence/DT2-360/`, map 200×232 @ 0.05 m,
+     origin (3.161, −2.773)): free-space bounds **x [3.71, 12.16] m**, **y [−2.67,
+     8.18] m**; robust interior (5–95th percentile of free cells) **x [5.16,
+     10.76]**, **y [−1.42, 5.08]**. Pick three goals inside that interior, or
+     drive a mapping lap first and re-measure; **or**
+   * **spawn in an enclosed room** rather than mid-corridor, so the map closes
+     around the robot and `range_max` 6.0 m reaches walls in every direction.
+   Do not tune the footprint/inflation interaction — DT2 decided that is
+   Ferox-side and deliberately untouched.
+3. **Go2 ground truth (OQ-5.1)** — unchanged, still the item that decides C-17.
 
-**This is not the box the campaign was validated on.** RESUME §1 records an
-RTX 4090 with 48 GB; this is an **RTX 4080 SUPER with 16 GB**, 47 GiB RAM
-against 98, and **no tailnet** (so `.env` pins DDS to `ens3` and the VM's own
-IP per campaign §0.4, not `tailscale0`). On a 4090 box, C-23 may simply not
-exist — and then item C, E-1 and the montage's camera clips are all unblocked.
+**Still open, unchanged:** E-1 detection half, E-2 Go2 puck/bracket, OQ-5.2,
+OQ-5.3, OQ-6, C-3/C-4.
 
-**Open, and what each needs:**
+**Deviations:** C-1 … C-20 open, **C-21 closed**, **C-23 opened** (environment).
+A **C-22 was opened and withdrawn**: `ros2 topic hz` is wall-clock and the sim does
+not run at 1.0×, so a conformant 10 Hz cloud read as 12.6 Hz at RTF 1.26. On header
+stamps it is exactly 10.00 Hz. **Measure the stamps, not the wall clock.**
 
-* **Item C** — one `aligned_depth_to_color` frame, min/median/max mm, zero
-  fraction, rendered beside the colour frame. Needs a box that can run the
-  camera (C-23).
-* **DT2 nav** — 1 of 3 goals SUCCEEDED. Goals 2 and 3 aborted outside the
-  ~7.5 × 7.0 m the map had grown; a longer mapping run before the goals is the
-  obvious next try, and nothing was tuned.
-* **E-1** detection half, **E-2** Go2 puck/bracket, **OQ-5.1/5.2/5.3**, **OQ-6**,
-  **C-3/C-4** — all unchanged.
-* **Deviations** C-1 … C-20 open, **C-21 closed**, **C-23 opened**. A C-22 was
-  opened against the cloud's rate and then **withdrawn**: `ros2 topic hz` is
-  wall-clock and the sim does not run at 1.0×, so a conformant 10 Hz cloud read
-  as 12.6 Hz. Measured on the header stamps it is exactly 10.00 Hz.
-  **Measure the stamps, not the wall clock.**
-
-**Standing rules that outlive the box:** `CLAUDE.md` (RULE-HAND-NAME and the
-rest) and `docs/twin/CAMPAIGN.md` §0.
+**Standing rules that outlive the box:** `CLAUDE.md` (RULE-HAND-NAME and the rest)
+and `docs/twin/CAMPAIGN.md` §0.
 
 ---
 
@@ -98,6 +100,36 @@ Vast.ai instance, Ubuntu 22.04:
 
 Disk is the constraint people underestimate: 22 GB image + 5 GB cache + 100 MB repo +
 captures, and Isaac writes shader cache on every new world.
+
+### The GPU is not interchangeable — check it before any camera work
+
+> **Camera path verified only on RTX 4090 / driver 580.105; RTX 4080 SUPER 16 GB
+> (this box) segfaults the ROS 2 image writer — C-23 — check `nvidia-smi` before
+> starting camera items.**
+
+Five boots out of five, at `run.py:1201`, on the first `world.step(render=True)`
+after a camera render product exists. Ruled out by measurement, not argument:
+memory (peak VRAM **3776 MiB of 16376**, host RSS 5.7 GB of 47, no OOM, no Xid),
+the asset, the world, and the depth annotator. The **Go2** twin — same box, same
+RTX lidar, same bridge, no camera in its contract — boots every time, and the
+**offscreen** render path works fine, so it is the **ROS 2 image writer**
+specifically and not "any camera".
+
+**Evidence:** [`evidence/C23/README.md`](evidence/C23/README.md) — the five boots
+with what each one ruled out, the two controls, the raw crash tails and the 1 Hz
+VRAM/RSS trace through boot 3.
+
+**Disposition (Mohammed, 2026-08-19): it is the GPU. Do not work around it.**
+`TWIN_CAMERA=0` exists only to keep the lidar/nav half workable on a box like this
+one; it skips the camera *device* and changes nothing the audit checks. Anything
+camera-shaped — item C, E-1, C-21's live re-proof, the montage's camera clip —
+waits for a 4090.
+
+```bash
+nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
+# want: NVIDIA GeForce RTX 4090, 49140 MiB, 580.105.08
+# 16376 MiB => do not start camera items; C-23 will take the process down
+```
 
 ---
 

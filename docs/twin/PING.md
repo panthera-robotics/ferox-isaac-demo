@@ -1,3 +1,25 @@
+# PING — RESOLVED 2026-08-19
+
+> **Outcome, both items, from Mohammed:**
+>
+> 1. **C-23 is the GPU. Do not work around it on this box.** The camera path is
+>    verified only on RTX 4090 / driver 580.105. `RESUME.md` §1 now carries the
+>    `nvidia-smi` check to run before any camera item, and the five-boot evidence
+>    is at [`evidence/C23/README.md`](evidence/C23/README.md). Item C, E-1, C-21's
+>    live re-proof and the montage's camera clip all wait for a 4090 box.
+> 2. **Nav 1 of 3 is not a defect.** The evidence run was scoped wrong, not the
+>    twin. `RESUME.md` §0 next-steps carries the measured free-space bounds to
+>    scope the next run against, or the alternative of spawning in an enclosed
+>    room; ≤ 1 h on the next box.
+>
+> Also accepted in the same pass: `/scan` at **45 %** is the correct answer for a
+> mid-corridor spawn against a 6.0 m `range_max` (noted in `RESULTS_DT2.md`), and
+> the azimuth gate stays at **300°** against the bag's measured 310–360°.
+>
+> The text below is kept as the record of what was asked.
+
+---
+
 # PING — 2026-08-19 — the box cannot run the camera, and one decision follows
 
 **Raised:** 2026-08-19, after the video-review fixes

@@ -32,8 +32,31 @@ PARTIAL and are called out in their own rows rather than folded into a green ver
 > measures `pointcloud/azimuth_coverage` on every cloud, from any source, and it
 > passes on the real bag too (340° in 34/36 bins).
 >
+> ### `/scan` at 45 %, and why that is the right answer for this scene
+>
+> **Accepted (Mohammed, 2026-08-19) as the correct scene answer, not a shortfall.**
+> The brief asked for ≥ 50 % finite in `hospital` and the twin measures
+> **45.0–45.8 %**. The missing rays are not missing — they are *correctly infinite*.
+>
+> The `hospital` spawn is **mid-corridor** at (7.8, 2.0) facing +y, with roughly 9 m
+> of clear floor ahead and ~3.3 m to each side wall. `range_max` is **6.0 m**, copied
+> from the driver. Every ray pointing down the long axis of that corridor therefore
+> has nothing to return within range, and `pointcloud_to_laserscan` reports it as
+> `inf` — which is the sensor being honest about a corridor longer than its range.
+>
+> The robot's own 70 % in the ground-truth bag was recorded **standing in a room**,
+> where the walls are inside 6 m in most directions. The two numbers are measuring
+> different scenes, not different sensors. A twin that reported > 50 % here would be
+> inventing returns.
+>
+> Against the pre-fix ~20 %, the comparable statement is that the finite fraction
+> **more than doubled** and the geometry never moved: 723 rays, ∓3.14159, increment
+> 0.0087, 0.30–6.0 m, `base_link`.
+>
 > Navigation is **still PARTIAL**: goals 2 and 3 aborted outside the ~7.5 × 7.0 m
-> the map had grown by then. Nothing was tuned to get goal 1.
+> the map had grown by then. Nothing was tuned to get goal 1. Accepted as **not a
+> defect** — the evidence run was scoped wrong, and RESUME §0 carries the measured
+> free-space bounds to scope the next one against.
 
 ## Scorecard
 

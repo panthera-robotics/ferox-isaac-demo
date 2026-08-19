@@ -1,0 +1,40 @@
+2026-08-19T01:02:30Z [9,532ms] [Warning] [omni.isaac.version] omni.isaac.version has been deprecated in favor of isaacsim.core.version. Please update your code accordingly.
+[9.548s] [ext: omni.isaac.cortex-1.0.5] startup
+[9.549s] [ext: omni.anim.curve.core-1.3.1] startup
+[9.586s] [ext: isaacsim.core.throttling-2.2.2] startup
+[9.603s] [ext: omni.kit.menu.common-2.0.1] startup
+[9.614s] [ext: isaacsim.exp.base-5.1.0] startup
+[9.614s] [ext: isaacsim.exp.base.python-5.1.0] startup
+[9.619s] Simulation App Starting
+2026-08-19T01:02:30Z [9,673ms] [Error] [omni.kit.window.drop_support.drop_support] Cannot setup ExternalDragDrop without a default window
+2026-08-19T01:02:30Z [9,678ms] [Warning] [omni.fabric.plugin] Warning: attribute viewPickingId not found for bucket id 9
+
+[9.716s] app ready
+2026-08-19T01:02:31Z [9,989ms] [Error] [omni.kit.menu.utils.app_menu] Hotkeys cannot be setup without a default window
+Starting kit application with the following args:  ['/isaac-sim/exts/isaacsim.simulation_app/isaacsim/simulation_app/simulation_app.py', '/isaac-sim/apps/isaacsim.exp.base.python.kit', '--/app/tokens/exe-path=/isaac-sim/kit', '--/persistent/app/viewport/displayOptions=3094', '--/rtx/materialDb/syncLoads=True', '--/rtx/hydra/materialSyncLoads=True', '--/omni.kit.plugin/syncUsdLoads=True', '--/app/renderer/resolution/width=1280', '--/app/renderer/resolution/height=720', '--/app/window/width=1440', '--/app/window/height=900', '--/renderer/multiGpu/enabled=True', '--/app/fastShutdown=True', '--/app/installSignalHandlers=0', '--ext-folder', '/isaac-sim/exts', '--ext-folder', '/isaac-sim/apps', '--/physics/cudaDevice=0', '--/plugins/carb.tasking.plugin/threadCount=30', '--/plugins/omni.tbb.globalcontrol/maxThreadCount=30', '--portable']
+Passing the following args to the base kit application:  ['--robot_type', 'go2', '--cmd_vel_topic', '/ferox/go2_01/cmd_vel', '--ros_namespace', '/ferox/go2_01', '--no_keyboard', '--render_dt', '0.025']
+Warp 1.8.2 initialized:
+   CUDA Toolkit 12.8, Driver 13.0
+   Devices:
+     "cpu"      : "x86_64"
+     "cuda:0"   : "NVIDIA GeForce RTX 4080 SUPER" (16 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /isaac-sim/.cache/warp/1.8.2
+Warp DeprecationWarning: The `warp.sim` module is deprecated and will be removed in v1.10. Please transition to using the forthcoming Newton library instead.
+[PANTHERA-MARK] before RobotRosRunner()
+[PANTHERA-MARK] camera ros_namespace = '/ferox/go2_01'
+[World] SIM_WORLD=hospital -> https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Environments/Hospital/hospital.usd
+[World] spawn pos=[7.800000190734863, 2.0, 0.4000000059604645] yaw=1.570rad (robot=go2)
+[PANTHERA-MARK] RobotRosRunner constructed, before reset
+
+===============================================
+ Sim started.
+===============================================
+
+ Verify topics flowing on the host (or from any ROS container):
+   ros2 topic hz /scan
+   ros2 topic hz /odom
+
+ Logs:    docker exec ferox_isaac_sim tail -50 /tmp/sim.log
+ Next:    ./scripts/02_start_ferox.sh
+

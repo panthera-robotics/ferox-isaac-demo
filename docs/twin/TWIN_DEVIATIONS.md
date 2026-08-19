@@ -39,7 +39,7 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 | [C-10](#c-10) | C | IMU rates capped by the render/physics step coupling; aligned depth below the 20 Hz floor | DT2 | OPEN — floor relaxed to 15 Hz for DT2 |
 | [C-11](#c-11) | C | The sim stands with waist = 0; the real G1 stands pitched ~6.2° | DT2 | OPEN — policy property, not geometry |
 | [C-12](#c-12) | C | No head-shell self-hit cluster: sim r_min 1.10 m vs real 0.0985 m | DT2 | OPEN — accepted, `range_min` still reproduced |
-| [C-23](#c-23) | C | Isaac's synthetic-data pipeline segfaults on this box whenever a camera exists | 2026-08-19 | OPEN — environment, not the twin; `TWIN_CAMERA=0` keeps the lidar/nav half workable |
+| [C-23](#c-23) | C | Isaac's ROS 2 image writer segfaults on this box (RTX 4080 SUPER 16 GB) | 2026-08-19 | **ENVIRONMENT, accepted — it is the GPU.** Camera work waits for a 4090; check `nvidia-smi` first |
 
 ---
 
@@ -885,9 +885,20 @@ this box only:
   in the Isaac suite still does, and still passes;
 * the montage's camera clips cannot be re-rendered.
 
-**Would close by** a box with the GPU the campaign was validated on, or an Isaac
-release whose synthetic-data host copy does not fault here. Neither is a twin change.
-Raised in `PING.md` because "which box" is not the agent's call.
+**RESOLVED AS ENVIRONMENT (Mohammed, 2026-08-19): it is the GPU, and it is not to be
+worked around on this box.** Anything camera-shaped — item C, E-1, C-21's live
+re-proof, the montage's camera clip — waits for an RTX 4090. `TWIN_CAMERA=0` stays
+as the switch that keeps the lidar/nav half workable on a box like this one, and
+nothing else changes.
+
+`RESUME.md` §1 now carries the check to run *before* starting camera work:
+
+> Camera path verified only on RTX 4090 / driver 580.105; RTX 4080 SUPER 16 GB
+> (this box) segfaults the ROS 2 image writer — C-23 — check `nvidia-smi` before
+> starting camera items.
+
+Full evidence, five boots with what each ruled out plus both controls:
+[`evidence/C23/README.md`](evidence/C23/README.md).
 
 ---
 

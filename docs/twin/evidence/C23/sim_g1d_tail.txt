@@ -1,0 +1,40 @@
+  ...still booting (15s)
+  ...still booting (20s)
+  ...still booting (25s)
+  ...still booting (30s)
+  ...still booting (35s)
+  ...still booting (40s)
+  ...still booting (45s)
+  ...still booting (50s)
+  ...still booting (55s)
+  ...still booting (60s)
+  ...still booting (65s)
+  ...still booting (70s)
+  ...still booting (75s)
+  ...still booting (80s)
+  ...still booting (85s)
+  ...still booting (90s)
+  ...still booting (95s)
+  ...still booting (100s)
+  ...still booting (105s)
+  ...still booting (110s)
+  ...still booting (115s)
+  ...still booting (120s)
+  ...still booting (125s)
+  ...still booting (130s)
+  ...still booting (135s)
+  ...still booting (140s)
+  ...still booting (145s)
+  ✓ main loop reached at 150s
+
+===============================================
+ Sim started.
+===============================================
+
+ Verify topics flowing on the host (or from any ROS container):
+   ros2 topic hz /scan
+   ros2 topic hz /odom
+
+ Logs:    docker exec ferox_isaac_sim tail -50 /tmp/sim.log
+ Next:    ./scripts/02_start_ferox.sh
+
