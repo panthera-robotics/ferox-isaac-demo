@@ -1,0 +1,12 @@
+  wz=+1.00 run1 ok   dyaw= +0.000 rad rate=+0.0000 (  +0.0%) zmin=0.787 tilt=2.3deg
+  wz=+1.00 run2 ok   dyaw= +0.000 rad rate=+0.0000 (  +0.0%) zmin=0.787 tilt=2.3deg
+  wz=-1.00 run1 ok   dyaw= -0.003 rad rate=-0.0003 (  +0.0%) zmin=0.787 tilt=3.2deg
+  wz=-1.00 run2 ok   dyaw= -0.002 rad rate=-0.0002 (  +0.0%) zmin=0.787 tilt=3.1deg
+  wz=+0.50 run1 ok   dyaw= -0.000 rad rate=-0.0000 (  -0.0%) zmin=0.790 tilt=2.2deg
+  wz=+0.50 run2 ok   dyaw= -0.000 rad rate=-0.0000 (  -0.0%) zmin=0.790 tilt=2.2deg
+  wz=-0.50 run1 ok   dyaw= -0.000 rad rate=-0.0000 (  +0.0%) zmin=0.790 tilt=2.1deg
+  wz=-0.50 run2 ok   dyaw= -0.000 rad rate=-0.0000 (  +0.0%) zmin=0.790 tilt=2.1deg
+  wz=+1.00  2/2 upright  median +0.0% of commanded
+  wz=-1.00  2/2 upright  median +0.0% of commanded
+  wz=+0.50  2/2 upright  median -0.0% of commanded
+  wz=-0.50  2/2 upright  median +0.0% of commanded

@@ -164,6 +164,7 @@ docker exec -d \
   -e TWIN_DUMP_SDG="${TWIN_DUMP_SDG:-0}" \
   -e TWIN_CAMERA="${TWIN_CAMERA:-1}" \
   -e TWIN_CONTACT_MATERIAL="${TWIN_CONTACT_MATERIAL:-0}" \
+  -e TWIN_ARMATURE="${TWIN_ARMATURE:-}" \
   -e HAND="${HAND:-none}" \
   "$SIM_CONTAINER" bash -c "
   cd /workspace/ferox_isaac && \

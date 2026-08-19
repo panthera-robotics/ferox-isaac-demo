@@ -72,6 +72,36 @@ logger = logging.getLogger(__name__)
 # Adding a world = ONE line here:  name -> {usd, spawn: {xy, yaw}}.
 WORLD_ENV_PRIM = "/World/Env"
 
+
+TRAIN_ARMATURE = 0.01
+
+
+def _apply_training_armature(stage, robot_root: str, value: float) -> None:
+    """Set PhysX joint armature on every revolute joint under the robot.
+
+    Read back and counted, because a silent no-op here reads exactly like
+    "armature was not the problem".
+    """
+    from pxr import PhysxSchema, Usd, UsdPhysics
+
+    root = stage.GetPrimAtPath(robot_root)
+    if not root or not root.IsValid():
+        raise RuntimeError(f"armature: {robot_root} not in stage")
+    n = 0
+    for prim in Usd.PrimRange(root):
+        if not prim.IsA(UsdPhysics.RevoluteJoint):
+            continue
+        api = PhysxSchema.PhysxJointAPI.Apply(prim)
+        api.CreateArmatureAttr().Set(value)
+        got = api.GetArmatureAttr().Get()
+        if got is None or abs(float(got) - value) > 1e-9:
+            raise RuntimeError(f"armature on {prim.GetPath()} read back {got}")
+        n += 1
+    if n == 0:
+        raise RuntimeError(f"armature: no revolute joints found under {robot_root}")
+    print(f"[TWIN] armature {value} applied and read back on {n} joints", flush=True)
+
+
 TRAIN_STATIC_FRICTION = 1.0
 TRAIN_DYNAMIC_FRICTION = 1.0
 TRAIN_RESTITUTION = 0.0
@@ -1018,6 +1048,17 @@ class RobotRosRunner(object):
         # The read-back printed "-> ['/World/Env']" and caught it.
         if os.environ.get("TWIN_CONTACT_MATERIAL") == "1":
             _apply_training_contact_material(self._world.stage, robot_root)
+
+        # TWIN_ARMATURE: rotor inertia, which the twin's USD does not have.
+        # unitree_rl_lab's UNITREE_G1_29DOF_CFG sets armature=0.01 on EVERY
+        # actuator group; the URDF importer wrote 0.0 on all 29 (and all 69)
+        # joints, and nothing else sets it -- run.py overwrites stiffness and
+        # damping from deploy.yaml but has never touched armature. At zero the
+        # joint is lighter than the one the policy learned on, which changes the
+        # PD response. Off by default; see RESULTS_MM1 2.10.
+        if os.environ.get("TWIN_ARMATURE"):
+            _apply_training_armature(self._world.stage, robot_root,
+                                     float(os.environ["TWIN_ARMATURE"]))
 
         cmd_min, cmd_max = _resolve_command_limits(deploy_cfg, env_cfg)
         args_min = np.array([-vx_max, -vy_max, -wz_max], dtype=np.float32)

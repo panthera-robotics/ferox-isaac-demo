@@ -311,7 +311,50 @@ inertia reflected through the gearbox; at zero the joint is "lighter" than the o
 the policy learned on, which changes the PD response and is a standard sim-to-sim
 gap. It is the leading candidate for §2.9's asymmetry and is the next thing tested.
 
-### 2.11 Where that leaves §4.1
+### 2.11 Armature tested — it is not the cause either
+
+`TWIN_ARMATURE=0.01` (applied and read back on all 69 joints) **with** the training
+contact material: `wz=+1.00` still **0.0 %**, twice, upright. Armature joins the
+list of eliminated hypotheses.
+
+### 2.12 DECISION at the 6-hour time-box
+
+**Eliminated, each by measurement:** observation layout / scales / history /
+command index; the command clamp; the training command range; the Dex5 hands;
+ground friction and restitution; Nav2 contaminating the topic; joint armature.
+
+**Established:** the policy turns **both directions** in its own training
+environment and only one direction here.
+
+**Two conclusions, and they are independent:**
+
+1. **RETRAIN IS REQUIRED (§4.1(d)), regardless of the twin.** The policy delivers
+   4.9 % of commanded yaw at 0.5 rad/s and 37–59 % at 1.0 rad/s **in Isaac Lab**.
+   Against the campaign's ≤0.1 rad/s acceptance that fails everywhere. No sim-side
+   fix reaches the gate, because the ceiling is in the weights.
+2. **The twin has a residual +wz asymmetry that is ours** (36.6 % → 0.1 %), and it
+   is *not* obs, clamp, hands, friction, restitution, armature or Nav2. Remaining
+   untested candidates: foot collision geometry, terrain (training used the rough
+   generator, the twin is a flat floor), and PhysX solver iteration counts.
+
+**Chosen: defer MM1b rather than run it now, and say so.** §7 Q6's default is "yes,
+one overnight run". A retrain occupies the single 16 GB GPU for hours, and MM2–MM5
+do not depend on the omni policy's yaw at all — MM2 is the environment, MM3 the
+low-level bridge, MM4 is SONIC, which replaces this policy entirely, and MM5 rides
+whichever of the two is available. Running the retrain now would block the campaign's
+stated goal (MM5 done) on the one item that everything else is independent of.
+
+**MM1b recipe, ready to run:** Isaac Lab 2.3.2 + `unitree_rl_lab`
+`Unitree-G1-29dof-Velocity`, **the twin USD** (hands attached, mass 35.005 kg),
+full `ang_vel_z` range, **≤2048 envs** for 16 GB, export TorchScript + ONNX,
+regenerate `deploy.yaml`, new `PROVENANCE`, re-run this same sweep as the arbiter.
+Both containers are built and the install quirks are documented in §2.9.
+
+**MM1 locomotion acceptance is therefore NOT met and is reported as failed**, not
+deferred quietly: yaw fails at every commanded rate, in both directions, and the
+suite in §3 would report that same fact eight more times.
+
+### 2.13 Where that leaves §4.1
 
 | §4.1 branch | status |
 |---|---|
