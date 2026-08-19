@@ -1,0 +1,29 @@
+### ros2 topic hz (10 s windows, ROBOT=go2, sim only)
+--- /scan
+average rate: 4.492
+	min: 0.202s max: 0.255s std dev: 0.02061s window: 6
+average rate: 4.362
+--- /odom
+average rate: 29.148
+	min: 0.033s max: 0.037s std dev: 0.00081s window: 31
+average rate: 29.011
+--- /unitree_lidar
+average rate: 26.944
+	min: 0.027s max: 0.106s std dev: 0.01373s window: 28
+average rate: 28.074
+--- /clock
+average rate: 29.101
+	min: 0.033s max: 0.037s std dev: 0.00092s window: 31
+average rate: 29.029
+--- /joint_states
+average rate: 29.773
+	min: 0.032s max: 0.036s std dev: 0.00080s window: 31
+average rate: 29.764
+--- /ferox/go2_01/camera/color/image_raw
+average rate: 28.936
+	min: 0.021s max: 0.048s std dev: 0.00488s window: 30
+average rate: 28.529
+--- /ferox/go2_01/camera/depth/image_raw
+average rate: 30.313
+	min: 0.019s max: 0.049s std dev: 0.00454s window: 31
+average rate: 30.124

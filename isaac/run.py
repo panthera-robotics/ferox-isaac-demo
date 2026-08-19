@@ -158,10 +158,37 @@ def _resolve_command_limits(
     return cmd_min, cmd_max
 
 
+# Unitree name the Dex5-1P joints Yaw_11L, Roll_12L, Pitch_13L, ... and Link_41L.
+# Every G1 body joint ends in "_joint", so the two sets cannot be confused -- but
+# matching on the hand's own prefixes states the intent and fails loudly if Unitree
+# ever renames them, rather than silently reclassifying a finger as a body joint.
+_HAND_JOINT_PREFIXES = ("Yaw_", "Roll_", "Pitch_", "Link_")
+
+
+def _is_hand_joint(name: str) -> bool:
+    return name.startswith(_HAND_JOINT_PREFIXES)
+
+
 def _resolve_usd_path(env_cfg: dict, robot_type: str = ROBOT_GO2) -> str:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
     if robot_type == ROBOT_G1:
+        # HAND=dex5_1p selects the merged G1+Dex5 asset. It is a SEPARATE asset, not a
+        # variant on the bare one, because the hands have to be present at URDF import
+        # time to end up in the same PhysX articulation -- see tools/merge_dex5_urdf.py.
+        # HAND=none (the default) keeps the bare-wristed robot every earlier gate ran
+        # against, so a hand problem can always be bisected against it.
+        hand = os.environ.get("HAND", "none").strip().lower()
+        if hand not in ("none", "dex5_1p"):
+            raise SystemExit(f"HAND={hand!r} unknown; expected 'none' or 'dex5_1p'")
+        if hand == "dex5_1p":
+            hand_usd = os.path.join(script_dir, "assets", "g1_dex5", "g1_dex5_1p.usd")
+            if not os.path.isfile(hand_usd):
+                raise SystemExit(f"HAND=dex5_1p but {hand_usd} is missing; run "
+                                 "./scripts/12_import_g1_dex5.sh")
+            logger.info("Using merged G1+Dex5-1P USD model: %s", hand_usd)
+            return hand_usd
+
         # First priority: check for local G1 assets directory
         local_usd_path = os.path.join(script_dir, "assets", "g1", "usd", "g1.usd")
         if os.path.isfile(local_usd_path):
@@ -596,13 +623,34 @@ class G1VelocityPolicy(PolicyController):
 
         self.robot.get_articulation_controller().switch_control_mode("position")
 
-        dof_count = len(self.robot.dof_names)
-        logger.info("[G1] Articulation has %d DOFs", dof_count)
-        logger.info("[G1] Joint names: %s", self.robot.dof_names)
+        all_names = list(self.robot.dof_names)
+        logger.info("[G1] Articulation has %d DOFs", len(all_names))
+        logger.info("[G1] Joint names: %s", all_names)
+
+        # The locomotion policy drives the 29 BODY joints. With HAND=dex5_1p the
+        # articulation also carries 40 finger joints, and Isaac interleaves them
+        # (left 29..63, right 34..68, neither contiguous -- C-14), so the policy's
+        # vectors are mapped onto a name-defined slice rather than a prefix. Hand
+        # joints keep the position drives the URDF import gave them and hold their
+        # commanded pose; the policy never writes them.
+        self._policy_dofs = np.array(
+            [i for i, n in enumerate(all_names) if not _is_hand_joint(n)],
+            dtype=np.int32,
+        )
+        self._hand_dofs = np.array(
+            [i for i, n in enumerate(all_names) if _is_hand_joint(n)], dtype=np.int32
+        )
+        dof_count = len(self._policy_dofs)
+        if len(self._hand_dofs):
+            logger.info("[G1] %d hand DOFs held outside the policy: %s",
+                        len(self._hand_dofs),
+                        [all_names[i] for i in self._hand_dofs[:4]] + ["..."])
 
         if len(self._default_pos_sim) != dof_count:
             raise ValueError(
-                f"deploy.yaml default_joint_pos has {len(self._default_pos_sim)} values, expected {dof_count}"
+                f"deploy.yaml default_joint_pos has {len(self._default_pos_sim)} values, "
+                f"expected {dof_count} body joints "
+                f"(articulation has {len(all_names)} DOFs, {len(self._hand_dofs)} of them hand)"
             )
 
         self.default_pos = self._default_pos_sim.copy()
@@ -615,11 +663,17 @@ class G1VelocityPolicy(PolicyController):
                 if len(self._damping_sdk) == dof_count
                 else None
             )
-            self.robot._articulation_view.set_gains(stiffness_sim, damping_sim)
+            self.robot._articulation_view.set_gains(
+                stiffness_sim, damping_sim, joint_indices=self._policy_dofs
+            )
             logger.info("[G1] Applied stiffness/damping from deploy.yaml")
 
-        self.robot.set_joint_positions(self.default_pos)
-        self.robot.set_joint_velocities(self.default_vel)
+        self.robot.set_joint_positions(self.default_pos, joint_indices=self._policy_dofs)
+        self.robot.set_joint_velocities(self.default_vel, joint_indices=self._policy_dofs)
+        if len(self._hand_dofs):
+            zeros = np.zeros(len(self._hand_dofs), dtype=np.float32)
+            self.robot.set_joint_positions(zeros, joint_indices=self._hand_dofs)
+            self.robot.set_joint_velocities(zeros, joint_indices=self._hand_dofs)
         logger.info("[G1] Set initial joint positions")
 
         self._action_scale = _expand_param(
@@ -673,8 +727,8 @@ class G1VelocityPolicy(PolicyController):
         ang_vel_b = np.matmul(R_BI, ang_vel_I)
         gravity_b = np.matmul(R_BI, np.array([0.0, 0.0, -1.0]))
 
-        current_joint_pos = self.robot.get_joint_positions()
-        current_joint_vel = self.robot.get_joint_velocities()
+        current_joint_pos = self.robot.get_joint_positions()[self._policy_dofs]
+        current_joint_vel = self.robot.get_joint_velocities()[self._policy_dofs]
         joint_pos_rel = current_joint_pos - self.default_pos
 
         current_terms = {
@@ -717,7 +771,9 @@ class G1VelocityPolicy(PolicyController):
             self._previous_action = self.action.copy()
 
         target_pos = self._action_offset + (self._action_scale * self.action)
-        action = ArticulationAction(joint_positions=target_pos)
+        action = ArticulationAction(
+            joint_positions=target_pos, joint_indices=self._policy_dofs
+        )
         self.robot.apply_action(action)
         self._policy_counter += 1
 
@@ -767,6 +823,7 @@ class RobotRosRunner(object):
         enable_keyboard: bool,
         robot_type: str = ROBOT_GO2,
         ros_namespace: str = "",
+        twin: bool = False,
     ) -> None:
         """
         Creates the simulation world with preset physics_dt and render_dt and creates a robot inside the warehouse.
@@ -889,6 +946,8 @@ class RobotRosRunner(object):
         self._cmd_vel_only = cmd_vel_only
         self._enable_sensors = enable_sensors
         self._enable_keyboard = enable_keyboard
+        self._twin = twin
+        self._twin_report = {}
 
         self._vx_max = vx_max
         self._vy_max = vy_max
@@ -957,6 +1016,24 @@ class RobotRosRunner(object):
 
         for _ in range(10):
             self._world.step(render=True)
+
+        # TWIN PATH. Everything below the branch is the legacy mode:=sim wiring —
+        # arbitrary sensor offsets, Go2 static TFs on both robots, camera at
+        # 480x270 in a frame no robot publishes. It stays until DT7 retires it.
+        # The twin path shares none of it: poses come from the USD sensor layer,
+        # topics and frames come from isaac/twin/<robot>_contract.yaml.
+        if self._twin:
+            # A twin that fails to come up must say so. Without this the exception
+            # unwinds into Isaac's shutdown path and the log shows only
+            # "Simulation App Shutting Down" -- no traceback, no cause.
+            try:
+                self._setup_twin_ros()
+            except Exception:
+                import traceback
+                print("[TWIN] FATAL: twin interface setup failed", flush=True)
+                traceback.print_exc()
+                raise
+            return
 
         render_hz = None
         if self._render_dt:
@@ -1054,6 +1131,218 @@ class RobotRosRunner(object):
             simulation_app, robot_type=self._robot_type
         )
 
+    def _setup_twin_ros(self) -> None:
+        """Publish the hardware interface, entirely from the contract.
+
+        Only the G1 is wired for the twin at DT2; the Go2 follows at DT5. A robot
+        without a contract raises rather than quietly falling back to the legacy
+        path, because a twin that is silently not a twin is the failure this whole
+        campaign exists to prevent.
+        """
+        import sys
+
+        for extra in ("/workspace/ferox_tools", "/workspace/ferox_isaac/twin"):
+            if extra not in sys.path:
+                sys.path.insert(0, extra)
+        import twin_contract
+        import sensors as twin_sensors
+        import publishers as twin_pub
+
+        contract_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "twin",
+            f"{self._robot_type}_contract.yaml")
+        contract = twin_contract.load(contract_path)
+        ns = contract["robot"]["namespace"]
+        if ns != self._ros_namespace:
+            raise RuntimeError(
+                f"contract namespace {ns} != --ros_namespace {self._ros_namespace}; "
+                "refusing to publish a twin under the wrong namespace")
+
+        root = self._robot_root
+        camera_tf = os.environ.get("CAMERA_TF", "0") == "1"
+
+        print(f"[TWIN] contract {contract_path}", flush=True)
+        print(f"[TWIN] namespace {ns}  CAMERA_TF={int(camera_tf)}", flush=True)
+
+        # --- devices, as identity children of the authored frames --------------
+        lidar_prim, lidar_derived = twin_sensors.create_lidar(contract, root)
+        print(f"[TWIN] Mid-360 at {lidar_prim.GetPath()} {lidar_derived}", flush=True)
+
+        # Which devices exist is a property of the ROBOT and is read off the
+        # contract, not branched on robot_type. The G1 carries a D435i and two IMUs;
+        # the Go2 carries neither camera nor body IMU and publishes the L1's IMU
+        # instead. A `if robot_type == GO2` here would be a second place for the two
+        # robots to disagree with their own contracts.
+        # TWIN_CAMERA=0 skips the camera DEVICE only. It does not touch the contract,
+        # the TF edges, the frame_ids or anything the audit checks -- the camera's
+        # topics simply do not appear, exactly as they do not on the Go2.
+        #
+        # It exists because Isaac 5.1's synthetic-data pipeline SEGFAULTS on this box
+        # (RTX 4080 SUPER 16 GB) on the first world.step(render=True) after a camera
+        # render product is created, inside libomni.syntheticdata +
+        # libomni.graph.image.core. Reproduced five times for five, at run.py:1201
+        # every time. Not a resource limit (peak VRAM 3776 MiB of 16376, host RSS
+        # 5.7 GB of 47) and not the depth annotator (removing it changes nothing --
+        # the default rgb annotator does it too). The Go2 twin, same box and same
+        # bridge with no camera in its contract, boots every time.
+        #
+        # Default is ON. This flag is how the lidar/nav half of the twin stays
+        # workable on a box where the camera half cannot run; see C-23.
+        camera = None
+        want_camera = os.environ.get("TWIN_CAMERA", "1") != "0"
+        if not want_camera:
+            print("[TWIN] camera SKIPPED (TWIN_CAMERA=0) -- C-23, device only, "
+                  "contract untouched", flush=True)
+        elif any(t["name"].endswith("/camera/color/image_raw")
+                 for t in contract.get("topics", [])):
+            camera, K_got = twin_sensors.create_camera(contract, root)
+            print(f"[TWIN] D435i K readback fx={K_got['fx']:.3f} fy={K_got['fy']:.3f} "
+                  f"cx={K_got['cx']:.3f} cy={K_got['cy']:.3f} "
+                  f"(HFOV {K_got['hfov_deg']:.2f} deg, VFOV {K_got['vfov_deg']:.2f} deg)",
+                  flush=True)
+        else:
+            print("[TWIN] no camera in the contract", flush=True)
+
+        imu_topics = [t for t in contract.get("topics", [])
+                      if t["type"] == "sensor_msgs/msg/Imu"]
+        imus = []
+        for t in imu_topics:
+            sensor = twin_sensors.create_imu_for(
+                contract, root, t["name"], t["frame_id"].replace("/", "_"))
+            imus.append((t, sensor))
+            try:
+                sensor.initialize()
+            except Exception:
+                pass
+
+        # Render products need a few frames before they yield anything.
+        for _ in range(5):
+            self._world.step(render=True)
+
+        # --- the wire ---------------------------------------------------------
+        edges = twin_pub.setup_tf_static(contract, camera_tf=camera_tf)
+        print(f"[TWIN] /tf_static: {len(edges)} edges "
+              f"({', '.join(e['parent'] + '->' + e['child'] for e in edges)})", flush=True)
+
+        # Use the ACTUAL rendering dt, not the requested one. Isaac quantises
+        # rendering_dt to a multiple of physics_dt, so --render_dt 1/60 against
+        # --physics_dt 1/200 becomes 0.015 s = 66.67 Hz. Dividing by the requested
+        # 60 gave decimation step 6 and a 11.11 Hz lidar against a 10 Hz contract --
+        # a miss that looks like sensor jitter and is actually arithmetic.
+        try:
+            render_dt = float(self._world.get_rendering_dt())
+        except Exception:
+            render_dt = self._render_dt or (1.0 / 60.0)
+        render_hz = 1.0 / render_dt if render_dt else 60.0
+        print(f"[TWIN] rendering_dt={render_dt:.6f}s ({render_hz:.2f} Hz) "
+              f"requested {self._render_dt:.6f}s", flush=True)
+        # setup_lidar_cloud prints the topic it selected -- it is the only thing
+        # that knows which one the contract chose, and hardcoding "/livox/lidar"
+        # here printed the G1's topic during a Go2 run.
+        twin_pub.setup_lidar_cloud(contract, lidar_prim, render_hz=render_hz)
+
+        # IMU via rclpy, NOT OmniGraph. ROS2PublishImu builds without error, logs
+        # success, and advertises nothing -- baseline defect B-4, still reproducible.
+        # sim_utils already publishes cmd_vel through rclpy for the same reason.
+        import rclpy_pub as twin_rclpy
+        self._twin_rclpy = twin_rclpy.TwinRclpyPublishers()
+        self._twin_imus = []
+        for spec, sensor in imus:
+            key = spec["frame_id"].replace("/", "_")
+            self._twin_rclpy.add_imu(key, spec["name"], reliable=True)
+            self._twin_imus.append({
+                "key": key, "sensor": sensor, "frame": spec["frame_id"],
+                "period": 1.0 / float(spec["rate_hz"]), "next": 0.0,
+            })
+            print(f"[TWIN] IMU -> {spec['name']} (frame {spec['frame_id']}, "
+                  f"{spec['rate_hz']} Hz, rclpy)", flush=True)
+
+        if camera is not None:
+            twin_pub.setup_camera_color(contract, camera, ns)
+            depth_topic = twin_pub.setup_camera_depth_raw(contract, camera, ns)
+            print(f"[TWIN] camera colour -> {ns}/camera/color/image_raw", flush=True)
+            print(f"[TWIN] raw depth (32FC1, converter seam) -> {ns}/{depth_topic}",
+                  flush=True)
+
+        # /clock first: without it every use_sim_time consumer sits at time zero
+        # and Nav2 silently never plans.
+        ros_utils.setup_clock_publisher()
+        odom_spec = twin_pub._topic_of_type(contract, "nav_msgs/msg/Odometry")
+        # Odometry via rclpy, not the OmniGraph publisher. The graph is OnTick, so
+        # it emits once per RENDER frame (~66 Hz measured) and there is no divisor
+        # of 60 that lands on the contract's 51.4. Driving it from the physics
+        # callback with a sim-time limiter hits the rate exactly. The TF graph
+        # stays -- odom -> base_link is a transform, not a topic, and consumers
+        # want it at the highest rate available.
+        self._twin_rclpy.add_odom("odom", odom_spec["name"])
+        self._twin_odom_frame = odom_spec["frame_id"]
+        self._twin_odom_period = 1.0 / float(odom_spec["rate_hz"])
+        self._twin_odom_next = 0.0
+        ros_utils.setup_odom_tf_publisher()
+        print(f"[TWIN] odom -> {odom_spec['name']}", flush=True)
+
+        ros_utils.setup_joint_states_publisher(
+            simulation_app, robot_type=self._robot_type)
+
+        self._sensors = {"twin_lidar": lidar_prim}
+        if camera is not None:
+            self._sensors["twin_camera"] = camera
+        for spec, sensor in imus:
+            self._sensors[f"twin_imu_{spec['frame_id']}"] = sensor
+        self._twin_report = {
+            "lidar": lidar_derived,
+            "tf_static_edges": [f"{e['parent']}->{e['child']}" for e in edges],
+            "imu_topics": [spec["name"] for spec, _ in imus],
+        }
+        if camera is not None:
+            self._twin_report["camera_K"] = K_got
+        print("[TWIN] interface up", flush=True)
+
+    def _twin_pump(self) -> None:
+        """Publish the rclpy-side twin topics, rate-limited on SIM time.
+
+        Called from the PHYSICS callback, not the render loop. The render loop steps
+        at render_dt (60 Hz of sim time), so an IMU driven from there tops out around
+        60 Hz and can never reach the contract's 100 -- measured 65.75 Hz before this
+        moved. Physics runs at 200 Hz, so 100 Hz is a clean 2:1 decimation of it.
+
+        Rate-limiting on SIM time rather than wall time is the other half: the sim
+        runs at well under real time, so a wall-clock limiter would emit 100 Hz of
+        wall time and several hundred Hz of sim time -- a rate no consumer expects
+        and the audit would correctly flag.
+        """
+        if getattr(self, "_twin_rclpy", None) is None:
+            return
+        t = getattr(self, "_twin_sim_time", None)
+        if t is None:
+            return
+        for entry in getattr(self, "_twin_imus", ()):
+            if t < entry["next"]:
+                continue
+            entry["next"] = t + entry["period"]
+            try:
+                frame = entry["sensor"].get_current_frame()
+            except Exception:
+                continue
+            lin, ang = frame.get("lin_acc"), frame.get("ang_vel")
+            ori = frame.get("orientation")
+            if lin is None or ang is None:
+                continue
+            self._twin_rclpy.publish_imu(entry["key"], entry["frame"], t, lin, ang,
+                                         orientation_wxyz=ori if ori is not None else None)
+
+        if getattr(self, "_twin_odom_next", None) is not None and t >= self._twin_odom_next:
+            self._twin_odom_next = t + self._twin_odom_period
+            try:
+                pos_w, quat_wxyz = self._robot.robot.get_world_pose()
+                lin_vel = self._robot.robot.get_linear_velocity()
+                ang_vel = self._robot.robot.get_angular_velocity()
+            except Exception:
+                return
+            self._twin_rclpy.publish_odom(
+                "odom", self._twin_odom_frame, "base_link", t,
+                pos_w, quat_wxyz, lin_vel, ang_vel)
+
     def _get_cmd_vel(self) -> Optional[np.ndarray]:
         if self._linear_attr is None or self._angular_attr is None:
             return None
@@ -1084,6 +1373,14 @@ class RobotRosRunner(object):
         Physics call back, initialize robot (first frame) and call controller forward function.
 
         """
+        if self._twin:
+            # Accumulate sim time from the PHYSICS step. self._world.current_time
+            # only advances once per world.step(), i.e. per RENDER frame, so using
+            # it here let exactly one publish through per render tick and pinned
+            # both IMUs at ~66 Hz no matter what period was requested. step_size is
+            # the physics dt, which is the clock these sensors actually run on.
+            self._twin_sim_time = getattr(self, "_twin_sim_time", 0.0) + float(step_size)
+            self._twin_pump()
         if self.first_step:
             self._robot.initialize()
             self.first_step = False
@@ -1198,6 +1495,14 @@ def main():
     parser.add_argument(
         "--no_keyboard", action="store_true", help="Disable keyboard control"
     )
+    # TWIN MODE. Publishes the hardware interface from isaac/twin/<robot>_contract.yaml
+    # instead of the legacy root-namespace topics and invented frames. Env TWIN=1 is
+    # equivalent, so scripts/01_start_sim.sh can pass it through without an argv change.
+    parser.add_argument(
+        "--twin", action="store_true",
+        default=os.environ.get("TWIN", "0") == "1",
+        help="publish the hardware-shaped twin interface (contract-driven) instead "
+             "of the legacy sim topics")
     parser.add_argument("--real_time", action="store_true", default=False)
     parser.add_argument("--physics_dt", type=float, default=1 / 200.0)
     parser.add_argument("--render_dt", type=float, default=1 / 60.0)
@@ -1244,6 +1549,7 @@ def main():
             enable_keyboard=not args.no_keyboard,
             robot_type=args.robot_type,
             ros_namespace=ros_ns,
+            twin=args.twin,
         )
         print("[PANTHERA-MARK] RobotRosRunner constructed, before reset", flush=True)
         simulation_app.update()

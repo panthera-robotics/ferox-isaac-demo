@@ -1,0 +1,13 @@
+  PASS  mid360 g1 attributes read back
+  PASS  mid360 go2 attributes read back
+  PASS  mid360 g1 per-emitter arrays resized
+  PASS  mid360 g1 elevation span
+  PASS  unknown lidar config never silently accepted
+  PASS  camera intrinsics solve from contract K
+  PASS  merged asset is one articulation of 69 dof
+  PASS  body dof order unchanged by the merge
+  PASS  every hand joint is a dof
+  PASS  hand mass and mount survive the merge
+  PASS  rubber hand caps are gone
+
+11/11 passed

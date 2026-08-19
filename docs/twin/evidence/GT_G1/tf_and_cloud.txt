@@ -1,0 +1,51 @@
+==============================================================================
+1. /tf_static  --  the edge set the robot actually publishes
+==============================================================================
+3 tf_static messages, 3 distinct edges
+  base_link                -> dog_imu_link               xyz=[+0.0000000, +0.0000000, +0.0000000]
+                                                         rpy=[-0.0009660, -0.0108770, +0.0000000]  (-0.055, -0.623, +0.000 deg)
+  base_link                -> livox_frame                xyz=[+0.0000000, +0.0000000, +0.4995000]
+                                                         rpy=[+3.0902330, +0.1616800, +0.0000000]  (+177.057, +9.264, +0.000 deg)
+  livox_frame              -> livox_imu                  xyz=[+0.0110000, +0.0232900, -0.0441200]
+                                                         rpy=[+0.0000000, +0.0000000, +0.0000000]  (+0.000, +0.000, +0.000 deg)
+
+==============================================================================
+2. /tf  --  the dynamic edges
+==============================================================================
+  odom                     -> base_link                  400 samples in the first 400 /tf msgs
+
+==============================================================================
+3. Standing waist pose  --  from base_link -> livox_frame
+==============================================================================
+  STATIC edge present.
+  xyz = [+0.0000000, +0.0000000, +0.4995000]
+  rpy = [+3.0902330, +0.1616800, +0.0000000] rad
+      = [+177.0573, +9.2636, +0.0000] deg
+  contract mount-only rpy = [+3.128688, +0.052979, +0.018520] rad
+  delta pitch vs mount-only = +6.2281 deg   <-- the waist contribution
+
+==============================================================================
+4. /livox/lidar  --  layout, point count, and NEAR RETURNS (self-hit)
+==============================================================================
+  msg 0: 19968x1 pts, point_step 26, is_dense True, frame livox_frame
+    fields: x:7@0, y:7@4, z:7@8, intensity:7@12, tag:2@16, line:2@17, timestamp:8@18
+    range in SENSOR frame: min 0.0000 m  max 15.331 m
+      0.00-0.10 m : 10529
+      0.10-0.20 m :   263
+      0.20-0.30 m :     0
+      0.30-0.35 m :     0
+      0.35-0.50 m :     0
+  msg 1: 20064x1 pts, point_step 26, is_dense True, frame livox_frame
+    range in SENSOR frame: min 0.0000 m  max 15.254 m
+      0.00-0.10 m : 10696
+      0.10-0.20 m :   289
+      0.20-0.30 m :     3
+      0.30-0.35 m :     0
+      0.35-0.50 m :     0
+  msg 2: 19968x1 pts, point_step 26, is_dense True, frame livox_frame
+    range in SENSOR frame: min 0.0000 m  max 15.214 m
+      0.00-0.10 m : 10659
+      0.10-0.20 m :   239
+      0.20-0.30 m :     0
+      0.30-0.35 m :     0
+      0.35-0.50 m :     0

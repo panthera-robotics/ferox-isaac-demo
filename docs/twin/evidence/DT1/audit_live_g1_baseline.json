@@ -1,0 +1,590 @@
+{
+  "contract": "isaac/twin/g1_contract.yaml",
+  "source": "live ROS 2 graph",
+  "summary": {
+    "A_fail": 32,
+    "B_fail": 7,
+    "pass": 19,
+    "skip": 6,
+    "total": 64
+  },
+  "findings": [
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/type",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "sensor_msgs/msg/LaserScan",
+      "actual": "sensor_msgs/msg/LaserScan",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/frame_id",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "base_link",
+      "actual": "laser",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/qos",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "reliable",
+      "actual": "reliable",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "10.0 Hz +-10%",
+      "actual": "4.58 Hz",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/odom",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/type",
+      "subject": "/ferox/g1_01/odom",
+      "expected": "nav_msgs/msg/Odometry",
+      "actual": "nav_msgs/msg/Odometry",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/frame_id",
+      "subject": "/ferox/g1_01/odom",
+      "expected": "odom",
+      "actual": "odom",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/qos",
+      "subject": "/ferox/g1_01/odom",
+      "expected": "reliable",
+      "actual": "reliable",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/ferox/g1_01/odom",
+      "expected": "51.4 Hz +-10%",
+      "actual": "27.54 Hz",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/imu/data",
+      "expected": "published",
+      "actual": "ABSENT",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/livox/lidar",
+      "expected": "published",
+      "actual": "ABSENT",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/present",
+      "subject": "/livox/imu",
+      "expected": "published",
+      "actual": "ABSENT",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/camera/color/image_raw",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/type",
+      "subject": "/ferox/g1_01/camera/color/image_raw",
+      "expected": "sensor_msgs/msg/Image",
+      "actual": "sensor_msgs/msg/Image",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/frame_id",
+      "subject": "/ferox/g1_01/camera/color/image_raw",
+      "expected": "camera_color_optical_frame",
+      "actual": "camera_optical",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/encoding",
+      "subject": "/ferox/g1_01/camera/color/image_raw",
+      "expected": "rgb8",
+      "actual": "rgb8",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/qos",
+      "subject": "/ferox/g1_01/camera/color/image_raw",
+      "expected": "reliable",
+      "actual": "reliable",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/ferox/g1_01/camera/color/image_raw",
+      "expected": ">=20.0 Hz (target 30.0)",
+      "actual": "26.38 Hz",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/type",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": "sensor_msgs/msg/CameraInfo",
+      "actual": "sensor_msgs/msg/CameraInfo",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/frame_id",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": "camera_color_optical_frame",
+      "actual": "camera_optical",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/qos",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": "reliable",
+      "actual": "reliable",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": ">=20.0 Hz (target 30.0)",
+      "actual": "27.54 Hz",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/image_raw",
+      "expected": "published",
+      "actual": "ABSENT",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/camera_info",
+      "expected": "published",
+      "actual": "ABSENT",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/camera/depth/color/points",
+      "expected": "published",
+      "actual": "ABSENT",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "C",
+      "check": "topic/subscribe",
+      "subject": "/ferox/g1_01/cmd_vel",
+      "expected": "accepted by sim",
+      "actual": "present",
+      "status": "SKIP",
+      "note": "input topic -- presence depends on the commanding side"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "base_link -> dog_imu_link",
+      "expected": "present",
+      "actual": "MISSING",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "base_link -> livox_frame",
+      "expected": "present",
+      "actual": "MISSING",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "camera_color_frame -> camera_color_optical_frame",
+      "expected": "present",
+      "actual": "MISSING",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "camera_depth_frame -> camera_depth_optical_frame",
+      "expected": "present",
+      "actual": "MISSING",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "camera_link -> camera_color_frame",
+      "expected": "present",
+      "actual": "MISSING",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "camera_link -> camera_depth_frame",
+      "expected": "present",
+      "actual": "MISSING",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "livox_frame -> livox_imu",
+      "expected": "present",
+      "actual": "MISSING",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/extra",
+      "subject": "base -> camera_link",
+      "expected": "not in contract",
+      "actual": "PUBLISHED ANYWAY",
+      "status": "FAIL",
+      "note": "an edge the robot does not publish"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/extra",
+      "subject": "base -> imu_link",
+      "expected": "not in contract",
+      "actual": "PUBLISHED ANYWAY",
+      "status": "FAIL",
+      "note": "an edge the robot does not publish"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/extra",
+      "subject": "base -> lidar_l1_link",
+      "expected": "not in contract",
+      "actual": "PUBLISHED ANYWAY",
+      "status": "FAIL",
+      "note": "an edge the robot does not publish"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/extra",
+      "subject": "base -> velodyne_base_link",
+      "expected": "not in contract",
+      "actual": "PUBLISHED ANYWAY",
+      "status": "FAIL",
+      "note": "an edge the robot does not publish"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/extra",
+      "subject": "base_link -> base",
+      "expected": "not in contract",
+      "actual": "PUBLISHED ANYWAY",
+      "status": "FAIL",
+      "note": "an edge the robot does not publish"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/extra",
+      "subject": "base_link -> camera_optical",
+      "expected": "not in contract",
+      "actual": "PUBLISHED ANYWAY",
+      "status": "FAIL",
+      "note": "an edge the robot does not publish"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/extra",
+      "subject": "base_link -> realsense_depth_camera",
+      "expected": "not in contract",
+      "actual": "PUBLISHED ANYWAY",
+      "status": "FAIL",
+      "note": "an edge the robot does not publish"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/extra",
+      "subject": "base_link -> velodyne_base_link",
+      "expected": "not in contract",
+      "actual": "PUBLISHED ANYWAY",
+      "status": "FAIL",
+      "note": "an edge the robot does not publish"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/extra",
+      "subject": "camera_link -> realsense_depth_camera",
+      "expected": "not in contract",
+      "actual": "PUBLISHED ANYWAY",
+      "status": "FAIL",
+      "note": "an edge the robot does not publish"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/extra",
+      "subject": "camera_link -> realsense_rgb_camera",
+      "expected": "not in contract",
+      "actual": "PUBLISHED ANYWAY",
+      "status": "FAIL",
+      "note": "an edge the robot does not publish"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/extra",
+      "subject": "lidar_l1_link -> laser",
+      "expected": "not in contract",
+      "actual": "PUBLISHED ANYWAY",
+      "status": "FAIL",
+      "note": "an edge the robot does not publish"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/extra",
+      "subject": "velodyne_base_link -> laser",
+      "expected": "not in contract",
+      "actual": "PUBLISHED ANYWAY",
+      "status": "FAIL",
+      "note": "an edge the robot does not publish"
+    },
+    {
+      "parity": "A",
+      "check": "laserscan/ray_count",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "723",
+      "actual": "3200",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "laserscan/angle_min",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "-3.14159",
+      "actual": "-3.14159",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "laserscan/angle_max",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "3.14159",
+      "actual": "3.13963",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "laserscan/angle_increment",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "0.0087",
+      "actual": "0.0019635",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "laserscan/scan_time",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "0.1",
+      "actual": "0.1",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "laserscan/range_min",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "0.3",
+      "actual": "0.05",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "laserscan/range_max",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "6",
+      "actual": "30",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "laserscan/in_range",
+      "subject": "/ferox/g1_01/scan",
+      "expected": ">=99% of finite returns",
+      "actual": "85.4%",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "C",
+      "check": "laserscan/below_range_min",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "reported (self-hit fraction)",
+      "actual": "14.56%",
+      "status": "SKIP",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "camera_info/width",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": "1280",
+      "actual": "480",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "camera_info/height",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": "720",
+      "actual": "270",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "camera_info/distortion_model",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": "plumb_bob",
+      "actual": "plumb_bob",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "camera_info/K",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": "within 1%",
+      "actual": "worst 62.50% at K[2]",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "C",
+      "check": "provenance/assumed",
+      "subject": "tf camera_link->camera_color_frame",
+      "expected": "calibrated",
+      "actual": "assumed",
+      "status": "SKIP",
+      "note": "EDGE confirmed at panthera-g1-driver/evidence/fw2026q3/session_a/31_tf_static.txt. VALUES unknown: absent from realsense_driver (zero grep hits for camera_link). Placeholder identity -- MUST be replaced from a real /tf_static capture (OQ-1)."
+    },
+    {
+      "parity": "C",
+      "check": "provenance/assumed",
+      "subject": "tf camera_color_frame->camera_color_optical_frame",
+      "expected": "calibrated",
+      "actual": "assumed",
+      "status": "SKIP",
+      "note": "EDGE confirmed at session_a/31_tf_static.txt. Rotation is the fixed REP-103 body-style -> optical-style convention (-pi/2, 0, -pi/2), not a measurement."
+    },
+    {
+      "parity": "C",
+      "check": "provenance/assumed",
+      "subject": "tf camera_link->camera_depth_frame",
+      "expected": "calibrated",
+      "actual": "assumed",
+      "status": "SKIP",
+      "note": "EDGE confirmed at session_a/31_tf_static.txt. VALUES unknown, see OQ-1."
+    },
+    {
+      "parity": "C",
+      "check": "provenance/assumed",
+      "subject": "tf camera_depth_frame->camera_depth_optical_frame",
+      "expected": "calibrated",
+      "actual": "assumed",
+      "status": "SKIP",
+      "note": "EDGE confirmed at session_a/31_tf_static.txt. REP-103 optical convention."
+    }
+  ],
+  "notes": []
+}

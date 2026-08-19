@@ -1,0 +1,18 @@
+### Nav2 lifecycle (g1), 7 managed nodes
+controller_server      active [3]
+smoother_server        active [3]
+planner_server         active [3]
+behavior_server        active [3]
+bt_navigator           active [3]
+waypoint_follower      active [3]
+velocity_smoother      active [3]
+
+### grep Managed nodes are active
+1
+
+### /ferox/g1_01 topic rates (6 s each)
+scan             average rate: 4.245
+odom             average rate: 27.688
+imu/data         <silent>
+map              <silent>
+cmd_vel          <silent>

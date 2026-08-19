@@ -1,0 +1,67 @@
+twin_audit  contract=isaac/twin/g1_contract.yaml
+            source=driver evidence /root/panthera/ref/panthera-g1-driver/evidence
+
+CLS STATUS CHECK               SUBJECT                                       EXPECTED -> ACTUAL
+---------------------------------------------------------------------------------------------------------------------------------------
+A   FAIL   topic/present       /ferox/g1_01/scan                             published  ->  ABSENT
+A   FAIL   topic/present       /ferox/g1_01/odom                             published  ->  ABSENT
+A   FAIL   topic/present       /ferox/g1_01/imu/data                         published  ->  ABSENT
+A   FAIL   topic/present       /livox/lidar                                  published  ->  ABSENT
+B   FAIL   topic/present       /livox/imu                                    published  ->  ABSENT
+A   PASS   topic/present       /ferox/g1_01/camera/color/image_raw           published  ->  published
+A   PASS   topic/type          /ferox/g1_01/camera/color/image_raw           sensor_msgs/msg/Image  ->  sensor_msgs/msg/Image
+A   FAIL   topic/frame_id      /ferox/g1_01/camera/color/image_raw           camera_color_optical_frame  ->  no message received
+A   FAIL   topic/encoding      /ferox/g1_01/camera/color/image_raw           rgb8  ->  -
+A   SKIP   topic/qos           /ferox/g1_01/camera/color/image_raw           reliable  ->  not observable
+B   FAIL   topic/rate          /ferox/g1_01/camera/color/image_raw           30.0 Hz  ->  no messages
+A   PASS   topic/present       /ferox/g1_01/camera/color/camera_info         published  ->  published
+A   PASS   topic/type          /ferox/g1_01/camera/color/camera_info         sensor_msgs/msg/CameraInfo  ->  sensor_msgs/msg/CameraInfo
+A   FAIL   topic/frame_id      /ferox/g1_01/camera/color/camera_info         camera_color_optical_frame  ->  no message received
+A   SKIP   topic/qos           /ferox/g1_01/camera/color/camera_info         reliable  ->  not observable
+B   FAIL   topic/rate          /ferox/g1_01/camera/color/camera_info         30.0 Hz  ->  no messages
+A   PASS   topic/present       /ferox/g1_01/camera/aligned_depth_to_color/i  published  ->  published
+A   PASS   topic/type          /ferox/g1_01/camera/aligned_depth_to_color/i  sensor_msgs/msg/Image  ->  sensor_msgs/msg/Image
+A   FAIL   topic/frame_id      /ferox/g1_01/camera/aligned_depth_to_color/i  camera_color_optical_frame  ->  no message received
+A   FAIL   topic/encoding      /ferox/g1_01/camera/aligned_depth_to_color/i  16UC1  ->  -
+A   SKIP   topic/qos           /ferox/g1_01/camera/aligned_depth_to_color/i  reliable  ->  not observable
+B   FAIL   topic/rate          /ferox/g1_01/camera/aligned_depth_to_color/i  30.0 Hz  ->  no messages
+A   PASS   topic/present       /ferox/g1_01/camera/aligned_depth_to_color/c  published  ->  published
+A   PASS   topic/type          /ferox/g1_01/camera/aligned_depth_to_color/c  sensor_msgs/msg/CameraInfo  ->  sensor_msgs/msg/CameraInfo
+A   FAIL   topic/frame_id      /ferox/g1_01/camera/aligned_depth_to_color/c  camera_color_optical_frame  ->  no message received
+A   SKIP   topic/qos           /ferox/g1_01/camera/aligned_depth_to_color/c  reliable  ->  not observable
+B   FAIL   topic/rate          /ferox/g1_01/camera/aligned_depth_to_color/c  30.0 Hz  ->  no messages
+A   PASS   topic/present       /ferox/g1_01/camera/depth/color/points        published  ->  published
+A   PASS   topic/type          /ferox/g1_01/camera/depth/color/points        sensor_msgs/msg/PointCloud2  ->  sensor_msgs/msg/PointCloud2
+A   FAIL   topic/frame_id      /ferox/g1_01/camera/depth/color/points        camera_depth_optical_frame  ->  no message received
+A   SKIP   topic/qos           /ferox/g1_01/camera/depth/color/points        best_effort  ->  not observable
+B   FAIL   topic/rate          /ferox/g1_01/camera/depth/color/points        30.0 Hz  ->  no messages
+C   SKIP   topic/subscribe     /ferox/g1_01/cmd_vel                          accepted by sim  ->  no publisher seen
+                               note: input topic -- presence depends on the commanding side
+A   PASS   tf_static/edge      base_link -> dog_imu_link                     present  ->  present
+A   SKIP   tf_static/value     base_link -> dog_imu_link                     match contract  ->  values not recorded by this source
+A   PASS   tf_static/edge      base_link -> livox_frame                      present  ->  present
+A   SKIP   tf_static/value     base_link -> livox_frame                      match contract  ->  values not recorded by this source
+A   PASS   tf_static/edge      camera_color_frame -> camera_color_optical_f  present  ->  present
+A   SKIP   tf_static/value     camera_color_frame -> camera_color_optical_f  match contract  ->  values not recorded by this source
+A   PASS   tf_static/edge      camera_depth_frame -> camera_depth_optical_f  present  ->  present
+A   SKIP   tf_static/value     camera_depth_frame -> camera_depth_optical_f  match contract  ->  values not recorded by this source
+A   PASS   tf_static/edge      camera_link -> camera_color_frame             present  ->  present
+A   SKIP   tf_static/value     camera_link -> camera_color_frame             match contract  ->  values not recorded by this source
+A   PASS   tf_static/edge      camera_link -> camera_depth_frame             present  ->  present
+A   SKIP   tf_static/value     camera_link -> camera_depth_frame             match contract  ->  values not recorded by this source
+A   PASS   tf_static/edge      livox_frame -> livox_imu                      present  ->  present
+A   SKIP   tf_static/value     livox_frame -> livox_imu                      match contract  ->  values not recorded by this source
+C   SKIP   provenance/assumed  tf camera_link->camera_color_frame            calibrated  ->  assumed
+                               note: EDGE confirmed at panthera-g1-driver/evidence/fw2026q3/session_a/31_tf_static.txt. VALUES unknown: absent from realsense_driver (zero grep hits for camera_link). Placeholder identity -- MUST be replaced from a real /tf_static capture (OQ-1).
+C   SKIP   provenance/assumed  tf camera_color_frame->camera_color_optical_  calibrated  ->  assumed
+                               note: EDGE confirmed at session_a/31_tf_static.txt. Rotation is the fixed REP-103 body-style -> optical-style convention (-pi/2, 0, -pi/2), not a measurement.
+C   SKIP   provenance/assumed  tf camera_link->camera_depth_frame            calibrated  ->  assumed
+                               note: EDGE confirmed at session_a/31_tf_static.txt. VALUES unknown, see OQ-1.
+C   SKIP   provenance/assumed  tf camera_depth_frame->camera_depth_optical_  calibrated  ->  assumed
+                               note: EDGE confirmed at session_a/31_tf_static.txt. REP-103 optical convention.
+
+[source note] evidence source: 31_tf_static.txt records edge NAMES only, no transform values -- TF value comparison skipped (set comparison still enforced)
+
+summary: 17 pass, 11 Class-A FAIL, 6 Class-B fail, 17 skipped, 51 checks
+
+RESULT: NON-CONFORMANT -- 11 Class-A difference(s) from the contract.

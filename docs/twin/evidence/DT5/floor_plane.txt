@@ -1,0 +1,25 @@
+# Go2 twin -- floor plane from the raw cloud, transformed into base_link with the
+# contract's own mount pose (0.187, 0, 0.0803; pitch 0.2249 rad).
+cloud: 4430 points, frame livox_frame
+floor candidates: 81   (r 0.4..6.0 m, z < -0.18 in base_link)
+  robust fit keeps 77 of 81 (2 sigma = 0.062 m)
+  body lean vs world     : 0.9055 deg
+  tilt vs base_link +z   : 2.1746 deg  (includes the lean)
+floor plane in base_link: z = +0.03174x -0.02085y -0.40016
+  height under base_link : -0.4002 m
+  tilt vs WORLD vertical : 2.9441 deg
+  residual RMS           : 0.0272 m
+  p2l min_height -0.2 sits +0.2002 m above the floor
+#
+# NOT USED AS A GATE CRITERION, and the reason is in the numbers. Two samples taken
+# minutes apart put the floor at -0.355 m and -0.400 m and FLIPPED THE SIGN of the
+# x-gradient (-0.0217 -> +0.0317). A real mount error is a constant; a quantity that
+# changes sign between samples is a fit artefact. The Go2's Mid-360 sits 0.08 m up
+# and returns ~80 floor points scattered out to 6 m, which cannot resolve a 0.5 deg
+# mount error. The G1's equivalent check works because its sensor is 0.50 m up and
+# sees far more floor.
+#
+# The mount is verified instead by three things that ARE conclusive:
+#   * build_twin_assets authored and read back 5/5 frames against the contract
+#   * the audit compares published tf_static to the contract: exact to 0.00e+00
+#   * no floor returns enter /scan (min_height -0.20 sits 0.20 m above the floor)

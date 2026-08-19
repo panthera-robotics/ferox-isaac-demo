@@ -1,0 +1,585 @@
+# ============================================================================
+# G1 TWIN CONTRACT — what the sim must publish for the sim to BE the robot.
+#
+# This file is the single source of truth for the G1 digital twin:
+#   * the sim reads it to place sensor prims, configure publishers, emit /tf_static
+#   * tools/twin_audit.py reads it to decide whether the sim is telling the truth
+#   * tools/tests/test_twin_contract.py asserts these numbers still equal the driver's
+#
+# EVERY geometric value carries `provenance` and `source`.
+#   calibrated   solved against measured data on the real robot
+#   urdf_nominal from the Unitree URDF (may be superseded by calibration)
+#   datasheet    vendor specification
+#   measured     read off a live/recorded capture
+#   configured   a value we chose and encoded in a driver launch/config
+#   assumed      NOT established -- a promise to come back. twin_audit prints these
+#                separately so an assumption cannot quietly become a fact.
+#
+# Sources are cited as <repo>/<path>:<line> against ~/panthera/ref/.
+# Nothing here may be edited to make the sim pass. If the sim disagrees with this
+# file, the SIM is wrong. If this file disagrees with the driver repo, the DRIVER
+# repo wins and this file is the bug.
+# ============================================================================
+
+schema_version: 1
+
+# Ground-truth capture used to close OQ-2, OQ-3 and the provenance below.
+gt_bag: &gt_bag >-
+  ref/captures/g1/captures/g1_twin_gt (rosbag2, 34.571 s, G1 #1 standing still, driver + livox sidecar up, no camera container)
+
+robot:
+  type: g1
+  id: g1_01
+  namespace: /ferox/g1_01
+  # HARDWARE FACT: base_link IS the pelvis. The 29-DoF URDF roots at `pelvis`, but no
+  # `pelvis` frame exists anywhere in the robot's ROS TF tree -- odom_tf_bridge relabels
+  # /state_estimator/odom_pelvis's child from `pelvis` to `base_link`. The twin must
+  # never publish a `pelvis` frame.
+  base_frame: base_link
+  odom_frame: odom
+  description: >-
+    Unitree G1 EDU U4, 29 DoF (g1_29dof_rev_1_0), Mid-360 inverted in the head,
+    D435i in the same head, Dex5-1P hands (DT3).
+  standing_pelvis_height_m: 0.731   # see docs/twin/TWIN_DEVIATIONS.md C-1 (provisional)
+
+# ---------------------------------------------------------------------------
+# SENSORS — physical placement. Poses are parent_link -> sensor frame.
+# ---------------------------------------------------------------------------
+sensors:
+  - name: livox_mid360
+    model: Livox Mid-360
+    # Waist-INDEPENDENT mount. The head sensors ride the 3-joint waist chain, so the
+    # only pose that is constant is the one measured from torso_link. base_link ->
+    # livox_frame is then a COMPOSITION of the waist joints with this mount, which is
+    # why the driver runs waist_tf_bridge rather than a static publisher.
+    parent_link: torso_link
+    pose:
+      xyz: [-0.0440849, -0.0185556, 0.4429585]
+      rpy: [3.128688, 0.052979, 0.018520]   # +179.2606, +3.0355, +1.0611 deg
+      provenance: calibrated
+      source: >-
+        panthera-g1-driver/src/panthera_g1_driver/config/g1_driver.yaml:137-142
+        (waist_tf_bridge; calibrated standing 2026-08-07, floor-plane residual 0.0027 deg).
+        INVERTED mount confirmed two ways: the floor plane fits on the +z side of the
+        sensor, and the Livox IMU reads az ~ -0.99 g at rest. Hence roll near pi.
+        The URDF nominal mid360_joint (xyz 0.0002835 0.00003 0.40618, rpy 0 0.04014 0)
+        was REJECTED by this calibration: 60.6 mm and 1.5 deg off.
+    model_params:
+      # Datasheet figures. The RTX proxy cannot reproduce the non-repetitive rosette
+      # scan pattern -- that is a declared Class-C deviation, see TWIN_DEVIATIONS.md.
+      azimuth_deg: [-180.0, 180.0]
+      elevation_deg: [-7.0, 52.0]
+      range_m: [0.1, 40.0]
+      scan_rate_hz: 10.0
+      points_per_second: 200000
+      range_accuracy_m: 0.02
+      provenance: datasheet
+      source: Livox Mid-360 datasheet; rate corroborated by /livox/lidar at 10.000 Hz
+    notes: >-
+      The real cloud is RAW: sensor frame, not deskewed, NOT self-filtered. It contains
+      the robot's own head shell from ~0.10 m out (r_min 0.0985 m, stable over 897
+      clouds), which is exactly why p2l range_min is 0.30.
+
+  - name: d435i
+    model: Intel RealSense D435i
+    parent_link: torso_link
+    pose:
+      xyz: [0.0576235, 0.01753, 0.41987]
+      rpy: [0.0, 0.8307767239493009, 0.0]   # +47.600 deg pitch DOWN about +y
+      provenance: urdf_nominal
+      source: >-
+        panthera-g1-driver/src/panthera_g1_driver/config/g1_driver.yaml:188-193
+        (camera_mount_*), URDF-exact per
+        panthera-g1-driver/evidence/fw2026q3/camera_extrinsics_provenance.md:35,41-47
+        (joint d435_joint, torso_link -> d435_link, copied verbatim from the URDF).
+        UNVERIFIED as a physical measurement: nominal only, +-60 mm / +-1.5 deg. The
+        driver keeps camera_tf_enable:false (g1_driver.yaml:186) until a floor-plane
+        check confirms it, so base_link -> camera_link is NOT in the robot's live
+        /tf_static today and the camera subtree is an orphan root.
+        DO NOT "correct" 47.60 deg to the 42.4 deg / 55.2 deg annotations in Unitree's
+        diagram: those are FOV geometry, not mount angle
+        (camera_extrinsics_provenance.md, section 3). The same document notes the waist
+        portion of this chain is bit-identical to what waist_tf_bridge already implements
+        for the lidar edge -- an independent confirmation of the lidar path.
+    model_params:
+      color_resolution: [1280, 720]
+      color_rate_hz: 30
+      depth_module_resolution: [848, 480]
+      depth_rate_hz: 30
+      cloud_resolution_after_decimation: [424, 240]
+      clip_distance_m: 4.0        # clips on Z (depth), not euclidean range
+      min_z_m: 0.28               # ~MinZ at 848x480; no near-bound parameter is set
+      visual_preset: 3            # High Accuracy (INTEGER on realsense2-camera 4.58.2)
+      decimation_magnitude: 2
+      filter_order: decimation -> depth_to_disparity -> spatial -> temporal -> disparity_to_depth
+      hole_filling: false
+      provenance: configured
+      source: >-
+        realsense_driver/params.yaml:32-65 (preset, clip_distance, decimation, spatial,
+        temporal, disparity domain), realsense_driver/compose.yaml:27-28 (profiles),
+        realsense_driver/params.yaml:43 (MinZ ~0.28 m at 848x480).
+        Smoothers run in the DISPARITY domain because the wrapper's filter order is fixed.
+    notes: >-
+      DEPTH UNITS ARE NOT WRITTEN DOWN ANYWHERE. realsense_driver states encoding 16UC1
+      (README.md:24) but never sets depth_module.depth_units and never states mm vs m.
+      The twin publishes millimetres by librealsense convention; this is `assumed` and
+      needs one hardware confirmation. See open question OQ-1.
+
+  - name: dog_imu
+    model: G1 body IMU (from /lowstate.imu_state)
+    parent_link: base_link
+    pose:
+      xyz: [0.0, 0.0, 0.0]
+      rpy: [-0.000966, -0.010877, 0.0]   # -0.0553, -0.6232 deg -- standing residual
+      provenance: calibrated
+      source: >-
+        panthera-g1-driver/src/panthera_g1_driver/launch/g1_driver_hw.launch.py:501,508
+        (imu_mount_roll_rad / imu_mount_pitch_rad defaults), published at :363-368.
+        Near-identity: the residual tilt of the body IMU while standing.
+
+  - name: livox_imu
+    model: Mid-360 internal IMU
+    parent_link: livox_frame
+    pose:
+      xyz: [0.011, 0.02329, -0.04412]
+      rpy: [0.0, 0.0, 0.0]
+      provenance: datasheet
+      source: >-
+        panthera-g1-driver/src/panthera_g1_driver/launch/g1_driver_hw.launch.py:495-497
+        (livox_imu_x/y/z defaults; Livox datasheet offset), published at :349-354.
+
+# ---------------------------------------------------------------------------
+# TF STATIC — EXACTLY the edge set the robot publishes, and nothing else.
+# Session A recorded 7 edges. An extra edge is a Class-A failure: the twin must not
+# invent frames (baseline defect B-1/B-3 was exactly that).
+# ---------------------------------------------------------------------------
+tf_static:
+  - parent: base_link
+    child: dog_imu_link
+    xyz: [0.0, 0.0, 0.0]
+    rpy: [-0.000966, -0.010877, 0.0]
+    # CONFIRMED EXACTLY by the ground-truth bag (was calibrated): every component matched to 0.00e+00.
+    provenance: captured
+    source: panthera-g1-driver/.../g1_driver_hw.launch.py:363-368, defaults :501,:508
+
+  # STATIC-MODE composite. In the driver's default waist-bridge mode this edge is
+  # published DYNAMICALLY by waist_tf_bridge as waist(q) x torso->livox. These numbers
+  # are that composition evaluated at the standing pose, and DT2 must reproduce them to
+  # <=1e-3 rad / <=2 mm as the waist round-trip check (doc/05-validation.md 11.2).
+  # DYNAMIC (/tf), not static. Resolved at DT2: the driver's DEFAULT lidar_tf_mode is
+  # the waist bridge, which composes waist(q) with the calibrated torso_link->livox_frame
+  # mount at 100 Hz. The static edge below is that composition evaluated at ONE posture --
+  # the robot standing at ~6.2 deg of waist pitch, which is what Session A captured.
+  # Our policy stands with the waist at 0, so publishing the static value there put the
+  # cloud 5.96 deg out from its own TF (floor-plane fit, 1.72 mm residual over 1884 pts).
+  # The twin therefore runs the driver's default mode. These xyz/rpy stay in the contract
+  # as the REFERENCE the round-trip must reproduce when the waist is at the robot's
+  # standing angle -- they are not what is published at rest.
+  - parent: base_link
+    child: livox_frame
+    xyz: [0.0, 0.0, 0.4995]
+    rpy: [3.090233, 0.161680, 0.0]   # +177.0573, +9.2636, 0 deg
+    dynamic: true
+    rate_hz: 100.0
+    provenance: calibrated
+    source: >-
+      panthera-g1-driver/.../g1_driver_hw.launch.py:459-478 (lidar_x/y/z,
+      lidar_roll_rad/lidar_pitch_rad/lidar_yaw_rad defaults), published at :321-326.
+      z = 0.4995 EMPIRICAL (1.2304 m lidar-to-floor minus 0.7310 m standing pelvis).
+      The Unitree doc's 0.47618 m carries a NEGATIVE sign, which is wrong for a
+      base_link->lidar edge; empirical wins.
+
+  - parent: livox_frame
+    child: livox_imu
+    xyz: [0.011, 0.02329, -0.04412]
+    rpy: [0.0, 0.0, 0.0]
+    # CONFIRMED EXACTLY by the ground-truth bag (was datasheet): every component matched to 0.00e+00.
+    provenance: captured
+    source: panthera-g1-driver/.../g1_driver_hw.launch.py:495-497, published at :349-354
+
+  # ---- RealSense intra-camera subtree ----
+  # THESE FOUR EDGES EXIST ON THE ROBOT (session_a/31_tf_static.txt) BUT THEIR VALUES
+  # ARE NOT RECORDED ANYWHERE WE HAVE. realsense_driver contains zero numeric transforms
+  # (README.md:9: "publishes no TF into the robot's chain"); librealsense emits them from
+  # the device at runtime. Session A captured edge NAMES only, no values.
+  # The optical-frame rotations below are the fixed REP-103 body->optical convention and
+  # are safe; the camera_link->*_frame translations are NOT known. See OQ-1.
+  - parent: camera_link
+    child: camera_color_frame
+    xyz: [0.0, 0.0, 0.0]
+    rpy: [0.0, 0.0, 0.0]
+    provenance: assumed
+    source: >-
+      EDGE confirmed at panthera-g1-driver/evidence/fw2026q3/session_a/31_tf_static.txt.
+      VALUES unknown: absent from realsense_driver (zero grep hits for camera_link).
+      Placeholder identity -- MUST be replaced from a real /tf_static capture (OQ-1).
+  - parent: camera_color_frame
+    child: camera_color_optical_frame
+    xyz: [0.0, 0.0, 0.0]
+    rpy: [-1.5707963267948966, 0.0, -1.5707963267948966]
+    provenance: assumed
+    source: >-
+      EDGE confirmed at session_a/31_tf_static.txt. Rotation is the fixed REP-103
+      body-style -> optical-style convention (-pi/2, 0, -pi/2), not a measurement.
+  - parent: camera_link
+    child: camera_depth_frame
+    xyz: [0.0, 0.0, 0.0]
+    rpy: [0.0, 0.0, 0.0]
+    provenance: assumed
+    source: >-
+      EDGE confirmed at session_a/31_tf_static.txt. VALUES unknown, see OQ-1.
+  - parent: camera_depth_frame
+    child: camera_depth_optical_frame
+    xyz: [0.0, 0.0, 0.0]
+    rpy: [-1.5707963267948966, 0.0, -1.5707963267948966]
+    provenance: assumed
+    source: EDGE confirmed at session_a/31_tf_static.txt. REP-103 optical convention.
+
+  # GATED, OFF BY DEFAULT -- mirrors the driver exactly.
+  # The driver CAN publish this edge (camera_child_frame: camera_link, camera_mount_* at
+  # g1_driver.yaml:186-193) but ships it DISABLED (camera_tf_enable: false) pending a
+  # floor-plane check, so it is absent from session_a/31_tf_static.txt and camera_link is
+  # an ORPHAN ROOT on the real robot with the RealSense subtree hanging beneath it.
+  # The twin reproduces that: CAMERA_TF=1 (env -> run.py) is the sim's counterpart of
+  # camera_tf_enable. Default off. twin_audit SKIPs a gated edge that is absent and
+  # checks its values normally when it is present.
+  - parent: base_link
+    child: camera_link
+    xyz: [0.0576235, 0.01753, 0.41987]
+    rpy: [0.0, 0.8307767239493009, 0.0]
+    provenance: urdf_nominal
+    default_published: false
+    conditional: >-
+      Sim: CAMERA_TF=1. Driver: camera_tf_enable (g1_driver.yaml:186, default false).
+      NOTE the driver composes this through the waist chain when waist_tf_bridge is
+      active; these numbers are the torso_link -> d435_link tail evaluated at the
+      standing pose, same convention as the base_link -> livox_frame row.
+    source: >-
+      panthera-g1-driver/config/g1_driver.yaml:186-193; URDF-exact per
+      evidence/fw2026q3/camera_extrinsics_provenance.md:35,41-47.
+
+# ---------------------------------------------------------------------------
+# pointcloud_to_laserscan — the driver's exact parameters. Class A, reproduced
+# to the digit. Do NOT re-derive these to suit the sim body: see TWIN_DEVIATIONS C-1.
+# ---------------------------------------------------------------------------
+pointcloud_to_laserscan:
+  target_frame: base_link
+  transform_tolerance: 0.1
+  min_height: -0.556      # clears the floor by 0.175 m at the standing pelvis height
+  max_height: 0.50        # 1.231 m above the floor
+  angle_min: -3.141592653589793     # -math.pi EXACTLY (Go2 uses -3.14159; not the same)
+  angle_max: 3.141592653589793
+  angle_increment: 0.0087           # ~0.5 deg
+  scan_time: 0.1                    # cloud measured at 9.95 Hz
+  range_min: 0.30                   # rejects the head-shell self-hit cluster (0.10-0.20 m)
+  range_max: 6.0                    # MATCHED PAIR with AMCL laser_max_range in Ferox
+  use_inf: true
+  inf_epsilon: 1.0
+  queue_size: 5
+  provenance: configured
+  source: >-
+    panthera-g1-driver/.../g1_driver_hw.launch.py:230-266 (node params) with defaults at
+    :424-434 (scan_min_height -0.556, scan_max_height 0.50, scan_range_min 0.30,
+    scan_range_max 6.0). STANDING-POSTURE ASSUMPTION: base_link is the pelvis, so the
+    floor's height in base_link IS the pelvis height. Crouched, the same robot put the
+    floor at -0.588 m. Any stand-height FSM invalidates this slice.
+
+# ---------------------------------------------------------------------------
+# TOPICS — the wire. Names, types, frames and encodings are Class A (exact).
+# Rates are Class B (+-10%, camera >=20 Hz).
+# ---------------------------------------------------------------------------
+topics:
+  - name: /ferox/g1_01/scan
+    type: sensor_msgs/msg/LaserScan
+    direction: publish
+    frame_id: base_link
+    rate_hz: 10.0
+    # best_effort is pointcloud_to_laserscan's OWN publisher default, which this
+    # package does not set on either side. The robot runs the identical node with
+    # the identical parameters, so the QoS matches by construction rather than by
+    # configuration. Recorded as measured, not as an aspiration.
+    qos: {reliability: best_effort, durability: volatile}
+    parity_class: A
+    provenance: measured
+    source: >-
+      panthera-g1-driver/.../g1_driver_hw.launch.py:138 (scan_topic), :230 (remap).
+      QoS is the p2l default (not set by the driver); measured best_effort in the twin,
+      and the same node produces the same default on the robot.
+    expect:
+      laserscan:
+        ray_count: 723
+        angle_min: -3.141592653589793
+        angle_max: 3.141592653589793
+        angle_increment: 0.0087
+        scan_time: 0.1
+        range_min: 0.30
+        range_max: 6.0
+
+  - name: /ferox/g1_01/odom
+    type: nav_msgs/msg/Odometry
+    direction: publish
+    frame_id: odom
+    # 51.4 Hz. RESOLVED at DT2 -- see the source note; the 26.20 Hz figure measured in
+    # the Session-A capture was an ALIASING BUG that has since been fixed on the robot.
+    # OQ-3 CLOSED: measured 51.46 Hz over 34.571 s in the ground-truth bag.
+    rate_hz: 51.4
+    qos: {reliability: reliable, durability: volatile}
+    parity_class: A
+    provenance: captured
+    source: >-
+      panthera-g1-driver/.../g1_driver_hw.launch.py:275 (out_topic), republished from
+      /state_estimator/odom_pelvis with child_frame relabelled pelvis -> base_link.
+      Covariance is all-zero on hardware and inject_static_covariance is false
+      (g1_driver.yaml:85) -- the twin matches that.
+      RATE PROVENANCE (this number moved once; do not move it again without reading
+      this). evidence/fw2026q3/session_a/30_evidence.txt measures 26.20 Hz on this exact
+      topic with a QoS-matched subscriber. That capture is stamped
+      companion now() = 1786465672 (2026-08-11T16:27:52Z) and PREDATES driver commit
+      abd0d0a (1786466558, 2026-08-11T16:42:38Z) by 14.8 minutes. abd0d0a is titled
+      "fix: odom rate aliasing (26.6 Hz not 50)" and changes odom_publish_rate_hz from
+      50.0 to 0.0: "a 50.0 Hz gate against the 51.45 Hz source emitted only 26.6 Hz,
+      because the source interval (19.44 ms) sits just BELOW the gate period (20 ms), so
+      nearly every second sample is dropped. The shipped limiter fed a synthetic
+      51.447 Hz stream reproduces it exactly: 25.72 Hz out." The same commit records
+      "Spec corrected to ~51.4 Hz". So 26.20 Hz was the aliasing bug, not the interface;
+      the gate is gone and the driver is now true pass-through of the 51.45 Hz source.
+      The 2:1 decimation this contract's earlier note inferred from the gap median
+      (38.54 ms) was real -- it was the gate, not the measurement method.
+
+  - name: /ferox/g1_01/imu/data
+    type: sensor_msgs/msg/Imu
+    direction: publish
+    frame_id: dog_imu_link
+    # CAPTURED 93.70 Hz. Was 100.0 (configured). The nominal is 100; the robot delivers 93.7, inside the +-10% band either way, so the contract now carries what the robot does rather than what its config says.
+    rate_hz: 93.7
+    qos: {reliability: reliable, durability: volatile}
+    parity_class: A
+    provenance: captured
+    source: >-
+      panthera-g1-driver/.../g1_driver_hw.launch.py:289 (out_topic), downsampled by
+      imu_republisher from /lowstate.imu_state.
+
+  - name: /livox/lidar
+    # OQ-2 CLOSED at the ground-truth capture. The layout below is no longer the
+    # livox_ros_driver2 default taken on faith -- it was read out of the bag and
+    # matches what was assumed, field for field, offset for offset:
+    #   x:FLOAT32@0  y:FLOAT32@4  z:FLOAT32@8  intensity:FLOAT32@12
+    #   tag:UINT8@16 line:UINT8@17 timestamp:FLOAT64@18   point_step 26
+    # width 19872-20064 per sweep, height 1, is_dense true, frame livox_frame.
+    # See also C-18: 52.7% of those points are exact zeros (non-returns), so the
+    # VALID count is ~9.4k, not ~20k.
+    captured_from: *gt_bag
+    type: sensor_msgs/msg/PointCloud2
+    direction: publish
+    frame_id: livox_frame
+    rate_hz: 10.0
+    qos: {reliability: reliable, durability: volatile}
+    parity_class: A
+    # OQ-2 CLOSED: field layout read from the ground-truth bag, matches what was assumed.
+    provenance: captured
+    source: >-
+      panthera-g1-driver/evidence/fw2026q3/session_a/13_livox_lidar.txt
+      (average rate 10.000, frame_id livox_frame, 19968-20064 points/msg, Jetson-stamped).
+      Published by our own livox_ros_driver2 sidecar, not by Unitree firmware -- which is
+      what fixes the field layout below. Topic/frame/rate are MEASURED; the FIELD LAYOUT
+      is `assumed` from livox_ros_driver2 and is the reason this row is not `measured`.
+    expect:
+      # DECLARED APPROXIMATION (C-2), resolved to the SIDECAR's layout at DT2.
+      # /livox/lidar on the G1 comes from OUR OWN livox_ros_driver2 sidecar, not from
+      # Unitree firmware (cloud_restamper.py header; phase1_diffs.patch:446). So the
+      # right default is livox_ros_driver2's PointCloud2 layout, NOT the retired Unitree
+      # stream /utlidar/cloud_livox_mid360 (which was x,y,z,intensity FLOAT32 + ring
+      # UINT16 + time FLOAT32, point_step 22 -- evidence/phase0/streams_90s.json).
+      # Marked `assumed` until an --no-arr echo of the live topic confirms it (OQ-2).
+      pointcloud_fields:
+        - {name: x,         datatype: FLOAT32, offset: 0,  count: 1}
+        - {name: y,         datatype: FLOAT32, offset: 4,  count: 1}
+        - {name: z,         datatype: FLOAT32, offset: 8,  count: 1}
+        - {name: intensity, datatype: FLOAT32, offset: 12, count: 1}
+        - {name: tag,       datatype: UINT8,   offset: 16, count: 1}
+        - {name: line,      datatype: UINT8,   offset: 17, count: 1}
+        - {name: timestamp, datatype: FLOAT64, offset: 18, count: 1}
+      point_step: 26
+      # C-18, CAPTURED. What the robot actually MEASURES per sweep. `width` is
+      # 19872-20064, but 52.7% of it is exact-zero padding for non-returns, so
+      # this is the number that compares to the twin's. The twin emits one point
+      # per ray and pads nothing, so it reports ~20k here and is ~2x denser --
+      # declared, not corrected by throwing sim points away.
+      valid_returns_per_sweep: 9443
+      # AZIMUTH COVERAGE OF ONE MESSAGE. A full-sweep sensor that publishes a
+      # sector passes every other check here -- right topic, frame, point_step,
+      # plausible width, contract rate -- so the only thing that catches it is the
+      # spread of bearings INSIDE one message. Measured over all 346 clouds in the
+      # ground-truth bag, as occupied bins of a 36-bin (10 deg) histogram of valid
+      # returns:
+      #
+      #     occupied bins   min 31   median 34   max 36   mean 33.48
+      #     coverage        310 deg  340 deg     360 deg  334.8 deg
+      #
+      # So the real Mid-360 does NOT fill the circle every 100 ms: bins 14-17
+      # (sensor azimuth -40..0 deg) are empty in 112-224 of the 346 messages, and
+      # bin 21 (+30..+40) in 125. That is the non-repetitive rosette's coverage
+      # varying with dwell time -- the pattern C-6 declares the twin cannot
+      # reproduce -- plus the head shell. It is a property of the sensor, not a
+      # defect, and a threshold that demanded 360 would fail the robot.
+      #
+      # 300 is therefore the real sensor's own measured worst case (310) less one
+      # bin of margin. It is nowhere near the failure it exists to catch: the twin
+      # was publishing ONE RENDER FRAME's partial sweep, about 72 deg / 7 bins.
+      # The gap between 72 and 310 is what makes this check safe at either end.
+      azimuth_coverage_deg_min: 300.0
+    deviations:
+      # RtxLidarROS2PublishPointCloud emits x,y,z only (point_step 12) -- measured,
+      # and there is no Isaac 5.1 node that adds intensity/tag/line/timestamp to an
+      # RTX lidar cloud. The check still RUNS and still prints the difference every
+      # audit; it just no longer gates the exit code. See TWIN_DEVIATIONS C-8.
+      pointcloud/fields: "C-8: Isaac RTX lidar cloud is xyz-only; no bridge node emits the livox layout"
+      pointcloud/point_step: "C-8: xyz-only cloud is point_step 12, not 26"
+
+  - name: /livox/imu
+    type: sensor_msgs/msg/Imu
+    direction: publish
+    # CAPTURED: the real messages carry frame_id 'livox_frame', NOT 'livox_imu'. The livox_imu TF edge exists and is correct, but the sidecar does not stamp with it.
+    frame_id: livox_frame
+    # The WIRE frame and the MOUNT frame differ on this topic, and only on this
+    # one. The sidecar stamps livox_frame; the device physically sits at
+    # livox_imu, whose TF edge this same capture confirmed exactly. Without
+    # mount_frame the twin would place the IMU prim at livox_frame and quietly
+    # move the sensor by the datasheet offset [0.011, 0.02329, -0.04412] --
+    # 4 cm, and invisible to every topic-level check.
+    mount_frame: livox_imu
+    rate_hz: 200.0
+    qos: {reliability: reliable, durability: volatile}
+    parity_class: B
+    provenance: captured
+    source: >-
+      Published and currently unconsumed on the robot
+      (panthera-g1-driver/FW_MIGRATION_REPORT.md:635; livox_driver_node log in
+      evidence/fw2026q3/session_a/15_lidar_logs_5min.txt:24). Rate 200 Hz from the
+      equivalent Unitree stream /utlidar/imu_livox_mid360 measured at 200.02 Hz
+      (evidence/phase0/streams_90s.json). Campaign amendment 2 requires the twin to
+      publish it for fast_lio2_dockerized.
+
+  - name: /ferox/g1_01/camera/color/image_raw
+    type: sensor_msgs/msg/Image
+    direction: publish
+    frame_id: camera_color_optical_frame
+    rate_hz: 30.0
+    rate_rule: camera
+    qos: {reliability: reliable}
+    parity_class: A
+    provenance: configured
+    source: realsense_driver/README.md:22,28; compose.yaml:22,28
+    expect:
+      encoding: rgb8
+
+  - name: /ferox/g1_01/camera/color/camera_info
+    type: sensor_msgs/msg/CameraInfo
+    direction: publish
+    frame_id: camera_color_optical_frame
+    rate_hz: 30.0
+    rate_rule: camera
+    qos: {reliability: reliable}
+    parity_class: A
+    provenance: configured
+    source: realsense_driver/README.md:23; frame per README.md:28
+    expect:
+      camera_info:
+        width: 1280
+        height: 720
+        distortion_model: plumb_bob
+        # ASSUMED: D435i factory-typical, HFOV 69 deg at 1280x720. The real K and D come
+        # from the device at runtime and are in NO repo (realsense_driver has zero
+        # intrinsics). Replace from a real capture -- OQ-1.
+        K: [908.0, 0.0, 640.0, 0.0, 908.0, 360.0, 0.0, 0.0, 1.0]
+
+  - name: /ferox/g1_01/camera/aligned_depth_to_color/image_raw
+    type: sensor_msgs/msg/Image
+    direction: publish
+    frame_id: camera_color_optical_frame
+    rate_hz: 30.0
+    rate_rule: camera
+    qos: {reliability: reliable}
+    parity_class: A
+    provenance: configured
+    source: >-
+      realsense_driver/README.md:24 (1280x720, 16UC1, 30 Hz, RELIABLE), :28 (frame),
+      compose.yaml:25 (align_depth.enable). Carries the SAME stamp as its colour frame
+      (README.md:31-32) -- colour/depth skew is structurally zero, not merely small.
+    expect:
+      encoding: 16UC1
+
+  - name: /ferox/g1_01/camera/aligned_depth_to_color/camera_info
+    type: sensor_msgs/msg/CameraInfo
+    direction: publish
+    frame_id: camera_color_optical_frame
+    rate_hz: 30.0
+    rate_rule: camera
+    qos: {reliability: reliable}
+    parity_class: A
+    provenance: configured
+    source: realsense_driver/README.md:25; compose.yaml:25
+    expect:
+      camera_info:
+        width: 1280
+        height: 720
+        distortion_model: plumb_bob
+        K: [908.0, 0.0, 640.0, 0.0, 908.0, 360.0, 0.0, 0.0, 1.0]
+
+  - name: /ferox/g1_01/camera/depth/color/points
+    type: sensor_msgs/msg/PointCloud2
+    direction: publish
+    # INTENTIONAL ASYMMETRY: the cloud is stamped in the DEPTH optical frame even though
+    # it is textured from colour. A twin that publishes it in the colour optical frame
+    # breaks the contract.
+    frame_id: camera_depth_optical_frame
+    rate_hz: 30.0
+    rate_rule: camera
+    qos: {reliability: best_effort}
+    parity_class: A
+    provenance: configured
+    source: >-
+      realsense_driver/README.md:26 (topic/type/fields/frame); params.yaml:25
+      (pointcloud_qos: SENSOR_DATA -> BEST_EFFORT); params.yaml:19-20 (stream_filter 2 =
+      colour texture); params.yaml:47 (424x240 after decimation 2).
+      Only the cloud is BEST_EFFORT; colour and aligned depth stay RELIABLE.
+
+  - name: /ferox/g1_01/cmd_vel
+    type: geometry_msgs/msg/Twist
+    direction: subscribe
+    frame_id: ""
+    qos: {reliability: reliable}
+    parity_class: A
+    provenance: configured
+    source: >-
+      Consumed by cmd_vel_to_loco. Clamps: vx [-0.2, +0.4], vy [-0.2, +0.2],
+      wz [-0.5, +0.5] (panthera-g1-driver config/g1_driver.yaml, cmd_vel_to_loco block).
+
+cmd_vel_clamps:
+  linear_x: [-0.2, 0.4]
+  linear_y: [-0.2, 0.2]
+  angular_z: [-0.5, 0.5]
+  provenance: configured
+  source: panthera-g1-driver config g1_driver.yaml (cmd_vel_to_loco)
+
+rules:
+  # Named rules a CONSUMER of this contract must follow. Not checkable from the wire
+  # -- these constrain how code uses the interface, not what the interface carries --
+  # so each names the test that enforces it.
+  - id: RULE-HAND-NAME
+    summary: hand joints map by name; never slice by index
+    applies_to: any reader or writer of Dex5-1P joint state
+    detail: >-
+      limits.py clamps a flat 20-vector per hand in URDF document order, which is what
+      the driver speaks. Isaac orders articulation DOFs breadth-first over the whole
+      robot, so each hand's 20 joints land at scattered, non-contiguous, interleaved
+      indices: left occupies 29..63 and right 34..68, neither contiguous, and the two
+      interleave. Copying a 20-vector straight into set_joint_positions writes fingers
+      of BOTH hands at random -- the W6 Dex3/Dex5 failure shape through a different
+      door. Build the map by joint name. Slicing the BODY block by index is fine and
+      is asserted separately; it is the hand block, and only that, which is forbidden.
+    hand_dof_block: [29, 68]
+    deviation: C-14
+    enforced_by: >-
+      tools/tests/test_twin_contract.py::test_rule_hand_name_no_numeric_hand_indexing
+    also_documented_in: [CLAUDE.md, docs/twin/TWIN_DEVIATIONS.md]

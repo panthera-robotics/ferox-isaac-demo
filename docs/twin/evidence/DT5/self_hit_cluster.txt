@@ -1,0 +1,25 @@
+# Go2 twin -- the self-hit cluster that blocks Nav2 (C-17)
+#
+# Raw cloud, /unitree/slam_lidar/points, robot standing still:
+cloud 4439 pts; 134 within 0.45 m of the SENSOR
+  livox_frame x +0.090..+0.150  y -0.044..+0.000  z -0.019..+0.016
+  range 0.100..0.152 m
+  base_link  x +0.272..+0.332  y -0.044..+0.000  z +0.029..+0.072
+#
+# /scan after pointcloud_to_laserscan (range_min 0.30, applied in base_link):
+sample 0: 13 rays  0.300-0.312 m  bearings -6.5..-0.1 deg
+sample 1: 14 rays  0.300-0.313 m  bearings -6.5..-0.1 deg
+sample 2: 14 rays  0.300-0.313 m  bearings -6.5..-0.1 deg
+#
+# Body-fixed: unchanged after the robot drove 1.4 m and rotated.
+#
+# Full scan range distribution (723 rays, 179 finite = 24.8%):
+#   0.30-0.35 m :   13 (  7.3%)   <-- the cluster
+#   0.35-0.50 m :    0 (  0.0%)
+#   0.50-1.00 m :    0 (  0.0%)
+#   1.00-2.00 m :    0 (  0.0%)
+#   2.00-4.00 m :  118 ( 65.9%)
+#   4.00-6.01 m :   48 ( 26.8%)
+#
+# Nothing between 0.35 m and 2.0 m: the cluster is the only near return, and it is
+# the robot. The next real geometry is 2 m away.

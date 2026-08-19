@@ -1,0 +1,20 @@
+[dds] peers (FEROX_DDS_PEERS override): 10.0.2.15
+[x11] No logged-in desktop X session found (only the GDM login screen).
+[x11]   -> Open your DCV/VNC client, LOG IN to the desktop, then re-run.
+[x11]   (falling back to headless for now)
+Running twin Isaac sensor tests (boots a headless Isaac, ~60 s)...
+  PASS  mid360 g1 attributes read back
+  PASS  mid360 go2 attributes read back
+  PASS  mid360 g1 per-emitter arrays resized
+  PASS  mid360 g1 elevation span
+  PASS  unknown lidar config never silently accepted
+  PASS  camera intrinsics solve from contract K
+  PASS  merged asset is one articulation of 69 dof
+  PASS  body dof order unchanged by the merge
+  PASS  every hand joint is a dof
+  PASS  hand mass and mount survive the merge
+  PASS  rubber hand caps are gone
+  PASS  hand mount rotation and anatomy
+  PASS  camera optical->USD rotation is exactly Rx(180)
+
+13/13 passed

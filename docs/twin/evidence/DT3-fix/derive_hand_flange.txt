@@ -1,0 +1,45 @@
+==========================================================================
+Deriving the G1 wrist -> Dex5-1P flange rotation from URDF geometry
+==========================================================================
+[self-test] target extracted from Unitree's G1 + Inspire assembly:
+  Inspire L: finger axis in wrist (+0.9967, -0.0754, -0.0311)   palm normal in wrist (-0.0755, -0.9971, -0.0031)
+  Inspire R: finger axis in wrist (+0.9967, +0.0754, -0.0311)   palm normal in wrist (-0.0755, +0.9971, -0.0031)
+  [PASS] Inspire L f is 4.677 deg off (+1, +0, +0)  (hand's own splay; tol 8.0)
+  [PASS] Inspire L n is 4.334 deg off (+0, -1, +0)  (hand's own splay; tol 8.0)
+  [PASS] Inspire L: derived rpy (+0.000000, -0.000000, +1.570796)  vs Unitree's (+0.000000, +0.000000, +1.570796)   max matrix deviation 6.12e-17
+  [PASS] Inspire R f is 4.677 deg off (+1, +0, +0)  (hand's own splay; tol 8.0)
+  [PASS] Inspire R n is 4.334 deg off (+0, +1, +0)  (hand's own splay; tol 8.0)
+  [PASS] Inspire R: derived rpy (+3.141593, -0.000000, -1.570796)  vs Unitree's (+3.141593, +0.000000, -1.570796)   max matrix deviation 1.22e-16
+
+[self-test] PASS -- the method reproduces Unitree's published G1 hand flange rotations from geometry alone.
+
+--------------------------------------------------------------------------
+Dex5-1P, same method, same target:
+
+  Dex5 L (base_link00L):
+    finger axis in hand root  (-0.0000, +0.9999, -0.0123)
+    palm normal in hand root  (+0.0000, -0.0123, -0.9999)
+    -> flange rotation rows   (+0.0000, +1.0000, +0.0000) (+0.0000, +0.0000, +1.0000) (+1.0000, +0.0000, +0.0000)
+    -> rpy  (-1.570796326794897, -1.570796326794897, +0.000000000000000)
+    -> rpy  (-0.5000pi, -0.5000pi, +0.0000pi)
+    snap to nearest signed permutation: 0.707 deg (the hand's own finger splay; tol 8.0)
+
+  Dex5 R (base_link00):
+    finger axis in hand root  (-0.0000, +0.9999, +0.0123)
+    palm normal in hand root  (+0.0000, -0.0123, +0.9999)
+    -> flange rotation rows   (+0.0000, +1.0000, +0.0000) (+0.0000, +0.0000, +1.0000) (+1.0000, +0.0000, +0.0000)
+    -> rpy  (-1.570796326794897, -1.570796326794897, +0.000000000000000)
+    -> rpy  (-0.5000pi, -0.5000pi, +0.0000pi)
+    snap to nearest signed permutation: 0.707 deg (the hand's own finger splay; tol 8.0)
+
+[wbc cross-check] W7 MuJoCo graft QUAT (w,x,y,z) = [0.5, -0.5, -0.5, -0.5]
+  (SCALE=0.75 and DX=0.072 in that file are the anti-pattern and are deliberately not read)
+  as a matrix: rows (+0.0000, +1.0000, +0.0000) (+0.0000, +0.0000, +1.0000) (+1.0000, +0.0000, +0.0000)
+  [PASS] vs derived Dex5 L: 0.000000000 deg apart
+  [PASS] vs derived Dex5 R: 0.000000000 deg apart
+
+==========================================================================
+ANSWER -- merge_dex5_urdf.py flange rpy:
+  L: rpy="-1.570796326794897 -1.570796326794897 0.000000000000000"
+  R: rpy="-1.570796326794897 -1.570796326794897 0.000000000000000"
+==========================================================================

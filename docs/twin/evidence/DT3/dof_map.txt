@@ -1,0 +1,18 @@
+ARTICULATION DOF: 69  bodies: 79
+body joints 29  hand L 20  hand R 20
+all 69 URDF joints are DOFs: PASS
+
+body DOF order (first 29 of the articulation):
+  left_hip_pitch_joint, right_hip_pitch_joint, waist_yaw_joint, left_hip_roll_joint, right_hip_roll_joint, waist_roll_joint, left_hip_yaw_joint, right_hip_yaw_joint, waist_pitch_joint, left_knee_joint, right_knee_joint, left_shoulder_pitch_joint, right_shoulder_pitch_joint, left_ankle_pitch_joint, right_ankle_pitch_joint, left_shoulder_roll_joint, right_shoulder_roll_joint, left_ankle_roll_joint, right_ankle_roll_joint, left_shoulder_yaw_joint, right_shoulder_yaw_joint, left_elbow_joint, right_elbow_joint, left_wrist_roll_joint, right_wrist_roll_joint, left_wrist_pitch_joint, right_wrist_pitch_joint, left_wrist_yaw_joint, right_wrist_yaw_joint
+
+L: limits.py index -> isaac DOF index
+  0->33, 1->43, 2->53, 3->63, 4->30, 5->40, 6->50, 7->60, 8->31, 9->41, 10->51, 11->61, 12->29, 13->39, 14->49, 15->59, 16->32, 17->42, 18->52, 19->62
+  contiguous block: False (29..63)
+  same order as limits.py: False
+  passive (4, 8, 12, 16) -> ['Roll_21L', 'Roll_31L', 'Link_41L', 'Roll_51L']
+
+R: limits.py index -> isaac DOF index
+  0->38, 1->48, 2->58, 3->68, 4->34, 5->44, 6->54, 7->64, 8->35, 9->45, 10->55, 11->65, 12->36, 13->46, 14->56, 15->66, 16->37, 17->47, 18->57, 19->67
+  contiguous block: False (34..68)
+  same order as limits.py: False
+  passive (4, 8, 12, 16) -> ['Roll_21R', 'Roll_31R', 'Roll_41R', 'Roll_51R']

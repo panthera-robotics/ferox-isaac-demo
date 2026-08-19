@@ -1,0 +1,40 @@
+  Xauthority   : /nonexistent
+  No Xauthority — sim falls back to headless
+
+[2/4] Stopping any prior sim container...
+
+[2.5/4] Rendering cyclone DDS config...
+[cyclone] interface: ens3
+[cyclone] peers:     10.0.2.15
+[cyclone] rendered:  /tmp/ferox-isaac-demo/cyclonedds.xml
+  ✓ rendered to /tmp/ferox-isaac-demo/cyclonedds.xml
+
+[3/4] Starting Isaac Sim container (ferox_isaac_sim)...
+  G1 policy source: /root/panthera/ferox-g1-locomotion/policy (overlay -> checkpoints/g1)
+  ✓ container up
+
+[4/4] Launching run.py inside Isaac Sim (boot ~60 sec)...
+  ROBOT=g1   SIM_WORLD=hospital   TWIN=1   CAMERA_TF=1   HAND=dex5_1p
+  twin render step: 0.02s (exact multiple of physics_dt)
+  Waiting for sim main loop (cold first load of a large world can take
+  several minutes; timeout 600s)...
+  ...still booting (5s)
+  ...still booting (10s)
+  ...still booting (15s)
+  ...still booting (20s)
+  ...still booting (25s)
+  ...still booting (30s)
+  ...still booting (35s)
+  ✓ main loop reached at 40s
+
+===============================================
+ Sim started.
+===============================================
+
+ Verify topics flowing on the host (or from any ROS container):
+   ros2 topic hz /scan
+   ros2 topic hz /odom
+
+ Logs:    docker exec ferox_isaac_sim tail -50 /tmp/sim.log
+ Next:    ./scripts/02_start_ferox.sh
+

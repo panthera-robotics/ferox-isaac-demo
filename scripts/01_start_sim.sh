@@ -63,6 +63,11 @@ if [ "$(stat -c '%u' "$CACHE_DIR" 2>/dev/null)" != "$SIM_CONTAINER_UID" ]; then
   sudo chown -R "$SIM_CONTAINER_UID:$SIM_CONTAINER_UID" "$CACHE_DIR"
 fi
 
+# tools/ is mounted read-only so the sim can import the SAME contract loader and
+# validator the audit uses (tools/twin_contract.py). One validator, one definition
+# of a valid contract -- a second copy inside isaac/ would drift, and a contract
+# the sim accepts but the audit rejects is worse than no contract at all.
+#
 # G1 policy source-of-truth: when the ferox-g1-locomotion repo is present
 # (G1_POLICY_DIR resolved in lib/env.sh) and we're launching the G1, overlay
 # its policy/ onto the G1 checkpoint slot so the sim runs that policy with no
@@ -98,6 +103,7 @@ docker run -d --name "$SIM_CONTAINER" --runtime=nvidia --gpus all \
   -v "$CACHE_DIR/compute":/isaac-sim/.nv/ComputeCache:rw \
   -v "$CACHE_DIR/warp":/isaac-sim/.cache/warp:rw \
   -v "$DEMO_DIR/isaac":/workspace/ferox_isaac:rw \
+  -v "$DEMO_DIR/tools":/workspace/ferox_tools:ro \
   $G1_POLICY_MOUNT \
   --entrypoint bash \
   "$ISAAC_IMAGE" \
@@ -113,17 +119,51 @@ docker exec "$SIM_CONTAINER" sh -c "echo $ROBOT > /tmp/sim_robot_type"
 
 echo ""
 echo "[4/4] Launching run.py inside Isaac Sim (boot ~60 sec)..."
-echo "  ROBOT=$ROBOT   SIM_WORLD=${SIM_WORLD:-dso_block_a}"
+echo "  ROBOT=$ROBOT   SIM_WORLD=${SIM_WORLD:-dso_block_a}   TWIN=${TWIN:-0}   CAMERA_TF=${CAMERA_TF:-0}   HAND=${HAND:-none}"
 # Subscribe directly to /ferox/<robot_id>/cmd_vel — matches what Nav2
 # publishes inside its namespace, no relay needed. Avoids the QoS war
 # that occurs when multiple Nav2 publishers (volatile + transient_local)
 # share a relayed topic with manual `ros2 topic pub` clients.
 SIM_CMD_VEL_TOPIC="/ferox/${ROBOT_ID}/cmd_vel"
+
+# TWIN RENDER STEP. Isaac rounds rendering_dt to a whole number of physics substeps
+# but get_rendering_dt() keeps reporting the value you asked for. With the default
+# --physics_dt 1/200, a requested 1/60 (0.016667) actually runs at 0.015 s = 66.67 Hz,
+# so decimating the lidar by round(60/10)=6 gave 11.11 Hz against a 10 Hz contract --
+# a miss that reads as sensor jitter and is really arithmetic.
+#
+# The lidar is decimated from the render clock by an INTEGER step, so the render rate
+# has to be an integer multiple of the contract's lidar rate or the sensor lands on
+# the wrong one -- and it lands there silently, looking like jitter.
+#
+#   G1   10 Hz lidar: 0.020 s = 4 physics substeps = 50 Hz render, step 5 -> 10 Hz
+#   Go2  20 Hz lidar: 0.025 s = 5 physics substeps = 40 Hz render, step 2 -> 20 Hz
+#
+# 0.02 s on the Go2 gives 50/20 = 2.5, which is not an integer: the gate rounds to 2
+# and every cloud, scan and accumulated cloud comes out at 25 Hz. That is exactly
+# what the first Go2 audit measured.
+#
+# physics_dt is untouched either way, so the walking policy (200 Hz physics,
+# decimation 4, 50 Hz policy) is unaffected. Legacy mode:=sim keeps its old default.
+TWIN_RENDER_ARG=""
+if [ "${TWIN:-0}" = "1" ]; then
+  case "$ROBOT" in
+    go2) _default_render_dt=0.025 ;;
+    *)   _default_render_dt=0.02 ;;
+  esac
+  TWIN_RENDER_ARG="--render_dt ${TWIN_RENDER_DT:-$_default_render_dt}"
+  echo "  twin render step: ${TWIN_RENDER_DT:-$_default_render_dt}s (exact multiple of physics_dt)"
+fi
 # SIM_WORLD selects the environment USD (default dso_block_a); run.py reads it
 # from the env. docker exec does not inherit the host env, so pass it explicitly.
 docker exec -d \
   -e FEROX_SIM_TEST_PROPS="${FEROX_SIM_TEST_PROPS:-0}" \
   -e SIM_WORLD="${SIM_WORLD:-dso_block_a}" \
+  -e TWIN="${TWIN:-0}" \
+  -e CAMERA_TF="${CAMERA_TF:-0}" \
+  -e TWIN_DUMP_SDG="${TWIN_DUMP_SDG:-0}" \
+  -e TWIN_CAMERA="${TWIN_CAMERA:-1}" \
+  -e HAND="${HAND:-none}" \
   "$SIM_CONTAINER" bash -c "
   cd /workspace/ferox_isaac && \
   /isaac-sim/python.sh run.py \
@@ -131,6 +171,7 @@ docker exec -d \
     --cmd_vel_topic $SIM_CMD_VEL_TOPIC \
     --ros_namespace /ferox/${ROBOT_ID} \
     --no_keyboard \
+    $TWIN_RENDER_ARG \
     > /tmp/sim.log 2>&1
 "
 

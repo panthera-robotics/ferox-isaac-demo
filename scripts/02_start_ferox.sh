@@ -57,10 +57,22 @@ echo "[2/4] Bringing up $NAV_CONTAINER (image $FEROX_NAV_IMAGE)..."
 ( cd "$FEROX_REPO" && [ -f .env ] || cp .env.example .env )
 
 # Push our identity into the .env so docker-compose picks it up
+# FEROX_MODE selects the launch mode. Default sim (unchanged).
+#   sim  = Isaac Sim at root namespace + isaac_bridge relays + sim-only TF bridges
+#   twin = Isaac Sim publishing the HARDWARE interface directly, no relays, and
+#          the twin bridge (16UC1 depth, xyzrgb cloud, p2l with driver params)
+# Pair MODE=twin with TWIN=1 on 01_start_sim.sh — the two must agree, or Nav2
+# subscribes to topics nothing publishes.
+MODE="${MODE:-sim}"
+case "$MODE" in
+  sim|twin) ;;
+  *) echo "  ✗ MODE=$MODE not supported here (sim|twin)"; exit 1 ;;
+esac
+
 sed -i \
   -e "s/^ROBOT_ID=.*/ROBOT_ID=$ROBOT_ID/" \
   -e "s/^ROBOT_TYPE=.*/ROBOT_TYPE=$ROBOT/" \
-  -e "s/^FEROX_MODE=.*/FEROX_MODE=sim/" \
+  -e "s/^FEROX_MODE=.*/FEROX_MODE=$MODE/" \
   -e "s/^ROS_DOMAIN_ID=.*/ROS_DOMAIN_ID=$ROS_DOMAIN_ID/" \
   "$FEROX_REPO/.env"
 
@@ -77,7 +89,7 @@ docker exec "$NAV_CONTAINER" bash -lc '/workspace/scripts/build.sh' \
 
 # ---- [4/4] Launch nav stack with sim bridge ----
 echo ""
-echo "[4/4] Launching ferox_nav_bringup (robot=$ROBOT, robot_id=$ROBOT_ID, mode=sim)..."
+echo "[4/4] Launching ferox_nav_bringup (robot=$ROBOT, robot_id=$ROBOT_ID, mode=$MODE)..."
 
 # Build optional venue arg only when non-empty (ros2 launch rejects 'name:=')
 VENUE_ARG=""
@@ -113,7 +125,7 @@ docker exec -d "$NAV_CONTAINER" bash -lc "
   source /workspace/install/setup.bash
   echo \"[run_nav] env sourced; ROBOT=$ROBOT ROBOT_ID=$ROBOT_ID VENUE_ARG=$VENUE_ARG\"
   exec ros2 launch ferox_nav_bringup bringup.launch.py \
-    robot:=$ROBOT mode:=sim robot_id:=$ROBOT_ID $VENUE_ARG
+    robot:=$ROBOT mode:=$MODE robot_id:=$ROBOT_ID $VENUE_ARG
 "
 
 # Poll the launch log for the lifecycle_manager's "Managed nodes are active"

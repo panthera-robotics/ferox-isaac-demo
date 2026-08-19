@@ -1,0 +1,14 @@
+TF base_link <- camera_color_optical_frame: xyz (+0.05762, +0.01753, +0.41987)
+156689 valid pixels -> base_link z range -3.598 .. -1.268 m
+  z hist: -1.2:0 -1.0:0 -0.8:0 -0.6:0 -0.4:0 -0.2:0 -0.0:0 +0.2:0 +0.4:0 +0.6:0 +0.8:0 +1.0:0
+floor candidates (z < -0.60): 156689
+floor in base_link: z = -1.9649 m under base_link, tilt 59.601 deg, RMS 0.0003 m (153009 pts)
+  robot standing height (odom z) : ~0.790 m
+  floor depth vs standing height : 1.1749 m
+  => chain verdict: FAIL  (tilt < 2 deg, |floor| within 0.08 m of 0.790)
+--- twin own cloud ---
+cloud frame 'camera_depth_optical_frame', 17059 pts, fields ['x', 'y', 'z', 'rgb']
+in its OWN frame: x +0.162..+2.803  y -0.658..+1.576  z +1.686..+3.999
+in base_link:     z -3.585..-1.275 m
+  points below -0.60 m: 17059 of 17059
+  points near floor (-0.90..-0.70): 0

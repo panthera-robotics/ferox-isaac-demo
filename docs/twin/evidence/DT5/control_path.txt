@@ -1,0 +1,15 @@
+# Go2 twin -- control path, driven directly on /ferox/go2_01/cmd_vel with Nav2 down.
+# (Nav2 down deliberately: DT2 recorded velocity_smoother overriding direct commands.)
+start (7.754256248474121, 1.8505231142044067)
+end   (7.779809474945068, 3.4667446613311768)
+moved 1.616 m in 6 s at cmd 0.4 m/s
+
+# Exploration drive, to grow the SLAM map past the robot's start pose:
+rotate 180       -> (+7.77, +3.49)
+forward          -> (+6.92, +1.46)
+rotate 90        -> (+6.90, +1.41)
+forward          -> (+7.58, +0.94)
+rotate -90       -> (+7.65, +0.93)
+forward          -> (+7.33, +0.21)
+
+# The control path works. The perception path is what blocks navigation (C-17).

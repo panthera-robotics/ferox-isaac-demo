@@ -1,0 +1,100 @@
+[29.563s] [ext: omni.kit.manipulator.camera-106.0.4] startup
+[29.609s] [ext: omni.kit.manipulator.prim-107.0.0] startup
+[29.612s] [ext: omni.isaac.surface_gripper-2.0.6] startup
+2026-08-17T23:27:30Z [29,563ms] [Warning] [omni.isaac.surface_gripper] omni.isaac.surface_gripper has been deprecated in favor of isaacsim.robot.surface_gripper. Please update your code accordingly.
+[29.632s] [ext: omni.kit.manipulator.selection-106.0.1] startup
+[29.659s] [ext: omni.kit.property.bundle-1.4.1] startup
+[29.687s] [ext: omni.kit.property.isaac-1.0.6] startup
+2026-08-17T23:27:30Z [29,655ms] [Warning] [omni.kit.property.isaac] omni.kit.property.isaac has been deprecated in favor of isaacsim.gui.property. Please update your code accordingly.
+2026-08-17T23:27:30Z [29,655ms] [Warning] [omni.kit.property.isaac.widgets] omni.kit.property.isaac.widgets has been deprecated in favor of isaacsim.gui.property.widgets. Please update your code accordingly.
+[29.720s] [ext: omni.isaac.universal_robots-1.0.6] startup
+2026-08-17T23:27:30Z [29,677ms] [Warning] [omni.isaac.universal_robots] omni.isaac.universal_robots has been deprecated in favor of isaacsim.robot.manipulators.examples.universal_robots. Please update your code accordingly.
+2026-08-17T23:27:30Z [29,678ms] [Warning] [omni.isaac.universal_robots.kinematics_solver] omni.isaac.franka has been deprecated in favor of isaacsim.robot.manipulators.examples.universal_robots. Please update your code accordingly.
+2026-08-17T23:27:30Z [29,688ms] [Warning] [omni.isaac.universal_robots.ur10] omni.isaac.franka has been deprecated in favor of isaacsim.robot.manipulators.examples.universal_robots. Please update your code accordingly.
+[29.753s] [ext: omni.isaac.core_nodes-2.0.6] startup
+2026-08-17T23:27:30Z [29,718ms] [Warning] [omni.isaac.core_nodes] omni.isaac.core_nodes has been deprecated in favor of isaacsim.core.nodes. Please update your code accordingly.
+[29.787s] [ext: omni.kit.viewport.menubar.camera-107.0.6] startup
+[29.862s] [ext: omni.kit.viewport.menubar.lighting-107.3.1] startup
+[29.907s] [ext: isaacsim.replicator.writers-1.0.17] startup
+[30.086s] [ext: omni.kit.viewport.menubar.render-107.0.10] startup
+[30.197s] [ext: omni.kit.viewport.menubar.settings-107.0.3] startup
+[30.306s] [ext: omni.kit.window.console-1.1.4] startup
+[30.349s] [ext: isaacsim.replicator.domain_randomization-1.0.16] startup
+[30.409s] [ext: isaacsim.replicator.examples-1.3.6] startup
+[30.479s] [ext: omni.ocio-0.1.1] startup
+[30.516s] [ext: omni.rtx.window.settings-0.6.19] startup
+[30.677s] [ext: omni.kit.window.status_bar-0.1.9] startup
+[30.693s] [ext: omni.kit.window.toolbar-2.0.0] startup
+[30.731s] [ext: omni.replicator.isaac-2.0.8] startup
+2026-08-17T23:27:31Z [30,687ms] [Warning] [omni.replicator.isaac] omni.replicator.isaac has been deprecated in favor of isaacsim.replicator.domain_randomization, isaacsim.replicator.examples, isaacsim.replicator.writers. Please update your code accordingly.
+[30.756s] [ext: omni.replicator.replicator_yaml-2.0.11] startup
+[30.875s] [ext: omni.rtx.settings.core-0.6.5] startup
+[30.949s] [ext: omni.usd.metrics.assembler.ui-107.3.1] startup
+[30.995s] [ext: omni.isaac.utils-2.0.6] startup
+[31.022s] [ext: semantics.schema.editor-2.0.2] startup
+[31.068s] [ext: omni.kit.ui.actions-1.0.5] startup
+[31.093s] [ext: semantics.schema.property-2.0.1] startup
+[31.122s] [ext: omni.isaac.version-2.0.7] startup
+2026-08-17T23:27:32Z [31,078ms] [Warning] [omni.isaac.version] omni.isaac.version has been deprecated in favor of isaacsim.core.version. Please update your code accordingly.
+[31.147s] [ext: omni.isaac.cortex-1.0.5] startup
+[31.151s] [ext: omni.anim.curve.core-1.3.1] startup
+[31.231s] [ext: isaacsim.core.throttling-2.2.2] startup
+[31.269s] [ext: omni.kit.menu.common-2.0.1] startup
+[31.303s] [ext: isaacsim.exp.base-5.1.0] startup
+[31.306s] [ext: isaacsim.exp.base.python-5.1.0] startup
+[31.314s] Simulation App Starting
+2026-08-17T23:27:32Z [31,732ms] [Warning] [omni.fabric.plugin] Warning: attribute viewportHandle not found for bucket id 9
+
+[32.058s] app ready
+Starting kit application with the following args:  ['/isaac-sim/exts/isaacsim.simulation_app/isaacsim/simulation_app/simulation_app.py', '/isaac-sim/apps/isaacsim.exp.base.python.kit', '--/app/tokens/exe-path=/isaac-sim/kit', '--/persistent/app/viewport/displayOptions=3094', '--/rtx/materialDb/syncLoads=True', '--/rtx/hydra/materialSyncLoads=True', '--/omni.kit.plugin/syncUsdLoads=True', '--/app/renderer/resolution/width=1280', '--/app/renderer/resolution/height=720', '--/app/window/width=1440', '--/app/window/height=900', '--/renderer/multiGpu/enabled=True', '--/app/fastShutdown=True', '--/app/installSignalHandlers=0', '--ext-folder', '/isaac-sim/exts', '--ext-folder', '/isaac-sim/apps', '--/physics/cudaDevice=0', '--/plugins/carb.tasking.plugin/threadCount=30', '--/plugins/omni.tbb.globalcontrol/maxThreadCount=30', '--portable']
+Passing the following args to the base kit application:  ['--robot_type', 'g1', '--cmd_vel_topic', '/ferox/g1_01/cmd_vel', '--ros_namespace', '/ferox/g1_01', '--no_keyboard']
+Warp 1.8.2 initialized:
+   CUDA Toolkit 12.8, Driver 13.0
+   Devices:
+     "cpu"      : "x86_64"
+     "cuda:0"   : "NVIDIA GeForce RTX 4090" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /isaac-sim/.cache/warp/1.8.2
+Warp DeprecationWarning: The `warp.sim` module is deprecated and will be removed in v1.10. Please transition to using the forthcoming Newton library instead.
+[PANTHERA-MARK] before RobotRosRunner()
+[PANTHERA-MARK] camera ros_namespace = '/ferox/g1_01'
+[World] SIM_WORLD=dso_block_a -> https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Environments/Simple_Warehouse/warehouse.usd
+[World] spawn pos=[0.0, 0.0, 0.800000011920929] yaw=0.000rad (robot=g1)
+[PANTHERA-MARK] RobotRosRunner constructed, before reset
+[PANTHERA-MARK] A: app.update done, calling _world.reset()
+[PANTHERA-MARK] B: world.reset() done
+[PANTHERA-MARK] C: app.update done, calling setup()
+[PANTHERA-MARK] D: setup() done
+[PANTHERA-MARK] E: app.update done, SKIPPING setup_ros() entirely
+[PANTHERA-MARK] E1: entered setup_ros() body
+[PANTHERA-MARK] E2: self._cmd_vel_topic = /ferox/g1_01/cmd_vel
+[PANTHERA] executor spinning on dedicated thread
+[PANTHERA] cmd_vel subscriber active on /ferox/g1_01/cmd_vel (rclpy bypass)
+[37.864s] Simulation App Startup Complete
+[37.961s] [ext: isaacsim.ros2.bridge-4.12.4] startup
+[38.156s] Attempting to load system rclpy
+[38.156s] Could not import system rclpy: No module named 'rclpy'
+[38.156s] Attempting to load internal rclpy for ROS Distro: humble
+[38.261s] rclpy loaded
+2026-08-17T23:27:44Z [42,963ms] [Warning] [omni.fabric.plugin] getAttributeCount called on non-existent path /World/G1/right_shoulder_pitch_link/collisions/mesh_0
+2026-08-17T23:27:44Z [42,963ms] [Warning] [omni.fabric.plugin] getTypes called on non-existent path /World/G1/right_shoulder_pitch_link/collisions/mesh_0
+2026-08-17T23:27:55Z [54,764ms] [Warning] [isaacsim.sensors.camera.camera] 'verticalAperture' (1.5290800094604493) and 'horizontalAperture' (2.0954999923706055) are inconsistent with the pixel resolution aspect ratio (1.7777777777777777). Setting 'verticalAperture' to 1.1787187457084656 to ensure square pixels.
+2026-08-17T23:27:56Z [54,868ms] [Warning] [isaacsim.sensors.camera.camera] 'verticalAperture' (1.5290800094604493) and 'horizontalAperture' (2.0954999923706055) are inconsistent with the pixel resolution aspect ratio (1.3333333333333333). Setting 'verticalAperture' to 1.571624994277954 to ensure square pixels.
+2026-08-17T23:27:56Z [54,916ms] [Warning] [isaacsim.sensors.physics.impl.imu_sensor] Creating a new IMU prim at path /World/G1/torso_link/imu_link
+2026-08-17T23:27:57Z [56,274ms] [Warning] [omni.fabric.plugin] USD->Fabric: Unhandled array type string[]
+2026-08-17T23:27:57Z [56,289ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:transmittance_color)
+2026-08-17T23:27:57Z [56,289ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:transmittance_color)
+2026-08-17T23:27:57Z [56,289ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:transmittance_color)
+2026-08-17T23:27:57Z [56,290ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:ior_constant)
+2026-08-17T23:27:57Z [56,291ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:reflection_roughness_constant)
+2026-08-17T23:27:57Z [56,291ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:reflection_roughness_constant)
+2026-08-17T23:27:57Z [56,291ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:transmittance_color)
+2026-08-17T23:27:57Z [56,291ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:ior_constant)
+2026-08-17T23:27:57Z [56,292ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:ior_constant)
+2026-08-17T23:27:57Z [56,292ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:ior_constant)
+2026-08-17T23:27:57Z [56,292ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:reflection_roughness_constant)
+2026-08-17T23:27:57Z [56,292ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:reflection_roughness_constant)
+2026-08-17T23:27:57Z [56,292ms] [Warning] [usdrt.population.plugin] [UsdNoticeHandler] Unhandled attribute type VtArray<std::string> (prim attribute: omni:rtx:material:db:flattener:transmittance_color)
+[PANTHERA-MARK] derived intrinsics fx=349.202 fy=349.202 cx=240.000 cy=135.000 480x270
+[PANTHERA-MARK] F: setup_ros() done
+[PANTHERA-MARK] G: before runner.run() — entering main loop

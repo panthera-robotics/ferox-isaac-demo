@@ -1,0 +1,18 @@
+=== goal 1 (6.59 -0.51)
+   send_goal exit=0
+Goal finished with status: ABORTED
+   last recoveries: number_of_recoveries: 21
+   last distance:   distance_remaining: 0.0
+- Translation: [7.307, 0.212, 0.003]
+=== goal 2 (5.99 -0.71)
+   send_goal exit=0
+Goal finished with status: ABORTED
+   last recoveries: number_of_recoveries: 22
+   last distance:   distance_remaining: 0.0
+- Translation: [7.307, 0.212, 0.002]
+=== goal 3 (5.39 -0.91)
+   send_goal exit=0
+Goal finished with status: ABORTED
+   last recoveries: number_of_recoveries: 22
+   last distance:   distance_remaining: 0.0
+- Translation: [7.307, 0.212, 0.002]

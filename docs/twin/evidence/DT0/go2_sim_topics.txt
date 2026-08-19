@@ -1,0 +1,321 @@
+### ros2 topic list (sim only, ROBOT=go2, no nav stack)
+/camera/go2/image_raw
+/clock
+/ferox/go2_01/camera/color/camera_info
+/ferox/go2_01/camera/color/image_raw
+/ferox/go2_01/camera/depth/camera_info
+/ferox/go2_01/camera/depth/image_raw
+/ferox/go2_01/cmd_vel
+/joint_states
+/odom
+/parameter_events
+/rosout
+/scan
+/tf
+/tf_static
+/unitree_lidar
+
+### ros2 node list
+/ferox_cmd_vel_listener
+
+### topic info -v (key topics)
+--- /scan
+Type: sensor_msgs/msg/LaserScan
+Publisher count: 1
+Node name: _Render_PostProcess_SDGPipeline_velo_lidar_rp_NodeWriterWriter
+Node namespace: /
+Topic type: sensor_msgs/msg/LaserScan
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.d3.5b.fe.ce.b2.89.5c.3d.00.00.09.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (10)
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Subscription count: 0
+--- /odom
+Type: nav_msgs/msg/Odometry
+Publisher count: 1
+Node name: _OdomPublisherGraph_OdomPub
+Node namespace: /
+Topic type: nav_msgs/msg/Odometry
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.c3.38.9e.89.b0.5a.93.dd.00.00.07.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (10)
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Subscription count: 0
+--- /unitree_lidar
+Type: sensor_msgs/msg/PointCloud2
+Publisher count: 1
+Node name: _Render_PostProcess_SDGPipeline_l1_lidar_rp_NodeWriterWriter
+Node namespace: /
+Topic type: sensor_msgs/msg/PointCloud2
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.d3.5b.fe.ce.b2.89.5c.3d.00.00.07.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (10)
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Subscription count: 0
+--- /tf
+Type: tf2_msgs/msg/TFMessage
+Publisher count: 1
+Node name: _OdomActionGraph_TF
+Node namespace: /
+Topic type: tf2_msgs/msg/TFMessage
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.72.76.e5.b7.89.8c.95.22.00.00.07.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (10)
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Subscription count: 0
+--- /tf_static
+Type: tf2_msgs/msg/TFMessage
+Publisher count: 11
+Node name: _StaticTFGraph_TF8
+Node namespace: /
+Topic type: tf2_msgs/msg/TFMessage
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.05.c1.95.60.cc.a5.75.12.00.00.07.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (1)
+  Durability: TRANSIENT_LOCAL
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Node name: _StaticTFGraph_TF10
+Node namespace: /
+Topic type: tf2_msgs/msg/TFMessage
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.05.c1.95.60.cc.a5.75.12.00.00.09.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (1)
+  Durability: TRANSIENT_LOCAL
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Node name: _StaticTFGraph_TF4
+Node namespace: /
+Topic type: tf2_msgs/msg/TFMessage
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.05.c1.95.60.cc.a5.75.12.00.00.0b.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (1)
+  Durability: TRANSIENT_LOCAL
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Node name: _StaticTFGraph_TF1
+Node namespace: /
+Topic type: tf2_msgs/msg/TFMessage
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.05.c1.95.60.cc.a5.75.12.00.00.0d.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (1)
+  Durability: TRANSIENT_LOCAL
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Node name: _StaticTFGraph_TF6
+Node namespace: /
+Topic type: tf2_msgs/msg/TFMessage
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.05.c1.95.60.cc.a5.75.12.00.00.0f.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (1)
+  Durability: TRANSIENT_LOCAL
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Node name: _StaticTFGraph_TF9
+Node namespace: /
+Topic type: tf2_msgs/msg/TFMessage
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.05.c1.95.60.cc.a5.75.12.00.00.11.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (1)
+  Durability: TRANSIENT_LOCAL
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Node name: _StaticTFGraph_TF0
+Node namespace: /
+Topic type: tf2_msgs/msg/TFMessage
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.05.c1.95.60.cc.a5.75.12.00.00.13.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (1)
+  Durability: TRANSIENT_LOCAL
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Node name: _StaticTFGraph_TF7
+Node namespace: /
+Topic type: tf2_msgs/msg/TFMessage
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.05.c1.95.60.cc.a5.75.12.00.00.15.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (1)
+  Durability: TRANSIENT_LOCAL
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Node name: _StaticTFGraph_TF2
+Node namespace: /
+Topic type: tf2_msgs/msg/TFMessage
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.05.c1.95.60.cc.a5.75.12.00.00.17.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (1)
+  Durability: TRANSIENT_LOCAL
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Node name: _StaticTFGraph_TF3
+Node namespace: /
+Topic type: tf2_msgs/msg/TFMessage
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.05.c1.95.60.cc.a5.75.12.00.00.19.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (1)
+  Durability: TRANSIENT_LOCAL
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Node name: _StaticTFGraph_TF5
+Node namespace: /
+Topic type: tf2_msgs/msg/TFMessage
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.05.c1.95.60.cc.a5.75.12.00.00.1b.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (1)
+  Durability: TRANSIENT_LOCAL
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Subscription count: 0
+--- /clock
+Type: rosgraph_msgs/msg/Clock
+Publisher count: 1
+Node name: _ClockGraph_Pub
+Node namespace: /
+Topic type: rosgraph_msgs/msg/Clock
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.d3.5b.fe.ce.b2.89.5c.3d.00.00.0d.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (10)
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Subscription count: 0
+--- /joint_states
+Type: sensor_msgs/msg/JointState
+Publisher count: 1
+Node name: _JointStatesGraph_JointStatePub
+Node namespace: /
+Topic type: sensor_msgs/msg/JointState
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.80.61.30.30.43.de.cc.f2.00.00.07.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (10)
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Subscription count: 0
+--- /ferox/go2_01/camera/color/image_raw
+Type: sensor_msgs/msg/Image
+Publisher count: 1
+Node name: _Render_PostProcess_SDGPipeline_Replicator_NodeWriterWriter_01
+Node namespace: /ferox/go2_01
+Topic type: sensor_msgs/msg/Image
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.d3.5b.fe.ce.b2.89.5c.3d.00.00.11.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (10)
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Subscription count: 0
+--- /ferox/go2_01/camera/depth/image_raw
+Type: sensor_msgs/msg/Image
+Publisher count: 1
+Node name: _Render_PostProcess_SDGPipeline_Replicator_NodeWriterWriter
+Node namespace: /ferox/go2_01
+Topic type: sensor_msgs/msg/Image
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.d3.5b.fe.ce.b2.89.5c.3d.00.00.0b.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (10)
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Subscription count: 0
+--- /ferox/go2_01/camera/color/camera_info
+Type: sensor_msgs/msg/CameraInfo
+Publisher count: 1
+Node name: _ColorCameraInfoGraph_Pub
+Node namespace: /ferox/go2_01
+Topic type: sensor_msgs/msg/CameraInfo
+Endpoint type: PUBLISHER
+GID: 01.10.9c.f5.6f.45.4b.f8.9d.ae.c9.8e.00.00.07.03.00.00.00.00.00.00.00.00
+QoS profile:
+  Reliability: RELIABLE
+  History (Depth): KEEP_LAST (10)
+  Durability: VOLATILE
+  Lifespan: Infinite
+  Deadline: Infinite
+  Liveliness: AUTOMATIC
+  Liveliness lease duration: Infinite
+Subscription count: 0

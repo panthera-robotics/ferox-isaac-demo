@@ -1,0 +1,25 @@
+observed 20.0 s on /ferox/g1_01
+
+ENCODINGS AND SIZES -- what a vision consumer subscribes to
+  PASS /ferox/g1_01/camera/color/image_raw
+       encoding 'rgb8' (want 'rgb8'), 1280x720 (want 1280x720), step 3840, 405 msgs -> 20.22 Hz
+  PASS /ferox/g1_01/camera/aligned_depth_to_color/image_raw
+       encoding '16UC1' (want '16UC1'), 1280x720 (want 1280x720), step 2560, 114 msgs -> 5.69 Hz
+
+CAMERA_INFO -- K against the contract
+  PASS /ferox/g1_01/camera/color/camera_info
+       K [908.0, 0.0, 640.0, 0.0, 908.0, 360.0, 0.0, 0.0, 1.0]
+       1280x720 model 'plumb_bob' frame 'camera_color_optical_frame' -> 5.69 Hz
+  PASS /ferox/g1_01/camera/aligned_depth_to_color/camera_info
+       K [908.0, 0.0, 640.0, 0.0, 908.0, 360.0, 0.0, 0.0, 1.0]
+       1280x720 model 'plumb_bob' frame 'camera_color_optical_frame' -> 5.69 Hz
+
+POINTS -- the xyzrgb cloud the converter emits
+  PASS 101760x1, point_step 16, fields [x, y, z, rgb], frame 'camera_depth_optical_frame' -> 4.99 Hz
+
+FRAMES
+  /tmp/twin_camera/twin_camera_color.png  mean 128.0 std 29.8
+  depth valid 921600/921600 (100.0%), range 997-2506 mm
+  /tmp/twin_camera/twin_camera_depth.png
+
+RESULT: PASS

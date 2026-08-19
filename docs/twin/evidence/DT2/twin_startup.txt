@@ -1,0 +1,12 @@
+[TWIN] contract /workspace/ferox_isaac/twin/g1_contract.yaml
+[TWIN] namespace /ferox/g1_01  CAMERA_TF=0
+[TWIN] Mid-360 at /World/G1/torso_link/livox_frame/mid360 {'azimuth_columns_per_rev': 500, 'azimuth_step_deg': 0.72, 'elevation_step_deg': 1.5128205128205128, 'points_per_second': 200000, 'points_per_revolution': 20000}
+[TWIN] D435i K readback fx=908.000 fy=908.000 cx=640.000 cy=360.000 (HFOV 70.36 deg, VFOV 43.25 deg)
+[TWIN] /tf_static: 7 edges (base_link->dog_imu_link, base_link->livox_frame, livox_frame->livox_imu, camera_link->camera_color_frame, camera_color_frame->camera_color_optical_frame, camera_link->camera_depth_frame, camera_depth_frame->camera_depth_optical_frame)
+[TWIN] Mid-360 -> /livox/lidar
+[TWIN] Livox IMU -> /livox/imu (frame livox_imu, 200.0 Hz, rclpy)
+[TWIN] IMU -> /ferox/g1_01/imu/data (frame dog_imu_link, 100.0 Hz, rclpy)
+[TWIN] camera colour -> /ferox/g1_01/camera/color/image_raw
+[TWIN] raw depth (32FC1, converter seam) -> /ferox/g1_01/camera/depth/image_rect_raw_32f
+[TWIN] odom -> /ferox/g1_01/odom
+[TWIN] interface up

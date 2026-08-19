@@ -1,0 +1,14 @@
+header:
+  stamp:
+    sec: 1787061860
+    nanosec: 615508681
+  frame_id: livox_frame
+height: 1
+width: 19968
+fields: '<sequence type: sensor_msgs/msg/PointField, length: 7>'
+is_bigendian: false
+point_step: 26
+row_step: 519168
+data: '<sequence type: uint8, length: 519168>'
+is_dense: true
+---
