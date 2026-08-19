@@ -1,0 +1,6 @@
+### GOAL (9.5, 0.5)
+  outcome: [INFO] [1787121673.643813041] [ferox.g1_01.bt_navigator]: Goal succeeded
+  final pose: - Translation: [9.433, 0.393, 0.017]  (after 10s)
+### GOAL (7.5, -1.0)
+  outcome: NO TERMINAL STATUS in 150 s
+  final pose: - Translation: [7.736, -0.441, 0.003]  (after 150s)

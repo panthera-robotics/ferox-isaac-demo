@@ -1,0 +1,3 @@
+/root/.ros/log/controller_server_336_1787121375070.log:[INFO] [1787121375.186482005] [ferox.g1_01.local_costmap.local_costmap]: Using plugin "inflation_layer"
+/root/.ros/log/controller_server_336_1787121375070.log:[INFO] [1787121375.186845149] [ferox.g1_01.local_costmap.local_costmap]: Initialized plugin "inflation_layer"
+/root/.ros/log/controller_server_336_1787121375070.log:[INFO] [1787121375.194984811] [ferox.g1_01.controller_server]: InflationCostCritic instantiated with 1 power and 300.000000 / 0.013780 weights. Critic will collision check based on footprint cost.
