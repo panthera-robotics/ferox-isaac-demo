@@ -21,6 +21,10 @@ WHAT THIS DOES AND DOES NOT DO
 ------------------------------
 Does: concatenate. Every link, joint, inertial, limit and mesh comes across byte-for
 -byte from Unitree's files, and the only NEW elements are the two fixed flange joints.
+Those joints carry an ORIGIN read from the G1's own wrist->palm joints and a ROTATION
+derived by tools/derive_hand_flange.py -- see FLANGE_RPY below. Neither is a fitted
+number: the origin is copied and the rotation is a signed axis permutation whose
+derivation reproduces Unitree's own published hand flange to 1e-16.
 Does not: scale anything, retune any inertia, or rename any joint. Campaign rule 9 --
 never scale a hand, a mesh, or an offset to make it fit -- is the whole reason the
 W6 MuJoCo model (dex5 meshes at scale="0.75", palm geom with density="0") is not a
@@ -32,6 +36,7 @@ sensor layer keeps resolving against the merged asset.
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import shutil
 import xml.etree.ElementTree as ET
@@ -51,6 +56,38 @@ FLANGE = {
           "joint": "left_hand_palm_joint",  "replaces": "left_rubber_hand"},
     "R": {"parent": "right_wrist_yaw_link", "child": "base_link00",
           "joint": "right_hand_palm_joint", "replaces": "right_rubber_hand"},
+}
+
+# The flange ROTATION. Originally "0 0 0", on the assumption that the Dex5 root
+# frame is wrist-aligned. It is not, and that assumption is DT3's mount defect:
+# the Dex5's fingers run along its own +Y while the G1's forearm runs along wrist
+# +X, so an identity flange left both hands rotated 90 deg -- fingers laterally
+# outward, palm forward, thumb down. The flange ORIGIN was exact all along, which
+# is why every DT3 position check passed and none of them saw it.
+#
+# This value is NOT typed in from a picture or tuned until it looked right. It is
+# the output of tools/derive_hand_flange.py, which:
+#   - measures the hand's finger axis and palm normal from the Dex5 URDF itself
+#     (palm normal by actually flexing a joint, not by reading a mesh face),
+#   - maps them onto the wrist-frame convention EXTRACTED from Unitree's own
+#     published G1 + Inspire assembly (g1_29dof_rev_1_0_with_inspire_hand_DFQ),
+#   - snaps to the nearest signed axis permutation, since a bolted flange is one,
+#   - and SELF-TESTS by re-deriving Unitree's published Inspire flange rpy from
+#     Inspire geometry alone: it reproduces (0,0,pi/2) and (pi,0,-pi/2) to 1e-16.
+#
+# Independently corroborated by the W7 MuJoCo graft (graft_dex5_both.py), whose
+# QUAT = [0.5,-0.5,-0.5,-0.5] is this exact rotation, 0.000000000 deg apart. Its
+# SCALE=0.75 and DX=0.072 are the campaign's anti-pattern and are not read here.
+#
+# Both sides take the SAME rotation: the Dex5 L and R URDFs are already mirrored
+# internally (thumb at -Z on the left, +Z on the right), so the flange does not
+# have to carry the mirror. Unitree's Inspire files are NOT internally mirrored
+# in the same way, which is why theirs differ per side. Asserted, not assumed --
+# check_hand_orientation.py's chirality test fails if the pair comes out swapped.
+_Q = math.pi / 2
+FLANGE_RPY = {
+    "L": (-_Q, -_Q, 0.0),
+    "R": (-_Q, -_Q, 0.0),
 }
 EXPECT_FLANGE_XYZ = {"L": (0.0415, 0.003, 0.0), "R": (0.0415, -0.003, 0.0)}
 FLANGE_TOL = 1e-9
@@ -160,8 +197,11 @@ def merge(g1_path: str, hand_paths: dict, out_urdf: str) -> dict:
             g1.append(j)
 
         spec = FLANGE[side]
+        rpy = FLANGE_RPY[side]
         fj = ET.SubElement(g1, "joint", {"name": spec["joint"], "type": "fixed"})
-        ET.SubElement(fj, "origin", {"xyz": flange_xyz[side], "rpy": "0 0 0"})
+        ET.SubElement(fj, "origin", {
+            "xyz": flange_xyz[side],
+            "rpy": " ".join(f"{v:.15f}" for v in rpy)})
         ET.SubElement(fj, "parent", {"link": spec["parent"]})
         ET.SubElement(fj, "child", {"link": spec["child"]})
         body_links |= {l.get("name") for l in links}

@@ -319,6 +319,23 @@ def check_payloads(contract: Dict[str, Any], obs: Observation) -> List[Finding]:
                                    f"~{want} per sweep +-20% (C-18)", detail,
                                    OK if ok else FAIL))
 
+        # AZIMUTH COVERAGE OF ONE MESSAGE. A 360-degree lidar that publishes a
+        # 72-degree wedge passes every other check in this file: right topic,
+        # right frame, right point_step, plausible width, contract rate. The
+        # twin did exactly that -- each published cloud was one render frame's
+        # partial sweep -- and it took a video review to notice, because SLAM
+        # built a fixed wedge and /scan was 20% finite while the robot's was 70%.
+        # Class B: the sweep is a modelled physical property, and the number is
+        # measured on BOTH sides, so a real bag is held to it too.
+        if ex.get("azimuth_coverage_deg") is not None:
+            want = expect.get("azimuth_coverage_deg_min", 350.0)
+            got = ex["azimuth_coverage_deg"]
+            detail = (f"{got:.0f} deg in {ex['azimuth_bins_occupied']}/36 bins "
+                      f"(span {ex['azimuth_min_deg']:+.0f}..{ex['azimuth_max_deg']:+.0f})")
+            out.append(Finding("B", "pointcloud/azimuth_coverage", name,
+                               f">={want:.0f} deg per message",
+                               detail, OK if got >= want else FAIL))
+
         pc = expect.get("pointcloud_fields")
         if pc:
             got = [(f["name"], f["datatype"], f["count"]) for f in ex.get("fields", [])]

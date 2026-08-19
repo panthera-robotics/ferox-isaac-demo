@@ -135,13 +135,51 @@ def _valid_returns(msg) -> Dict[str, Any]:
         xyz[:, i] = rows[:, off[k]:off[k] + 4].copy().view(np.float32).ravel()
     finite = np.isfinite(xyz).all(axis=1)
     nonzero = (xyz != 0.0).any(axis=1)
-    valid = int((finite & nonzero).sum())
+    good = finite & nonzero
+    valid = int(good.sum())
     n = int(rows.shape[0])
-    return {
+    out = {
         "points_total": n,
         "valid_returns": valid,
         "zero_padded": n - valid,
         "frac_padded": (n - valid) / n if n else 0.0,
+    }
+    out.update(_azimuth_coverage(xyz[good]))
+    return out
+
+
+AZIMUTH_BINS = 36           # 10 degrees each
+
+
+def _azimuth_coverage(xyz) -> Dict[str, Any]:
+    """How much of the horizontal circle does ONE message actually cover?
+
+    A 360-degree lidar that publishes a 72-degree wedge still looks like a valid
+    PointCloud2: right topic, right frame, right point_step, a plausible point
+    count, and a rate that matches the contract. Nothing in a topic-level or
+    field-level check can see it. What gives it away is the distribution of
+    bearings inside a single message, so that is what this measures.
+
+    Reported as a 36-bin histogram (10 deg per bin) and the number of OCCUPIED
+    bins, rather than as max-minus-min bearing: a sweep with a gap in the middle
+    has a full min-to-max span and is still not a full sweep. Occupied bins count
+    the coverage rather than its envelope.
+    """
+    import numpy as np
+
+    if xyz.shape[0] == 0:
+        return {}
+    az = np.degrees(np.arctan2(xyz[:, 1], xyz[:, 0]))       # -180..180
+    bins = np.floor((az + 180.0) / (360.0 / AZIMUTH_BINS)).astype(int)
+    bins = np.clip(bins, 0, AZIMUTH_BINS - 1)
+    hist = np.bincount(bins, minlength=AZIMUTH_BINS)
+    occupied = int((hist > 0).sum())
+    return {
+        "azimuth_hist": [int(v) for v in hist],
+        "azimuth_bins_occupied": occupied,
+        "azimuth_coverage_deg": occupied * (360.0 / AZIMUTH_BINS),
+        "azimuth_min_deg": float(az.min()),
+        "azimuth_max_deg": float(az.max()),
     }
 
 

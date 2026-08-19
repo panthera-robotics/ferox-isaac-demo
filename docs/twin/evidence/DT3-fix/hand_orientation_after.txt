@@ -1,0 +1,56 @@
+URDF   : /tmp/g1_dex5_urdf/g1_29dof_dex5_1p.urdf
+robot  : g1_29dof_rev_1_0
+
+=== L : base_link00L on left_wrist_yaw_link ===
+  flange xyz in wrist   (+0.041500, +0.003000, -0.000000)
+  hand root axes in wrist:
+    hand +X -> wrist (-0.0000, -0.0000, +1.0000)   nearest +Z (0.00 deg off)
+    hand +Y -> wrist (+1.0000, -0.0000, +0.0000)   nearest +X (0.00 deg off)
+    hand +Z -> wrist (+0.0000, +1.0000, -0.0000)   nearest +Y (0.00 deg off)
+  in wrist_yaw_link, zero pose:
+    finger axis (middle finger)  (+0.9999, -0.0123, -0.0000)   nearest +X (0.71 deg off)
+    palm normal (flex direction) (-0.0123, -0.9999, +0.0000)   nearest -Y (0.71 deg off)
+    thumb axis  (tip - root)     (+0.0090, -0.0000, +1.0000)   nearest +Z (0.52 deg off)
+    [ref] index tip - palm root  (+0.9972, +0.0192, +0.0721)
+  in base_link, STANDING:
+    finger axis (middle finger)  (+0.2947, +0.2283, -0.9279)   nearest -Z (21.89 deg off)
+    palm normal (flex direction) (-0.1380, -0.9507, -0.2777)   nearest -Y (18.07 deg off)
+    thumb axis  (tip - root)     (+0.9482, -0.2077, +0.2403)   nearest +X (18.52 deg off)
+    [ref] index tip - palm root  (+0.3663, +0.2424, -0.8984)
+  checks:
+    [PASS] fingers_along_wrist_x             0.707 deg (tol 5)  middle finger axis vs wrist +X (the forearm), zero pose
+    [PASS] palm_toward_midline_wrist         0.707 deg (tol 60)  palm normal vs wrist (+0, -1, +0), zero pose
+    [PASS] thumb_along_wrist_z               0.518 deg (tol 75)  thumb axis vs wrist +Z, zero pose
+    [PASS] palm_toward_midline_standing     18.065 deg (tol 60)  palm normal vs base_link (+0, -1, +0), standing
+    [PASS] thumb_forward_standing           18.520 deg (tol 75)  thumb axis vs base_link +X (forward), standing
+
+=== R : base_link00 on right_wrist_yaw_link ===
+  flange xyz in wrist   (+0.041500, -0.003000, -0.000000)
+  hand root axes in wrist:
+    hand +X -> wrist (-0.0000, +0.0000, +1.0000)   nearest +Z (0.00 deg off)
+    hand +Y -> wrist (+1.0000, -0.0000, +0.0000)   nearest +X (0.00 deg off)
+    hand +Z -> wrist (+0.0000, +1.0000, +0.0000)   nearest +Y (0.00 deg off)
+  in wrist_yaw_link, zero pose:
+    finger axis (middle finger)  (+0.9999, +0.0123, -0.0000)   nearest +X (0.71 deg off)
+    palm normal (flex direction) (-0.0123, +0.9999, +0.0000)   nearest +Y (0.71 deg off)
+    thumb axis  (tip - root)     (+0.0090, +0.0000, +1.0000)   nearest +Z (0.52 deg off)
+    [ref] index tip - palm root  (+0.9972, -0.0192, +0.0721)
+  in base_link, STANDING:
+    finger axis (middle finger)  (+0.2947, -0.2283, -0.9279)   nearest -Z (21.89 deg off)
+    palm normal (flex direction) (-0.1380, +0.9507, -0.2777)   nearest +Y (18.07 deg off)
+    thumb axis  (tip - root)     (+0.9482, +0.2077, +0.2403)   nearest +X (18.52 deg off)
+    [ref] index tip - palm root  (+0.3663, -0.2424, -0.8984)
+  checks:
+    [PASS] fingers_along_wrist_x             0.707 deg (tol 5)  middle finger axis vs wrist +X (the forearm), zero pose
+    [PASS] palm_toward_midline_wrist         0.707 deg (tol 60)  palm normal vs wrist (+0, +1, +0), zero pose
+    [PASS] thumb_along_wrist_z               0.518 deg (tol 75)  thumb axis vs wrist +Z, zero pose
+    [PASS] palm_toward_midline_standing     18.065 deg (tol 60)  palm normal vs base_link (+0, +1, +0), standing
+    [PASS] thumb_forward_standing           18.520 deg (tol 75)  thumb axis vs base_link +X (forward), standing
+
+=== chirality (standing) ===
+  left thumb lateral component  -0.2077
+  right thumb lateral component -0.2077
+  palms face each other         True
+  [PASS] thumbs outward on BOTH hands at once means L and R are swapped
+
+RESULT: PASS

@@ -269,6 +269,90 @@ def test_hand_mass_and_mount_survive_the_merge():
                 f"(tol {CHAIN_TOL})"
 
 
+# --- DT3 mount defect: the flange ROTATION -----------------------------------
+# The companion to test_hand_mass_and_mount_survive_the_merge, which checks the
+# flange POSITION and passed throughout the period both hands were rotated 90 deg.
+# The Dex5 root frame is not wrist-aligned -- its fingers run along its own +Y
+# while the G1's forearm runs along wrist +X -- so an identity flange rpy left the
+# fingers pointing laterally outward, the palm forward and the thumb down, with
+# every position check still exact to 0.0000 mm. Same shape as C-21.
+#
+# Asserted here on the BUILT USD, not on the intermediate URDF, because the USD is
+# what the sim loads. The expected rotation is derived by tools/derive_hand_flange.py
+# from Dex5 geometry against the convention in Unitree's own G1 + Inspire assembly,
+# and that derivation reproduces Unitree's published flange rpy to 1e-16.
+HAND_FLANGE_R = [[0.0, 1.0, 0.0],      # hand +X -> wrist +Z
+                 [0.0, 0.0, 1.0],      # hand +Y -> wrist +X  (fingers on the forearm)
+                 [1.0, 0.0, 0.0]]      # hand +Z -> wrist +Y  (palm across the body)
+HAND_ANATOMY = {
+    "L": {"wrist": "left_wrist_yaw_link", "root": "base_link00L",
+          "mid_mcp": "Link_31L", "mid_tip": "Link_34L",
+          "thumb_root": "Link_11L", "thumb_tip": "Link_14L"},
+    "R": {"wrist": "right_wrist_yaw_link", "root": "base_link00",
+          "mid_mcp": "Link_31R", "mid_tip": "Link_34R",
+          "thumb_root": "Link_11R", "thumb_tip": "Link_14R"},
+}
+FINGER_TOL_DEG = 5.0
+
+
+def test_hand_mount_rotation_and_anatomy():
+    import numpy as np
+    from pxr import Usd, UsdGeom
+
+    st = Usd.Stage.Open(HAND_STUB)
+    root = st.GetDefaultPrim().GetName()
+    cache = UsdGeom.XformCache(Usd.TimeCode.Default())
+
+    def xf(link):
+        prim = st.GetPrimAtPath(f"/{root}/{link}")
+        assert prim and prim.IsValid(), f"link {link} missing from the built USD"
+        return cache.GetLocalToWorldTransform(prim)
+
+    def R_of(m):
+        return np.array([[m[0][0], m[1][0], m[2][0]],
+                         [m[0][1], m[1][1], m[2][1]],
+                         [m[0][2], m[1][2], m[2][2]]])
+
+    def t_of(m):
+        return np.array([m[3][0], m[3][1], m[3][2]])
+
+    def ang(a, b):
+        c = float(np.clip(np.dot(a / np.linalg.norm(a), b / np.linalg.norm(b)), -1, 1))
+        return np.degrees(np.arccos(c))
+
+    for side, spec in HAND_ANATOMY.items():
+        Mw, Mh = xf(spec["wrist"]), xf(spec["root"])
+        Rw = R_of(Mw)
+        # The flange rotation itself, wrist -> hand root.
+        R_rel = Rw.T @ R_of(Mh)
+        assert np.allclose(R_rel, np.array(HAND_FLANGE_R), atol=1e-5), (
+            f"{side}: wrist->hand rotation is not the derived flange permutation "
+            f"-- DT3 mount regression. got\n{np.round(R_rel, 6)}")
+
+        # And the anatomy that rotation is FOR, measured on the same USD.
+        in_wrist = lambda link: Rw.T @ (t_of(xf(link)) - t_of(Mw))  # noqa: E731
+        finger = in_wrist(spec["mid_tip"]) - in_wrist(spec["mid_mcp"])
+        thumb = in_wrist(spec["thumb_tip"]) - in_wrist(spec["thumb_root"])
+        f_err = ang(finger, np.array([1.0, 0.0, 0.0]))
+        t_err = ang(thumb, np.array([0.0, 0.0, 1.0]))
+        assert f_err <= FINGER_TOL_DEG, (
+            f"{side}: middle finger is {f_err:.2f} deg off wrist +X (the forearm "
+            f"axis), tolerance {FINGER_TOL_DEG}")
+        assert t_err <= 5.0, f"{side}: thumb is {t_err:.2f} deg off wrist +Z"
+    # Chirality, on the thumb offsets rather than the frames: the left thumb sits
+    # on the hand's -Z side and the right on +Z, so in the WRIST frame the two
+    # thumb roots must fall on opposite sides of the palm plane. Both on the same
+    # side means the pair is swapped -- invisible to every per-hand check above.
+    lat = {}
+    for side, spec in HAND_ANATOMY.items():
+        Mw = xf(spec["wrist"])
+        Rw, tw = R_of(Mw), t_of(Mw)
+        lat[side] = float((Rw.T @ (t_of(xf(spec["thumb_root"])) - tw))[1])
+    assert lat["L"] * lat["R"] < 0, (
+        "both thumbs sit on the same side of their palms in the wrist frame "
+        f"({lat}) -- the left and right hands are swapped")
+
+
 def test_rubber_hand_caps_are_gone():
     from pxr import Usd
     st = Usd.Stage.Open(HAND_STUB)
@@ -339,6 +423,7 @@ def main():
     check("every hand joint is a dof", test_every_hand_joint_is_a_dof)
     check("hand mass and mount survive the merge", test_hand_mass_and_mount_survive_the_merge)
     check("rubber hand caps are gone", test_rubber_hand_caps_are_gone)
+    check("hand mount rotation and anatomy", test_hand_mount_rotation_and_anatomy)
     check("camera optical->USD rotation is exactly Rx(180)",
           test_camera_optical_to_usd_rotation_is_exactly_rx180)
 
