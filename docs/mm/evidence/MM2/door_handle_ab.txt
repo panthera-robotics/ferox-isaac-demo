@@ -1,0 +1,19 @@
+=== DROP='none' ===
+dofs: ['hinge']
+   t=0.5s angle -0.333 deg
+   t=1.0s angle -0.333 deg
+   t=1.5s angle -0.333 deg
+   t=2.0s angle -0.333 deg
+   t=2.5s angle -0.333 deg
+   t=3.0s angle -0.333 deg
+=== DROP='/World/lab/door/leaf_handle' ===
+deactivating /World/lab/door/leaf_handle exists: True
+dofs: ['hinge']
+   t=0.5s angle -1.435 deg
+   t=1.0s angle -1.435 deg
+   t=1.5s angle -1.435 deg
+   t=2.0s angle -1.435 deg
+   t=2.5s angle -1.435 deg
+   t=3.0s angle -1.435 deg
+
+[exited with code 0]

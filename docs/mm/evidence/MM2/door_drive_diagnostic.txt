@@ -1,0 +1,48 @@
+17:v = art  # isaacsim.core.prims.Articulation IS the view
+  <frozen os>(230): makedirs
+  <frozen os>(216): makedirs
+  /isaac-sim/extscache/omni.warp.core-1.8.2+lx64/warp/build.py(134): init_kernel_cache
+  /isaac-sim/extscache/omni.warp.core-1.8.2+lx64/warp/context.py(4111): __init__
+  /isaac-sim/extscache/omni.warp.core-1.8.2+lx64/warp/context.py(7407): init
+  /isaac-sim/extscache/omni.replicator.core-1.12.27+107.3.3.lx64.r.cp311/omni/replicator/core/scripts/extension.py(158): __init__
+  /isaac-sim/kit/kernel/py/omni/ext/_impl/_internal.py(167): _startup_ext
+  /isaac-sim/kit/kernel/py/omni/ext/_impl/_internal.py(233): startup
+  /isaac-sim/kit/kernel/py/omni/ext/_impl/_internal.py(337): startup_extension
+  PythonExtension.cpp::startup()(2): <module>
+  /isaac-sim/exts/isaacsim.simulation_app/isaacsim/simulation_app/simulation_app.py(534): _start_app
+  /isaac-sim/exts/isaacsim.simulation_app/isaacsim/simulation_app/simulation_app.py(270): __init__
+  /tmp/isaacrun/doordiag.py(3): <module>
+2026-08-19T09:29:48Z [7,040ms] [Error] [carb.scripting-python.plugin] AttributeError: 'NoneType' object has no attribute '_register_status_callback'
+  /isaac-sim/extscache/omni.replicator.core-1.12.27+107.3.3.lx64.r.cp311/omni/replicator/core/scripts/orchestrator.py(113): register
+  /isaac-sim/extscache/omni.replicator.core-1.12.27+107.3.3.lx64.r.cp311/omni/replicator/core/scripts/orchestrator.py(1648): register_status_callback
+  /isaac-sim/extscache/omni.replicator.replicator_yaml-2.0.11+107.3.3.lx64/omni/replicator/replicator_yaml/scripts/replicator_yaml_extension.py(75): on_startup
+  /isaac-sim/kit/kernel/py/omni/ext/_impl/_internal.py(173): _startup_ext
+  /isaac-sim/kit/kernel/py/omni/ext/_impl/_internal.py(233): startup
+  /isaac-sim/kit/kernel/py/omni/ext/_impl/_internal.py(337): startup_extension
+  PythonExtension.cpp::startup()(2): <module>
+  /isaac-sim/exts/isaacsim.simulation_app/isaacsim/simulation_app/simulation_app.py(534): _start_app
+  /isaac-sim/exts/isaacsim.simulation_app/isaacsim/simulation_app/simulation_app.py(270): __init__
+  /tmp/isaacrun/doordiag.py(3): <module>
+2026-08-19T09:29:48Z [7,040ms] [Error] [omni.kit.app._impl] [py stderr]: Traceback (most recent call last):
+2026-08-19T09:29:48Z [7,040ms] [Error] [omni.kit.app._impl] [py stderr]: AttributeError: 'NoneType' object has no attribute '_unregister_status_callback'
+dofs: ['hinge']
+  get_gains: (array([[114.59156]], dtype=float32), array([[458.36624]], dtype=float32))
+  get_joint_limits: n/a ('Articulation' object has no attribute 'get_joint_limits')
+  get_max_efforts: [[50.]]
+  get_drive_types: [[1]]
+  set_max_efforts ok
+  set_joint_position_targets ok (radians)
+   t=0.5s angle -0.333 deg
+   t=1.0s angle -0.333 deg
+   t=1.5s angle -0.333 deg
+   t=2.0s angle -0.333 deg
+   t=2.5s angle -0.333 deg
+   t=3.0s angle -0.333 deg
+  set_joint_efforts ok
+   effort t=0.5s angle -0.333 deg
+   effort t=1.0s angle -0.333 deg
+   effort t=1.5s angle -0.333 deg
+   effort t=2.0s angle -0.333 deg
+  limits n/a
+
+[exited with code 0]

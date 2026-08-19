@@ -1,0 +1,799 @@
+{
+  "contract": "/tmp/g1_contract.yaml",
+  "source": "live ROS 2 graph",
+  "summary": {
+    "A_fail": 6,
+    "B_fail": 7,
+    "pass": 64,
+    "skip": 10,
+    "total": 87
+  },
+  "findings": [
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/type",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "sensor_msgs/msg/LaserScan",
+      "actual": "sensor_msgs/msg/LaserScan",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/frame_id",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "base_link",
+      "actual": "base_link",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/qos",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "best_effort",
+      "actual": "best_effort",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "10.0 Hz +-10%",
+      "actual": "10.00 Hz (sim-time stamps)",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/odom",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/type",
+      "subject": "/ferox/g1_01/odom",
+      "expected": "nav_msgs/msg/Odometry",
+      "actual": "nav_msgs/msg/Odometry",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/frame_id",
+      "subject": "/ferox/g1_01/odom",
+      "expected": "odom",
+      "actual": "odom",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/qos",
+      "subject": "/ferox/g1_01/odom",
+      "expected": "reliable",
+      "actual": "reliable",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/ferox/g1_01/odom",
+      "expected": "51.4 Hz +-10%",
+      "actual": "50.00 Hz (sim-time stamps)",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/imu/data",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/type",
+      "subject": "/ferox/g1_01/imu/data",
+      "expected": "sensor_msgs/msg/Imu",
+      "actual": "sensor_msgs/msg/Imu",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/frame_id",
+      "subject": "/ferox/g1_01/imu/data",
+      "expected": "dog_imu_link",
+      "actual": "dog_imu_link",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/qos",
+      "subject": "/ferox/g1_01/imu/data",
+      "expected": "reliable",
+      "actual": "reliable",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/ferox/g1_01/imu/data",
+      "expected": "93.7 Hz +-10%",
+      "actual": "66.67 Hz (sim-time stamps)",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/livox/lidar",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/type",
+      "subject": "/livox/lidar",
+      "expected": "sensor_msgs/msg/PointCloud2",
+      "actual": "sensor_msgs/msg/PointCloud2",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/frame_id",
+      "subject": "/livox/lidar",
+      "expected": "livox_frame",
+      "actual": "livox_frame",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/qos",
+      "subject": "/livox/lidar",
+      "expected": "reliable",
+      "actual": "reliable",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/livox/lidar",
+      "expected": "10.0 Hz +-10%",
+      "actual": "10.00 Hz (sim-time stamps)",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/present",
+      "subject": "/livox/imu",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/type",
+      "subject": "/livox/imu",
+      "expected": "sensor_msgs/msg/Imu",
+      "actual": "sensor_msgs/msg/Imu",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/frame_id",
+      "subject": "/livox/imu",
+      "expected": "livox_frame",
+      "actual": "livox_frame",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/qos",
+      "subject": "/livox/imu",
+      "expected": "reliable",
+      "actual": "reliable",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/livox/imu",
+      "expected": "200.0 Hz +-10%",
+      "actual": "100.00 Hz (sim-time stamps)",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/camera/color/image_raw",
+      "expected": "published",
+      "actual": "ABSENT",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/type",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": "sensor_msgs/msg/CameraInfo",
+      "actual": "sensor_msgs/msg/CameraInfo",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/frame_id",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": "camera_color_optical_frame",
+      "actual": "no message received",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/qos",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": "reliable",
+      "actual": "reliable",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/ferox/g1_01/camera/color/camera_info",
+      "expected": ">=15.0 Hz (target 30.0)",
+      "actual": "0.00 Hz (wall clock)",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/image_raw",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/type",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/image_raw",
+      "expected": "sensor_msgs/msg/Image",
+      "actual": "sensor_msgs/msg/Image",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/frame_id",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/image_raw",
+      "expected": "camera_color_optical_frame",
+      "actual": "no message received",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/encoding",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/image_raw",
+      "expected": "16UC1",
+      "actual": "-",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/qos",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/image_raw",
+      "expected": "reliable",
+      "actual": "reliable",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/image_raw",
+      "expected": ">=15.0 Hz (target 30.0)",
+      "actual": "0.00 Hz (wall clock)",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/camera_info",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/type",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/camera_info",
+      "expected": "sensor_msgs/msg/CameraInfo",
+      "actual": "sensor_msgs/msg/CameraInfo",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/frame_id",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/camera_info",
+      "expected": "camera_color_optical_frame",
+      "actual": "no message received",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/qos",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/camera_info",
+      "expected": "reliable",
+      "actual": "reliable",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/ferox/g1_01/camera/aligned_depth_to_color/camera_info",
+      "expected": ">=15.0 Hz (target 30.0)",
+      "actual": "0.00 Hz (wall clock)",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/present",
+      "subject": "/ferox/g1_01/camera/depth/color/points",
+      "expected": "published",
+      "actual": "published",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/type",
+      "subject": "/ferox/g1_01/camera/depth/color/points",
+      "expected": "sensor_msgs/msg/PointCloud2",
+      "actual": "sensor_msgs/msg/PointCloud2",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/frame_id",
+      "subject": "/ferox/g1_01/camera/depth/color/points",
+      "expected": "camera_depth_optical_frame",
+      "actual": "no message received",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "topic/qos",
+      "subject": "/ferox/g1_01/camera/depth/color/points",
+      "expected": "best_effort",
+      "actual": "best_effort",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "topic/rate",
+      "subject": "/ferox/g1_01/camera/depth/color/points",
+      "expected": ">=15.0 Hz (target 30.0)",
+      "actual": "0.00 Hz (wall clock)",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "C",
+      "check": "topic/subscribe",
+      "subject": "/ferox/g1_01/cmd_vel",
+      "expected": "accepted by sim",
+      "actual": "present",
+      "status": "SKIP",
+      "note": "input topic -- presence depends on the commanding side"
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "base_link -> camera_link",
+      "expected": "published only when enabled",
+      "actual": "absent (gate off)",
+      "status": "SKIP",
+      "note": "Sim: CAMERA_TF=1. Driver: camera_tf_enable (g1_driver.yaml:186, default false). NOTE the driver composes this through the waist chain when waist_tf_bridge is active; these numbers are the torso_link -> d435_link tail evaluated at the standing pose, same convention as the base_link -> livox_frame row."
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "base_link -> dog_imu_link",
+      "expected": "present",
+      "actual": "present",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/xyz",
+      "subject": "base_link -> dog_imu_link",
+      "expected": "[0.0, 0.0, 0.0] (<=0.0001 m)",
+      "actual": "[0.0, 0.0, 0.0] (d=0.00e+00 m)",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/rpy",
+      "subject": "base_link -> dog_imu_link",
+      "expected": "[-0.000966, -0.010877, 0.0] rad (<=0.0001 rad)",
+      "actual": "d=0.00e+00 rad",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "camera_color_frame -> camera_color_optical_frame",
+      "expected": "present",
+      "actual": "present",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/xyz",
+      "subject": "camera_color_frame -> camera_color_optical_frame",
+      "expected": "[0.0, 0.0, 0.0] (<=0.0001 m)",
+      "actual": "[0.0, 0.0, 0.0] (d=0.00e+00 m)",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/rpy",
+      "subject": "camera_color_frame -> camera_color_optical_frame",
+      "expected": "[-1.570796, 0.0, -1.570796] rad (<=0.0001 rad)",
+      "actual": "d=0.00e+00 rad",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "camera_depth_frame -> camera_depth_optical_frame",
+      "expected": "present",
+      "actual": "present",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/xyz",
+      "subject": "camera_depth_frame -> camera_depth_optical_frame",
+      "expected": "[0.0, 0.0, 0.0] (<=0.0001 m)",
+      "actual": "[0.0, 0.0, 0.0] (d=0.00e+00 m)",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/rpy",
+      "subject": "camera_depth_frame -> camera_depth_optical_frame",
+      "expected": "[-1.570796, 0.0, -1.570796] rad (<=0.0001 rad)",
+      "actual": "d=0.00e+00 rad",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "camera_link -> camera_color_frame",
+      "expected": "present",
+      "actual": "present",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/xyz",
+      "subject": "camera_link -> camera_color_frame",
+      "expected": "[0.0, 0.0, 0.0] (<=0.0001 m)",
+      "actual": "[0.0, 0.0, 0.0] (d=0.00e+00 m)",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/rpy",
+      "subject": "camera_link -> camera_color_frame",
+      "expected": "[0.0, 0.0, 0.0] rad (<=0.0001 rad)",
+      "actual": "d=0.00e+00 rad",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "camera_link -> camera_depth_frame",
+      "expected": "present",
+      "actual": "present",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/xyz",
+      "subject": "camera_link -> camera_depth_frame",
+      "expected": "[0.0, 0.0, 0.0] (<=0.0001 m)",
+      "actual": "[0.0, 0.0, 0.0] (d=0.00e+00 m)",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/rpy",
+      "subject": "camera_link -> camera_depth_frame",
+      "expected": "[0.0, 0.0, 0.0] rad (<=0.0001 rad)",
+      "actual": "d=0.00e+00 rad",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/edge",
+      "subject": "livox_frame -> livox_imu",
+      "expected": "present",
+      "actual": "present",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/xyz",
+      "subject": "livox_frame -> livox_imu",
+      "expected": "[0.011, 0.02329, -0.04412] (<=0.0001 m)",
+      "actual": "[0.011, 0.02329, -0.04412] (d=0.00e+00 m)",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_static/rpy",
+      "subject": "livox_frame -> livox_imu",
+      "expected": "[0.0, 0.0, 0.0] rad (<=0.0001 rad)",
+      "actual": "d=0.00e+00 rad",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "tf_dynamic/edge",
+      "subject": "base_link -> livox_frame",
+      "expected": "on /tf",
+      "actual": "present",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "tf_dynamic/rate",
+      "subject": "base_link -> livox_frame",
+      "expected": ">=50 Hz (target 100)",
+      "actual": "50.00 Hz",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "laserscan/ray_count",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "723",
+      "actual": "723",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "laserscan/angle_min",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "-3.14159265",
+      "actual": "-3.14159274",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "laserscan/angle_max",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "3.14159265",
+      "actual": "3.14159274",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "laserscan/angle_increment",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "0.0087",
+      "actual": "0.00870000012",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "laserscan/scan_time",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "0.1",
+      "actual": "0.100000001",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "laserscan/range_min",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "0.3",
+      "actual": "0.300000012",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "A",
+      "check": "laserscan/range_max",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "6",
+      "actual": "6",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "laserscan/in_range",
+      "subject": "/ferox/g1_01/scan",
+      "expected": ">=99% of finite returns",
+      "actual": "100.0%",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "C",
+      "check": "laserscan/below_range_min",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "reported (self-hit fraction)",
+      "actual": "0.00%",
+      "status": "SKIP",
+      "note": ""
+    },
+    {
+      "parity": "C",
+      "check": "laserscan/self_hit",
+      "subject": "/ferox/g1_01/scan",
+      "expected": "reported in base_link (<0.35 m)",
+      "actual": "none under 0.35 m",
+      "status": "SKIP",
+      "note": ""
+    },
+    {
+      "parity": "C",
+      "check": "pointcloud/valid_returns",
+      "subject": "/livox/lidar",
+      "expected": "~9443 per sweep +-20% (C-18)",
+      "actual": "15482 of 15482 (0.0% zero-padded)",
+      "status": "FAIL",
+      "note": ""
+    },
+    {
+      "parity": "B",
+      "check": "pointcloud/azimuth_coverage",
+      "subject": "/livox/lidar",
+      "expected": ">=300 deg per message",
+      "actual": "360 deg in 36/36 bins (span -180..+180)",
+      "status": "PASS",
+      "note": ""
+    },
+    {
+      "parity": "C",
+      "check": "pointcloud/fields",
+      "subject": "/livox/lidar",
+      "expected": "x:FLOAT32, y:FLOAT32, z:FLOAT32, intensity:FLOAT32, tag:UINT8, line:UINT8, timestamp:FLOAT64",
+      "actual": "x:FLOAT32, y:FLOAT32, z:FLOAT32",
+      "status": "SKIP",
+      "note": "C-8: Isaac RTX lidar cloud is xyz-only; no bridge node emits the livox layout"
+    },
+    {
+      "parity": "C",
+      "check": "pointcloud/point_step",
+      "subject": "/livox/lidar",
+      "expected": "26",
+      "actual": "12",
+      "status": "SKIP",
+      "note": "C-8: Isaac RTX lidar cloud is xyz-only; no bridge node emits the livox layout"
+    },
+    {
+      "parity": "C",
+      "check": "provenance/assumed",
+      "subject": "tf camera_link->camera_color_frame",
+      "expected": "calibrated",
+      "actual": "assumed",
+      "status": "SKIP",
+      "note": "EDGE confirmed at panthera-g1-driver/evidence/fw2026q3/session_a/31_tf_static.txt. VALUES unknown: absent from realsense_driver (zero grep hits for camera_link). Placeholder identity -- MUST be replaced from a real /tf_static capture (OQ-1)."
+    },
+    {
+      "parity": "C",
+      "check": "provenance/assumed",
+      "subject": "tf camera_color_frame->camera_color_optical_frame",
+      "expected": "calibrated",
+      "actual": "assumed",
+      "status": "SKIP",
+      "note": "EDGE confirmed at session_a/31_tf_static.txt. Rotation is the fixed REP-103 body-style -> optical-style convention (-pi/2, 0, -pi/2), not a measurement."
+    },
+    {
+      "parity": "C",
+      "check": "provenance/assumed",
+      "subject": "tf camera_link->camera_depth_frame",
+      "expected": "calibrated",
+      "actual": "assumed",
+      "status": "SKIP",
+      "note": "EDGE confirmed at session_a/31_tf_static.txt. VALUES unknown, see OQ-1."
+    },
+    {
+      "parity": "C",
+      "check": "provenance/assumed",
+      "subject": "tf camera_depth_frame->camera_depth_optical_frame",
+      "expected": "calibrated",
+      "actual": "assumed",
+      "status": "SKIP",
+      "note": "EDGE confirmed at session_a/31_tf_static.txt. REP-103 optical convention."
+    }
+  ],
+  "notes": [
+    "/ferox/g1_01/camera/color/image_raw: declared in graph but has no publisher"
+  ]
+}

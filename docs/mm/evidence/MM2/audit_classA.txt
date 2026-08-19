@@ -1,0 +1,22 @@
+Class-A failures at MM2 in panthera_lab: 6
+
+- topic/present              /ferox/g1_01/camera/color/image_raw
+    expected: published
+    actual:   ABSENT
+- topic/frame_id             /ferox/g1_01/camera/color/camera_info
+    expected: camera_color_optical_frame
+    actual:   no message received
+- topic/frame_id             /ferox/g1_01/camera/aligned_depth_to_color/image_raw
+    expected: camera_color_optical_frame
+    actual:   no message received
+- topic/encoding             /ferox/g1_01/camera/aligned_depth_to_color/image_raw
+    expected: 16UC1
+    actual:   -
+- topic/frame_id             /ferox/g1_01/camera/aligned_depth_to_color/camera_info
+    expected: camera_color_optical_frame
+    actual:   no message received
+- topic/frame_id             /ferox/g1_01/camera/depth/color/points
+    expected: camera_depth_optical_frame
+    actual:   no message received
+
+summary: {'A_fail': 6, 'B_fail': 7, 'pass': 64, 'skip': 10, 'total': 87}

@@ -1,4 +1,4 @@
-verifying /workspace/ferox_isaac/assets/worlds/panthera_lab/panthera_lab.usd (7131 bytes)
+verifying /workspace/ferox_isaac/assets/worlds/panthera_lab/panthera_lab.usd (7210 bytes)
   ok   up axis is Z
   ok   metersPerUnit is 1.0
   ok   /panthera_lab/shell exists
@@ -9,6 +9,7 @@ verifying /workspace/ferox_isaac/assets/worlds/panthera_lab/panthera_lab.usd (71
   ok   door leaf exists
   ok   door leaf width = 0.900 m (want 0.9)
   ok   door leaf height = 2.100 m (want 2.1)
+  ok   door leaf clears the floor by 10.0 mm (want 10)
   ok   door leaf mass = 35.0 kg (want 35.0)
   ok   hinge joint exists
   ok   hinge axis is Z
@@ -17,6 +18,9 @@ verifying /workspace/ferox_isaac/assets/worlds/panthera_lab/panthera_lab.usd (71
   ok   closer spring stiffness > 0
   ok   hinge damping > 0
   ok   door is an articulation root
+  ok   hinge body0 is the frame link
+  ok   frame is a RIGID BODY (a static collider cannot be an articulation link, and a hinge on one gives zero DOF while looking correct)
+  ok   frame is pinned to the world by a fixed joint (fixed-base articulation)
   ok   outside apron floor exists
   ok   apron reaches y = 5.500 m, past the door_outside waypoint at 3.60 with >=0.30 m to spare
   ok   apron starts at y = 3.100 m, flush with the wall (no gap to step over)

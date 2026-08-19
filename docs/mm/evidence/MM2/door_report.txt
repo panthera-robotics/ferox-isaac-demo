@@ -1,0 +1,8 @@
+  ok   door exposes a joint DOF: ['hinge']
+  FAIL door opens: commanded 45 deg, reached -0.33 deg
+  FAIL door opens further: commanded 90 deg, reached -0.33 deg
+  ok   door STOPS at its limit: commanded 170 deg, reached -0.33 deg (limit 110.0)
+  FAIL closer spring swings it back: -0.33 -> -0.33 deg with only the 2.0 spring and 8.0 damping
+FAIL: door articulation
+
+angle trace: 180 samples in /out/door_angles.csv

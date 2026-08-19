@@ -60,6 +60,9 @@ DOOR_W, DOOR_H, DOOR_T = 0.90, 2.10, 0.045
 DOOR_LEAF_KG = 35.0            # §4.3: "real masses ~35 kg leaf"
 DOOR_LIMIT_DEG = 110.0
 HANDLE_Z = 1.05                # §4.3: lever handle at 1.05 m
+FRAME_T = 0.06                 # jamb thickness
+DOOR_UNDERCUT = 0.010          # real doors clear the floor; ours did not, and a
+                               # 35 kg leaf resting on the slab is a brake
 
 TABLE = dict(sx=1.20, sy=0.80, h=0.75, x=2.20, y=-1.60)
 COUNTER = dict(sx=2.40, sy=0.60, h=0.90, x=-2.60, y=2.40)
@@ -217,9 +220,17 @@ def build(out_dir: str, seed: int) -> str:
     # North wall carries the doorway, so it is authored as two piers and a
     # header rather than one slab.
     door_cx = 2.0                       # doorway centre along +x on the north wall
+    # The piers frame the ROUGH OPENING (leaf + both jambs), not the leaf. Sizing
+    # them to the leaf buried the west jamb 60 x 60 mm through the pier's full
+    # 2.16 m height: a rigid articulation base link penetrating a static collider,
+    # which is why the door reported a healthy 'hinge' DOF and would not move off
+    # -0.33 deg. Found by intersecting the authored boxes, not by watching it.
+    rough_w = DOOR_W + 2 * FRAME_T
     for name, sx, cx in (
-        ("north_pier_w", (door_cx - DOOR_W / 2.0) + hx, (-hx + (door_cx - DOOR_W / 2.0)) / 2.0),
-        ("north_pier_e", hx - (door_cx + DOOR_W / 2.0), (hx + (door_cx + DOOR_W / 2.0)) / 2.0),
+        ("north_pier_w", (door_cx - rough_w / 2.0) + hx,
+         (-hx + (door_cx - rough_w / 2.0)) / 2.0),
+        ("north_pier_e", hx - (door_cx + rough_w / 2.0),
+         (hx + (door_cx + rough_w / 2.0)) / 2.0),
     ):
         if sx <= 0.01:
             continue
@@ -227,7 +238,7 @@ def build(out_dir: str, seed: int) -> str:
                  (cx, hy + WALL_T / 2, ROOM_Z / 2), color=(0.78, 0.78, 0.80))
         _bind_material(w.GetPrim(), m_wall)
     hdr = _box(stage, "/panthera_lab/shell/north_header",
-               (DOOR_W, WALL_T, ROOM_Z - DOOR_H),
+               (DOOR_W + 2 * FRAME_T, WALL_T, ROOM_Z - DOOR_H),
                (door_cx, hy + WALL_T / 2, DOOR_H + (ROOM_Z - DOOR_H) / 2),
                color=(0.78, 0.78, 0.80))
     _bind_material(hdr.GetPrim(), m_wall)
@@ -272,14 +283,24 @@ def build(out_dir: str, seed: int) -> str:
 
     # Frame is the static parent. Hinge on the west edge of the opening.
     hinge_x = door_cx - DOOR_W / 2.0
+    # The frame is the articulation's BASE LINK, so it is a rigid body pinned to
+    # the world by a fixed joint -- not a static collider. A static collider cannot
+    # be a link, and a hinge attached to one (or to the world directly) yields an
+    # articulation with ZERO DOF while passing every static USD check: the joint
+    # exists, the axis is Z, limits and drive are present, the root API is applied,
+    # and the door still cannot move. Only a physics-stepping test finds that.
     frame = _box(stage, "/panthera_lab/door/frame",
-                 (0.06, WALL_T + 0.02, DOOR_H + 0.06),
-                 (hinge_x - 0.03, hy, (DOOR_H + 0.06) / 2), color=(0.45, 0.32, 0.22))
+                 (FRAME_T, WALL_T + 0.02, DOOR_H + FRAME_T),
+                 (hinge_x - FRAME_T / 2, hy, (DOOR_H + FRAME_T) / 2),
+                 rigid=True, mass=50.0, color=(0.45, 0.32, 0.22))
     _bind_material(frame.GetPrim(), m_wood)
+    base = UsdPhysics.FixedJoint.Define(
+        stage, Sdf.Path("/panthera_lab/door/frame_to_world"))
+    base.CreateBody1Rel().SetTargets([frame.GetPath()])   # body0 empty = world
 
     leaf = _box(stage, "/panthera_lab/door/leaf",
                 (DOOR_W, DOOR_T, DOOR_H),
-                (hinge_x + DOOR_W / 2.0, hy, DOOR_H / 2.0),
+                (hinge_x + DOOR_W / 2.0, hy, DOOR_UNDERCUT + DOOR_H / 2.0),
                 rigid=True, mass=DOOR_LEAF_KG, color=(0.62, 0.45, 0.30))
     _bind_material(leaf.GetPrim(), m_wood)
 
@@ -290,13 +311,27 @@ def build(out_dir: str, seed: int) -> str:
 
     hinge = UsdPhysics.RevoluteJoint.Define(
         stage, Sdf.Path("/panthera_lab/door/hinge"))
+    # body0 is left EMPTY, i.e. the world, rather than pointing at the frame.
+    # Pointing it at the frame passes every static USD check -- the joint exists,
+    # the axis is Z, the limits and drive are there, the articulation root is
+    # applied -- and then PhysX builds an articulation with ZERO DOF, because the
+    # frame is a static collider with no rigid body and so cannot be a link. The
+    # door rendered correctly and could not move, which is the exact shape of
+    # defect this repo's audit rule exists for; only a physics-stepping test finds
+    # it. See tools/test_door_articulation.py.
     hinge.CreateBody0Rel().SetTargets([frame.GetPath()])
     hinge.CreateBody1Rel().SetTargets([leaf.GetPath()])
     hinge.CreateAxisAttr("Z")
-    # Anchors are expressed in each body's LOCAL frame. Both bodies are authored
-    # as scaled unit cubes, so the local frame is the cube's centre.
-    hinge.CreateLocalPos0Attr(Gf.Vec3f(0.0, 0.0, 0.0))
-    hinge.CreateLocalPos1Attr(Gf.Vec3f(-0.5, 0.0, 0.0))   # west edge of the leaf
+    # With body0 = world, LocalPos0 is in WORLD coordinates: the hinge line on the
+    # west edge of the opening. LocalPos1 stays in the leaf's own frame, which is
+    # a scaled unit cube, so its west edge is at x = -0.5.
+    # Both anchors are now in their own body's local frame; both bodies are
+    # scaled unit cubes, so the frame's centre is its origin and the leaf's west
+    # edge is at x = -0.5.
+    hinge.CreateLocalPos0Attr(Gf.Vec3f(0.5, 0.0, 0.0))
+    # (leaf sits DOOR_UNDERCUT above the frame's base, so the anchors differ in z
+    #  by that amount expressed in each body's own scaled-unit-cube frame)
+    hinge.CreateLocalPos1Attr(Gf.Vec3f(-0.5, 0.0, 0.0))
     hinge.CreateLowerLimitAttr(0.0)
     hinge.CreateUpperLimitAttr(DOOR_LIMIT_DEG)
 
@@ -522,6 +557,9 @@ def verify(usd_path: str, report_path: str = "") -> int:
             f"door leaf width = {r.GetMax()[0]-r.GetMin()[0]:.3f} m (want {DOOR_W})")
         chk(abs((r.GetMax()[2] - r.GetMin()[2]) - DOOR_H) < 0.01,
             f"door leaf height = {r.GetMax()[2]-r.GetMin()[2]:.3f} m (want {DOOR_H})")
+        chk(abs(r.GetMin()[2] - DOOR_UNDERCUT) < 0.002,
+            f"door leaf clears the floor by {r.GetMin()[2]*1000:.1f} mm "
+            f"(want {DOOR_UNDERCUT*1000:.0f})")
         m = UsdPhysics.MassAPI(leaf).GetMassAttr().Get()
         chk(m is not None and abs(m - DOOR_LEAF_KG) < 1e-6,
             f"door leaf mass = {m} kg (want {DOOR_LEAF_KG})")
@@ -540,6 +578,15 @@ def verify(usd_path: str, report_path: str = "") -> int:
     chk(bool(UsdPhysics.ArticulationRootAPI(
         stage.GetPrimAtPath("/panthera_lab/door"))),
         "door is an articulation root")
+    if hinge:
+        b0 = UsdPhysics.RevoluteJoint(hinge).GetBody0Rel().GetTargets()
+        chk(bool(b0), "hinge body0 is the frame link")
+        chk(bool(UsdPhysics.RigidBodyAPI(
+            stage.GetPrimAtPath("/panthera_lab/door/frame"))),
+            "frame is a RIGID BODY (a static collider cannot be an articulation "
+            "link, and a hinge on one gives zero DOF while looking correct)")
+        chk(bool(stage.GetPrimAtPath("/panthera_lab/door/frame_to_world")),
+            "frame is pinned to the world by a fixed joint (fixed-base articulation)")
 
     ap = stage.GetPrimAtPath("/panthera_lab/shell/apron_floor")
     chk(bool(ap), "outside apron floor exists")

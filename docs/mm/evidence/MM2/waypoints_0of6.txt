@@ -1,0 +1,17 @@
+(hostscripts is a read-only mount; already current)
+-> home (-2.6, 0.0)
+   not reached err 2.335 m closest 2.335 m in 150.1 s timed out
+-> table_approach (2.2, -0.2)
+   not reached err 4.193 m closest 4.193 m in 150.0 s timed out
+-> table (2.2, -0.4)
+   not reached err 4.301 m closest 4.301 m in 150.2 s timed out
+-> shelf (-1.8, -1.8)
+   not reached err 3.812 m closest 3.812 m in 150.4 s timed out
+-> door_inside (2.0, 1.9)
+   not reached err 3.378 m closest 3.378 m in 150.1 s timed out
+-> door_outside (2.0, 3.6)
+   not reached err 3.741 m closest 3.741 m in 150.5 s timed out
+
+0/6 waypoints reached
+
+[exited with code 0]
