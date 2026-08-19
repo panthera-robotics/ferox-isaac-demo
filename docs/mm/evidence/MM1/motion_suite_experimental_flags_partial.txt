@@ -1,0 +1,3 @@
+  N@0.2     ok   speed 0.155/0.20 m/s err 22.7%  zmin 0.768
+  N@0.5     ok   speed 0.245/0.50 m/s err 51.0%  zmin 0.748
+  N@0.8     ok   speed 0.012/0.80 m/s err 98.5%  zmin 0.727
