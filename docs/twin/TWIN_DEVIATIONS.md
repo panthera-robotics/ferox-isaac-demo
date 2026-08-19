@@ -32,6 +32,7 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 | [C-3](#c-3) | C | D435i intrinsics (K/D) are factory-typical placeholders | DT1 | OPEN — needs OQ-1 |
 | [C-4](#c-4) | C | RealSense intra-camera TF values unknown (edges confirmed, numbers absent) | DT1 | OPEN — needs OQ-1 |
 | [C-5](#c-5) | C | Aligned-depth metric scale (mm) is convention, never written down | DT1 | OPEN — needs OQ-1 |
+| C-23 addendum | — | camera also blocks filming the LIVE sim; both media routes blocked on a 16 GB box | MM1/MM2 | OPEN — 4090 item |
 | [C-6](#c-6) | C | Mid-360 non-repetitive rosette modelled as a uniform rotary grid | DT2 | OPEN — inherent to Isaac's RTX lidar; **quantified at MM2**: twin 45–58 % finite vs robot 70 %, pose-independent |
 | [C-24](#c-24) | — | **WITHDRAWN** — claimed a missing `cloud_accumulator`; the real G1 driver has none either. Duplicate of C-6 | MM2 | WITHDRAWN same day |
 | [C-7](#c-7) | B→C | Sim USD waist chain is 10 mm shorter than the robot's URDF | DT2 | OPEN — body asset, not patched by design |
@@ -931,6 +932,38 @@ opens in the gate that builds the thing.
 | — | PhysX finger-contact grasp physics vs real compliant contact | DT3 |
 | — | `HandState_` published at ≥200 Hz from sim vs 1 kHz on the real hand (campaign amendment 3) | DT6 |
 | — | D435i intrinsics `assumed` from factory-typical values until a real `camera_info` capture arrives (§8 Q1) | DT2 |
+
+## C-23 addendum — it also blocks filming the live sim (MM1/MM2 media)
+
+Recorded 2026-08-19 with a clean A/B, because it is the reason two gates ship
+without their clips.
+
+`isaac/twin/film_live.py` adds an offscreen follow camera to the **running** twin —
+the sim that demonstrably walks (MM1 §3: N@0.2 at 2.4 % error) — precisely to avoid
+`film.py`'s standalone scene, where the policy's gains are never applied. The hook
+is flag-gated on `TWIN_FILM=1` and writes PNGs through the same converged path.
+
+| boot | result |
+|---|---|
+| `TWIN_FILM=0`, everything else identical | main loop at 40 s, `/odom` publishing, sim healthy |
+| `TWIN_FILM=1` | `[FILM] live camera up` … then **SIGSEGV**, `python3!_start`, core dumped, 0 frames |
+
+Creating one offscreen `Camera` inside `run.py` kills the process on this box, which
+is C-23 exactly as already declared — the reason `TWIN_CAMERA=0` is set for every
+MM run. It is not specific to the ROS 2 image writer, and it is not the film hook's
+logic: the hook never gets to render a frame.
+
+**Where this leaves media on a 16 GB box.** Both routes are blocked, for different
+reasons, and neither is a coding error left to fix:
+
+* **live sim** — renders would be correct, but the process segfaults on camera
+  creation (this item).
+* **standalone `film.py`** — renders fine, but `G1VelocityPolicy.initialize()` never
+  applies `deploy.yaml`'s gains there (`kp` up to 35809.9, `kd` down to 0.000), so
+  the robot is not driven by the deployed controller and cannot be filmed walking.
+
+The live hook is the right long-term answer and is delivered, tested to the point of
+the crash, and inert by default. It runs on a 4090 day.
 
 ## C-24 — WITHDRAWN. The G1 driver has no accumulator either; this is C-6
 

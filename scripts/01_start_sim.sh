@@ -104,6 +104,12 @@ docker run -d --name "$SIM_CONTAINER" --runtime=nvidia --gpus all \
   -v "$CACHE_DIR/warp":/isaac-sim/.cache/warp:rw \
   -v "$DEMO_DIR/isaac":/workspace/ferox_isaac:rw \
   -v "$DEMO_DIR/tools":/workspace/ferox_tools:ro \
+  -e TWIN_FILM="${TWIN_FILM:-0}" \
+  -e TWIN_FILM_SHOT="${TWIN_FILM_SHOT:-chase}" \
+  -e TWIN_FILM_SECONDS="${TWIN_FILM_SECONDS:-0}" \
+  -e TWIN_FILM_SUBFRAMES="${TWIN_FILM_SUBFRAMES:-32}" \
+  -e TWIN_FILM_OUT=/tmp/film/live \
+  -v "${FILM_OUT_DIR:-/tmp/film}":/tmp/film:rw \
   $G1_POLICY_MOUNT \
   --entrypoint bash \
   "$ISAAC_IMAGE" \

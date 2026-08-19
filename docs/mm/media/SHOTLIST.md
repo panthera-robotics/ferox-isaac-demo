@@ -37,6 +37,17 @@ Marketing-grade 10–15 s, one per gate that has one.
 
 ---
 
+## Status 2026-08-19: both routes to a clip are blocked on this box
+
+| route | state |
+|---|---|
+| **live sim** (`isaac/twin/film_live.py`, `TWIN_FILM=1`) | **delivered**, and segfaults this box on camera creation — **C-23**, proven by A/B against an otherwise identical `TWIN_FILM=0` boot that runs fine |
+| **standalone** (`tools/film.py --drive policy`) | renders fine, but the policy's gains are never applied (`kp` 35809.9, `kd` 0.000), so the robot is not driven by the deployed controller |
+
+Neither is a coding error left to fix. The live hook is the right answer and runs on
+a 4090 day. Until then, **MM1 and MM2 are PASS-with-deviations for media**, and say
+so in their RESULTS.
+
 ## Why MM1's clips are not here yet
 
 **Second, harder reason as of 2026-08-19: `film.py` cannot yet film the real policy
