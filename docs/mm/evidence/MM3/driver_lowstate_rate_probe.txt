@@ -1,0 +1,10 @@
+=== /lowstate ===
+  msgs=21284 span=25.00s  RATE=851.4 Hz
+  unique ticks=20522  duplicated-tick msgs=762 (3.6%)
+  tick range 12105664..12128744 (span 23080) -> tick rate 923.3/s
+  most repeated ticks: [(12105671, 2), (12105695, 2), (12105719, 2)]
+  ticks whose duplicate copies DISAGREE on accel: 605
+    tick 12105671 -> [(1.0792, 0.633, 9.7576), (1.1241, 0.6689, 9.7145)]
+    tick 12105695 -> [(1.1869, 0.624, 9.7414), (1.1717, 0.6698, 9.7531)]
+=== /secondary_imu ===
+  msgs=26027 span=24.98s  RATE=1041.7 Hz
