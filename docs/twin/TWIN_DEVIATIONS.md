@@ -930,3 +930,42 @@ opens in the gate that builds the thing.
 | — | PhysX finger-contact grasp physics vs real compliant contact | DT3 |
 | — | `HandState_` published at ≥200 Hz from sim vs 1 kHz on the real hand (campaign amendment 3) | DT6 |
 | — | D435i intrinsics `assumed` from factory-typical values until a real `camera_info` capture arrives (§8 Q1) | DT2 |
+
+## C-24 — the G1 twin's `/scan` is one Mid-360 frame, not an accumulated cloud
+
+**Class B.** Found at MM2, and it retroactively explains MM0.
+
+`/scan` is produced by `pointcloud_to_laserscan` consuming `/livox/lidar` directly.
+`ferox_nav_sim`'s `cloud_accumulator` — the sliding-window, motion-compensated
+accumulator that exists precisely because "an accumulator that merely resembles the
+robot's is not a twin" — is wired into `twin_bridge_go2.launch.py` only. The G1 twin
+bridge never spawns it, so every `/scan` the G1 twin has ever published is a single
+non-repetitive Mid-360 sweep.
+
+**Evidence that it is this and not geometry or range:**
+
+| measurement | value |
+|---|---|
+| finite ratio at `home` (−2.60, 0.00) | 58.5 % |
+| finite ratio at (0.87, 0.16), mid-room | 57.7 % |
+| predicted from room geometry at `home` | 83.3 % (farthest wall 7.25 m vs 6.0 m `range_max`) |
+| predicted from room geometry mid-room | ~100 % (farthest wall < 6.0 m) |
+
+The measured ratio is **pose-independent to within 0.8 points** while the geometric
+prediction moves by 17 points. Nothing about the room explains it. A single Mid-360
+frame simply does not illuminate ~42 % of the 723 azimuth bins.
+
+Same signature at MM0: hospital measured 45.2–45.5 % from the twin against **70 %**
+from the real robot's bag on the identical scene and identical scan geometry. The
+real driver accumulates; the G1 twin does not.
+
+**Consequence:** MM2's `/scan` requirement (≥60 % finite) reads **58.4 % — FAIL**,
+and the failure is the missing accumulator rather than the world. The MM0 hospital
+figure of 45 % was accepted as "the correct scene answer"; that acceptance stands
+for the corridor geometry, but the twin-vs-robot gap it sat inside now has a name.
+
+**Not fixed here.** The fix is to spawn `cloud_accumulator` in the G1 twin bridge as
+the Go2 bridge already does, and to point `pointcloud_to_laserscan` at
+`/mid360/points_accum`. That is a change to the Ferox launch graph, and the only
+Ferox change authorized in this campaign was the Nav2 footprint/inflation item at
+MM1. Flagged for a decision rather than taken.
