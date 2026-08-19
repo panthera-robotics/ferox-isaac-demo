@@ -1,0 +1,6 @@
+     Curriculum/ang_vel_cmd_levels: 0.1000
+                       Mean reward: -5103.36
+Episode_Reward/base_linear_velocity: -138.9493
+Episode_Reward/base_angular_velocity: -227.3534
+     Curriculum/lin_vel_cmd_levels: 0.1000
+     Curriculum/ang_vel_cmd_levels: 0.1000

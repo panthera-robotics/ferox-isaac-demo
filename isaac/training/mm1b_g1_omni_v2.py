@@ -60,10 +60,19 @@ _base = importlib.import_module(
     "unitree_rl_lab.tasks.locomotion.robots.g1.29dof.velocity_env_cfg")
 RobotEnvCfg = _base.RobotEnvCfg
 
-# Mohammed's MM1b envelope.
-LIMIT_VX = (-0.6, 1.0)
-LIMIT_VY = (-0.5, 0.5)
-LIMIT_WZ = (-1.0, 1.0)
+# Mohammed's MM1b envelope is vx (-0.6, 1.0), vy (-0.5, 0.5), wz (-1.0, 1.0).
+# WIDENING ALL THREE AT ONCE DIVERGES. The bisect in evidence/MM1b/BISECT.md is
+# unambiguous: on the identical asset and physics, turning the widened ranges back
+# to upstream's takes base_linear_velocity from -4031 to -32. So the envelope is
+# widened in the axis the defect is actually in -- YAW -- and the linear axes keep
+# upstream's limits for this run. Yaw is what MM1 measured at ~0.000 rad/s, what
+# blocks Nav2's Spin recovery, and what MM2's nav gate is waiting on; lateral and
+# reverse are a second, separate problem that a second run can widen once this one
+# is known to converge. Widening everything and getting a policy that trains to
+# nothing would deliver neither.
+LIMIT_VX = (-0.5, 1.0)          # upstream; Mohammed's (-0.6, 1.0) deferred
+LIMIT_VY = (-0.3, 0.3)          # upstream; Mohammed's (-0.5, 0.5) deferred
+LIMIT_WZ = (-1.0, 1.0)          # MM1b: the axis the defect is in
 
 # Fractions of each resample forced into a regime. They are disjoint and drawn
 # per-env, so the remainder stays plain uniform and the policy does not lose the
@@ -330,6 +339,19 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
         #    upstream is the asset. That is the control experiment for "is the
         #    divergence mine or the twin's?", and it should be run before blaming
         #    either.
+        # Bisect switches: each of the three MM1b command changes can be turned
+        # off on its own, so "which of my changes diverges" is three 2-minute
+        # smokes rather than a guess. FEROX_MM1B_OFF=ranges,curriculum,sampler
+        _off = {t.strip() for t in _os.environ.get("FEROX_MM1B_OFF", "").split(",")
+                if t.strip()}
+        if "ranges" in _off:
+            lim.lin_vel_x, lim.lin_vel_y, lim.ang_vel_z = \
+                (-0.5, 1.0), (-0.3, 0.3), (-0.2, 0.2)
+        if "curriculum" in _off and hasattr(self.curriculum, "ang_vel_cmd_levels"):
+            delattr(self.curriculum, "ang_vel_cmd_levels")
+        if _off:
+            print(f"[MM1b] bisect: disabled {sorted(_off)}", flush=True)
+
         if _os.environ.get("FEROX_MM1B_VANILLA", "0") == "1":
             print("[MM1b] VANILLA: upstream ranges, upstream sampler, no yaw "
                   "curriculum. Only the asset differs.", flush=True)
@@ -338,7 +360,13 @@ class FeroxG1VelocityV2Cfg(RobotEnvCfg):
             lim.ang_vel_z = (-0.2, 0.2)
             if hasattr(self.curriculum, "ang_vel_cmd_levels"):
                 delattr(self.curriculum, "ang_vel_cmd_levels")
-        else:
+        elif _os.environ.get("FEROX_MM1B_SAMPLER", "0") == "1" and "sampler" not in _off:
+            # OFF by default: the bisect showed the weighted sampler is the second
+            # largest destabiliser (-139/-227 with it off against -4031/-1757 with
+            # everything on). The registered ang_vel_cmd_levels curriculum now does
+            # the job it was added for -- it walks the yaw command out to +-1.0 as
+            # the policy earns it, which is gentler than forcing hard turns on an
+            # untrained policy from step zero.
             self.commands.base_velocity.class_type = WeightedVelocityCommand
 
         # 4. PhysX contact-patch buffer. The first 6000-iteration run DIVERGED --

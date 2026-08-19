@@ -1,0 +1,6 @@
+Episode_Reward/base_angular_velocity: -4643345760857849069568.0000
+     Curriculum/lin_vel_cmd_levels: 0.1000
+                       Mean reward: -650545334928405614821376.00
+Episode_Reward/base_linear_velocity: -11064368129230076116992.0000
+Episode_Reward/base_angular_velocity: -4646138555576772198400.0000
+     Curriculum/lin_vel_cmd_levels: 0.1000

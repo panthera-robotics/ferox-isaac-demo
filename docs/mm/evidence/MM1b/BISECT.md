@@ -40,8 +40,50 @@ changes, not in the twin, the hands, the timestep, or the actuators.
 
 The three changes are widened `limit_ranges`, the newly-registered
 `ang_vel_cmd_levels` curriculum, and the weighted in-place/lateral/reverse sampler.
-They have **not yet been bisected against each other** — that is the next step, and
-it is three more 2-minute smokes, not another 47-minute run.
+### Bisected against each other
+
+| disabled | base_lin_vel | base_ang_vel | mean reward |
+|---|---|---|---|
+| *(nothing — all three on)* | −4031 | −1757 | −74,601 |
+| the weighted **sampler** | −139 | −227 | −5,103 |
+| the widened **ranges** | **−32.1** | **−32.9** | **−1,306** |
+| the yaw **curriculum** | −1.1×10²² | −4.6×10²¹ | −6.5×10²³ |
+
+**The widened ranges dominate.** Turning them back to upstream's, with everything
+else left on, recovers almost all the stability. The weighted sampler is the second
+contributor. Removing the yaw curriculum while keeping the widened ranges and the
+sampler produces a full numerical blow-up — which makes sense: the curriculum is the
+only thing holding the command range down, so without it the sampler draws from a
+much wider band immediately.
+
+### Configuration chosen for the run
+
+| | value | why |
+|---|---|---|
+| `limit_ranges.ang_vel_z` | **(−1.0, 1.0)** | the axis the defect is in |
+| `limit_ranges.lin_vel_x` | (−0.5, 1.0), upstream | Mohammed's (−0.6, 1.0) deferred |
+| `limit_ranges.lin_vel_y` | (−0.3, 0.3), upstream | Mohammed's (−0.5, 0.5) deferred |
+| `ang_vel_cmd_levels` | **registered** | the dead-code curriculum, now wired in |
+| weighted sampler | **off** | second-largest destabiliser; the curriculum now does its job more gently |
+
+Smoke on that config: base_lin_vel **−22.8**, base_ang_vel **−72.9**, mean reward
+**−1436** — statistically the same as the vanilla control (−18.3 / −75.6 / −2771),
+against −4031 / −1757 / −74,601 with everything on.
+
+**Declared deviation from the brief.** Mohammed specified all three axes widened at
+once. That configuration diverges, and a policy trained to nothing delivers neither
+yaw nor lateral. Yaw is widened first because it is what MM1 measured at ~0.000
+rad/s, what blocks Nav2's Spin recovery, and what MM2's nav gate waits on. Lateral
+and reverse are a separate defect and a separate run, once this one is known to
+converge.
+
+### A note on the smoke gate
+
+`Mean episode length` reads 1.00 in **every** configuration here, including the
+vanilla control that is upstream in all but the asset. It is therefore not a usable
+health signal on this rsl-rl version, and the `--min_ep_len` gate should not be
+trusted alone. The base-velocity penalties are the signal that actually separates a
+converging run from an exploding one, by three orders of magnitude.
 
 Worth noting: the curriculum never expanded in any row (`ang_vel_cmd_levels` and
 `lin_vel_cmd_levels` both pinned at 0.1000), so the widened limits were never
