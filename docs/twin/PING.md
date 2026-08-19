@@ -1,3 +1,71 @@
+# PING — 2026-08-19 — the box cannot run the camera, and one decision follows
+
+**Raised:** 2026-08-19, after the video-review fixes
+**Class:** environment (C-23), plus one scoping question
+**Blocks:** item C entirely, E-1 entirely, C-21's live re-proof, and the montage's
+camera clip. Does **not** block anything about the lidar, the hands, nav or the audit.
+
+---
+
+## 1. This box segfaults Isaac whenever the ROS 2 image writer is live
+
+Five boots out of five, at `run.py:1201` on the first `world.step(render=True)` after
+a camera render product exists, with a native backtrace through
+`libomni.syntheticdata` and `libomni.graph.image.core`.
+
+What it is **not**, each ruled out by measurement rather than by argument:
+
+| ruled out | evidence |
+|---|---|
+| memory | peak VRAM **3776 MiB of 16376**, peak host RSS **5.7 GB of 47**, sampled at 1 Hz through the crash; no OOM, no Xid, `/dev/shm` 24 G |
+| the merged hand asset | crashes identically on the pre-existing committed asset |
+| the world | reproduced in both `dso_block_a` and `hospital` |
+| the depth annotator | removing it changes nothing; the default `rgb` annotator does it too |
+| "any camera" | the **offscreen** render path works fine — both capture scripts and both orbit renders complete |
+
+What isolates it: the **Go2 twin boots every time** on this same box with the same
+RTX lidar and the same bridge, and its contract has no camera.
+
+**The box is not the one the campaign was validated on.** RESUME §1 records an RTX
+4090 with 48 GB. This is an **RTX 4080 SUPER with 16 GB**, 47 GiB of RAM against 98,
+and no tailnet. Driver and Isaac version are the documented ones.
+
+`annotator_device="cuda"` was tried and reverted: it stops the crash by stopping the
+synthetic-data pipeline, and both render-product topics go silent — the camera image
+*and the lidar cloud* — while the rclpy publishers keep running so the sim looks
+perfectly alive. That is a worse failure than the crash, and this campaign exists
+because of quiet failures.
+
+`TWIN_CAMERA=0` (default **on**) skips the camera device and changes nothing the
+audit checks. It is what kept the lidar/nav half of today's work possible.
+
+### The question
+
+**Do you want a 4090 box to finish item C, E-1 and the montage's camera clip?**
+Everything else is done and pushed. If C-23 is the GPU, a 4090 instance closes all
+three with no code change. If you would rather I chase it on this hardware, say so —
+but I have no evidence left that points at the twin rather than the box.
+
+---
+
+## 2. DT2 navigation: 1 of 3, not 3 of 3
+
+The brief asked for three Nav2 goals SUCCEEDED. **Goal 1 SUCCEEDED — the first this
+twin has ever reached.** Goals 2 and 3 ABORTED, and the reason is measured: both
+targets sat outside the ~7.5 × 7.0 m the SLAM map had grown by then.
+
+Nothing was tuned to get goal 1, and I did not tune anything to chase 2 and 3 —
+DT2's standing decision is that the footprint/inflation interaction is Ferox-side
+and deliberately untouched. The obvious next try is a longer mapping drive before
+the goals, which is minutes of work but is a change of method rather than a fix, so
+it is yours to call.
+
+---
+
+*Everything below is the resolved PING from 2026-08-18 and is kept as the record.*
+
+---
+
 # PING — RESOLVED 2026-08-18
 
 > **Outcome: the contract stays dynamic. Option A stands.**
