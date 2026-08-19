@@ -562,6 +562,86 @@ cmd_vel_clamps:
   provenance: configured
   source: panthera-g1-driver config g1_driver.yaml (cmd_vel_to_loco)
 
+# ============================================================================
+# LOW-LEVEL DDS WIRE (MM3). What the twin must put on rt/lowstate and accept on
+# rt/lowcmd for the sdk2 client to believe it is talking to a G1.
+#
+# Every number below is MEASURED off *gt_bag, decoded with ROS unitree_hg inside
+# ferox/twin-lowlevel:humble, by scripts/mm3_lowstate_decode.py. Evidence:
+# docs/mm/evidence/MM3/lowstate_{rate,decode}_bag.txt.
+# ============================================================================
+lowlevel:
+  # THE TWO RATES ARE DIFFERENT NUMBERS AND MM3's spec conflated them into one
+  # "500 Hz". Read docs/mm/evidence/MM3/PREREQS.md before touching either.
+  lowstate_publish_hz: 1041.68
+  lowstate_publish_band_hz: [1020.84, 1062.51]   # +-2%
+  lowstate_publish_provenance: measured
+  lowstate_publish_source: >-
+    *gt_bag /lowstate: 35998 msgs over 34.5568 s = 1041.677 Hz, per-second counts
+    1039..1044 (sigma 0.79 over 34 full seconds). NOT 500 Hz -- the campaign's
+    500 Hz is the PD rate below. Superseded the driver probe's 851.4 Hz, which came
+    from a capture whose own tick clock ran 7.7% slow (923.3/s against a robot that
+    ticks at 1000.064/s) -- a gappy capture, not a slower robot.
+
+  pd_apply_hz: 500.0
+  pd_apply_provenance: configured
+  pd_apply_source: >-
+    docs/mm/CAMPAIGN.md 4.2 -- rate at which the bridge evaluates
+    tau = kp(q_d-q) + kd(dq_d-dq) + tau_ff, clamped to URDF effort limits. This is
+    the sim's physics rate under G1_CONTROL=lowcmd (physics_dt 1/500), and it is
+    NOT the rate rt/lowstate is published at.
+
+  # tick is a MILLISECOND counter, not a message counter. The robot publishes 1041.68
+  # msg/s against a 1000 Hz tick, so ~4% of messages repeat a tick while carrying
+  # fresh IMU data. Measured twice independently (bag 4.02%, driver probe 3.6%), so
+  # it is robot behaviour, not capture damage. The twin does NOT emulate it -- C-25.
+  tick_hz: 1000.064
+  tick_provenance: measured
+  tick_unit: ms
+  tick_duplicate_fraction: 0.0402
+
+  topics:
+    lowstate: {name: rt/lowstate, type: unitree_hg::msg::dds_::LowState_, direction: twin_publishes}
+    lowcmd:   {name: rt/lowcmd,   type: unitree_hg::msg::dds_::LowCmd_,   direction: twin_subscribes}
+    dex3_state: {name: "rt/dex3/{left,right}/state", type: unitree_hg::msg::dds_::HandState_, direction: twin_publishes}
+    dex3_cmd:   {name: "rt/dex3/{left,right}/cmd",   type: unitree_hg::msg::dds_::HandCmd_,   direction: twin_subscribes}
+
+  # FIELD SEMANTICS: what the robot actually fills. Gating the twin on "every field
+  # the IDL has" would be gating it on something the robot does not do.
+  lowstate_fields:
+    motor_state_len: 35            # array is always 35 long...
+    motor_state_live: [0, 28]      # ...but only 0..28 are driven; the G1 is 29-DoF
+    motor_state_dead: [29, 34]     # identically zero in every one of the 35998 msgs
+    motor_mode_live: 1             # live slots carry mode=1, dead slots mode=0
+    ddq: zero                      # robot NEVER populates ddq -- twin must not either
+    version: [0, 0]
+    mode_pr: 0
+    mode_machine: 5
+    wireless_remote: zero          # all 40 bytes zero throughout
+    reserve: zero
+    crc: populated                 # unitree_sdk2py.utils.crc.CRC over the struct
+    imu_quaternion_order: [w, x, y, z]
+    imu_rpy: populated             # NOT derived by the consumer -- the robot sends it
+    imu_accelerometer_gravity: "+z ~ +9.80 m/s^2 when upright"
+    imu_temperature_c: 80
+    motor_temperature_c: [31, 48]
+    motor_vol_v: [45.5, 49.5]
+    provenance: measured
+    source: docs/mm/evidence/MM3/lowstate_decode_bag.txt (whole-bag occupancy scan)
+
+  # The hand wire is 20-entry per DT campaign 4.5 (Dex5-1P), NOT the 7 that
+  # unitree_sdk2py's default factory pre-fills for a Dex3. Both the DDS IDL
+  # (types.sequence) and the ROS msg (MotorCmd[]) are unbounded, so 20 is legal on
+  # the wire; only the default helper is Dex3-shaped. Do not use the default factory.
+  dex3_wire:
+    motor_entries: 20
+    press_sensor_entries: 12       # contact zones per hand, DT campaign 4.4 item 4
+    press_pressure_per_entry: 12
+    state_min_hz: 200.0            # real hand is 1 kHz -- declared gap, DT amendment 3
+    provenance: configured
+    source: docs/twin/CAMPAIGN.md:124 (Dex5-1P 20 DoF, 16 active + passive at 4/8/12/16)
+
+
 rules:
   # Named rules a CONSUMER of this contract must follow. Not checkable from the wire
   # -- these constrain how code uses the interface, not what the interface carries --

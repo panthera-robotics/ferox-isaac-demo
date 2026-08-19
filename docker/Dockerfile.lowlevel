@@ -1,0 +1,85 @@
+# ferox/twin-lowlevel:humble — the MM3 twin low-level bridge image.
+#
+# One image, three jobs, and each one is a gate:
+#   * decode the DT bag: /lowstate is unitree_hg/msg/LowState, which no image on
+#     this box could read before this one (MM3 PREREQS).  ROS unitree_hg is built
+#     here from unitree_ros2 @ cyclonedds_ws/src/unitree.
+#   * run the sdk2py client side of the gates: the PD stand script (test a), the
+#     cmd-loss watchdog probe (b), the rate/parity check (c), the dex3 wire (f).
+#     That needs unitree_sdk2py, which pins cyclonedds==0.10.2 exactly.
+#   * hold the DDS half of the bridge itself, out of Isaac's python.
+#
+# Ubuntu note: the sim image (isaac-sim 5.1.0) is 24.04, where ROS humble has no
+# apt packages at all.  That is why the bridge image is humble-based and separate
+# from the sim image rather than layered on it — see RESULTS_MM3 "Deviations".
+FROM ros:humble-ros-base
+
+SHELL ["/bin/bash", "-lc"]
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential cmake git wget curl ca-certificates \
+      python3-pip python3-dev \
+      ros-humble-rosbag2 ros-humble-rosbag2-storage-default-plugins \
+      ros-humble-rmw-cyclonedds-cpp \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------- cyclonedds
+# unitree_sdk2py pins cyclonedds==0.10.2 and its python binding refuses to build
+# against a different C library, so the C library is pinned to the same tag and
+# built from source rather than taken from apt (which carries 0.10.5, the version
+# Isaac's ROS 2 bridge also ships — deliberately NOT reused here).
+ARG CYCLONEDDS_TAG=0.10.2
+RUN git clone --depth 1 --branch ${CYCLONEDDS_TAG} \
+      https://github.com/eclipse-cyclonedds/cyclonedds.git /tmp/cyclonedds \
+ && cmake -S /tmp/cyclonedds -B /tmp/cyclonedds/build \
+      -DCMAKE_INSTALL_PREFIX=/opt/cyclonedds \
+      -DBUILD_IDLC=ON -DBUILD_DDSPERF=OFF -DBUILD_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=Release \
+ && cmake --build /tmp/cyclonedds/build --target install -j"$(nproc)" \
+ && rm -rf /tmp/cyclonedds
+
+ENV CYCLONEDDS_HOME=/opt/cyclonedds
+ENV LD_LIBRARY_PATH=/opt/cyclonedds/lib:${LD_LIBRARY_PATH}
+
+RUN pip3 install --no-cache-dir "cyclonedds==0.10.2" numpy
+
+# ------------------------------------------------------------ unitree_sdk2py
+# opencv-python is in the sdk's install_requires but is only used by its video
+# client, which nothing here touches; skipping it keeps the image ~1 GB smaller.
+COPY unitree_sdk2_python /opt/unitree_sdk2_python
+RUN pip3 install --no-cache-dir --no-deps /opt/unitree_sdk2_python \
+ && python3 -c "from unitree_sdk2py.idl.unitree_hg.msg.dds_ import LowState_, LowCmd_, HandCmd_, HandState_; print('sdk2py IDL ok')"
+
+# --------------------------------------------------- ROS unitree_hg / _go msgs
+# This is the half that makes the DT bag readable.  unitree_api is built too
+# because unitree_go's package.xml depends on it.
+# unitree_hg's CMakeLists calls rosidl_generator_dds_idl, which ros-humble-ros-base
+# does not carry.  Kept in its own layer so a miss here does not rebuild cyclonedds.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ros-humble-rosidl-generator-dds-idl ros-humble-rosidl-default-generators \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY unitree_msgs /opt/unitree_ws/src/unitree
+RUN source /opt/ros/humble/setup.bash \
+ && cd /opt/unitree_ws \
+ && colcon build --merge-install --cmake-args -DCMAKE_BUILD_TYPE=Release \
+ && rm -rf build log
+
+# Entrypoint, not /etc/bash.bashrc: that file is only read by INTERACTIVE shells,
+# so `docker run img python3 -c "import unitree_hg"` silently missed the overlay
+# while pip-installed unitree_sdk2py imported fine -- a split that would have made
+# every gate script look like an IDL bug.  The entrypoint sources both overlays for
+# every process this image ever runs, interactive or not.
+RUN printf '%s\n' \
+      '#!/bin/bash' \
+      'set -e' \
+      'source /opt/ros/humble/setup.bash' \
+      'source /opt/unitree_ws/install/setup.bash' \
+      'exec "$@"' > /ros_entrypoint.sh \
+ && chmod +x /ros_entrypoint.sh
+
+ENTRYPOINT ["/ros_entrypoint.sh"]
+
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+WORKDIR /workspace
+CMD ["bash"]

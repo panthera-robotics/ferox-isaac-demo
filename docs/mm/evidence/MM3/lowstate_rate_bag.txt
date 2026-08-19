@@ -1,0 +1,24 @@
+=== /lowstate  (unitree_hg/msg/LowState) ===
+  msgs=35998  span=34.5568s  RATE=1041.677 Hz  period=0.9600 ms
+  dt ms: mean=0.9600 std=0.2381 min=0.0106 max=6.4207
+  dt ms percentiles: p1=0.0681  p25=0.8748  p50=0.9743  p75=1.0255  p99=1.4738
+  sub-50us gaps (duplicate-tick burst proxy): 293 (0.81%)
+  per-second counts: mean=1041.68 min=1039 max=1044 std=0.79  n=34
+  gate band at +-2%: 1020.84 .. 1062.51 Hz
+
+=== /livox/imu  (sensor_msgs/msg/Imu) ===
+  msgs=6911  span=34.5506s  RATE=199.997 Hz  period=5.0001 ms
+  dt ms: mean=5.0001 std=0.9161 min=0.0099 max=14.3751
+  dt ms percentiles: p1=2.7058  p25=4.2552  p50=5.0195  p75=5.7539  p99=7.3031
+  sub-50us gaps (duplicate-tick burst proxy): 5 (0.07%)
+  per-second counts: mean=200.00 min=200 max=200 std=0.00  n=34
+  gate band at +-2%: 196.00 .. 204.00 Hz
+
+=== /ferox/g1_01/imu/data  (sensor_msgs/msg/Imu) ===
+  msgs=3240  span=34.5664s  RATE=93.704 Hz  period=10.6719 ms
+  dt ms: mean=10.6719 std=0.5412 min=5.7034 max=16.2666
+  dt ms percentiles: p1=8.7503  p25=10.5225  p50=10.6639  p75=10.8184  p99=12.6733
+  sub-50us gaps (duplicate-tick burst proxy): 0 (0.00%)
+  per-second counts: mean=93.71 min=93 max=95 std=0.62  n=34
+  gate band at +-2%: 91.83 .. 95.58 Hz
+
