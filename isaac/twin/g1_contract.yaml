@@ -406,6 +406,28 @@ topics:
       # per ray and pads nothing, so it reports ~20k here and is ~2x denser --
       # declared, not corrected by throwing sim points away.
       valid_returns_per_sweep: 9443
+      # AZIMUTH COVERAGE OF ONE MESSAGE. A full-sweep sensor that publishes a
+      # sector passes every other check here -- right topic, frame, point_step,
+      # plausible width, contract rate -- so the only thing that catches it is the
+      # spread of bearings INSIDE one message. Measured over all 346 clouds in the
+      # ground-truth bag, as occupied bins of a 36-bin (10 deg) histogram of valid
+      # returns:
+      #
+      #     occupied bins   min 31   median 34   max 36   mean 33.48
+      #     coverage        310 deg  340 deg     360 deg  334.8 deg
+      #
+      # So the real Mid-360 does NOT fill the circle every 100 ms: bins 14-17
+      # (sensor azimuth -40..0 deg) are empty in 112-224 of the 346 messages, and
+      # bin 21 (+30..+40) in 125. That is the non-repetitive rosette's coverage
+      # varying with dwell time -- the pattern C-6 declares the twin cannot
+      # reproduce -- plus the head shell. It is a property of the sensor, not a
+      # defect, and a threshold that demanded 360 would fail the robot.
+      #
+      # 300 is therefore the real sensor's own measured worst case (310) less one
+      # bin of margin. It is nowhere near the failure it exists to catch: the twin
+      # was publishing ONE RENDER FRAME's partial sweep, about 72 deg / 7 bins.
+      # The gap between 72 and 310 is what makes this check safe at either end.
+      azimuth_coverage_deg_min: 300.0
     deviations:
       # RtxLidarROS2PublishPointCloud emits x,y,z only (point_step 12) -- measured,
       # and there is no Isaac 5.1 node that adds intensity/tag/line/timestamp to an

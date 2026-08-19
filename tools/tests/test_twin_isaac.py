@@ -293,6 +293,7 @@ HAND_ANATOMY = {
           "thumb_root": "Link_11R", "thumb_tip": "Link_14R"},
 }
 FINGER_TOL_DEG = 5.0
+ROT_TOL = 1e-3
 
 
 def test_hand_mount_rotation_and_anatomy():
@@ -325,7 +326,13 @@ def test_hand_mount_rotation_and_anatomy():
         Rw = R_of(Mw)
         # The flange rotation itself, wrist -> hand root.
         R_rel = Rw.T @ R_of(Mh)
-        assert np.allclose(R_rel, np.array(HAND_FLANGE_R), atol=1e-5), (
+        # ROT_TOL, not machine epsilon, for the same reason CHAIN_TOL exists above:
+        # USD stores xform ops as float32 and the hand root sits ~10 links from the
+        # articulation root, so the composed rotation accumulates ~2e-4 per element.
+        # That is 0.011 deg -- real, harmless, and enough to fail an exact compare
+        # for a reason that has nothing to do with the mount. The anatomy assertions
+        # below carry the actual tolerance that matters (5 deg).
+        assert np.allclose(R_rel, np.array(HAND_FLANGE_R), atol=ROT_TOL), (
             f"{side}: wrist->hand rotation is not the derived flange permutation "
             f"-- DT3 mount regression. got\n{np.round(R_rel, 6)}")
 

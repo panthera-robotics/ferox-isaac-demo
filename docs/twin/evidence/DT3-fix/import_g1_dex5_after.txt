@@ -1,0 +1,11 @@
+source URDF: /tmp/g1_dex5_urdf/g1_29dof_dex5_1p.urdf
+  revolute joints 69, mass 35.004757 kg
+
+imported -> /tmp/g1_dex5_usd/g1_dex5_1p.usd
+  default prim: g1_29dof_rev_1_0
+  revolute joints: 69 (URDF 69)
+  total mass: 35.004757 kg vs 35.004757 (0.00%, tol 1%) => PASS
+  articulation roots: 1 ['/g1_29dof_rev_1_0/pelvis']
+  every URDF joint present in the USD: PASS
+
+RESULT: PASS
