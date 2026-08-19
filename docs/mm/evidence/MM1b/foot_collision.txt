@@ -1,0 +1,2 @@
+collision prims: 0
+--- foot/ankle matches ---
