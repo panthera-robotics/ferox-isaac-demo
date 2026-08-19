@@ -11,42 +11,75 @@ plausible one.
 
 ## 0. You are here
 
-**Fast path DONE: DT2 → DT3 → DT5, all tagged. C-21 closed. G1 ground truth landed.**
+**Fast path DONE. Then a video review of `twin_progress_20260818.mp4` found three
+defects no audit could see, and two of the three are fixed.**
 
 | Gate | Verdict | Tag |
 |---|---|---|
 | DT0 | PASS-with-deviations (accepted) | `twin-DT0` |
 | DT1 | PASS (accepted) | `twin-DT1` |
-| DT2 | PASS-with-deviations — Class-A conformant; waist fork resolved Option A | `twin-DT2` |
-| DT3 | PASS — Dex5-1P hands, 69 DOF in one articulation, robot walks | `twin-DT3` |
-| DT5 | Interface PASS (Class-A conformant), navigation PARTIAL (C-17) | `twin-DT5` |
-| Fast-path housekeeping | scorecard, self-hit report, RULE-HAND-NAME, planner issue | `twin-fastpath` |
-| G1 ground truth | OQ-2 + OQ-3 closed, C-18/19/20 opened, OQ-6 raised | `twin-gt-g1` |
+| DT2 | PASS-with-deviations; **nav 1 of 3 goals SUCCEEDED** (was 0 of 3) | `twin-DT2` |
+| DT3 | PASS — **hand mount orientation corrected 2026-08-19** | `twin-DT3`, `twin-g1-fixed` |
+| DT5 | Interface PASS, navigation PARTIAL (C-17) | `twin-DT5` |
+| G1 ground truth | OQ-2 + OQ-3 closed, C-18/19/20 opened | `twin-gt-g1` |
 | Persistence | this document | `twin-persist` |
+| **Video-review fixes** | **A fixed, B fixed, C blocked by C-23** | `twin-g1-fixed` |
 | DT4, DT6, DT7, DT8 | **deferred by Mohammed — do not start** | — |
 
-**Open items, verbatim from `RESULTS_FASTPATH.md` and the deviations register:**
+### The three video-review defects
 
-* **E-1** — `ferox_vision` against the twin camera. **Interface half PASS** (rgb8,
-  16UC1, K exact, xyzrgb cloud). **Detection half OPEN**: needs the `ferox_vision`
-  image published to a registry (June backlog). *Do not stub it.*
-* **E-2** — visual pass. **G1 done** (4 PNGs). **Go2 Mid-360 puck + bracket still
-  open** (OQ-5.4): its frames are authored and verified 5/5 exact, but carry no
-  geometry.
-* **OQ-5.1** — does the real Go2's Mid-360 see its own nose? One capture decides
-  **C-17** and closes the Go2's `pointcloud/fields`. *This is the next work item.*
-* **OQ-5.2** — `go2.yaml` caps acceleration (1.5 m/s², 2.0 rad/s²) and nothing
-  enforces it. Intentional, or a gap?
-* **OQ-5.3** — `planner_server` segfaults (exit −11) when the robot is outside the
-  costmap. Repro + issue text in `ISSUE_planner_segfault.md`. Intermittent.
-* **OQ-6** — the robot ran `lidar_tf_mode=static`. Robot-side; Mohammed is taking it
-  to Kevin. Contract stays dynamic (Option A).
-* **C-3 / C-4** — camera intrinsics and intra-camera TF are still `assumed`. Closing
-  them is what would let C-21's gate tighten from ±1.5°/±60 mm to 0.5°/30 mm.
-* **Deviations** C-1 … C-20 open (C-21 closed). See `TWIN_DEVIATIONS.md`.
+* **A — Dex5 mount orientation. FIXED.** Both hands were rotated 90° on their
+  flanges for the whole of DT3 (fingers laterally outward, palm forward, thumb
+  down) and every check passed, because DT3 verified the mount's *position* and
+  nothing verified its *orientation*. `rpy = (−π/2, −π/2, 0)`, both sides,
+  derived by `tools/derive_hand_flange.py` and self-tested against Unitree's own
+  published G1+Inspire flange to 1e-16. Fingers **90.000° → 0.707°** off the
+  forearm axis. Isaac suite **13/13**. Full write-up: `RESULTS_DT3.md` §8.
+* **B — the Mid-360 published a sector. FIXED.** Each cloud was one render
+  frame's slice and the decimation sampled the same phase every time. Isaac 5.1
+  has two ROS 2 cloud writers; the twin used the non-accumulating one. Now
+  **360° per message, 15466 valid points on the G1** (was ~72° / 4285), `/scan`
+  **45%** finite (was ~20%), SLAM map known-cells **36/36 bins**, and the first
+  Nav2 goal ever to reach **SUCCEEDED**. `omni:sensor:Core:accumulateOutputs`
+  does not exist — accumulation is an annotator choice, not a prim attribute.
+* **C — the aligned-depth panel. NOT SETTLED, blocked by C-23.** It cannot be
+  measured on this box, because this box cannot run the camera at all.
 
-**Standing rules that outlive the box:** `CLAUDE.md` (RULE-HAND-NAME and the rest) and
-`docs/twin/CAMPAIGN.md` §0.
+### C-23 — read this before you conclude anything about the camera
+
+**This box segfaults Isaac's synthetic-data pipeline whenever the ROS 2 image
+writer path is live.** Five boots for five, at `run.py:1201`, inside
+`libomni.syntheticdata` + `libomni.graph.image.core`. Not memory (peak VRAM
+3776 MiB of 16376), not the asset, not the world, not the depth annotator. The
+Go2 twin — same box, no camera in its contract — boots every time, and the
+**offscreen** render path (`14_capture_views.sh`, `13_capture_hands.sh`) works
+fine. `TWIN_CAMERA=0` skips the camera device and changes nothing the audit
+checks; it is what keeps the lidar/nav half workable here.
+
+**This is not the box the campaign was validated on.** RESUME §1 records an
+RTX 4090 with 48 GB; this is an **RTX 4080 SUPER with 16 GB**, 47 GiB RAM
+against 98, and **no tailnet** (so `.env` pins DDS to `ens3` and the VM's own
+IP per campaign §0.4, not `tailscale0`). On a 4090 box, C-23 may simply not
+exist — and then item C, E-1 and the montage's camera clips are all unblocked.
+
+**Open, and what each needs:**
+
+* **Item C** — one `aligned_depth_to_color` frame, min/median/max mm, zero
+  fraction, rendered beside the colour frame. Needs a box that can run the
+  camera (C-23).
+* **DT2 nav** — 1 of 3 goals SUCCEEDED. Goals 2 and 3 aborted outside the
+  ~7.5 × 7.0 m the map had grown; a longer mapping run before the goals is the
+  obvious next try, and nothing was tuned.
+* **E-1** detection half, **E-2** Go2 puck/bracket, **OQ-5.1/5.2/5.3**, **OQ-6**,
+  **C-3/C-4** — all unchanged.
+* **Deviations** C-1 … C-20 open, **C-21 closed**, **C-23 opened**. A C-22 was
+  opened against the cloud's rate and then **withdrawn**: `ros2 topic hz` is
+  wall-clock and the sim does not run at 1.0×, so a conformant 10 Hz cloud read
+  as 12.6 Hz. Measured on the header stamps it is exactly 10.00 Hz.
+  **Measure the stamps, not the wall clock.**
+
+**Standing rules that outlive the box:** `CLAUDE.md` (RULE-HAND-NAME and the
+rest) and `docs/twin/CAMPAIGN.md` §0.
 
 ---
 

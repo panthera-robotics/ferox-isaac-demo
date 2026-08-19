@@ -108,6 +108,31 @@ echo "ce387ea7d11b3ed020d9a20bdec61c65ff99e020764c63028f16c185d546ff93  twin_pro
 
 ---
 
+## twin_progress_g1_20260819.mp4 — the G1 montage, after the video-review fixes
+
+| | |
+|---|---|
+| **sha256** | `1673dc03113dfa3cca183bf5f7786bdf594764d6c4b39d8497d345fec06d83be` |
+| **size** | 4 984 446 bytes (4.75 MiB) |
+| **format** | 1920x1080, 30 fps, 53 s, H.264 (`avc1`) |
+| **built** | 2026-08-19, offscreen — no GUI, no ffmpeg |
+| **release** | `twin-g1-fixed` |
+| **contents** | 9 clips: body orbit with the corrected hands, the walk with a live base-height overlay, sensor frames as real axis geometry, the Mid-360 cloud at a full 360°, the camera clip's **absence explained on its own card**, `/scan` twin vs the ground-truth bag, the SLAM map filling with the Nav2 path, the four hand poses, and a closing status card |
+| **built by** | `tools/media/build_montage_g1.py` + `tools/media/stitch.py` |
+
+**One clip is missing and says so.** The twin camera — colour, aligned depth, and the
+C-21 before/after — could not be filmed on this box, because this box segfaults Isaac's
+synthetic-data pipeline whenever the ROS 2 image writer is live (**C-23**). Clip 5 is a
+title card stating that, rather than a substitution or a silent omission.
+
+```bash
+curl -fL -o twin_progress_g1_20260819.mp4 \
+  https://github.com/panthera-robotics/ferox-isaac-demo/releases/download/twin-g1-fixed/twin_progress_g1_20260819.mp4
+echo "1673dc03113dfa3cca183bf5f7786bdf594764d6c4b39d8497d345fec06d83be  twin_progress_g1_20260819.mp4" | sha256sum -c -
+```
+
+---
+
 ## Pending — Go2 ground truth
 
 Not captured yet. When it lands, extract to `~/panthera/ref/captures/go2/`, upload to

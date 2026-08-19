@@ -7,6 +7,34 @@ PARTIAL and are called out in their own rows rather than folded into a green ver
 
 ---
 
+> ## AMENDED 2026-08-19 — the Mid-360 was publishing a SECTOR, not a sweep
+>
+> Everything below about geometry, frames, rates and the waist round-trip stands.
+> What none of it asked is how much of the CIRCLE one published cloud covers, and
+> the answer was about a fifth of it: each message was one render frame's slice of
+> the sweep, and the decimation then sampled the same phase every time, so nothing
+> downstream ever saw the rest. That is why `/scan` was ~20 % finite against the
+> robot's 70 %, why SLAM built a fixed wedge, and — almost certainly — why no Nav2
+> goal had ever succeeded.
+>
+> | | before | after |
+> |---|---|---|
+> | azimuth per message | ~72° | **360°**, 36/36 bins |
+> | valid points per message | 4285 | **15466** |
+> | `/scan` finite | ~20 % | **45.0–45.8 %** |
+> | SLAM known cells about the centroid | a wedge | **36/36 bins** |
+> | Nav2 goals SUCCEEDED | **0 of 3** | **1 of 3** |
+> | cloud rate (sim time) | 10 Hz | **10.00 Hz**, unchanged |
+>
+> Cause: Isaac 5.1 registers two ROS 2 cloud writers and the twin used the
+> non-accumulating one. `omni:sensor:Core:accumulateOutputs` **does not exist** —
+> accumulation is an annotator choice, not a prim attribute. `twin_audit` now
+> measures `pointcloud/azimuth_coverage` on every cloud, from any source, and it
+> passes on the real bag too (340° in 34/36 bins).
+>
+> Navigation is **still PARTIAL**: goals 2 and 3 aborted outside the ~7.5 × 7.0 m
+> the map had grown by then. Nothing was tuned to get goal 1.
+
 ## Scorecard
 
 | # | Requirement | Status | Evidence |
