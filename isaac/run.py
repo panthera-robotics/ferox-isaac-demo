@@ -71,6 +71,59 @@ logger = logging.getLogger(__name__)
 #
 # Adding a world = ONE line here:  name -> {usd, spawn: {xy, yaw}}.
 WORLD_ENV_PRIM = "/World/Env"
+
+TRAIN_STATIC_FRICTION = 1.0
+TRAIN_DYNAMIC_FRICTION = 1.0
+TRAIN_RESTITUTION = 0.0
+TRAIN_FRICTION_COMBINE = "multiply"
+
+
+def _apply_training_contact_material(stage, robot_root: str) -> None:
+    """Bind the policy's TRAINING contact material to the robot and the world.
+
+    Bound to BOTH surfaces on purpose. `friction_combine_mode` is "multiply" in
+    training, so a material on only one side still multiplies against the PhysX
+    default on the other and lands at half the intended figure -- which is the
+    very mistake this exists to correct.
+
+    Read back after binding: a silent no-op here would look exactly like "the
+    friction hypothesis was wrong", which is the most expensive kind of wrong.
+    """
+    from pxr import Gf, PhysxSchema, Sdf, UsdPhysics, UsdShade
+
+    path = Sdf.Path("/World/Physics_Materials/twin_training_material")
+    if not stage.GetPrimAtPath(path):
+        stage.DefinePrim(path, "Material")
+    mat_prim = stage.GetPrimAtPath(path)
+    mat = UsdPhysics.MaterialAPI.Apply(mat_prim)
+    mat.CreateStaticFrictionAttr().Set(TRAIN_STATIC_FRICTION)
+    mat.CreateDynamicFrictionAttr().Set(TRAIN_DYNAMIC_FRICTION)
+    mat.CreateRestitutionAttr().Set(TRAIN_RESTITUTION)
+    px = PhysxSchema.PhysxMaterialAPI.Apply(mat_prim)
+    px.CreateFrictionCombineModeAttr().Set(TRAIN_FRICTION_COMBINE)
+    px.CreateRestitutionCombineModeAttr().Set(TRAIN_FRICTION_COMBINE)
+
+    bound = []
+    for target in (robot_root, WORLD_ENV_PRIM):
+        prim = stage.GetPrimAtPath(target)
+        if not prim or not prim.IsValid():
+            logger.warning("[contact] %s not in stage, not bound", target)
+            continue
+        api = UsdShade.MaterialBindingAPI.Apply(prim)
+        api.Bind(UsdShade.Material(mat_prim), UsdShade.Tokens.weakerThanDescendants,
+                 "physics")
+        bound.append(target)
+
+    got = (UsdPhysics.MaterialAPI(mat_prim).GetStaticFrictionAttr().Get(),
+           UsdPhysics.MaterialAPI(mat_prim).GetDynamicFrictionAttr().Get(),
+           UsdPhysics.MaterialAPI(mat_prim).GetRestitutionAttr().Get())
+    if got != (TRAIN_STATIC_FRICTION, TRAIN_DYNAMIC_FRICTION, TRAIN_RESTITUTION):
+        raise RuntimeError(f"contact material read back {got}, refusing to continue")
+    print(f"[TWIN] contact material static={got[0]} dynamic={got[1]} "
+          f"restitution={got[2]} combine={TRAIN_FRICTION_COMBINE} -> {bound}",
+          flush=True)
+
+
 DEFAULT_SIM_WORLD = "office"
 
 SIM_WORLDS = {
@@ -878,6 +931,28 @@ class RobotRosRunner(object):
         prim = define_prim(WORLD_ENV_PRIM, "Xform")
         prim.GetReferences().AddReference(world_usd)
 
+        # --- CONTACT MATERIAL (TWIN_CONTACT_MATERIAL=1) ----------------------
+        # The locomotion policy was trained against static 1.0 / dynamic 1.0 /
+        # restitution 0.0 with friction_combine_mode "multiply"
+        # (ferox-g1-locomotion policy/params/env.yaml, terrain.physics_material
+        # and sim.physics_material). NEITHER surface in the twin authors a
+        # physics material: the URDF importer wrote none onto the feet and the
+        # environment USDs write none onto their floors, so both fall back to
+        # the PhysX scene default -- roughly HALF the trained friction.
+        #
+        # That gates YAW specifically. Turning in place needs the stance foot to
+        # make a yaw moment against the floor; walking forward mostly needs
+        # normal force and a little fore-aft shear, so halving mu takes the turn
+        # away first and leaves the walk. Measured: 0.0-0.2% of commanded yaw
+        # rate at every rate including the training maximum, with the policy's
+        # own action demonstrably responding to wz.
+        #
+        # This is NOT tuning-to-fit. It restores a documented training value to
+        # a surface that currently has none, and it is off by default so that it
+        # is never applied silently -- see RESULTS_MM1 2.6 for the before/after.
+        # (applied AFTER the robot exists -- see below. Binding here would bind the
+        # world only, and the read-back proved it: "-> ['/World/Env']".)
+
         # Per-world spawn: open-floor (x, y) + yaw from the world map; z (the
         # standing height) from the robot above. yaw=0 -> identity quat (the
         # robots' env.yaml default orientation), so a yaw-0 entry reproduces the
@@ -935,6 +1010,14 @@ class RobotRosRunner(object):
                 policy_path=policy_path,
                 env_path=env_path,
             )
+
+        # Contact material AFTER the robot prim exists. Binding it with the world
+        # (where this used to live) silently bound only /World/Env, leaving the
+        # feet on the PhysX default -- and with combine_mode "multiply" that is
+        # still half the trained friction, i.e. exactly the condition under test.
+        # The read-back printed "-> ['/World/Env']" and caught it.
+        if os.environ.get("TWIN_CONTACT_MATERIAL") == "1":
+            _apply_training_contact_material(self._world.stage, robot_root)
 
         cmd_min, cmd_max = _resolve_command_limits(deploy_cfg, env_cfg)
         args_min = np.array([-vx_max, -vy_max, -wz_max], dtype=np.float32)

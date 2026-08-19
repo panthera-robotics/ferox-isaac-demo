@@ -20,16 +20,30 @@ class S(Node):
         t0=time.time()
         while time.time()-t0<t: rclpy.spin_once(s,timeout_sec=0.05)
     def run(s,wz,dur=6.0):
+        # ACCUMULATE yaw across every sample, unwrapping each step. Differencing
+        # the endpoints with atan2 cannot measure past +-pi: a -3.600 rad turn
+        # reads as +2.683, which looks like a wrong-direction turn at 35% when it
+        # is actually a correct-direction turn at 47%. That misreading nearly got
+        # the friction fix rejected.
         s.pub.publish(Twist()); s.spin(1.5)
-        a=s.last; y0=yaw_of(a.pose.pose.orientation); t0=a.header.stamp.sec+a.header.stamp.nanosec*1e-9
+        a=s.last; prev=yaw_of(a.pose.pose.orientation)
+        t0=a.header.stamp.sec+a.header.stamp.nanosec*1e-9
+        acc=0.0
         c=Twist(); c.angular.z=wz
         t=time.time()
         while time.time()-t<dur:
             s.pub.publish(c); rclpy.spin_once(s,timeout_sec=0.05)
+            if s.last is not None:
+                y=yaw_of(s.last.pose.pose.orientation)
+                acc += math.atan2(math.sin(y-prev),math.cos(y-prev)); prev=y
         s.pub.publish(Twist()); s.spin(1.0)
-        b=s.last; y1=yaw_of(b.pose.pose.orientation); t1=b.header.stamp.sec+b.header.stamp.nanosec*1e-9
-        dy=math.atan2(math.sin(y1-y0),math.cos(y1-y0)); dt=max(1e-3,t1-t0)
-        return {"cmd_wz":wz,"dyaw_rad":dy,"sim_dt":dt,"rate":dy/dt,"track_pct":100*abs(dy/dt)/abs(wz) if wz else 0}
+        b=s.last
+        y=yaw_of(b.pose.pose.orientation)
+        acc += math.atan2(math.sin(y-prev),math.cos(y-prev))
+        t1=b.header.stamp.sec+b.header.stamp.nanosec*1e-9
+        dt=max(1e-3,t1-t0)
+        return {"cmd_wz":wz,"dyaw_rad":acc,"sim_dt":dt,"rate":acc/dt,
+                "track_pct":100*(acc/dt)/wz if wz else 0}
 rclpy.init(); n=S()
 t=time.time()
 while n.last is None and time.time()-t<20: rclpy.spin_once(n,timeout_sec=0.2)

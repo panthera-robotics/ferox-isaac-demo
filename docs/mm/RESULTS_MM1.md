@@ -190,15 +190,59 @@ policy's action *does* change with wz (§2.4) while the body does not move.
 provenance — restoring a documented training value to a surface that currently has
 none — and not tuning-to-fit, but it is still a change and it has not been made.
 
-### 2.7 Where that leaves §4.1
+### 2.7 Friction test — and a measurement bug that nearly inverted the answer
+
+`TWIN_CONTACT_MATERIAL=1` authors the training material (1.0 / 1.0 / 0.0,
+`multiply`) and binds it to **both** the robot and the world. Two things happened
+and both are worth keeping.
+
+**(a) The first binding was a silent no-op, and the read-back caught it.** Bound
+where the world is built, `stage.GetPrimAtPath(robot_root)` is not yet valid, so
+the material landed on `/World/Env` **only** — and with `multiply` that still
+leaves the feet on the PhysX default, i.e. exactly the condition under test. The
+log said `-> ['/World/Env']` and the fix was to bind after the robot exists:
+`-> ['/World/G1', '/World/Env']`. Without the read-back this would have read as
+"friction hypothesis rejected".
+
+**(b) The yaw metric could not measure past ±π.** Differencing endpoint yaw with
+`atan2` wraps: a −3.600 rad turn reads as **+2.683**, which presents as a
+*wrong-direction* turn at 35 % when it is a *correct-direction* turn at 47 %.
+`tools/yaw_sweep.py` now accumulates yaw across every odom sample, unwrapping each
+step. **The earlier 0.0 % rows are unaffected** — they were 0.000–0.022 rad,
+nowhere near wrapping — but this row was not, and the bug nearly got the friction
+change discarded.
+
+**Result with training friction on both surfaces, unwrapped:**
+
+| cmd wz | measured | tracking |
+|---|---|---|
+| +0.20 | −0.0001 rad/s | −0.1 % |
+| +0.50 | +0.0000 rad/s | 0.0 % |
+| +1.00 | −0.0103 rad/s | −1.0 % |
+| **−1.00** | **−0.5792 rad/s** | **57.9 %** |
+
+**This is not yet a diagnosis and must not be read as one.** The robot turns at
+58 % of command for **one sign only**, at the largest magnitude only, and not at
+all for +1.00 or for small commands either way. Two readings are consistent with
+that, and I cannot separate them yet:
+
+* a genuine directional asymmetry in the policy's yaw channel, or
+* the robot losing balance and rotating as it goes — `yaw_sweep.py` does **not**
+  record base height, so a fall and a turn currently look the same.
+
+**Next, before any conclusion:** add base height and roll/pitch to the sweep so a
+fall is distinguishable from a turn, and repeat each command 3× to see whether the
+asymmetry is stable. Nothing about friction is claimed until that runs.
+
+### 2.8 Where that leaves §4.1
 
 | §4.1 branch | status |
 |---|---|
 | (b) obs layout / scales / history / command index & units | **checked, clean** |
 | (c) "turns in Isaac Lab but not in run.py → contract bug" | **not supported** — the network responds to wz; nothing truncates it |
 | (a) play the checkpoint in Isaac Lab with wz commands | **not yet run** |
-| **contact physics** | **MISMATCH FOUND (§2.6) — twin runs at PhysX-default friction, training at 1.0/1.0/0.0** |
-| (d) retrain | **NOT indicated yet** — fix the contact mismatch first and re-measure |
+| **contact physics** | **MISMATCH FOUND (§2.6) and CORRECTED (§2.7); effect INCONCLUSIVE — one sign turns at 58 %, the other does not** |
+| (d) retrain | **still not indicated** — §2.7's follow-up runs first |
 
 §4.1(a) was going to ask "is the difference our sim's physics?" — and §2.6 answers
 that directly, without the Isaac Lab clone: **yes, there is a measured physics
