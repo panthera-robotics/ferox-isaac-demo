@@ -161,6 +161,8 @@ docker exec -d \
   -e SIM_WORLD="${SIM_WORLD:-dso_block_a}" \
   -e TWIN="${TWIN:-0}" \
   -e CAMERA_TF="${CAMERA_TF:-0}" \
+  -e TWIN_DUMP_SDG="${TWIN_DUMP_SDG:-0}" \
+  -e TWIN_CAMERA="${TWIN_CAMERA:-1}" \
   -e HAND="${HAND:-none}" \
   "$SIM_CONTAINER" bash -c "
   cd /workspace/ferox_isaac && \

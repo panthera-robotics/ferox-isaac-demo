@@ -162,7 +162,8 @@ def _author_optical_to_usd_camera(prim) -> None:
     x.AddTransformOp().Set(R)
 
 
-def create_camera(contract: Dict[str, Any], robot_root: str):  # noqa: C901
+def create_camera(contract: Dict[str, Any], robot_root: str,
+                  want_depth_frame: bool = False):  # noqa: C901
     """Create the D435i colour camera at the authored optical frame.
 
     ONE camera prim, at camera_color_optical_frame. Depth is rendered from this
@@ -216,7 +217,36 @@ def create_camera(contract: Dict[str, Any], robot_root: str):  # noqa: C901
     # MinZ from the datasheet; far clip past clip_distance so the converter, not
     # the renderer, is what enforces the contract's 4.0 m Z clip.
     cam.set_clipping_range(mp["min_z_m"], 100.0)
-    cam.add_distance_to_image_plane_to_frame()
+    if want_depth_frame:
+        # PYTHON-SIDE depth, off by default. This attaches the
+        # distance_to_image_plane annotator to the Camera WRAPPER so that
+        # cam.get_current_frame()["distance_to_image_plane"] is populated. The twin's
+        # ROS 2 depth topic does NOT come from here -- publishers.setup_camera_depth_raw
+        # attaches its own DistanceToImagePlane...ROS2PublishImage writer to the same
+        # render product -- so for run.py this annotator is pure overhead, and nothing
+        # in this repo reads it (capture_hand_poses, capture_robot_views and
+        # render_orbit all use get_rgba()).
+        #
+        # It is off by default because it CRASHES this box. Its render var is copied
+        # texture-straight-to-host, which Isaac warns about in as many words --
+        #   OgnSdPostRenderVarToHost : rendervar copy from texture directly to host
+        #   buffer is counter-performant. Please use copy from texture to device
+        #   buffer first.
+        # -- and the process segfaults inside libomni.syntheticdata +
+        # libomni.graph.image.core on the first world.step(render=True) after the
+        # camera is created. Reproduced three times for three times out of three.
+        #
+        # Not a resource limit: peak VRAM at the crash was 3776 MiB of 16376 and peak
+        # host RSS 5.7 GB of 47. Isolated by booting the Go2 twin -- same box, same
+        # RTX lidar, same ROS 2 bridge, no camera in its contract -- which reaches the
+        # main loop every time.
+        #
+        # `annotator_device="cuda"` was tried first and is NOT the fix: it stops the
+        # crash by stopping the synthetic-data pipeline, and BOTH render-product
+        # topics go silent -- the camera image and the lidar cloud -- while the rclpy
+        # publishers keep running and everything looks alive. That is a worse failure
+        # than the crash, because it is quiet.
+        cam.add_distance_to_image_plane_to_frame()
 
     ci = _topic(contract, f"{contract['robot']['namespace']}/camera/color/camera_info")
     K = ci["expect"]["camera_info"]["K"]

@@ -1173,9 +1173,28 @@ class RobotRosRunner(object):
         # the Go2 carries neither camera nor body IMU and publishes the L1's IMU
         # instead. A `if robot_type == GO2` here would be a second place for the two
         # robots to disagree with their own contracts.
+        # TWIN_CAMERA=0 skips the camera DEVICE only. It does not touch the contract,
+        # the TF edges, the frame_ids or anything the audit checks -- the camera's
+        # topics simply do not appear, exactly as they do not on the Go2.
+        #
+        # It exists because Isaac 5.1's synthetic-data pipeline SEGFAULTS on this box
+        # (RTX 4080 SUPER 16 GB) on the first world.step(render=True) after a camera
+        # render product is created, inside libomni.syntheticdata +
+        # libomni.graph.image.core. Reproduced five times for five, at run.py:1201
+        # every time. Not a resource limit (peak VRAM 3776 MiB of 16376, host RSS
+        # 5.7 GB of 47) and not the depth annotator (removing it changes nothing --
+        # the default rgb annotator does it too). The Go2 twin, same box and same
+        # bridge with no camera in its contract, boots every time.
+        #
+        # Default is ON. This flag is how the lidar/nav half of the twin stays
+        # workable on a box where the camera half cannot run; see C-23.
         camera = None
-        if any(t["name"].endswith("/camera/color/image_raw")
-               for t in contract.get("topics", [])):
+        want_camera = os.environ.get("TWIN_CAMERA", "1") != "0"
+        if not want_camera:
+            print("[TWIN] camera SKIPPED (TWIN_CAMERA=0) -- C-23, device only, "
+                  "contract untouched", flush=True)
+        elif any(t["name"].endswith("/camera/color/image_raw")
+                 for t in contract.get("topics", [])):
             camera, K_got = twin_sensors.create_camera(contract, root)
             print(f"[TWIN] D435i K readback fx={K_got['fx']:.3f} fy={K_got['fy']:.3f} "
                   f"cx={K_got['cx']:.3f} cy={K_got['cy']:.3f} "

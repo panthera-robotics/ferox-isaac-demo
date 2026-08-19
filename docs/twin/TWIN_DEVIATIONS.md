@@ -39,6 +39,7 @@ Append a row to the table, then a full entry below it. Never delete an entry —
 | [C-10](#c-10) | C | IMU rates capped by the render/physics step coupling; aligned depth below the 20 Hz floor | DT2 | OPEN — floor relaxed to 15 Hz for DT2 |
 | [C-11](#c-11) | C | The sim stands with waist = 0; the real G1 stands pitched ~6.2° | DT2 | OPEN — policy property, not geometry |
 | [C-12](#c-12) | C | No head-shell self-hit cluster: sim r_min 1.10 m vs real 0.0985 m | DT2 | OPEN — accepted, `range_min` still reproduced |
+| [C-23](#c-23) | C | Isaac's synthetic-data pipeline segfaults on this box whenever a camera exists | 2026-08-19 | OPEN — environment, not the twin; `TWIN_CAMERA=0` keeps the lidar/nav half workable |
 
 ---
 
@@ -814,6 +815,79 @@ this every run rather than inferring it.
 **Nothing about the interface changed.** `tf_static`, the frame_ids, `K` and the
 encodings are untouched and still Class A; the fix is entirely on the sim side of the
 camera prim, which is where the bug was.
+
+---
+
+## C-23 — Isaac's synthetic-data pipeline segfaults on this box when a camera exists {#c-23}
+
+**Class C, ENVIRONMENT — this is about the box, not the twin.** Opened 2026-08-19.
+
+Creating the D435i render product and then stepping the world kills the process:
+
+```
+Thread 111 (idle): "MainThread"
+    step (.../simulation_context.py:710)
+    step (.../world.py:547)
+    _setup_twin_ros (/workspace/ferox_isaac/run.py:1201)
+```
+
+with a native backtrace through `libomni.syntheticdata.plugin.so` and
+`libomni.graph.image.core.plugin.so`, immediately after Isaac's own warning:
+
+```
+OgnSdPostRenderVarToHost : rendervar copy from texture directly to host buffer
+is counter-performant. Please use copy from texture to device buffer first.
+```
+
+**Reproduced five times out of five.** What it is not:
+
+| ruled out | evidence |
+|---|---|
+| out of memory | peak VRAM **3776 MiB of 16376**, peak host RSS **5.7 GB of 47**, sampled at 1 Hz through the crash |
+| GPU fault | no Xid, no ECC/remap events, `/dev/shm` 24 G, no OOM killer |
+| the merged hand asset | the Go2 crashes nowhere near it and the G1 crashed on the pre-existing committed asset too |
+| the depth annotator | removing `add_distance_to_image_plane_to_frame()` changes nothing; the default `rgb` annotator does it too |
+| the world | reproduced in both `dso_block_a` and `hospital` |
+
+**What isolates it:** the **Go2 twin boots every time** — same box, same Isaac, same RTX
+lidar render product, same ROS 2 bridge, same worlds — and its contract has **no
+camera**. Camera present ⇒ crash; camera absent ⇒ no crash.
+
+**The box is not the one the campaign ran on.** RESUME §1 records an RTX 4090 with
+48 GB; this is an **RTX 4080 SUPER with 16 GB** and 47 GiB of host RAM against 98.
+Driver 580.105.08 and Isaac 5.1.0 are the documented ones.
+
+### What was tried
+
+1. **`annotator_device="cuda"`** on the `Camera` — the route Isaac's own warning names.
+   Stops the crash and is **NOT a fix**: both render-product topics go silent, the
+   camera image *and the lidar cloud*, while the rclpy publishers (`/livox/imu`
+   94 Hz, `/odom` 46 Hz) keep running so the sim looks perfectly alive. Reverted. A
+   quiet failure is worse than a loud one, and this campaign exists because of quiet
+   failures.
+2. **Dropping the python-side depth annotator** (`want_depth_frame=False`, now the
+   default in `create_camera` since nothing in this repo reads it). Correct on its own
+   merits — the ROS 2 depth topic comes from `setup_camera_depth_raw`'s own writer —
+   but it does not stop the crash.
+
+### The workaround, and its blast radius
+
+`TWIN_CAMERA=0` skips the camera **device**. It changes nothing the audit checks: not
+the contract, not `/tf_static`, not a frame_id, not `K`. The camera's topics simply do
+not appear, exactly as they do not on the Go2. Default is **on**, so a box that can run
+the camera is unaffected.
+
+It is what keeps the lidar/nav half of the G1 twin workable here. It also means, on
+this box only:
+
+* **E-1** (`ferox_vision` against the twin camera) cannot run at all;
+* **C-21's** live re-proof (`15_check_camera_chain.sh`) cannot run — the offline guard
+  in the Isaac suite still does, and still passes;
+* the montage's camera clips cannot be re-rendered.
+
+**Would close by** a box with the GPU the campaign was validated on, or an Isaac
+release whose synthetic-data host copy does not fault here. Neither is a twin change.
+Raised in `PING.md` because "which box" is not the agent's call.
 
 ---
 

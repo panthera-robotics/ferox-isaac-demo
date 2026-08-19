@@ -13,6 +13,7 @@ sensor offsets. Here the edge set IS the contract.
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, Dict, List
 
 # QoS is settable per publisher via inputs:qosProfile as a JSON string; this is
@@ -171,19 +172,64 @@ def setup_lidar_cloud(contract: Dict[str, Any], lidar_prim, resolution=(1, 1),
             f"{[t['name'] for t in clouds]}")
     spec = clouds[0]
     print(f"[TWIN] Mid-360 -> {spec['name']}", flush=True)
+    rp_name = "twin_mid360_rp"
     rp = rep.create.render_product(
-        lidar_prim.GetPath().pathString, resolution=resolution, name="twin_mid360_rp")
-    w = rep.writers.get("RtxLidarROS2PublishPointCloud")
+        lidar_prim.GetPath().pathString, resolution=resolution, name=rp_name)
+
+    # FULL SCAN, NOT ONE RENDER FRAME'S SLICE.
+    #
+    # Isaac 5.1 registers TWO ROS 2 point-cloud writers for an RTX lidar, and the
+    # difference between them is the whole of this defect:
+    #
+    #   RtxLidarROS2PublishPointCloud        -> IsaacExtractRTXSensorPointCloudNoAccumulator
+    #                                           = IsaacCreateRTXLidarScanBuffer with
+    #                                             init_params {"enablePerFrameOutput": True}
+    #   RtxLidarROS2PublishPointCloudBuffer  -> IsaacCreateRTXLidarScanBuffer, accumulating
+    #
+    # (isaacsim.sensors.rtx/impl/extension.py register_nodes; isaacsim.ros2.bridge/
+    # impl/extension.py:342-353. The bridge's own ROS2RtxLidarHelper picks between
+    # them on its `fullScan` input, OgnROS2RtxLidarHelper.py:110-113.)
+    #
+    # The twin used the first one. Its output is whatever the renderer swept during
+    # ONE RENDER FRAME, so each published cloud was a SECTOR: measured on the Go2 at
+    # 190 deg of 360 (19 of 36 ten-degree bins, 4490 points against 10000 per
+    # revolution), and on the G1 at ~72 deg / 4285 points against 20000. Worse, the
+    # decimation below then sampled the SAME PHASE every time -- the union of five
+    # consecutive messages was still the same 190 deg, so nothing downstream ever saw
+    # the other half. SLAM built a fixed wedge and /scan was ~20% finite against the
+    # robot's 70%. After the switch: 360 deg per message, 36 of 36 bins, 8977 valid
+    # points against 4490.
+    #
+    # Nothing at the topic level could see it: right name, right frame, right
+    # point_step, a plausible point count, and exactly the contract's 10 Hz. This is
+    # why twin_audit now measures per-message azimuth coverage.
+    #
+    # NOTE: `omni:sensor:Core:accumulateOutputs` does NOT exist. It was the obvious
+    # candidate and the prim carries no such attribute -- 82 omni:sensor:* attributes
+    # were enumerated and none matches, the same way emitterStateCount turned out to
+    # be JSON-profile-only (see lidar.py). Accumulation is an ANNOTATOR choice, not a
+    # prim attribute. tickRate == scanRateBaseHz is still required and still asserted
+    # in lidar.py; it is necessary and, on its own, was not sufficient.
+    w = rep.writers.get("RtxLidarROS2PublishPointCloudBuffer")
     w.initialize(frameId=spec["frame_id"], nodeNamespace="",
                  topicName=spec["name"], queueSize=10)
     w.attach([rp])
 
-    # DECIMATE TO THE SENSOR'S SCAN RATE. Without this the writer fires once per
-    # RENDER frame (~60 Hz of sim time), so every published message is a PARTIAL
-    # sweep -- measured 66.44 Hz against a contract rate of 10. The robot emits one
-    # message per full revolution. A partial sweep still looks like a valid cloud to
-    # every consumer, just with a fraction of the points and a rate nothing expects,
-    # which is exactly the sort of wrong that passes a topic-level check.
+    # DECIMATE TO THE SENSOR'S SCAN RATE -- still required with the Buffer writer.
+    #
+    # The accumulating annotator does NOT emit once per completed revolution: it emits
+    # on every render frame, each time carrying the most recent complete scan. So the
+    # gate below is what turns that into one message per revolution, and it works --
+    # measured on the G1 in SIM time: 190 messages, sim deltas exactly 0.1000 s,
+    # ZERO duplicate stamps, 10.00 Hz against a 10 Hz contract, while each message
+    # carries a full 360 deg sweep.
+    #
+    # MEASURE THE STAMPS, NOT THE WALL CLOCK. `ros2 topic hz` reports wall-clock rate,
+    # and the sim does not run at 1.0x -- the G1 in `hospital` measures a real-time
+    # factor of 1.26, so its perfectly conformant 10 Hz cloud reads as 12.6 Hz on the
+    # wall. That confounding very nearly got a rate deviation opened against a stream
+    # that was exactly right. Header stamps are sim time and are the thing the
+    # contract is about.
     if render_hz:
         step = max(1, int(round(render_hz / float(spec["rate_hz"]))))
         # set_node_attributes wants the render product PATH; rep.create.render_product
@@ -196,10 +242,109 @@ def setup_lidar_cloud(contract: Dict[str, Any], lidar_prim, resolution=(1, 1),
         except Exception as exc:
             raise PublisherError(
                 f"could not decimate {spec['name']} to {spec['rate_hz']} Hz "
-                f"(render {render_hz} Hz, step {step}): {exc}. Without decimation "
-                "every message is a partial sweep."
+                f"(render {render_hz} Hz, step {step}): {exc}. Without decimation the "
+                "accumulated scan is republished at the render rate."
             ) from exc
+
+        # A read-back is not enough when the node it reads is not in the path --
+        # worth writing down, because rule 7 is usually satisfied by exactly that.
+        gates = _simulation_gates()
+        for path, got in gates:
+            print(f"[TWIN]   gate {path} step={got}", flush=True)
+        if os.environ.get("TWIN_DUMP_SDG") == "1":
+            for line in _sdg_nodes(rp_name):
+                print(f"[TWIN]   sdg {line}", flush=True)
+        if not any(got == step for _, got in gates):
+            raise PublisherError(
+                f"{spec['name']}: asked for simulation-gate step {step} but no gate "
+                f"node carries it -- found {gates}.")
     return rp, spec
+
+
+def _sdg_nodes(tag: str):
+    """Every OmniGraph node whose path mentions `tag`, with type and step.
+
+    Diagnostic only, behind TWIN_DUMP_SDG=1. Kept because working out which node
+    in the synthetic-data pipeline actually gates a writer took several sim boots,
+    and the next person should be able to look instead of guess.
+    """
+    import omni.graph.core as og
+    out = []
+    try:
+        graphs = og.get_all_graphs()
+    except Exception:
+        return out
+    for graph in graphs:
+        try:
+            nodes = graph.get_nodes()
+        except Exception:
+            continue
+        for node in nodes:
+            try:
+                path = node.get_prim_path()
+            except Exception:
+                continue
+            if tag not in path:
+                continue
+            try:
+                tname = node.get_type_name()
+            except Exception:
+                tname = "?"
+            extra = ""
+            try:
+                extra = f" step={og.Controller.get(og.Controller.attribute('inputs:step', node))}"
+            except Exception:
+                pass
+            conns = []
+            try:
+                for attr in node.get_attributes():
+                    an = attr.get_name()
+                    if not an.startswith("inputs:"):
+                        continue
+                    try:
+                        ups = attr.get_upstream_connections()
+                    except Exception:
+                        continue
+                    for up in ups:
+                        conns.append(f"{an} <- {up.get_node().get_prim_path().split('/')[-1]}.{up.get_name()}")
+            except Exception:
+                pass
+            out.append(f"{path}  type={tname}{extra}" +
+                       ("".join(f"\n         {c}" for c in conns) if conns else ""))
+    return sorted(out)
+
+
+def _simulation_gates():
+    """Every IsaacSimulationGate node in the stage, with its inputs:step.
+
+    Enumerated rather than looked up by template name, because the template name
+    is what stopped resolving to the right node when the writer changed.
+    """
+    import omni.graph.core as og
+    out = []
+    try:
+        graphs = og.get_all_graphs()
+    except Exception:
+        return out
+    for graph in graphs:
+        try:
+            nodes = graph.get_nodes()
+        except Exception:
+            continue
+        for node in nodes:
+            try:
+                path = node.get_prim_path()
+                tname = node.get_type_name()
+            except Exception:
+                continue
+            if "SimulationGate" not in path and "SimulationGate" not in tname:
+                continue
+            try:
+                got = og.Controller.get(og.Controller.attribute("inputs:step", node))
+            except Exception:
+                got = None
+            out.append((path, got))
+    return out
 
 
 def setup_imu(contract: Dict[str, Any], imu_prim_path: str, suffix: str, frame: str):

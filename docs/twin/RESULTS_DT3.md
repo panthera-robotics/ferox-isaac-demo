@@ -2,9 +2,24 @@
 
 **Verdict: PASS.** `HAND=dex5_1p` loads, the robot walks with the hands attached, and the
 fingers open and close. 69 DOF in one articulation, total mass 35.004757 kg at 0.00 % error,
-body joint order unchanged, Isaac suite 11/11.
+body joint order unchanged, Isaac suite 13/13.
 
 Run on 2026-08-18, branch `mohammed/twin-campaign`, `SIM_WORLD=hospital`, `TWIN=1`.
+
+> ## AMENDED 2026-08-19 — the mount ORIENTATION was wrong, and this report did not ask
+>
+> Everything below about position, mass, DOF count and joint order still stands. What it
+> never checked is which way the hands FACE, and for the whole of DT3 they faced the wrong
+> way: **rotated 90° on both sides — fingers laterally outward, palm forward, thumb down.**
+> Found by watching `twin_progress_20260818.mp4`, not by any audit.
+>
+> The flange joint was written `rpy="0 0 0"` on the assumption that the Dex5 root frame is
+> wrist-aligned. It is not — the Dex5's fingers run along its own **+Y**, the G1's forearm
+> along wrist **+X**. The flange *origin* was exact throughout, which is exactly why "mount
+> offset exact to 0.0000 mm" below is true and was not enough. Same failure class as C-21.
+>
+> Fixed at `rpy = (−π/2, −π/2, 0)`, both sides. See **§8** for the derivation, the numbers
+> and what now guards it.
 
 ---
 
@@ -101,7 +116,7 @@ Every pose is built **by joint name** and commanded as a drive target.
 `hand_rest.png`, `hand_open.png`, `hand_fist.png`, `hand_thumb_opposition.png` — 33 of 40 joints
 driven per pose; the 7 not driven are the passive abductions held at zero (C-13) and the wrist.
 
-### Tests (`evidence/DT3/isaac_tests.txt`) — 11/11
+### Tests (`evidence/DT3/isaac_tests.txt`) — 11/11, now 13/13 (§8)
 
 Five are new and all five are drift tripwires for the merged asset: one articulation of 69 DOF,
 the 29 body DOFs in their exact pre-hand order, every URDF hand joint present as a DOF, mass and
@@ -212,3 +227,125 @@ docker exec ferox_nav bash -lc 'source /opt/ros/humble/setup.bash
 ```
 
 The Dex5 URDFs come from `~/panthera/ref/unitree_ros` (public, sparse clone, no PAT).
+
+---
+
+## 8. AMENDMENT 2026-08-19 — the hand mount orientation
+
+**What was wrong.** Both Dex5-1P hands were rotated 90° on their flanges for the whole of
+DT3. At the standing pose the fingers pointed **laterally outward**, the palm **forward** and
+the thumb **down**. On the real G1 the fingers lie along the forearm, the palm faces the body
+midline and the thumb points forward.
+
+**How it survived this report.** Everything DT3 measured about the mount was a *position*:
+
+> "Mount offset | exact to **0.0000 mm**, read from the G1's own `*_hand_palm_joint`"
+
+That is still true. `tools/merge_dex5_urdf.py` read the flange **origin** off the G1's own
+wrist→palm joint and got it exactly right; it then wrote `rpy="0 0 0"` next to it, on the
+assumption that the Dex5's root frame is aligned with the wrist. Nothing asked whether that
+assumption held. The 38-test contract suite, the 11-test Isaac suite and this 214-line report
+between them contained no assertion about which direction anything on the hand pointed.
+
+This is the **C-21 pattern exactly**: a device with the right position, the right names and
+the right numbers, aimed the wrong way, invisible to every string-level and offset-level
+check. C-21 was found by back-projecting a pixel; this was found by watching the montage.
+
+### The geometry
+
+| | Dex5 root frame | G1 wrist |
+|---|---|---|
+| fingers run along | **+Y** | forearm is **+X** |
+| finger spread (index side) | +X | — |
+| palm normal | −Z (left), +Z (right) | — |
+
+The Dex5's L and R URDFs are **already mirrored internally** (thumb at −Z on the left, +Z on
+the right), so the flange does not have to carry the mirror and both sides take the same
+rotation. Unitree's Inspire files are not mirrored the same way, which is why *their* two
+flange rotations differ per side — a detail that would have made "just copy Unitree's rpy"
+wrong.
+
+### The derivation, and why it is not a fitted number
+
+`tools/derive_hand_flange.py`. Two anatomical directions fix a hand completely:
+
+* **finger axis** — the *middle* finger's own axis, tip minus its own metacarpal.
+* **palm normal** — the direction a fingertip *moves when the finger flexes*, computed by
+  actually flexing the joint and differencing the tip. Not a mesh face, not a link's +Z.
+
+Both come from the Dex5 URDF. The **target** they must hit in the wrist frame is not asserted
+either — it is extracted from `g1_29dof_rev_1_0_with_inspire_hand_DFQ.urdf`, Unitree's own
+published G1 + Inspire assembly, by pushing that hand's own axes through the flange rotation
+Unitree wrote:
+
+```
+f -> wrist +X          fingers run along the forearm
+n -> wrist -Y  (left)  palm faces the body midline
+n -> wrist +Y  (right)
+```
+
+The result is then snapped to the nearest **signed axis permutation**, because a bolted flange
+is one, and the few degrees of residual are the hand's own finger splay — a mount that absorbed
+that would be rotating the hand to cancel a feature of the hand, which is campaign rule 9 in a
+different costume.
+
+**Self-test.** Run the whole method backwards on the Inspire hand: given only its geometry and
+that target, it must reproduce Unitree's *published* flange rpy. It does — `(0, 0, π/2)` left
+and `(π, 0, −π/2)` right, **to 1e-16**. A method that recovers the vendor's answer on the
+vendor's own assembly is the best available evidence for its answer on the Dex5, for which no
+vendor assembly exists.
+
+**Independent corroboration.** The W7 MuJoCo graft (`graft_dex5_both.py`) carries
+`QUAT = [0.5, −0.5, −0.5, −0.5]` for the same mount, reached months earlier on a different
+simulator. As a matrix that is **this exact rotation, 0.000000000° apart**. Its `SCALE = 0.75`
+and `DX = 0.072` are the campaign's canonical anti-pattern and are not read by anything here.
+
+**Answer:** `rpy = (−1.570796326794897, −1.570796326794897, 0)`, both sides.
+
+### Before and after — both hands, measured
+
+Zero pose, in `wrist_yaw_link` (the frame the mount lives in, so these are pose-independent):
+
+| | before | after | tolerance |
+|---|---|---|---|
+| fingers vs wrist **+X** (the forearm) | **90.000°** | **0.707°** | 5° |
+| palm normal vs the midline | 89.293° (L) / 90.707° (R) | **0.707°** | 60° |
+| thumb vs wrist **+Z** | **90.000°** | **0.518°** | 75° |
+
+Standing posture (`shoulder_pitch 0.3`, `shoulder_roll ±0.25`, `elbow 0.97`, `wrist_roll ±0.15`
+— the sim's own init state, i.e. the pose the montage shows), in `base_link`:
+
+| | before | after |
+|---|---|---|
+| palm normal toward the midline | 101.4° (L) / 78.6° (R) | **18.07°** both |
+| thumb toward forward | 72.7° / 72.8° | **18.52°** both |
+| finger axis, nearest axis | **+Y (lateral)** | −Z (down the forearm) |
+| palm normal, nearest axis | **−X (forward)** | **−Y / +Y (the midline)** |
+| thumb axis, nearest axis | **−Z (down)** | **+X (forward)** |
+
+The "before" column reproduces the montage's description — *fingers laterally outward, palm
+forward, thumb down* — which is how the tool was confirmed to be measuring the right thing
+before it was trusted to fix anything.
+
+**Chirality: PASS.** Palm normals point at each other across the body and neither thumb points
+outward, so the left and right hands are not swapped. This is checked separately because it is
+invisible one hand at a time: a swapped pair still has fingers along the forearms and palms
+facing *somewhere* sensible, and only both thumbs turning outward at once gives it away.
+
+**Unchanged by the fix:** 69 revolute joints, 79 bodies, one articulation root, total mass
+35.004757 kg (0.00 %), the 29 body DOFs bit-identical to the pre-hand order, 8/8 sensor frames.
+
+### What guards it now
+
+* `tools/tests/test_twin_isaac.py::test_hand_mount_rotation_and_anatomy` — in the Isaac suite,
+  asserting the flange rotation **on the built USD** (not on the intermediate URDF, because the
+  USD is what the sim loads) plus the anatomy it is for, and failing if the pair is swapped.
+  Suite is now **13/13**.
+* `tools/check_hand_orientation.py` — the offline check, host-side, no GPU. Reports all three
+  directions in both frames and both postures.
+* `tools/derive_hand_flange.py` — the derivation with its self-test; it refuses to emit an
+  answer for the Dex5 if it cannot first reproduce Unitree's for the Inspire.
+
+Evidence: `evidence/DT3-fix/` — `hand_orientation_before.{txt,json}`,
+`hand_orientation_after.{txt,json}`, `derive_hand_flange.txt`, `isaac_tests_13.txt`,
+`import_g1_dex5_after.txt`.
