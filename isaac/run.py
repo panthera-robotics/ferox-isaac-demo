@@ -1041,6 +1041,15 @@ class RobotRosRunner(object):
                 env_path=env_path,
             )
 
+        # Keep the spawn so /twin/reset can restore it explicitly. The robot is
+        # never added to world.scene, so world.reset() has no default state for it
+        # and restores the joints but leaves the base wherever it fell: the first
+        # A/B knocked the G1 down and it "reset" to (10.7, 11.4) instead of the
+        # spawn (7.8, 2.0). Storing the numbers and writing them back is explicit
+        # and can be read back, which the scene-managed path could not be.
+        self._spawn_pos = np.array(init_pos, dtype=np.float32).copy()
+        self._spawn_quat = np.array(init_quat, dtype=np.float32).copy()
+
         # Contact material AFTER the robot prim exists. Binding it with the world
         # (where this used to live) silently bound only /World/Env, leaving the
         # feet on the PhysX default -- and with combine_mode "multiply" that is
@@ -1497,6 +1506,34 @@ class RobotRosRunner(object):
         except Exception:
             return
 
+    def _respawn_base(self) -> bool:
+        """Put the base back at the spawn pose with zero velocity, and read it back.
+
+        world.reset() is not enough on its own -- see the note at self._spawn_pos.
+        Joint state is handled by the reset path re-running the policy's
+        initialize(), which also rebuilds the observation history; this only has to
+        deal with the floating base.
+        """
+        art = getattr(getattr(self, "_robot", None), "robot", None)
+        if art is None or getattr(self, "_spawn_pos", None) is None:
+            return False
+        try:
+            art.set_world_pose(position=self._spawn_pos, orientation=self._spawn_quat)
+            zeros6 = np.zeros(6, dtype=np.float32)
+            try:
+                art.set_velocities(zeros6)
+            except Exception:
+                art.set_linear_velocity(zeros6[:3])
+                art.set_angular_velocity(zeros6[3:])
+            pos, _ = art.get_world_pose()
+            err = float(np.linalg.norm(np.asarray(pos, dtype=np.float32) - self._spawn_pos))
+            print(f"[PANTHERA] respawn -> {np.asarray(pos).tolist()} "
+                  f"(err {err:.4f} m from spawn)", flush=True)
+            return err < 0.05
+        except Exception as exc:  # noqa: BLE001
+            print(f"[PANTHERA] respawn FAILED: {exc}", flush=True)
+            return False
+
     def on_physics_step(self, step_size) -> None:
         """
         Physics call back, initialize robot (first frame) and call controller forward function.
@@ -1518,6 +1555,7 @@ class RobotRosRunner(object):
             self.needs_reset = True
         if self.needs_reset:
             self._world.reset(True)
+            self._respawn_base()
             self.needs_reset = False
             self.first_step = True
             return
