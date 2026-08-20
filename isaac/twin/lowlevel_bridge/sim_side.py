@@ -229,6 +229,15 @@ class LowLevelSimBridge:
         self.n_hold = 0
         self.n_hand_cmd = 0
         self._rig_ignored_cmds = 0
+        # The Dex5 finger joints keep the USD import's position drives, and those are
+        # STIFF -- measured kp 35809.9 with kd 0. Driving them from rt/dex3 at that
+        # stiffness slams the fingers, and the reaction travels up the arm: SONIC's
+        # own guard trips on body_dq[20] / body_dq[24], which are ARM joints, not
+        # finger ones. G1_LL_DEX3_APPLY=0 isolates that path for diagnosis;
+        # G1_LL_HAND_KP re-gains the finger drives to something an actuator could
+        # actually produce.
+        self._dex3_apply = os.environ.get("G1_LL_DEX3_APPLY", "1") == "1"
+        self._hand_kp = float(os.environ.get("G1_LL_HAND_KP", "0"))
         self.active = not passive
         # Bumpless transfer. At hand-over the robot is in the pose the POLICY left it
         # in, while SONIC has been running its own policy against a robot it was not
@@ -559,7 +568,7 @@ class LowLevelSimBridge:
 
         tau = np.clip(tau, -URDF_EFFORT_LIMIT, URDF_EFFORT_LIMIT)
 
-        if self.has_hands and rec is not None:
+        if self.has_hands and rec is not None and self._dex3_apply:
             self._apply_hand_cmd(rec)
 
         # Written against the body joint indices only, so the finger joints are not
@@ -648,6 +657,13 @@ class LowLevelSimBridge:
         self.q_hold = np.asarray(
             self.art.get_joint_positions(), dtype=np.float32)[self.sdk_to_sim_idx].copy()
         self.active = True
+        if self.has_hands and self._hand_kp > 0:
+            for side, idx in self.hand_sim_idx.items():
+                view.set_gains(np.full(len(idx), self._hand_kp, np.float32),
+                               np.full(len(idx), self._hand_kp * 0.02, np.float32),
+                               joint_indices=idx)
+            print(f"[lowlevel-sim] hand drive gains re-set to kp={self._hand_kp} "
+                  f"(was ~35810 from the URDF import)", flush=True)
         self._blend_from = self.q_hold.copy()
         self._blend_until_ns = (time.clock_gettime_ns(time.CLOCK_MONOTONIC)
                                 + int(self._blend_s * 1e9))
