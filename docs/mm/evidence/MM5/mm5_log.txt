@@ -1,0 +1,52 @@
+[mm5] t=   0.01 APPROACH trial 1 seed=20260821 object=soup_can at [ 1.7706 -1.476   0.7978]
+[mm5] t=   6.01 REACH    palm at [ 1.696 -0.668  0.674], object at [ 1.724 -1.276  0.801]
+[mm5] t=   8.27 DONE     FAIL ROBOT_FELL: pelvis z=0.544 during REACH
+[mm5] t=   8.27 APPROACH trial 2 seed=20260822 object=soup_can at [ 1.7244 -1.276   0.8008]
+[mm5] t=  14.28 REACH    palm at [ 1.694 -0.678  0.668], object at [ 1.778 -1.346  0.801]
+[mm5] t=  16.44 DONE     FAIL ROBOT_FELL: pelvis z=0.549 during REACH
+[mm5] t=  16.44 APPROACH trial 3 seed=20260823 object=soup_can at [ 1.7784 -1.3464  0.8008]
+[mm5] t=  17.78 DONE     FAIL ROBOT_FELL: pelvis z=0.549 during APPROACH
+[mm5] t=  17.78 APPROACH trial 4 seed=20260824 object=soup_can at [ 1.7156 -1.349   0.8008]
+[mm5] t=  23.79 REACH    palm at [ 1.755 -0.797  0.673], object at [ 1.815 -1.333  0.801]
+[mm5] t=  25.99 DONE     FAIL ROBOT_FELL: pelvis z=0.545 during REACH
+[mm5] t=  26.00 APPROACH trial 5 seed=20260825 object=soup_can at [ 1.8155 -1.3335  0.8008]
+[mm5] t=  32.00 REACH    palm at [ 1.722 -0.67   0.669], object at [ 1.801 -1.31   0.801]
+[mm5] t=  34.15 DONE     FAIL ROBOT_FELL: pelvis z=0.550 during REACH
+[mm5] t=  34.15 APPROACH trial 6 seed=20260826 object=soup_can at [ 1.8009 -1.31    0.8008]
+[mm5] t=  35.47 DONE     FAIL ROBOT_FELL: pelvis z=0.549 during APPROACH
+[mm5] t=  35.47 APPROACH trial 7 seed=20260827 object=soup_can at [ 1.7298 -1.3232  0.8008]
+[mm5] t=  41.48 REACH    palm at [ 1.717 -0.702  0.674], object at [ 1.755 -1.29   0.801]
+[mm5] t=  43.63 DONE     FAIL ROBOT_FELL: pelvis z=0.550 during REACH
+[mm5] t=  43.64 APPROACH trial 8 seed=20260828 object=soup_can at [ 1.7552 -1.29    0.8008]
+[mm5] t=  49.64 REACH    palm at [ 1.722 -0.613  0.668], object at [ 1.812 -1.323  0.801]
+[mm5] t=  51.74 DONE     FAIL ROBOT_FELL: pelvis z=0.549 during REACH
+[mm5] t=  51.75 APPROACH trial 9 seed=20260829 object=soup_can at [ 1.8118 -1.3233  0.8008]
+[mm5] t=  55.18 DONE     FAIL ROBOT_FELL: pelvis z=0.538 during APPROACH
+[mm5] t=  55.19 APPROACH trial 10 seed=20260830 object=soup_can at [ 1.7893 -1.3133  0.8008]
+[mm5] t=  61.19 REACH    palm at [ 1.474 -1.141  0.665], object at [ 1.73  -1.313  0.801]
+[mm5] t=  72.44 DONE     FAIL ROBOT_FELL: pelvis z=0.547 during REACH
+[mm5] t=  72.45 APPROACH trial 11 seed=20260831 object=soup_can at [ 1.7302 -1.3133  0.8008]
+[mm5] t=  72.76 DONE     FAIL ROBOT_FELL: pelvis z=0.550 during APPROACH
+[mm5] t=  72.77 APPROACH trial 12 seed=20260832 object=soup_can at [ 1.7301 -1.2928  0.8008]
+[mm5] t=  73.08 DONE     FAIL ROBOT_FELL: pelvis z=0.549 during APPROACH
+[mm5] t=  73.08 APPROACH trial 13 seed=20260833 object=soup_can at [ 1.7728 -1.304   0.8008]
+[mm5] t=  79.09 REACH    palm at [ 1.699 -0.64   0.669], object at [ 1.752 -1.258  0.801]
+[mm5] t=  81.22 DONE     FAIL ROBOT_FELL: pelvis z=0.550 during REACH
+[mm5] t=  81.23 APPROACH trial 14 seed=20260834 object=soup_can at [ 1.7517 -1.2577  0.8008]
+[mm5] t=  82.59 DONE     FAIL ROBOT_FELL: pelvis z=0.544 during APPROACH
+[mm5] t=  82.60 APPROACH trial 15 seed=20260835 object=soup_can at [ 1.7373 -1.341   0.8008]
+[mm5] t=  88.60 REACH    palm at [ 1.775 -0.726  0.672], object at [ 1.79  -1.305  0.801]
+[mm5] t=  90.73 DONE     FAIL ROBOT_FELL: pelvis z=0.549 during REACH
+[mm5] t=  90.74 APPROACH trial 16 seed=20260836 object=soup_can at [ 1.7899 -1.3054  0.8008]
+[mm5] t=  96.74 REACH    palm at [ 1.641 -0.451  0.668], object at [ 1.824 -1.268  0.801]
+[mm5] t=  98.88 DONE     FAIL ROBOT_FELL: pelvis z=0.550 during REACH
+[mm5] t=  98.89 APPROACH trial 17 seed=20260837 object=soup_can at [ 1.824  -1.2678  0.8008]
+[mm5] t= 100.46 DONE     FAIL ROBOT_FELL: pelvis z=0.547 during APPROACH
+[mm5] t= 100.47 APPROACH trial 18 seed=20260838 object=soup_can at [ 1.8293 -1.2982  0.8008]
+[mm5] t= 106.47 REACH    palm at [ 1.721 -0.715  0.673], object at [ 1.764 -1.289  0.801]
+[mm5] t= 108.68 DONE     FAIL ROBOT_FELL: pelvis z=0.549 during REACH
+[mm5] t= 108.69 APPROACH trial 19 seed=20260839 object=soup_can at [ 1.7644 -1.2887  0.8008]
+[mm5] t= 113.41 DONE     FAIL ROBOT_FELL: pelvis z=0.543 during APPROACH
+[mm5] t= 113.42 APPROACH trial 20 seed=20260840 object=soup_can at [ 1.7528 -1.3637  0.8008]
+[mm5] t= 119.42 REACH    palm at [ 1.75  -0.634  0.672], object at [ 1.817 -1.342  0.801]
+[mm5] t= 121.65 DONE     FAIL ROBOT_FELL: pelvis z=0.548 during REACH

@@ -1040,3 +1040,21 @@ a finger, and kd 0.1 gives damping the joint previously had none of.
 been measured, so this is chosen-and-declared rather than matched. It replaces a value
 that was certainly wrong with one that is defensible.
 
+## C-41 — the lab's YCB objects shipped with no colliders (MM5)
+
+`tools/build_lab_world.py` applies `RigidBodyAPI` and `MassAPI` to every YCB object and
+never `CollisionAPI`. Each object was a body gravity acts on that **nothing can touch**:
+measured in free fall from t=0, reaching **-43 m after 3 s**, which is exactly 0.5*g*t^2.
+MM2 verified 59 properties of this world and passed, because MM2 never tried to touch an
+object -- an absent check, not a wrong one.
+
+Applied at load in `isaac/twin/mm5/runner.py::ensure_colliders`: 6 objects, 6 meshes,
+`convexHull`. Not in the builder, because the objects arrive as *references* to the Isaac
+asset server and their meshes are not composed into the stage at build time, so there is
+nothing there to attach a collider to; a builder-side fix was written, produced no
+colliders for that reason, and was reverted rather than shipped unverified.
+
+**Deviation from the real object:** `convexHull` and not the triangle mesh, because PhysX
+will not simulate a non-convex triangle mesh as a *dynamic* collider. The mug's handle
+hole is filled in as a result.
+
