@@ -106,6 +106,38 @@ N_HAND_JOINTS = 20
 DEX5_PASSIVE_INDICES = (4, 8, 12, 16)
 
 
+def _quat_from_matrix(R):
+    """Rotation matrix -> quaternion (w, x, y, z), via the largest-diagonal branch."""
+    t = R[0, 0] + R[1, 1] + R[2, 2]
+    if t > 0:
+        S = np.sqrt(t + 1.0) * 2
+        return np.array([0.25 * S, (R[2, 1] - R[1, 2]) / S,
+                         (R[0, 2] - R[2, 0]) / S, (R[1, 0] - R[0, 1]) / S])
+    if R[0, 0] > R[1, 1] and R[0, 0] > R[2, 2]:
+        S = np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2]) * 2
+        return np.array([(R[2, 1] - R[1, 2]) / S, 0.25 * S,
+                         (R[0, 1] + R[1, 0]) / S, (R[0, 2] + R[2, 0]) / S])
+    if R[1, 1] > R[2, 2]:
+        S = np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2]) * 2
+        return np.array([(R[0, 2] - R[2, 0]) / S, (R[0, 1] + R[1, 0]) / S,
+                         0.25 * S, (R[1, 2] + R[2, 1]) / S])
+    S = np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1]) * 2
+    return np.array([(R[1, 0] - R[0, 1]) / S, (R[0, 2] + R[2, 0]) / S,
+                     (R[1, 2] + R[2, 1]) / S, 0.25 * S])
+
+
+def _quat_mul(a, b):
+    """Hamilton product, both (w, x, y, z)."""
+    aw, ax, ay, az = a
+    bw, bx, by, bz = b
+    return np.array([
+        aw * bw - ax * bx - ay * by - az * bz,
+        aw * bx + ax * bw + ay * bz - az * by,
+        aw * by - ax * bz + ay * bw + az * bx,
+        aw * bz + ax * by - ay * bx + az * bw,
+    ])
+
+
 class LowLevelSimBridge:
     """Attach to a SingleArticulation and drive it from rt/lowcmd."""
 
@@ -127,7 +159,8 @@ class LowLevelSimBridge:
     CMD_DEADLINE_MS = 100.0
 
     def __init__(self, articulation, physics_dt: float, pd_hz: float = 500.0,
-                 cmd_timeout_ms: float = 85.0, verbose: bool = True):
+                 cmd_timeout_ms: float = 85.0, verbose: bool = True,
+                 passive: bool = False):
         self.art = articulation
         self.physics_dt = float(physics_dt)
         self.cmd_timeout_ns = int(cmd_timeout_ms * 1e6)
@@ -195,6 +228,17 @@ class LowLevelSimBridge:
         self.n_failclosed = 0
         self.n_hold = 0
         self.n_hand_cmd = 0
+        self._rig_ignored_cmds = 0
+        self.active = not passive
+        # Bumpless transfer. At hand-over the robot is in the pose the POLICY left it
+        # in, while SONIC has been running its own policy against a robot it was not
+        # driving -- so its q_d can be far away, and applying it as a step drives the
+        # PD hard enough to spike joint velocity. SONIC then trips its own safety check
+        # ("body_dq[20] = 36.95 > 35") and stops, which is a correct reaction to a real
+        # transient rather than a false alarm. The target is ramped instead.
+        self._blend_s = float(os.environ.get("G1_HANDOFF_BLEND_S", "1.0"))
+        self._blend_from = None
+        self._blend_until_ns = 0
         self._mode = 2
         self._tau_cmd = np.zeros(N_SDK, np.float32)
         self._last_cmd_count = 0
@@ -257,6 +301,16 @@ class LowLevelSimBridge:
         # -- which reads as a hand-collider or coupling bug rather than as the gain
         # wipe it actually is. The fingers keep their drives and hold their pose,
         # exactly as they do under the locomotion policy (run.py, G1 initialize()).
+        # PASSIVE mode: publish rt/lowstate but do not touch the articulation. Used by
+        # G1_CONTROL=handoff, where the omni locomotion policy holds the robot standing
+        # while SONIC boots (it needs ~20-60 s, and MM3 established the twin cannot
+        # stand unaided for even 1 s). The bridge must still publish state throughout,
+        # or SONIC has nothing to initialise against. activate() takes the articulation.
+        if passive:
+            print("[lowlevel-sim] PASSIVE: publishing state only; the policy still drives",
+                  flush=True)
+            return
+
         # G1_LL_PD=implicit is a DIAGNOSTIC, not a mode of the bridge. It hands the
         # same gains to Isaac's own implicit drive instead of computing torque here,
         # which separates two very different explanations for a twin that will not
@@ -353,12 +407,38 @@ class LowLevelSimBridge:
             hdq[o:o + N_HAND_JOINTS] = dq_sim[idx]
             htau[o:o + N_HAND_JOINTS] = tau_sim[idx]
 
+        # Torso IMU, composed from the pelvis IMU through the waist chain. The real G1
+        # carries a physically separate torso IMU; the twin has one pelvis IMU, so the
+        # torso frame is derived by rotating through waist yaw->roll->pitch (SDK 12,13,14),
+        # matching the URDF joint order. Declared as C-36: the twin's torso IMU is
+        # COMPOSED, not independent, and its gyro omits the waist joints' own rates.
+        wy, wr, wp = float(q[12]), float(q[13]), float(q[14])
+        cz, sz = np.cos(wy), np.sin(wy)
+        cx, sx = np.cos(wr), np.sin(wr)
+        cy, sy = np.cos(wp), np.sin(wp)
+        Rz = np.array([[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]])
+        Rx = np.array([[1, 0, 0], [0, cx, -sx], [0, sx, cx]])
+        Ry = np.array([[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]])
+        R_waist = Rz @ Rx @ Ry
+        t_gyro = (R_waist.T @ gyro.astype(np.float64)).astype(np.float32)
+        t_accel = (R_waist.T @ accel.astype(np.float64)).astype(np.float32)
+        qw = _quat_from_matrix(R_waist)
+        t_quat = _quat_mul(quat.astype(np.float64), qw).astype(np.float32)
+        tw, tx, ty, tz = (float(v) for v in t_quat)
+        t_rpy = np.array([
+            np.arctan2(2 * (tw * tx + ty * tz), 1 - 2 * (tx * tx + ty * ty)),
+            np.arcsin(np.clip(2 * (tw * ty - tz * tx), -1.0, 1.0)),
+            np.arctan2(2 * (tw * tz + tx * ty), 1 - 2 * (ty * ty + tz * tz)),
+        ], np.float32)
+
         self._trace("state.write")
         self.state.write(stamp_ns=time.clock_gettime_ns(time.CLOCK_MONOTONIC),
                          sim_time=self.sim_time, physics_step=self.n_step,
                          q=q, dq=dq, tau_est=tau,
                          quat_wxyz=quat, gyro=gyro, accel=accel, rpy=rpy,
-                         hand_q=hq, hand_dq=hdq, hand_tau=htau)
+                         hand_q=hq, hand_dq=hdq, hand_tau=htau,
+                         torso_quat_wxyz=t_quat, torso_gyro=t_gyro,
+                         torso_accel=t_accel, torso_rpy=t_rpy)
 
     # -------------------------------------------------------------------- PD
 
@@ -370,11 +450,17 @@ class LowLevelSimBridge:
         seqlock read cannot masquerade as command loss here either.
         """
         if rec is None:
-            rec = self._last_cmd_rec
-            if rec is None:
-                rec = self.cmd.read()
-                if rec is not None:
-                    self._last_cmd_rec = rec
+            # ALWAYS re-read; fall back to the cache only on a torn read. Preferring
+            # the cache made this function latch: the first snapshot it took was kept
+            # forever, its stamp_ns aged past the timeout, and it then returned False
+            # for the rest of the run. In the active path _apply_pd happened to refresh
+            # the cache every cycle and hid it; in PASSIVE mode nothing did, so the
+            # hand-over never fired while SONIC was commanding at 500 Hz the whole time.
+            rec = self.cmd.read()
+            if rec is not None:
+                self._last_cmd_rec = rec
+            else:
+                rec = self._last_cmd_rec
         if rec is None or int(rec["cmd_count"]) == 0:
             return False
         age = time.clock_gettime_ns(time.CLOCK_MONOTONIC) - int(rec["stamp_ns"])
@@ -408,6 +494,22 @@ class LowLevelSimBridge:
             self._last_cmd_rec = rec
 
         fresh = self._cmd_fresh(rec)
+
+        # While the rig is holding, the twin keeps its stance and IGNORES rt/lowcmd.
+        #
+        # A pinned base LIES to a balance controller: SONIC's observations said
+        # "upright, motionless" whatever it commanded, so it drove the knee to 1.011 rad
+        # and the twin was dropped out of a crouch the instant the rig let go. A hoist
+        # does not work that way -- the robot hangs in its stance, the controller boots
+        # and watches, and only when it is lowered does it get authority.
+        #
+        # This has to sit BEFORE _first_cmd_seen latches, not after. Placed after, the
+        # commands were ignored but fail-closed still armed, so the rig phase ran as
+        # DAMPING instead of as a stance hold and the robot was limp at release.
+        if fresh and self._fix_base and self._rig_auto_release:
+            fresh = False
+            self._rig_ignored_cmds += 1
+
         if fresh:
             # Latched on a FRESH command, never on the mere existence of a count.
             # "A command once arrived" is the thing that arms fail-closed, and a
@@ -421,7 +523,15 @@ class LowLevelSimBridge:
             self._mode = 0
             kp = np.asarray(rec["kp"][:N_SDK], np.float32)
             kd = np.asarray(rec["kd"][:N_SDK], np.float32)
-            tau = (kp * (np.asarray(rec["q_d"][:N_SDK], np.float32) - q)
+            q_d = np.asarray(rec["q_d"][:N_SDK], np.float32)
+            if self._blend_from is not None:
+                now_ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+                if now_ns >= self._blend_until_ns:
+                    self._blend_from = None
+                else:
+                    a = 1.0 - (self._blend_until_ns - now_ns) / (self._blend_s * 1e9)
+                    q_d = (1.0 - a) * self._blend_from + a * q_d
+            tau = (kp * (q_d - q)
                    + kd * (np.asarray(rec["dq_d"][:N_SDK], np.float32) - dq)
                    + np.asarray(rec["tau_ff"][:N_SDK], np.float32))
         elif self._first_cmd_seen:
@@ -522,6 +632,28 @@ class LowLevelSimBridge:
               if self.has_hands else
               f"knee_L={float(r[3]):+.3f} hip_p_L={float(r[0]):+.3f}", flush=True)
 
+    def activate(self) -> None:
+        """Take the articulation from the policy. One-way, and asserted to happen once."""
+        if self.active:
+            return
+        names = list(self.art.dof_names)
+        view = self.art._articulation_view
+        kp0 = np.zeros(N_SDK, np.float32)
+        view.set_gains(kp0, kp0.copy(), joint_indices=self.sdk_to_sim_idx)
+        self.art.get_articulation_controller().set_effort_modes("force")
+        self.art.get_articulation_controller().switch_control_mode("effort")
+        # The hand-over pose is the stance the POLICY was holding a moment ago, so the
+        # idle hold (if any command gap follows) targets something the robot is already
+        # in rather than the spawn pose it has long since left.
+        self.q_hold = np.asarray(
+            self.art.get_joint_positions(), dtype=np.float32)[self.sdk_to_sim_idx].copy()
+        self.active = True
+        self._blend_from = self.q_hold.copy()
+        self._blend_until_ns = (time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+                                + int(self._blend_s * 1e9))
+        print(f"[lowlevel-sim] ACTIVE: articulation taken from the policy at "
+              f"t={self.sim_time:.3f}s", flush=True)
+
     def _hold_base(self) -> None:
         """Virtual gantry: pin the floating base to its spawn pose.
 
@@ -547,7 +679,7 @@ class LowLevelSimBridge:
             self._hold_base()
             if self._rig_auto_release:
                 now = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
-                if self._mode == 0:
+                if self._cmd_fresh():
                     if self._commanded_since_ns is None:
                         self._commanded_since_ns = now
                     elif now - self._commanded_since_ns >= self._rig_release_after_ns:
@@ -562,6 +694,8 @@ class LowLevelSimBridge:
         if self.n_step % int(os.environ.get('G1_LL_REPORT_STEPS', '5000')) == 0:
             self._report()
         self._publish_state()
+        if not self.active:
+            return
         # The WATCHDOG runs every physics step; the commanded PD runs at pd_every.
         #
         # Tying the watchdog to the PD decimation gave it a wall-clock resolution of
@@ -581,7 +715,8 @@ class LowLevelSimBridge:
                 "failclosed_updates": self.n_failclosed,
                 "idle_hold_updates": self.n_hold,
                 "hand_cmd_applied": self.n_hand_cmd,
-                "torn_cmd_reads": self.n_torn_reads}
+                "torn_cmd_reads": self.n_torn_reads,
+                "rig_ignored_cmds": self._rig_ignored_cmds}
 
     def close(self) -> None:
         self.state.close()

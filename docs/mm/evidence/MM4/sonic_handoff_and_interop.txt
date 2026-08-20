@@ -1,0 +1,37 @@
+=== bridge: SONIC <-> twin closed loop over DDS ===
+[lowlevel-dds] t= 165.0s  lowstate=171878 (1041.680 Hz)  lowcmd=5450 (  33.03 Hz)  crc_bad=0 imu2=171878 (1041.680 Hz)  repeat= 60.1%  sim_stale=704  dex3_state=34375 (208.33 Hz)  dex3_cmd={'left': 5451, 'right': 5451}
+[lowlevel-dds] t= 170.0s  lowstate=177086 (1041.680 Hz)  lowcmd=5450 (  32.06 Hz)  crc_bad=0 imu2=177086 (1041.680 Hz)  repeat= 60.2%  sim_stale=717  dex3_state=35417 (208.33 Hz)  dex3_cmd={'left': 5451, 'right': 5451}
+
+=== SONIC handshake, with rt/secondary_imu present ===
+G1 type: 5
+Init Done
+[ZMQManager] Planner enabled
+Planner initialized
+Planner initialized successfully!
+
+=== SONIC replanning through the MM4 plan ===
+Replanning with mode: IDLE, target_height: -1, target_vel: -1, movement: [0, 0, 0], facing: [1, 0, 0]
+
+=== SONIC loop timing (policy latency, PD tracking) ===
+
+=== policy -> SONIC hand-over ===
+[lowlevel-sim] PASSIVE: publishing state only; the policy still drives
+[PANTHERA-MARK] rt/lowcmd is live; handing over in 8s
+[lowlevel-sim] ACTIVE: articulation taken from the policy at t=17.888s
+[PANTHERA-MARK] HANDOVER complete: the policy will not be stepped again
+
+=== twin around the hand-over ===
+[lowlevel-sim] t=   1.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.321 base_z=+0.791 pitch=+0.027 roll=+0.000 |tau|max=  0.00 sat=0/29 knee_L=+0.108 hip_p_L=-0.058 torn=0 hand_cmd=0 hand_q0=+0.0000
+[lowlevel-sim] t=   2.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.406 base_z=+0.790 pitch=+0.041 roll=-0.002 |tau|max=  0.00 sat=0/29 knee_L=+0.113 hip_p_L=-0.057 torn=0 hand_cmd=0 hand_q0=-0.0000
+[lowlevel-sim] t=   3.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.448 base_z=+0.790 pitch=+0.041 roll=-0.000 |tau|max=  0.00 sat=0/29 knee_L=+0.103 hip_p_L=-0.052 torn=0 hand_cmd=0 hand_q0=+0.0000
+[lowlevel-sim] t=   4.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.473 base_z=+0.790 pitch=+0.041 roll=-0.001 |tau|max=  0.00 sat=0/29 knee_L=+0.111 hip_p_L=-0.058 torn=0 hand_cmd=0 hand_q0=+0.0000
+[lowlevel-sim] t=   5.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.489 base_z=+0.790 pitch=+0.041 roll=-0.000 |tau|max=  0.00 sat=0/29 knee_L=+0.105 hip_p_L=-0.053 torn=0 hand_cmd=0 hand_q0=+0.0000
+[lowlevel-sim] t=   6.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.500 base_z=+0.790 pitch=+0.042 roll=-0.001 |tau|max=  0.00 sat=0/29 knee_L=+0.111 hip_p_L=-0.058 torn=0 hand_cmd=0 hand_q0=+0.0000
+[lowlevel-sim] t=   7.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.508 base_z=+0.790 pitch=+0.041 roll=-0.000 |tau|max=  0.00 sat=0/29 knee_L=+0.106 hip_p_L=-0.055 torn=0 hand_cmd=0 hand_q0=+0.0000
+[lowlevel-sim] t=   8.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.511 base_z=+0.790 pitch=+0.041 roll=-0.001 |tau|max=  0.00 sat=0/29 knee_L=+0.109 hip_p_L=-0.057 torn=0 hand_cmd=0 hand_q0=+0.0000
+[lowlevel-sim] t=   9.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.516 base_z=+0.790 pitch=+0.041 roll=-0.000 |tau|max=  0.00 sat=0/29 knee_L=+0.108 hip_p_L=-0.057 torn=0 hand_cmd=0 hand_q0=+0.0000
+[lowlevel-sim] t=  10.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.520 base_z=+0.790 pitch=+0.042 roll=-0.001 |tau|max=  0.00 sat=0/29 knee_L=+0.109 hip_p_L=-0.057 torn=0 hand_cmd=0 hand_q0=+0.0000
+[lowlevel-sim] t=  11.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.522 base_z=+0.790 pitch=+0.042 roll=-0.001 |tau|max=  0.00 sat=0/29 knee_L=+0.109 hip_p_L=-0.058 torn=0 hand_cmd=0 hand_q0=+0.0000
+[lowlevel-sim] t=  12.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.525 base_z=+0.790 pitch=+0.041 roll=-0.000 |tau|max=  0.00 sat=0/29 knee_L=+0.108 hip_p_L=-0.057 torn=0 hand_cmd=0 hand_q0=-0.0000
+[lowlevel-sim] t=  13.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.528 base_z=+0.790 pitch=+0.042 roll=-0.001 |tau|max=  0.00 sat=0/29 knee_L=+0.110 hip_p_L=-0.059 torn=0 hand_cmd=0 hand_q0=+0.0000
+[lowlevel-sim] t=  14.00 mode=hold       pd=0 hold=0 failclosed=0 rtf=0.527 base_z=+0.790 pitch=+0.041 roll=-0.000 |tau|max=  0.00 sat=0/29 knee_L=+0.107 hip_p_L=-0.057 torn=0 hand_cmd=0 hand_q0=+0.0000

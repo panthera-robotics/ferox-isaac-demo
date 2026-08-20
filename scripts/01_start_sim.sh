@@ -178,6 +178,8 @@ docker exec -d \
   -e TWIN_ARMATURE="${TWIN_ARMATURE:-}" \
   -e HAND="${HAND:-none}" \
   -e G1_CONTROL="${G1_CONTROL:-policy}" \
+  -e G1_HANDOFF_S="${G1_HANDOFF_S:-10}" \
+  -e G1_HANDOFF_BLEND_S="${G1_HANDOFF_BLEND_S:-1.0}" \
   -e G1_PD_HZ="${G1_PD_HZ:-500}" \
   -e G1_CMD_TIMEOUT_MS="${G1_CMD_TIMEOUT_MS:-85}" \
   -e G1_LL_REPORT_STEPS="${G1_LL_REPORT_STEPS:-5000}" \

@@ -78,6 +78,17 @@ class LowLevelDDS:
 
         self.pub = ChannelPublisher("rt/lowstate", LowState_)
         self.pub.Init()
+        # rt/secondary_imu -- the torso IMU. SONIC's deploy subscribes to it
+        # (robot_parameters.hpp:28 HG_IMU_TORSO) and will not enter its control loop
+        # without it, failing with "LowState or IMUState is not available" and then
+        # timing out the planner handshake. It is NOT part of LowState_, so a twin that
+        # publishes a perfect rt/lowstate still looks like a robot with no torso IMU.
+        self.imu_pub = ChannelPublisher("rt/secondary_imu", IMUState_)
+        self.imu_pub.Init()
+        self.imu_msg = IMUState_(quaternion=[1.0, 0.0, 0.0, 0.0], gyroscope=[0.0] * 3,
+                                 accelerometer=[0.0] * 3, rpy=[0.0] * 3,
+                                 temperature=IMU_TEMP_C)
+        self.n_imu = 0
         self.sub = ChannelSubscriber("rt/lowcmd", LowCmd_)
         self.sub.Init(self._on_lowcmd, 32)
 
@@ -273,6 +284,16 @@ class LowLevelDDS:
                 self._fill(rec)
                 self.pub.Write(self.low_state)
                 self.n_pub += 1
+                # Published at the SAME rate as rt/lowstate: the driver probe measured
+                # the robot's /secondary_imu at 1041.7 Hz, matching /lowstate to four
+                # significant figures (docs/mm/evidence/MM3/PREREQS.md).
+                imu = self.imu_msg
+                imu.quaternion = [float(v) for v in rec["torso_quat_wxyz"]]
+                imu.gyroscope = [float(v) for v in rec["torso_gyro"]]
+                imu.accelerometer = [float(v) for v in rec["torso_accel"]]
+                imu.rpy = [float(v) for v in rec["torso_rpy"]]
+                self.imu_pub.Write(imu)
+                self.n_imu += 1
                 if self.n_pub % DEX3_DECIMATION == 0:
                     self._publish_hands(rec)
 
@@ -281,6 +302,7 @@ class LowLevelDDS:
                 print(f"[lowlevel-dds] t={el:6.1f}s  lowstate={self.n_pub} "
                       f"({self.n_pub/el:8.3f} Hz)  lowcmd={self.n_cmd} "
                       f"({self.n_cmd/el:7.2f} Hz)  crc_bad={self.n_crc_bad} "
+                      f"imu2={self.n_imu} ({self.n_imu/el:8.3f} Hz)  "
                       f"repeat={100*self.n_repeat/max(1,self.n_pub):5.1f}%  "
                       f"sim_stale={stale_reads}  dex3_state={self.n_hand_pub} "
                       f"({self.n_hand_pub/el:6.2f} Hz)  dex3_cmd={self.n_hand_cmd}",

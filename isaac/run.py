@@ -1127,9 +1127,23 @@ class RobotRosRunner(object):
         #                         summing.
         self._g1_control = os.environ.get("G1_CONTROL", "policy").strip().lower()
         self._lowlevel = None
-        if self._g1_control not in ("policy", "lowcmd"):
-            raise ValueError(f"G1_CONTROL must be 'policy' or 'lowcmd', got {self._g1_control!r}")
-        if self._g1_control == "lowcmd" and robot_type != ROBOT_G1:
+        #   "handoff"          -- the omni policy holds the robot standing until a live
+        #                         rt/lowcmd stream has been up for G1_HANDOFF_S seconds,
+        #                         then the low-level bridge takes the articulation ONCE
+        #                         and the policy is never stepped again. This is the
+        #                         pattern CAMPAIGN 4.4 already specifies for MM5, and it
+        #                         is the only way to give SONIC a standing robot: it
+        #                         needs 20-60 s to boot and MM3 (a2) established the twin
+        #                         cannot stand unaided for even one second. Still never
+        #                         co-driving -- the switch is one-way and latched.
+        if self._g1_control not in ("policy", "lowcmd", "handoff"):
+            raise ValueError(
+                f"G1_CONTROL must be 'policy', 'lowcmd' or 'handoff', got {self._g1_control!r}")
+        self._handoff_s = float(os.environ.get("G1_HANDOFF_S", "10"))
+        self._handoff_since = None
+        self._handoff_last_fresh = 0.0
+        self._handed_over = False
+        if self._g1_control in ("lowcmd", "handoff") and robot_type != ROBOT_G1:
             raise ValueError("G1_CONTROL=lowcmd is only meaningful for --robot_type g1")
         self._twin_report = {}
 
@@ -1612,7 +1626,7 @@ class RobotRosRunner(object):
         if self.first_step:
             self._robot.initialize()
             self.first_step = False
-            if self._g1_control == "lowcmd" and self._lowlevel is None:
+            if self._g1_control in ("lowcmd", "handoff") and self._lowlevel is None:
                 # Built HERE, not in setup(): the articulation has no DOF names until
                 # initialize() has run, and the bridge maps every joint by name.
                 # It also has to land after initialize(), which sets position-control
@@ -1624,12 +1638,46 @@ class RobotRosRunner(object):
                     physics_dt=self._physics_dt,
                     pd_hz=float(os.environ.get("G1_PD_HZ", "500")),
                     cmd_timeout_ms=float(os.environ.get("G1_CMD_TIMEOUT_MS", "85")),
+                    passive=(self._g1_control == "handoff"),
                 )
                 print("[PANTHERA-MARK] low-level bridge attached (G1_CONTROL=lowcmd)",
                       flush=True)
             return
 
-        if self._g1_control == "lowcmd":
+        if self._g1_control == "handoff" and not self._handed_over:
+            # Publish state so SONIC can boot, but let the POLICY keep the robot up.
+            if self._lowlevel is not None:
+                self._lowlevel.on_physics_step(step_size)
+                now = time.time()
+                if self._lowlevel._cmd_fresh():
+                    self._handoff_last_fresh = now
+                    if self._handoff_since is None:
+                        self._handoff_since = now
+                        print(f"[PANTHERA-MARK] rt/lowcmd is live; handing over in "
+                              f"{self._handoff_s:.0f}s", flush=True)
+                    elif now - self._handoff_since >= self._handoff_s:
+                        self._lowlevel.activate()
+                        self._handed_over = True
+                        print("[PANTHERA-MARK] HANDOVER complete: the policy will not be "
+                              "stepped again", flush=True)
+                        # Return on the activation step. Falling through would call
+                        # on_physics_step a SECOND time in the same step, double-counting
+                        # sim_time -- and rt/lowstate.tick is derived from sim_time.
+                        self._update_odom()
+                        return
+                elif (self._handoff_since is not None
+                      and now - self._handoff_last_fresh > 1.0):
+                    # Only a SUSTAINED loss of rt/lowcmd cancels the hand-over. Resetting
+                    # on a single miss never let it fire at all: the seqlock is read at
+                    # 1 kHz against a 500 Hz writer, so isolated torn reads are normal
+                    # and the countdown restarted forever while the robot stood happily
+                    # under the policy and SONIC was never given the robot.
+                    print("[PANTHERA-MARK] rt/lowcmd went quiet; hand-over cancelled",
+                          flush=True)
+                    self._handoff_since = None
+            # fall through to the policy path below for this step
+
+        if self._g1_control == "lowcmd" or self._handed_over:
             # rt/lowcmd owns the articulation. The locomotion policy is not stepped
             # at all -- not zeroed, not blended, not run-and-discarded -- so there is
             # no path by which both can write joint targets in the same step.
@@ -1815,7 +1863,11 @@ def main():
     # `ros2 topic hz` reads every topic low by the same factor and is the wrong
     # instrument here. It does mean rt/lowstate, which IS wall-paced, repeats state
     # between physics steps -- measured and declared as C-29, not hidden.
-    if os.environ.get("G1_CONTROL", "policy").strip().lower() == "lowcmd" \
+    # "handoff" must take this branch too. It did not, and every hand-off run silently
+    # ran at the 200 Hz default with PD at 200 Hz -- the exact regime C-35 measured as
+    # unstable -- which looked like SONIC tripping its own 35 rad/s velocity guard for
+    # mysterious reasons rather than like a physics rate that was never applied.
+    if os.environ.get("G1_CONTROL", "policy").strip().lower() in ("lowcmd", "handoff") \
             and "--physics_dt" not in sys.argv:
         args.physics_dt = 1.0 / float(os.environ.get("G1_PHYSICS_HZ", "1000"))
         logger.info("G1_CONTROL=lowcmd -> physics_dt %.6f s (%.0f Hz)",

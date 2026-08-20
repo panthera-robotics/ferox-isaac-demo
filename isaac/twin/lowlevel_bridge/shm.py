@@ -54,6 +54,14 @@ STATE_DTYPE = np.dtype([
     ("hand_dq", np.float32, N_HAND),
     ("hand_tau", np.float32, N_HAND),
     ("contact", np.float32, (2, N_ZONE)),   # [left, right] x 12 zones, newtons
+    # Torso ("secondary") IMU. The G1 has a second IMU in the torso and SONIC's deploy
+    # SUBSCRIBES TO IT -- rt/secondary_imu, robot_parameters.hpp:28 -- refusing to enter
+    # its control loop without it ("LowState or IMUState is not available"). It is not
+    # part of LowState_, so it needs its own slots here.
+    ("torso_quat_wxyz", np.float32, 4),
+    ("torso_gyro", np.float32, 3),
+    ("torso_accel", np.float32, 3),
+    ("torso_rpy", np.float32, 3),
 ])
 
 CMD_DTYPE = np.dtype([

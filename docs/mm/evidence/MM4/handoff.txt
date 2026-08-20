@@ -1,0 +1,4 @@
+[lowlevel-sim] PASSIVE: publishing state only; the policy still drives
+[PANTHERA-MARK] rt/lowcmd is live; handing over in 8s
+[lowlevel-sim] ACTIVE: articulation taken from the policy at t=17.888s
+[PANTHERA-MARK] HANDOVER complete: the policy will not be stepped again

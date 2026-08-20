@@ -1,0 +1,4 @@
+Loop timing - LowState age: 5.19ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 4.459ms, Obs: 1803us, Policy: 2617us, Obs 2 Motor Command: 4421us, Post processing: 16us, Planner - Gather Input: 0us, Model: 0us, Convert50Hz: 0us, Total: 0us | HandCloseRatio: 1
+Loop timing - LowState age: 3.795ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.806ms, Obs: 250us, Policy: 2999us, Obs 2 Motor Command: 3249us, Post processing: 26us, Planner - Gather Input: 24us, Model: 2947us, Convert50Hz: 13us, Total: 2985us | HandCloseRatio: 1
+Loop timing - LowState age: 3.485ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.501ms, Obs: 247us, Policy: 2998us, Obs 2 Motor Command: 3245us, Post processing: 35us, Planner - Gather Input: 25us, Model: 2927us, Convert50Hz: 11us, Total: 2963us | HandCloseRatio: 1
+✗ Error: body_dq[24] = 35.2035 > 35.

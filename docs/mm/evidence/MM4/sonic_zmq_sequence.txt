@@ -1,25 +1,36 @@
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQManager] Waiting for planner to be initialized
-[ZMQCommandManager ERROR] Planner initialization timeout
-Stop
-[DEBUG] Waiting for cleanup...
-[DEBUG] Program exiting normally...
+[mm4] MM4 plan: 14 segments, 54s
+[mm4]     stand           7.0s  IDLE      move=(0.0, 0.0, 0.0) facing=(1.0, 0.0, 0.0)
+[mm4]     shift_left      2.8s  SLOW_WALK move=(0.0, 1.0, 0.0) facing=(1.0, 0.0, 0.0)
+[mm4]     shift_right     2.8s  SLOW_WALK move=(0.0, -1.0, 0.0) facing=(1.0, 0.0, 0.0)
+[mm4]     settle          1.4s  IDLE      move=(0.0, 0.0, 0.0) facing=(1.0, 0.0, 0.0)
+[mm4]     walk_fwd        7.0s  WALK      move=(1.0, 0.0, 0.0) facing=(1.0, 0.0, 0.0)
+[mm4]     walk_back       3.5s  WALK      move=(-1.0, 0.0, 0.0) facing=(1.0, 0.0, 0.0)
+[mm4]     strafe_left     4.2s  WALK      move=(0.0, 1.0, 0.0) facing=(1.0, 0.0, 0.0)
+[mm4]     strafe_right    4.2s  WALK      move=(0.0, -1.0, 0.0) facing=(1.0, 0.0, 0.0)
+[mm4]     settle2         1.4s  IDLE      move=(0.0, 0.0, 0.0) facing=(1.0, 0.0, 0.0)
+[mm4]     turn_left       5.2s  WALK      move=(0.0, 0.0, 0.0) facing=(0.0, 1.0, 0.0)
+[mm4]     turn_right      5.2s  WALK      move=(0.0, 0.0, 0.0) facing=(0.0, -1.0, 0.0)
+[mm4]     stop            2.1s  IDLE      move=(0.0, 0.0, 0.0) facing=(1.0, 0.0, 0.0)
+[mm4]     arms_reach      4.2s  IDLE      move=(0.0, 0.0, 0.0) facing=(1.0, 0.0, 0.0)  +arms
+[mm4]     arms_return     2.8s  IDLE      move=(0.0, 0.0, 0.0) facing=(1.0, 0.0, 0.0)  +arms
+[mm4] bound PUB tcp://*:5556; settling 3.0s for subscribers
+[mm4] holding start+planner for 40s (covers TensorRT init)
+[mm4]     still holding start (15/40s)
+[mm4]     still holding start (30/40s)
+[mm4] running plan
+[mm4]   -> stand (7s, IDLE)
+[mm4]   -> shift_left (3s, SLOW_WALK)
+[mm4]   -> shift_right (3s, SLOW_WALK)
+[mm4]   -> settle (1s, IDLE)
+[mm4]   -> walk_fwd (7s, WALK)
+[mm4]   -> walk_back (4s, WALK)
+[mm4]   -> strafe_left (4s, WALK)
+[mm4]   -> strafe_right (4s, WALK)
+[mm4]   -> settle2 (1s, IDLE)
+[mm4]   -> turn_left (5s, WALK)
+[mm4]   -> turn_right (5s, WALK)
+[mm4]   -> stop (2s, IDLE)
+[mm4]   -> arms_reach (4s, IDLE)
+[mm4]   -> arms_return (3s, IDLE)
+[mm4] stopping control
+[mm4] done
