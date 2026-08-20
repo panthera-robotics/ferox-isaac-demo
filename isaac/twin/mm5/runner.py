@@ -30,11 +30,27 @@ class MM5Config:
     # teleport put the robot in the furniture and it went straight down. 0.72 m leaves
     # 0.48 m of clearance to the edge and still puts the object inside the arm's ~0.65 m
     # reach, because the shoulder is 1.1 m up and the object is at 0.80 m.
-    base_offset: tuple = (0.10, 0.72)      # (+x, +y) from the object, world frame
+    # MEASURED, not assumed. With the base 0.72 m back the IK converges rock-stable to
+    # 354 mm and stops -- not an oscillation, a workspace boundary: the right arm's
+    # effective forward reach is ~0.39 m from the pelvis, because it is also reaching
+    # DOWN from a shoulder at 1.1 m to a can at 0.80 m, and that vertical component eats
+    # most of the nominal 0.65 m arm length. 0.38 m puts the can inside it.
+    #
+    # This does put the base inside the Nav2 footprint clearance of the table. In the
+    # FIXED-BASE variant that is harmless -- the base is held and cannot be toppled --
+    # and it is one more reason the fixed-base result is not the mobile one.
+    base_offset: tuple = (0.10, 0.38)      # (+x, +y) from the object, world frame
     base_yaw: float = -1.5708              # face -y, i.e. face the table
 
-    pregrasp_offset: tuple = (0.0, 0.0, 0.02)
-    reach_tol: float = 0.045
+    # A pre-grasp is OFFSET from the object by design -- the fingers close over the
+    # remainder. 6 cm above the can's centre is where a side grasp starts.
+    # Pre-grasp on the NEAR side of the can and slightly above it: that is where a side
+    # grasp starts, and it is also 6 cm closer to the shoulder than the can's centre,
+    # which matters when the reach is workspace-limited. Going closer than this by moving
+    # the BASE does not work -- at 0.32 m the body is inside the table and knocks the can
+    # onto the floor before the arm arrives.
+    pregrasp_offset: tuple = (0.0, 0.06, 0.05)
+    reach_tol: float = 0.08
     ik_lambda: float = 0.08
     # A SLOW reach. The omni policy holds the arms as part of its own action and was
     # trained with a joint_deviation_arms term, so an arm driven away from that pose is
@@ -42,7 +58,8 @@ class MM5Config:
     # At 0.05 rad/step the CoM moved faster than the policy could answer and it toppled
     # in every trial. 0.008 gives it ~6x longer to compensate.
     ik_max_step: float = 0.004
-    ik_lead_cap: float = 0.10              # how far the command may lead the arm (rad)
+    ik_lead_cap: float = 0.10
+    ik_k_null: float = 0.6              # how far the command may lead the arm (rad)
 
     settle_s: float = 6.0
     fallen_z: float = 0.55
@@ -62,6 +79,24 @@ class MM5Config:
     table_h: float = 0.75
 
     cheat_attach: bool = False
+    # FIXED-BASE VARIANT. The base is held kinematically so the pipeline can be tested
+    # independently of the balancer, which is parked at C-39 and which the mobile run
+    # showed topples 2.9 s into every reach. Everything downstream of balance -- IK
+    # reach, real-contact Dex5 grasp, lift, place -- is exercised for real. Labelled on
+    # every row and in the header; it is NOT the robot, and the carry stage is skipped
+    # because carrying a payload 1 m is meaningless when the base cannot move.
+    fix_base: bool = False
+    # The IK limits below are sized for a BALANCING robot, where a fast-moving arm is
+    # what topples it. With the base held there is nothing to topple, so the fixed-base
+    # variant lifts them: at lead 0.10 rad the target stops advancing as soon as the
+    # arm's own tracking error reaches the cap, and the reach stalled at a repeatable
+    # 350 mm short.
+    fix_base_arm_kp: float = 400.0
+    fix_base_arm_kd: float = 20.0
+    fix_base_ik_lead: float = 0.25
+    fix_base_ik_step: float = 0.010
+    skip_carry: bool = True
+    place_vec: tuple = (-0.22, 0.0, 0.0)
     randomize_m: float = 0.06              # +-6 cm box on the table
     # MM5 stages the object on the NEAR edge of the table rather than where the MM2
     # seed happened to scatter it. The G1 stands 0.48 m clear of a 1.20 m-deep table and
@@ -76,11 +111,15 @@ class MM5Config:
 class MM5Runner:
     def __init__(self, art, stage, cfg: MM5Config):
         self.art, self.stage, self.cfg = art, stage, cfg
+        if cfg.fix_base:
+            cfg.ik_lead_cap = cfg.fix_base_ik_lead
+            cfg.ik_max_step = cfg.fix_base_ik_step
         self.pipe = MM5Pipeline(art, stage, cfg)
         self.rng = np.random.default_rng(cfg.seed)
         self.i = 0
         self._rigid = None
         self._home_q = None
+        self._base_pose = None
         self.state = "INIT"
         self._t = 0.0
         os.makedirs(cfg.out_dir, exist_ok=True)
@@ -185,6 +224,9 @@ class MM5Runner:
             self._home_q = np.asarray(self.art.get_joint_positions(), np.float32).copy()
         self.art.set_joint_positions(self._home_q)
         self.art.set_joint_velocities(np.zeros_like(self._home_q))
+        self._base_pose = (pos, quat)
+        if self.cfg.fix_base:
+            self.pipe._body_hold = self._home_q[self.pipe.body_idx].astype(np.float32)
         self.pipe._arm_target = None
         self.pipe._grip_ratio = 0.0
         self.pipe._hand_target = np.zeros(len(self.pipe._hand_target), np.float32)
@@ -194,6 +236,11 @@ class MM5Runner:
 
     def step(self, dt):
         self._t += dt
+        if self.cfg.fix_base and self._base_pose is not None:
+            pos, quat = self._base_pose
+            self.art.set_world_pose(pos, quat)
+            self.art.set_linear_velocity(np.zeros(3, np.float32))
+            self.art.set_angular_velocity(np.zeros(3, np.float32))
         if self.state == "INIT":
             self.ensure_colliders()
             p = self.pipe.obj_pose(self.cfg.object_name)
@@ -221,7 +268,15 @@ class MM5Runner:
             obj = self._place_object(seed)
             self._stand_robot(obj)
             self.pipe.sim_time = self._t
-            self.pipe.start_trial(self.i, seed, self.cfg.object_name)
+            # Pass the COMMANDED placement, do not re-read the pose.
+            #
+            # set_world_pose does not take effect until physics steps, so reading the
+            # object back here returns the PREVIOUS trial's end pose. When that trial had
+            # knocked the can onto the floor, obj_start came back at z = 0.032 and the
+            # LIFT check -- obj_z - obj_start_z > 0.05 -- passed in a single step on a can
+            # that had never been touched. It produced two false SUCCESS rows out of 20.
+            # The runner knows exactly where it put the object; it should say so.
+            self.pipe.start_trial(self.i, seed, self.cfg.object_name, obj_start=obj)
             self.state = "RUN"
             return
 

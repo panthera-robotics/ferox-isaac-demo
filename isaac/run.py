@@ -1703,6 +1703,7 @@ class RobotRosRunner(object):
                     trials=int(os.environ.get("MM5_TRIALS", "20")),
                     seed=int(os.environ.get("MM5_SEED", "20260820")),
                     cheat_attach=os.environ.get("MM5_CHEAT_ATTACH", "0") == "1",
+                    fix_base=os.environ.get("MM5_FIX_BASE", "0") == "1",
                     out_dir=os.environ.get("MM5_OUT", "/workspace/ferox_isaac/mm5_out"),
                 )
                 self._mm5 = MM5Runner(self._robot.robot, self._world.stage, cfg)

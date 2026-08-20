@@ -82,4 +82,17 @@ def probe(art, stage) -> None:
     env = stage.GetPrimAtPath("/World/Env")
     if env and env.IsValid():
         print(f"[probe] /World/Env children: {[c.GetName() for c in env.GetChildren()][:14]}")
+    # Palm pose source and a finite-difference check of the Jacobian column mapping.
+    # If either is wrong the servo drives the arm somewhere confidently and stalls,
+    # which is exactly the symptom.
+    try:
+        bp, bq = art._articulation_view.get_body_poses()
+        print(f"[probe] get_body_poses OK: shape {np.asarray(bp).shape}")
+        bi = list(art._articulation_view.body_names).index("base_link00")
+        print(f"[probe] base_link00 idx={bi} pos={np.round(np.asarray(bp[0][bi]),4)}")
+    except Exception as exc:
+        print(f"[probe] get_body_poses UNAVAILABLE -> USD fallback in use: {exc!r}")
+        for cand in ("/World/G1/base_link00", "/World/G1/right_wrist_yaw_link"):
+            pr = stage.GetPrimAtPath(cand)
+            print(f"[probe]   {cand}: valid={bool(pr and pr.IsValid())}")
     print("=== END MM5 PROBE ===\n", flush=True)

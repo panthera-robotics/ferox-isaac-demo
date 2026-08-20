@@ -50,6 +50,29 @@ RIGHT_HAND_JOINTS = [
 PASSIVE_HAND_IDX = (4, 8, 12, 16)
 RIGHT_PALM_BODY = "base_link00"      # left is base_link00L; the asymmetry is upstream
 
+# Right-arm joint limits, SDK 22..28, from the driver's own g1_29dof.urdf. The solver
+# needs them: without clamping, DLS wound right_shoulder_yaw into its -2.618 stop and
+# held it there while the remaining joints oscillated, so the reach error bounced
+# 457..513 mm instead of converging. A differential solver has no idea a joint has ended.
+ARM_Q_MIN = np.array([-3.0892, -2.2515, -2.618, -1.0472, -1.9722, -1.6144, -1.6144])
+ARM_Q_MAX = np.array([ 2.6704,  1.5882,  2.618,  2.0944,  1.9722,  1.6144,  1.6144])
+ARM_MARGIN = 0.05                    # stay this far off the stop
+# Posture the null space pulls toward: a natural reaching stance, mid-range on every
+# joint, so the solver has room to move in both directions.
+ARM_NOMINAL = np.array([0.30, -0.25, 0.0, 0.97, 0.0, 0.0, 0.0])
+
+# SDK 0..21: both legs, waist, and the LEFT arm -- everything MM5 does not drive.
+SDK_BODY_JOINTS = [
+    "left_hip_pitch_joint", "left_hip_roll_joint", "left_hip_yaw_joint",
+    "left_knee_joint", "left_ankle_pitch_joint", "left_ankle_roll_joint",
+    "right_hip_pitch_joint", "right_hip_roll_joint", "right_hip_yaw_joint",
+    "right_knee_joint", "right_ankle_pitch_joint", "right_ankle_roll_joint",
+    "waist_yaw_joint", "waist_roll_joint", "waist_pitch_joint",
+    "left_shoulder_pitch_joint", "left_shoulder_roll_joint", "left_shoulder_yaw_joint",
+    "left_elbow_joint", "left_wrist_roll_joint", "left_wrist_pitch_joint",
+    "left_wrist_yaw_joint",
+]
+
 STAGES = ["APPROACH", "REACH", "GRASP", "LIFT", "CARRY", "PLACE", "RELEASE", "RETREAT"]
 
 
@@ -103,6 +126,27 @@ class MM5Pipeline:
         self._hand_target = np.zeros(len(RIGHT_HAND_JOINTS), np.float32)
         self._grip_ratio = 0.0
         self._log = []
+        # Legs + torso: every SDK joint that is not the right arm.
+        self.body_idx = np.array(
+            [names.index(n) for n in SDK_BODY_JOINTS if n in names], np.int32)
+        self._body_hold = None
+        self._palm_prim = None
+        # FIXED BASE: stiffen the right arm. deploy.yaml gives it kp 40, which is right
+        # for a robot that must not be thrown off balance by its own arm -- but it also
+        # means the arm sits ~0.1 rad behind its target under gravity with a kilo on the
+        # wrist, and that lag IS the servo problem: a small lead cap is entirely consumed
+        # by it (reach stalls at 350 mm), and a large one closes the loop through the lag
+        # and limit-cycles (326..443 mm). With the base held there is nothing to
+        # destabilise, so the arm is stiffened and the lag goes away.
+        if getattr(cfg, "fix_base", False):
+            try:
+                kp = np.full(len(self.arm_idx), cfg.fix_base_arm_kp, np.float32)
+                kd = np.full(len(self.arm_idx), cfg.fix_base_arm_kd, np.float32)
+                self.view.set_gains(kp, kd, joint_indices=self.arm_idx)
+                print(f"[mm5] fixed-base: right-arm gains -> kp={cfg.fix_base_arm_kp} "
+                      f"kd={cfg.fix_base_arm_kd} (deploy.yaml gives 40/1)", flush=True)
+            except Exception as exc:
+                print(f"[mm5] arm gain set failed: {exc!r}", flush=True)
 
     # ------------------------------------------------------------------ helpers
 
@@ -124,24 +168,28 @@ class MM5Pipeline:
         return np.array([t[0], t[1], t[2]], float)
 
     def palm_pose(self):
-        """World pose of the right palm, (pos, quat_wxyz)."""
-        pos, quat = self.view.get_world_poses()
-        # get_world_poses returns the ARTICULATION root; body poses come from the
-        # body-level API when available, else fall back to the transform of the link.
-        try:
-            bp, bq = self.view.get_body_poses()          # (1, nbody, 3), (1, nbody, 4)
-            return np.asarray(bp[0][self.palm_body], float), np.asarray(bq[0][self.palm_body], float)
-        except Exception:
-            from pxr import UsdGeom, Usd
-            prim = self.stage.GetPrimAtPath(
-                f"{self.cfg.robot_root}/{RIGHT_PALM_BODY}")
-            if prim and prim.IsValid():
-                m = UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
-                t = m.ExtractTranslation()
-                q = m.ExtractRotationQuat()
-                return (np.array([t[0], t[1], t[2]], float),
-                        np.array([q.GetReal(), *q.GetImaginary()], float))
-            return None, None
+        """World pose of the right palm, (pos, quat_wxyz), from PHYSICS.
+
+        Via SingleRigidPrim, not UsdGeom.ComputeLocalToWorldTransform. The USD route is
+        the trap that cost this gate a day: PhysX writes link transforms to Fabric and
+        does NOT write them back to USD, so ComputeLocalToWorldTransform returns the
+        AUTHORED pose and never moves. The palm read a constant z = 0.706 while the arm
+        was visibly being driven, the IK servoed against a frozen measurement, and the
+        reach stalled at a repeatable 350 mm -- with a larger gain making it worse,
+        because a stuck sensor plus more authority is just a bigger wrong step.
+
+        `get_body_poses()` would have been the obvious API and does not exist on this
+        Articulation; the fallback it forced is what was wrong, not the intent.
+        """
+        if self._palm_prim is None:
+            from isaacsim.core.prims import SingleRigidPrim
+            self._palm_prim = SingleRigidPrim(f"{self.cfg.robot_root}/{RIGHT_PALM_BODY}")
+            try:
+                self._palm_prim.initialize()
+            except Exception:
+                pass
+        pos, quat = self._palm_prim.get_world_pose()
+        return np.asarray(pos, float), np.asarray(quat, float)
 
     def arm_jacobian(self):
         """(6, 7) task Jacobian for the right palm w.r.t. the right-arm joints."""
@@ -156,11 +204,18 @@ class MM5Pipeline:
 
     # -------------------------------------------------------------------- stages
 
-    def start_trial(self, index, seed, object_name):
+    def start_trial(self, index, seed, object_name, obj_start=None):
         self.trial = Trial(index=index, seed=seed, object_name=object_name,
                            cheat_attach=self.cfg.cheat_attach)
-        p = self.obj_pose(object_name)
-        self.trial.obj_start = tuple(p) if p is not None else (0, 0, 0)
+        p = obj_start if obj_start is not None else self.obj_pose(object_name)
+        self.trial.obj_start = tuple(float(v) for v in p) if p is not None else (0, 0, 0)
+        if self.trial.obj_start[2] < self.cfg.table_h - 0.05:
+            # The reset failed to get the object back on the table. Scoring this as
+            # anything but a harness failure is how the false positives happened.
+            self._enter("APPROACH")
+            self._fail("HARNESS_OBJ_NOT_STAGED",
+                       f"object staged at z={self.trial.obj_start[2]:.3f}")
+            return
         self._enter("APPROACH")
         self.log(f"trial {index} seed={seed} object={object_name} at "
                  f"{np.round(self.trial.obj_start, 4)}")
@@ -228,6 +283,10 @@ class MM5Pipeline:
             elif t_in_stage > self.cfg.reach_timeout_s:
                 self._fail("REACH_TIMEOUT", f"{d*1000:.0f} mm from pre-grasp")
             else:
+                if int(t_in_stage * 2) != int((t_in_stage - dt) * 2) and \
+                        int(t_in_stage) % 5 == 0:
+                    self.log(f"  d={d*1000:6.0f} mm  palm={np.round(palm,3)} "
+                             f"armq={np.round(np.asarray(self.art.get_joint_positions(), float)[self.arm_idx][:4],3)}")
                 self._servo(err)
 
         elif self.stage_name == "GRASP":
@@ -241,7 +300,7 @@ class MM5Pipeline:
             err = pose_error(palm, palm_q, target + np.array(self.cfg.pregrasp_offset), None)
             self._servo(err)
             if obj[2] - self.trial.obj_start[2] > self.cfg.lift_success_h:
-                self._enter("CARRY")
+                self._enter("PLACE" if self.cfg.skip_carry else "CARRY")
                 self.log(f"lifted {obj[2]-self.trial.obj_start[2]:.3f} m")
             elif t_in_stage > self.cfg.lift_timeout_s:
                 self._fail("LIFT_FAILED",
@@ -263,8 +322,9 @@ class MM5Pipeline:
                 self._fail("CARRY_TIMEOUT", f"moved {moved:.2f} m of {self.cfg.carry_dist}")
 
         elif self.stage_name == "PLACE":
-            tgt = (np.array(self.trial.obj_start) + np.array(self.cfg.carry_vec)
-                   + np.array([0, 0, 0.01]))
+            move = (np.array(self.cfg.place_vec) if self.cfg.skip_carry
+                    else np.array(self.cfg.carry_vec))
+            tgt = np.array(self.trial.obj_start) + move + np.array([0, 0, 0.01])
             err = pose_error(palm, palm_q, tgt + np.array(self.cfg.pregrasp_offset), None)
             self._servo(err)
             if t_in_stage > self.cfg.place_s:
@@ -281,9 +341,11 @@ class MM5Pipeline:
             self._servo(err)
             if t_in_stage > self.cfg.retreat_s:
                 placed = float(np.linalg.norm(obj[:2] - np.array(self.trial.obj_start)[:2]))
+                want = (float(np.linalg.norm(np.array(self.cfg.place_vec)[:2]))
+                        if self.cfg.skip_carry else self.cfg.carry_dist)
                 if obj[2] < self.cfg.table_h - 0.10:
                     self._fail("PLACED_OFF_TABLE", f"object z={obj[2]:.3f}")
-                elif placed < self.cfg.carry_dist * 0.5:
+                elif placed < want * 0.5:
                     self._fail("NOT_MOVED", f"object moved only {placed:.2f} m")
                 else:
                     self._succeed()
@@ -293,9 +355,12 @@ class MM5Pipeline:
     def _servo(self, err):
         if self.palm_body is None:
             return
+        q_now = np.asarray(self.art.get_joint_positions(), float)[self.arm_idx]
         J = self.arm_jacobian()
-        dq = dls_step(J, err, lam=self.cfg.ik_lambda, max_step=self.cfg.ik_max_step)
+        dq = dls_step(J, err, lam=self.cfg.ik_lambda, max_step=self.cfg.ik_max_step,
+                      q=q_now, q_nominal=ARM_NOMINAL, k_null=self.cfg.ik_k_null)
         q = np.asarray(self.art.get_joint_positions(), np.float32)[self.arm_idx]
+        q_now = q.astype(float)
         # Integrate from the PREVIOUS TARGET, not from the measured position.
         #
         # target = measured + dq cannot outrun its own tracking error: the arm carries a
@@ -309,6 +374,7 @@ class MM5Pipeline:
         # Do not let the command run away from the arm either -- a target more than
         # this far ahead is asking for a lurch the balancer has to absorb.
         tgt = np.clip(tgt, q - self.cfg.ik_lead_cap, q + self.cfg.ik_lead_cap)
+        tgt = np.clip(tgt, ARM_Q_MIN + ARM_MARGIN, ARM_Q_MAX - ARM_MARGIN)
         self._arm_target = tgt.astype(np.float32)
 
     def _set_hand(self, ratio):
@@ -341,6 +407,17 @@ class MM5Pipeline:
         idx = [self.arm_idx]
         val = [self._arm_target if self._arm_target is not None
                else np.asarray(self.art.get_joint_positions(), np.float32)[self.arm_idx]]
+        # FIXED BASE: MM5 owns the whole body, not just the arm.
+        #
+        # With the base pinned the locomotion policy's observations never change, so its
+        # output is whatever it happens to settle on -- measured, it drifted the arm up
+        # to a palm height of 1.29 m with the can at 0.80. Holding legs and torso at the
+        # settled home pose makes the fixed-base variant deterministic, which is the
+        # whole point of having it: everything downstream of balance is then tested
+        # against a body that is not moving for reasons of its own.
+        if self.cfg.fix_base and self._body_hold is not None:
+            idx.append(self.body_idx)
+            val.append(self._body_hold)
         if self.has_hand:
             idx.append(self.hand_idx)
             val.append(self._hand_target)

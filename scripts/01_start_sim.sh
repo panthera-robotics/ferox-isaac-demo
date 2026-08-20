@@ -183,6 +183,7 @@ docker exec -d \
   -e MM5_TRIALS="${MM5_TRIALS:-20}" \
   -e MM5_SEED="${MM5_SEED:-20260820}" \
   -e MM5_CHEAT_ATTACH="${MM5_CHEAT_ATTACH:-0}" \
+  -e MM5_FIX_BASE="${MM5_FIX_BASE:-0}" \
   -e MM5_OUT="${MM5_OUT:-/workspace/ferox_isaac/mm5_out}" \
   -e TWIN_HAND_KG="${TWIN_HAND_KG:-}" \
   -e TWIN_HAND_KP="${TWIN_HAND_KP:-5.0}" \

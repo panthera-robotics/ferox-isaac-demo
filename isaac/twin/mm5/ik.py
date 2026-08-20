@@ -28,7 +28,8 @@ import numpy as np
 
 
 def dls_step(J: np.ndarray, err: np.ndarray, lam: float = 0.08,
-             max_step: float = 0.06) -> np.ndarray:
+             max_step: float = 0.06, q: np.ndarray | None = None,
+             q_nominal: np.ndarray | None = None, k_null: float = 0.6) -> np.ndarray:
     """One damped-least-squares increment.
 
     J    : (6, n) task Jacobian, rows [vx vy vz wx wy wz]
@@ -41,7 +42,19 @@ def dls_step(J: np.ndarray, err: np.ndarray, lam: float = 0.08,
     JT = J.T
     n = J.shape[0]
     A = J @ JT + (lam ** 2) * np.eye(n)
-    dq = JT @ np.linalg.solve(A, err)
+    Jpinv = JT @ np.linalg.inv(A)
+    dq = Jpinv @ err
+
+    # NULL-SPACE POSTURE BIAS. The arm is 7-DoF against a 6-DoF task, so there is a
+    # one-dimensional family of joint motions that does not move the palm at all --
+    # and without using it the solver walked right_shoulder_yaw into its -2.618 stop
+    # and sat there while the task error oscillated 370..435 mm, unable to escape a
+    # configuration it had chosen. Projecting a pull toward the nominal posture through
+    # (I - J+J) drifts the arm off its limits without disturbing the reach.
+    if q is not None and q_nominal is not None:
+        null = np.eye(dq.shape[0]) - Jpinv @ J
+        dq = dq + null @ (k_null * (np.asarray(q_nominal, float) - np.asarray(q, float)))
+
     m = float(np.abs(dq).max())
     if m > max_step:
         dq *= max_step / m
