@@ -1155,6 +1155,7 @@ class RobotRosRunner(object):
         #                         summing.
         self._g1_control = os.environ.get("G1_CONTROL", "policy").strip().lower()
         self._lowlevel = None
+        self._mm5 = None
         #   "handoff"          -- the omni policy holds the robot standing until a live
         #                         rt/lowcmd stream has been up for G1_HANDOFF_S seconds,
         #                         then the low-level bridge takes the articulation ONCE
@@ -1654,6 +1655,25 @@ class RobotRosRunner(object):
         if self.first_step:
             self._robot.initialize()
             self.first_step = False
+            if os.environ.get("MM5") == "1" and self._mm5 is None:
+                from twin.mm5.runner import MM5Runner, MM5Config
+                cfg = MM5Config(
+                    robot_root=self._robot_root,
+                    object_name=os.environ.get("MM5_OBJECT", "soup_can"),
+                    trials=int(os.environ.get("MM5_TRIALS", "20")),
+                    seed=int(os.environ.get("MM5_SEED", "20260820")),
+                    cheat_attach=os.environ.get("MM5_CHEAT_ATTACH", "0") == "1",
+                    out_dir=os.environ.get("MM5_OUT", "/workspace/ferox_isaac/mm5_out"),
+                )
+                self._mm5 = MM5Runner(self._robot.robot, self._world.stage, cfg)
+
+            if os.environ.get("MM5_PROBE") == "1":
+                try:
+                    from twin.mm5_probe import probe
+                    probe(self._robot.robot, self._world.stage)
+                except Exception as exc:
+                    print(f"[probe] failed: {exc!r}", flush=True)
+
             if self._g1_control in ("lowcmd", "handoff") and self._lowlevel is None:
                 # Built HERE, not in setup(): the articulation has no DOF names until
                 # initialize() has run, and the bridge maps every joint by name.
@@ -1746,7 +1766,15 @@ class RobotRosRunner(object):
                     cmd = cmd + cmd_vel
 
         cmd = np.minimum(np.maximum(cmd, self._cmd_min), self._cmd_max)
+        if self._mm5 is not None:
+            self._mm5.step(step_size)
         self._robot.forward(step_size, cmd)
+        if self._mm5 is not None:
+            # AFTER forward(): the locomotion policy commands all 29 body joints every
+            # step, arms included, so MM5's arm and finger targets have to be re-asserted
+            # or they are overwritten the instant they are set. Legs and torso remain the
+            # policy's -- this is the same split MM4's POSE mode uses.
+            self._mm5.reapply()
         self._update_odom()
 
     def run(self, real_time: bool) -> None:

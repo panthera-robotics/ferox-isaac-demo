@@ -177,6 +177,13 @@ docker exec -d \
   -e TWIN_CONTACT_MATERIAL="${TWIN_CONTACT_MATERIAL:-0}" \
   -e TWIN_ARMATURE="${TWIN_ARMATURE:-}" \
   -e HAND="${HAND:-none}" \
+  -e MM5_PROBE="${MM5_PROBE:-0}" \
+  -e MM5="${MM5:-0}" \
+  -e MM5_OBJECT="${MM5_OBJECT:-soup_can}" \
+  -e MM5_TRIALS="${MM5_TRIALS:-20}" \
+  -e MM5_SEED="${MM5_SEED:-20260820}" \
+  -e MM5_CHEAT_ATTACH="${MM5_CHEAT_ATTACH:-0}" \
+  -e MM5_OUT="${MM5_OUT:-/workspace/ferox_isaac/mm5_out}" \
   -e TWIN_HAND_KP="${TWIN_HAND_KP:-5.0}" \
   -e TWIN_HAND_KD="${TWIN_HAND_KD:-0.1}" \
   -e G1_CONTROL="${G1_CONTROL:-policy}" \

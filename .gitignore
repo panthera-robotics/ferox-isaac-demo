@@ -1,28 +1,25 @@
-# Isaac Sim runtime caches (regenerated on every container start)
-cache/
 
 # Editor / OS
-.vscode/
-.idea/
-*.swp
-.DS_Store
-
+# Isaac Sim runtime caches (regenerated on every container start)
+# Local env / secrets
 # Python
-__pycache__/
+# ROS2 colcon (in case anyone runs colcon at this level)
+# Rendered cyclone config — generated on demand by scripts/lib/render_cyclone.sh
+*.egg-info/
+*.pem
 *.pyc
 *.pyo
+*.swp
+.DS_Store
 .Python
-*.egg-info/
-.pytest_cache/
-
-# ROS2 colcon (in case anyone runs colcon at this level)
-build/
-install/
-log/
-
-# Local env / secrets
-.env
-*.pem
-
-# Rendered cyclone config — generated on demand by scripts/lib/render_cyclone.sh
 .cyclone/
+.env
+.idea/
+.pytest_cache/
+.vscode/
+__pycache__/
+build/
+cache/
+install/
+isaac/mm5_out/
+log/
