@@ -1,0 +1,15 @@
+[dds] interface: <auto>
+[dds] peers:     <none, multicast only>
+[dds] config:    file:///tmp/cyclonedds.xml
+== MM3 (d) ROS topics under G1_CONTROL=lowcmd, 16s window ==
+topic                             n    sim Hz  contract    err%   wall Hz  verdict
+/ferox/g1_01/odom               718    50.000      51.4   -2.72    54.164     PASS
+/ferox/g1_01/imu/data           957    66.667      93.7  -28.85    72.218     FAIL
+/ferox/g1_01/scan                 0         -      10.0       -         -   ABSENT
+/livox/lidar                    143    10.000      10.0   +0.00    10.826     PASS
+/livox/imu                     1436   100.000     200.0  -50.00   108.385     FAIL
+/tf                             717    50.000     100.0  -50.00    54.227     FAIL
+
+implied real-time factor (wall/sim, mean over topics): 1.084
+
+(d) VERDICT: FAIL

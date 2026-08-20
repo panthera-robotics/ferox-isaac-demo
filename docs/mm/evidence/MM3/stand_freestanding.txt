@@ -1,0 +1,6 @@
+[mm3-stand] waiting for rt/lowstate...
+[mm3-stand] rt/lowstate up, mode_machine=5
+[mm3-stand] STAND seconds=63.00200047099497 lowcmd_sent=31500 lowcmd_hz=499.98412375019825 lowstate_recv=65663 lowstate_hz=1040.917568075912 hold_samples=62504 roll_abs_max=3.1395373344421387 pitch_abs_max=1.5520628690719604 roll_rms=0.5102716499690491 pitch_rms=1.4851068380757984 track_err_mean_rad=0.08905936032533646 track_err_max_rad=2.001964807510376 track_err_max_joint=23
+[mm3-stand] SILENCE silence_s=3.005844932005857 lowstate_recv=3128 lowstate_hz=1041.6956357380286 roll_abs_max=0.032901883125305176 pitch_abs_max=1.5568876266479492 pose_drift_from_target_mean_rad=0.16064909100532532 pose_drift_from_target_max_rad=0.44836318492889404 joint_speed_final_max=0.0
+[lowlevel-sim] t=   5.00 mode=hold       pd=4999 hold=4999 failclosed=0 rtf=0.487 base_z=+0.238 pitch=+1.050 roll=+1.660 |tau|max= 46.65 sat=11/29 knee_L=+0.261 hip_p_L=-0.093 torn=4999 hand_cmd=0 hand_q0=+0.6416
+[lowlevel-sim] t=  10.00 mode=cmd        pd=8309 hold=6619 failclosed=0 rtf=0.503 base_z=+0.176 pitch=+0.159 roll=+1.537 |tau|max= 35.00 sat=6/29 knee_L=+0.351 hip_p_L=+0.070 torn=6641 hand_cmd=0 hand_q0=+0.4662
