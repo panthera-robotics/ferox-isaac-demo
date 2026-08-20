@@ -1,0 +1,219 @@
+# syntax=docker/dockerfile:1.7
+# ─────────────────────────────────────────────────────────────────────────────
+# ferox/sonic-deploy:v1.1-x86_64 — NVIDIA GEAR SONIC C++ deploy stack, x86_64.
+#
+# A PORT of panthera-g1-wbc @ mohammed/g1wb-review-w3 : docker/sonic-deploy/Dockerfile,
+# which is aarch64-native (DGX Spark / GB10) and whose own build.sh refuses to run
+# anywhere else:
+#     if [ "$(uname -m)" != "aarch64" ]; then FATAL ... exit 1
+# MM4 asks for the x86 lane so SONIC can drive the twin on this box. Every delta from
+# the aarch64 recipe is marked "X86 DELTA" below and collected in RESULTS_MM4.
+#
+# Upstream pin, unchanged: NVlabs/GR00T-WholeBodyControl @ 54d0b102bb8876a54c9d41796bd9f221c9e042d9
+#   ("sonic wrist v1 1") == SONIC v1.1.
+#
+# Campaign rules carried over from W3: everything needed at runtime is baked in; no
+# secrets in any layer (the SONIC weights are a PUBLIC HF repo, nvidia/GEAR-SONIC);
+# .trt engines are NEVER shipped and are rebuilt from the bundled .onnx for whatever
+# GPU is found; upstream keeps its own LICENSE under /opt/gear_sonic_deploy.
+# ─────────────────────────────────────────────────────────────────────────────
+
+ARG CUDA_BASE=nvcr.io/nvidia/cuda:13.0.0-base-ubuntu24.04
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Stage 1: deps
+# ═══════════════════════════════════════════════════════════════════════════
+FROM ${CUDA_BASE} AS deps
+
+ARG ORT_VERSION=1.16.3
+# X86 DELTA 1 — TensorRT version.
+# CAMPAIGN 4.2/MM4 says "TensorRT 10.13". The W3 recipe deliberately does NOT use
+# 10.13: its own comments record that the recovered box's /opt/TensorRT-10.13 was
+# internally inconsistent (headers 10.13.0.35 against libs 10.13.3.9) and it pins
+# 10.15.1.29 instead, with a build-time skew guard. The proven pin is kept here
+# rather than reverting to the number in the campaign text, and the skew guard is
+# kept with it. Flagged as an MM4 open question rather than changed silently.
+ARG TRT_VERSION=10.15.1.29
+ARG TRT_HEADER_BRANCH=release/10.15
+ARG JUST_VERSION=1.43.0
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates curl unzip xz-utils python3-minimal python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# X86 DELTA 2 — just: x86_64 musl tarball, was aarch64-unknown-linux-musl.
+RUN set -eux; \
+    curl -fsSL -o /tmp/just.tgz \
+      "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz"; \
+    mkdir -p /tmp/just && tar xzf /tmp/just.tgz -C /tmp/just; \
+    install -m 0755 /tmp/just/just /usr/local/bin/just; \
+    rm -rf /tmp/just /tmp/just.tgz; \
+    just --version
+
+# X86 DELTA 3 — ONNX Runtime: the linux-x64 tarball. Upstream's own
+# install_deps.sh:388-390 selects the aarch64 tarball only for ARM hosts and this
+# one otherwise, so this follows upstream rather than diverging from it.
+RUN set -eux; \
+    curl -fsSL -o /tmp/ort.tgz \
+      "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-x64-${ORT_VERSION}.tgz"; \
+    mkdir -p /tmp/ort && tar xzf /tmp/ort.tgz -C /tmp/ort --strip-components=1; \
+    mkdir -p /opt/onnxruntime; \
+    cp -a /tmp/ort/include /tmp/ort/lib /opt/onnxruntime/; \
+    rm -rf /tmp/ort /tmp/ort.tgz; \
+    test -f /opt/onnxruntime/lib/libonnxruntime.so; \
+    echo /opt/onnxruntime/lib > /etc/ld.so.conf.d/onnxruntime.conf
+
+# X86 DELTA 4 — TensorRT libs. Same public pypi.nvidia.com wheel name; pip resolves
+# the manylinux x86_64 build instead of manylinux_2_35_aarch64 because of the host.
+# The NVIDIA .tar.gz remains login-gated, so headers still come from the public OSS
+# repo, exactly as on aarch64.
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    set -eux; \
+    python3 -m pip install --break-system-packages \
+        --target /tmp/trtwheels --index-url https://pypi.nvidia.com \
+        "tensorrt-cu13-libs==${TRT_VERSION}"; \
+    mkdir -p "/opt/TensorRT-${TRT_VERSION}/lib" "/opt/TensorRT-${TRT_VERSION}/include"; \
+    find /tmp/trtwheels -name '*.so*' -exec cp -a {} "/opt/TensorRT-${TRT_VERSION}/lib/" \; ; \
+    cp -a /tmp/trtwheels/tensorrt_cu13_libs-*.dist-info/LICENSE.txt \
+          "/opt/TensorRT-${TRT_VERSION}/LICENSE.txt"; \
+    rm -rf /tmp/trtwheels; \
+    du -sh "/opt/TensorRT-${TRT_VERSION}/lib/"
+
+# find_library(NAMES nvinfer) resolves lib<name>.so; the wheels ship only the
+# SONAME-versioned files. Create the unversioned dev symlinks.
+RUN set -eux; \
+    cd "/opt/TensorRT-${TRT_VERSION}/lib"; \
+    for base in nvinfer nvonnxparser nvinfer_plugin; do \
+        so=$(ls lib${base}.so.* 2>/dev/null | head -1) || true; \
+        if [ -n "${so:-}" ]; then ln -sf "$so" "lib${base}.so"; echo "linked lib${base}.so -> $so"; fi; \
+    done; \
+    ls -la lib*.so
+
+RUN set -eux; \
+    cd "/opt/TensorRT-${TRT_VERSION}/include"; \
+    BASE="https://raw.githubusercontent.com/NVIDIA/TensorRT/${TRT_HEADER_BRANCH}/include"; \
+    for h in NvInfer.h NvInferImpl.h NvInferLegacyDims.h NvInferPlugin.h \
+             NvInferPluginBase.h NvInferPluginUtils.h NvInferRuntime.h \
+             NvInferRuntimeBase.h NvInferRuntimeCommon.h NvInferRuntimePlugin.h \
+             NvInferVersion.h NvOnnxConfig.h NvOnnxParser.h; do \
+        curl -fsSL -o "$h" "${BASE}/${h}"; \
+    done; \
+    grep -q NV_TENSORRT_MAJOR NvInferVersion.h
+
+# Header/lib skew guard, carried over verbatim in intent: NvInferVersion.h defines
+# the version indirectly via TRT_*_ENTERPRISE, so reading NV_TENSORRT_* directly
+# yields a macro NAME and a false report.
+RUN set -eux; \
+    inc="/opt/TensorRT-${TRT_VERSION}/include/NvInferVersion.h"; \
+    v() { awk -v k="$1" '$1=="#define" && $2==k {print $3}' "$inc"; }; \
+    HDR="$(v TRT_MAJOR_ENTERPRISE).$(v TRT_MINOR_ENTERPRISE).$(v TRT_PATCH_ENTERPRISE).$(v TRT_BUILD_ENTERPRISE)"; \
+    echo "header=${HDR} wheel=${TRT_VERSION}"; \
+    case "$HDR" in [0-9]*.[0-9]*.[0-9]*.[0-9]*) ;; \
+      *) echo "FATAL: could not resolve a numeric version from $inc (got '$HDR')."; exit 1;; esac; \
+    test "${HDR}" = "${TRT_VERSION}" || { \
+        echo "FATAL: TensorRT header/lib skew: headers ${HDR} vs wheel ${TRT_VERSION}."; exit 1; }; \
+    echo "TensorRT header/lib versions agree at ${HDR}"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Stage 2: builder
+# ═══════════════════════════════════════════════════════════════════════════
+FROM deps AS builder
+
+ARG TRT_VERSION=10.15.1.29
+ENV DEBIAN_FRONTEND=noninteractive
+
+# cuda-nvcc-13-0 is installed although this tree has ZERO .cu files:
+# cuda_runtime_api.h:148 includes "crt/host_defines.h", and crt/ ships in the nvcc
+# package rather than cudart-dev. Same reason as NVIDIA's own
+# scripts/deployment/spark/install_deps.sh:63-69.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential cmake file git pkg-config patchelf \
+        zlib1g-dev libeigen3-dev libzmq3-dev libmsgpack-dev \
+        libyaml-cpp-dev nlohmann-json3-dev libgtest-dev \
+        cuda-cudart-dev-13-0 cuda-nvcc-13-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG CPPZMQ_VERSION=v4.10.0
+RUN set -eux; \
+    git clone --depth 1 --branch "${CPPZMQ_VERSION}" https://github.com/zeromq/cppzmq.git /tmp/cppzmq; \
+    install -m 0644 /tmp/cppzmq/zmq.hpp /tmp/cppzmq/zmq_addon.hpp /usr/local/include/; \
+    rm -rf /tmp/cppzmq
+
+ARG GTEST_VERSION=v1.14.0
+RUN set -eux; \
+    git clone --depth 1 --branch "${GTEST_VERSION}" \
+        https://github.com/google/googletest.git /opt/googletest-src
+
+# X86 DELTA 5 — IS_THOR is NOT set, and that is the point of the flag.
+# src/g1/g1_deploy_onnx_ref/CMakeLists.txt:54-98 links `-lcudla` on ANY **aarch64**
+# host unless it believes it is a Jetson Thor; the W3 image must set IS_THOR=true
+# because a GB10 has no DLA and /proc/device-tree/model is empty there. On x86_64
+# that branch is not taken at all, so the flag is unnecessary AND setting it would
+# be a lie about the hardware. The "no cudla" assertion below is kept regardless,
+# because it costs nothing and it is the thing that would catch the branch being
+# taken for some other reason.
+ENV TensorRT_ROOT=/opt/TensorRT-${TRT_VERSION} \
+    onnxruntime_DIR=/opt/onnxruntime/lib/cmake/onnxruntime \
+    CUDA_HOME=/usr/local/cuda \
+    CUDAToolkit_ROOT=/usr/local/cuda \
+    LD_LIBRARY_PATH=/opt/TensorRT-${TRT_VERSION}/lib:/opt/onnxruntime/lib:/usr/local/cuda/lib64 \
+    HAS_ROS2=0
+
+COPY gear_sonic_deploy /opt/gear_sonic_deploy
+COPY LICENSE /opt/gear_sonic_deploy/LICENSE.upstream
+
+WORKDIR /opt/gear_sonic_deploy
+
+# Built with cmake directly rather than via deploy.sh, which re-runs install_deps.sh
+# and `just build` on EVERY launch and wants a TTY. `just build` is exactly this.
+RUN set -eux; \
+    mkdir -p build; \
+    cmake -S . -B build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+        -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST=/opt/googletest-src \
+        2>&1 | tee /tmp/cmake_configure.log; \
+    cmake --build build -j"$(nproc)" 2>&1 | tee /tmp/cmake_build.log
+
+# X86 DELTA 6 — the arch assertion is inverted: fail if we did NOT produce x86-64.
+RUN set -eux; \
+    BIN=/opt/gear_sonic_deploy/target/release/g1_deploy_onnx_ref; \
+    test -x "$BIN"; \
+    file "$BIN"; \
+    file "$BIN" | grep -q 'x86-64'; \
+    echo "--- linked libraries ---"; \
+    readelf -d "$BIN" | grep -E 'NEEDED|RUNPATH' || true; \
+    ! (readelf -d "$BIN" | grep -q cudla) || { echo "ERROR: linked against cudla"; exit 1; }
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Stage 3: runtime
+# ═══════════════════════════════════════════════════════════════════════════
+FROM ${CUDA_BASE} AS runtime
+
+ARG TRT_VERSION=10.15.1.29
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates libzmq5 zlib1g procps tini \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=deps /opt/onnxruntime /opt/onnxruntime
+COPY --from=deps /opt/TensorRT-${TRT_VERSION} /opt/TensorRT-${TRT_VERSION}
+COPY --from=builder /opt/gear_sonic_deploy /opt/gear_sonic_deploy
+
+# X86 DELTA 7 — the vendored unitree_sdk2 DDS libs come from thirdparty/lib/x86_64,
+# not thirdparty/lib/aarch64. Both directories exist upstream; only the x86_64 one
+# is on this path.
+ENV TensorRT_ROOT=/opt/TensorRT-${TRT_VERSION} \
+    LD_LIBRARY_PATH=/opt/TensorRT-${TRT_VERSION}/lib:/opt/onnxruntime/lib:/usr/local/cuda/lib64:/opt/gear_sonic_deploy/thirdparty/unitree_sdk2/thirdparty/lib/x86_64 \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    G1WB_POLICY_DIR=/opt/gear_sonic_deploy/policy/sonic_v1_1 \
+    G1WB_PLANNER_FILE=/opt/gear_sonic_deploy/planner/target_vel/V2/planner_sonic.onnx
+
+RUN ldconfig
+
+WORKDIR /opt/gear_sonic_deploy
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/opt/gear_sonic_deploy/target/release/g1_deploy_onnx_ref", "--help"]
