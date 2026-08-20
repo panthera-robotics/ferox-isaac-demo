@@ -213,7 +213,20 @@ class LowLevelSimBridge:
             # and ankle axes, so a joint-space PD needs very little torque to hold it.
             # The deploy.yaml stance (knees 0.3, arms forward) needs much more.
             self.q_hold = np.zeros(N_SDK, np.float32)
-        self._fix_base = os.environ.get("G1_LL_FIX_BASE", "0") == "1"
+        # G1_LL_FIX_BASE: "0" off, "1" always, "until_commanded" = hold the base until
+        # a controller has actually had authority for G1_LL_RIG_RELEASE_S seconds, then
+        # let go. The third mode exists because SONIC needs ~15 s of wall time to
+        # initialise and build/load its TensorRT engines, and the twin cannot stand on
+        # its own for those 15 s (MM3 test (a)) -- so without it SONIC always inherits
+        # a robot already face-down, and the test measures the bring-up race instead of
+        # the controller. Releasing after the controller is live is how a real G1 is
+        # brought up too: on a hoist, lowered once the controller has authority.
+        _fb = os.environ.get("G1_LL_FIX_BASE", "0")
+        self._fix_base = _fb in ("1", "until_commanded")
+        self._rig_auto_release = _fb == "until_commanded"
+        self._rig_release_after_ns = int(
+            float(os.environ.get("G1_LL_RIG_RELEASE_S", "3")) * 1e9)
+        self._commanded_since_ns = None
         self._spawn_pos, self._spawn_quat = self.art.get_world_pose()
         if self._fix_base:
             print("[lowlevel-sim] TEST RIG ACTIVE: base pinned to spawn pose (C-30)",
@@ -520,6 +533,20 @@ class LowLevelSimBridge:
         self.n_step += 1
         if self._fix_base:
             self._hold_base()
+            if self._rig_auto_release:
+                now = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+                if self._mode == 0:
+                    if self._commanded_since_ns is None:
+                        self._commanded_since_ns = now
+                    elif now - self._commanded_since_ns >= self._rig_release_after_ns:
+                        self._fix_base = False
+                        print(f"[lowlevel-sim] TEST RIG RELEASED at t={self.sim_time:.3f}s "
+                              f"-- controller has had authority for "
+                              f"{self._rig_release_after_ns/1e9:.1f}s (C-30)", flush=True)
+                else:
+                    # Authority lost again (fail-closed or idle) -- restart the clock
+                    # rather than releasing onto a robot nothing is driving.
+                    self._commanded_since_ns = None
         if self.n_step % int(os.environ.get('G1_LL_REPORT_STEPS', '5000')) == 0:
             self._report()
         self._publish_state()

@@ -1,0 +1,25 @@
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] Waiting for planner to be initialized
+[ZMQCommandManager ERROR] Planner initialization timeout
+Stop
+[DEBUG] Waiting for cleanup...
+[DEBUG] Program exiting normally...

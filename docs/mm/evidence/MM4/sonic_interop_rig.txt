@@ -1,0 +1,11 @@
+=== SONIC interop on the rig: bridge side ===
+[lowlevel-dds] t=  40.0s  lowstate=41668 (1041.680 Hz)  lowcmd=19970 ( 499.24 Hz)  crc_bad=0 repeat= 50.8%  sim_stale=198  dex3_state=8333 (208.32 Hz)  dex3_cmd={'left': 0, 'right': 19995}
+[lowlevel-dds] t=  45.0s  lowstate=46876 (1041.680 Hz)  lowcmd=22469 ( 499.31 Hz)  crc_bad=0 repeat= 50.7%  sim_stale=214  dex3_state=9375 (208.33 Hz)  dex3_cmd={'left': 0, 'right': 22493}
+=== SONIC interop on the rig: sim side ===
+[lowlevel-sim] t= 110.00 mode=cmd        pd=105203 hold=100406 failclosed=0 rtf=0.516 base_z=+0.798 pitch=+0.000 roll=-0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.670 hip_p_L=-0.312 torn=100545 hand_cmd=4824 hand_q0=-0.5700
+[lowlevel-sim] t= 115.00 mode=cmd        pd=107703 hold=100406 failclosed=0 rtf=0.516 base_z=+0.798 pitch=+0.000 roll=-0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.670 hip_p_L=-0.312 torn=100642 hand_cmd=7324 hand_q0=-0.5812
+[lowlevel-sim] t= 120.00 mode=cmd        pd=110203 hold=100406 failclosed=0 rtf=0.516 base_z=+0.798 pitch=+0.000 roll=-0.000 |tau|max= 35.00 sat=3/29 knee_L=+0.670 hip_p_L=-0.312 torn=100736 hand_cmd=9824 hand_q0=-0.5814
+=== SONIC side ===
+LowState is not available, waiting for robot to be ready
+G1 type: 5
+Init Done

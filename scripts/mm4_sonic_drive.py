@@ -40,8 +40,15 @@ def pack(fields: dict[str, np.ndarray]) -> bytes:
     hdr_fields, blobs = [], []
     for name, arr in fields.items():
         a = np.ascontiguousarray(arr)
-        dtype = {"float32": "f32", "float64": "f64",
-                 "int32": "i32", "int64": "i64", "bool": "b8"}[a.dtype.name]
+        # dtype strings must be exactly what SONIC's decoder compares against
+        # (zmq_manager.hpp / zmq_packed_message_subscriber.hpp): bool, u8, i8, i16,
+        # i32, i64, f16, f32, f64. "b8" is NOT in that set -- sending it made every
+        # command message parse as "missing fields (need: start, stop, planner)" and
+        # SONIC held a static default pose through an entire scripted sequence while
+        # looking perfectly healthy.
+        dtype = {"float32": "f32", "float64": "f64", "float16": "f16",
+                 "int8": "i8", "int16": "i16", "int32": "i32", "int64": "i64",
+                 "uint8": "u8", "bool": "bool"}[a.dtype.name]
         hdr_fields.append({"name": name, "dtype": dtype, "shape": list(a.shape)})
         blobs.append(a.tobytes())
     header = json.dumps({"v": 1, "endian": "le", "count": 1, "fields": hdr_fields}).encode()
@@ -73,7 +80,12 @@ class SonicDriver:
         print(f"  [command] start={start} stop={stop} planner={planner} "
               f"delta_heading={delta_heading:+.3f}", flush=True)
 
-    def planner(self, mode=MODE_IDLE, movement=(0.0, 0.0), facing=(1.0, 0.0),
+    # movement and facing are THREE-vectors, not two. The decoder memcpy's a fixed
+    # i<3 loop out of each buffer (zmq_manager.hpp OnPlannerReceived), so a 2-element
+    # field is read one float past its end -- which is not a parse error, just a
+    # garbage third component, and it presents as "Planner initialization timeout"
+    # with no indication that the shape was wrong.
+    def planner(self, mode=MODE_IDLE, movement=(0.0, 0.0, 0.0), facing=(1.0, 0.0, 0.0),
                 speed=0.0, height=0.0) -> None:
         self._send("planner", {
             "mode": np.array([mode], np.int32),
@@ -111,10 +123,10 @@ def main() -> int:
 
     print("== MM4 SONIC sequence ==", flush=True)
     d.command(start=True, planner=True)
-    d.hold(6 * s, "stand", mode=MODE_IDLE, movement=(0.0, 0.0), speed=0.0)
-    d.hold(6 * s, "weight shift", mode=MODE_IDLE, movement=(0.0, 0.0), speed=0.0, height=-0.03)
-    d.hold(10 * s, "planner walking +vx", mode=MODE_WALK, movement=(1.0, 0.0), speed=0.3)
-    d.hold(8 * s, "planner walking +vy", mode=MODE_WALK, movement=(0.0, 1.0), speed=0.2)
+    d.hold(6 * s, "stand", mode=MODE_IDLE, movement=(0.0, 0.0, 0.0), speed=0.0)
+    d.hold(6 * s, "weight shift", mode=MODE_IDLE, movement=(0.0, 0.0, 0.0), speed=0.0, height=-0.03)
+    d.hold(10 * s, "planner walking +vx", mode=MODE_WALK, movement=(1.0, 0.0, 0.0), speed=0.3)
+    d.hold(8 * s, "planner walking +vy", mode=MODE_WALK, movement=(0.0, 1.0, 0.0), speed=0.2)
 
     print("[phase] heading turn-in-place", flush=True)
     # Turn is a delta_heading on the COMMAND topic, not a planner field: the planner
@@ -122,9 +134,9 @@ def main() -> int:
     # change where the robot walks. Kept separate for that reason.
     for _ in range(int(8 * s)):
         d.command(start=True, planner=True, delta_heading=0.4)
-        d.hold(1.0, "  turning", mode=MODE_IDLE, movement=(0.0, 0.0), speed=0.0)
+        d.hold(1.0, "  turning", mode=MODE_IDLE, movement=(0.0, 0.0, 0.0), speed=0.0)
 
-    d.hold(4 * s, "stop", mode=MODE_IDLE, movement=(0.0, 0.0), speed=0.0)
+    d.hold(4 * s, "stop", mode=MODE_IDLE, movement=(0.0, 0.0, 0.0), speed=0.0)
 
     print("[phase] POSE mode -- arms only, balancing", flush=True)
     d.command(start=True, planner=False)   # planner=false -> STREAMED_MOTION
