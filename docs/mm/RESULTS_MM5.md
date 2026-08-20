@@ -2,9 +2,10 @@
 
 Host: RTX 4080 SUPER 16 GB / driver 580.105.08 / Isaac Sim 5.1.0 · `TWIN_CAMERA=0` (C-23)
 Date: 2026-08-20
-Verdict: **FAIL — 0/20, single cause.** The pipeline runs end to end and the number is
-reported as the deliverable; every trial ends the same way and it is not a manipulation
-failure.
+Verdict: **FAIL. Mobile 0/20 (single cause, C-39). Fixed-base 0/20 (two causes, both
+manipulation).** Both numbers are reported; the fixed-base variant is the substantive
+one, because it is the first time this program has exercised the grasp stack at all —
+9 of 20 trials reached the pre-grasp and closed the hand on the can.
 
 **Balancer: the omni locomotion policy.** SONIC is parked at C-39 and `CAMPAIGN §4.4`
 permits "or omni standing if MM4 slips — say which". This says which. The seam SONIC
@@ -145,3 +146,79 @@ ROBOT=g1 TWIN=1 TWIN_CAMERA=0 HAND=dex5_1p SIM_WORLD=panthera_lab \
   bash scripts/01_start_sim.sh
 # results land in isaac/mm5_out/mm5_results.{json,md} and mm5_log.txt
 ```
+
+---
+
+# The fixed-base variant — the reported MM5 result
+
+**Verdict: 0/20 = 0.0 %.** Base held kinematically so that everything
+downstream of balance is exercised for real. **This is not the robot** and every row says
+so: the carry stage is skipped (carrying a payload 1 m is meaningless when the base
+cannot move), and the base stands 0.38 m from the object, inside the clearance Nav2 would
+demand of the table.
+
+```
+20 trials, soup_can, seeds 20260821..20260840, cheat_attach false on every row
+success 0/20 = 0.0%
+taxonomy: `REACH_TIMEOUT` 11 · `LIFT_FAILED` 9
+stage timing (mean): APPROACH=6.0s(n=20)  REACH=20.5s(n=20)  GRASP=2.0s(n=9)  LIFT=8.0s(n=9)
+```
+
+**9 of 20 trials reached the pre-grasp and closed the hand**, and
+9 got as far as LIFT — the first time in this program the pipeline has gone
+past the reach at all. W4's hand never reached the can.
+
+## The two false positives, and why this number is the second one
+
+The first N=20 fixed-base run reported **2/20 success. Both were artefacts and neither is
+in the number above.**
+
+`obj_start` was captured by re-reading the object immediately after `set_world_pose` —
+which does not take effect until physics steps, so it returned the *previous* trial's end
+pose. When that trial had knocked the can onto the floor, `obj_start` came back at
+z = 0.032, and the LIFT test (`obj_z − obj_start_z > 0.05`) passed in a single step on a
+can that had never been touched. Both "successes" showed `LIFT: 0.005 s`.
+
+The runner knows exactly where it placed the object, so it now passes that in rather than
+re-reading, and a trial whose object is not staged on the table fails as
+`HARNESS_OBJ_NOT_STAGED` instead of being scored. **The run was repeated from scratch
+before any number was reported, and the corrected number is 0/20** — so the entire
+apparent success rate was the bug. Reporting the 2/20 would have claimed the program's
+first Dex5 grasp on the strength of a stale pose read.
+
+## What limits it
+
+* **Workspace, not solver.** With the base 0.72 m back the IK converges rock-stable to
+  354 mm and stops — the right arm's effective forward reach is ~0.39 m from the pelvis,
+  because it is also reaching *down* from a 1.1 m shoulder to a 0.80 m can. Moving the
+  base to 0.38 m fixed it; moving it to 0.32 m put the body inside the table and knocked
+  the can onto the floor before the arm arrived.
+* **Position-only IK.** `pose_error` is called with no orientation target, so the palm's
+  orientation at the pre-grasp is whatever the null space leaves it. A side grasp needs
+  the palm facing the can, and that is the most likely single cause of the
+  `LIFT_FAILED` rows: the hand closes in the right place, in the wrong attitude.
+  Adding an orientation target is the obvious next step and the module already takes one.
+* **Two distinct `LIFT_FAILED` modes**, visible in the detail column and worth splitting
+  in the taxonomy next time: rows reading `object rose -0.015 m` are a hand that closed
+  and did not grip, while `object rose -0.765 m` is a hand that **knocked the can off the
+  table** — 0.765 m is the table height. Same bucket today, different problems.
+
+## Four solver bugs found getting here, all silent
+
+1. **The palm pose was frozen.** `get_body_poses()` does not exist on this Articulation,
+   and the USD fallback reads `ComputeLocalToWorldTransform` — which PhysX never writes
+   back. The IK servoed against a constant z = 0.706 for 25 s while the arm was visibly
+   moving. `SingleRigidPrim` reads the physics pose.
+2. **`target = measured + dq` cannot outrun its own tracking error** — the palm crept
+   0.11 m of a 0.70 m reach and stalled. Integrate from the previous *target*.
+3. **No joint-limit awareness** — DLS wound `right_shoulder_yaw` into its −2.618 stop and
+   held it there while the task error oscillated 370–435 mm.
+4. **No null-space use** — the arm is 7-DoF against a 6-DoF task, and without projecting
+   a posture bias through `(I − J⁺J)` the solver could not escape the configuration it
+   had chosen.
+
+And one that was not the solver: at kp 40 the arm lags its target ~0.1 rad under a kilo
+of hand, and that lag *is* the servo problem — a small lead cap is consumed by it and a
+large one closes the loop through it and limit-cycles. With the base held there is
+nothing to destabilise, so the fixed-base variant stiffens the arm to kp 400 and the
+oscillation disappears.
