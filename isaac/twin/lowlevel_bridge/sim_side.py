@@ -314,6 +314,23 @@ class LowLevelSimBridge:
         # the joint that takes the lateral mismatch -- sits at ~0.10 rad of error no
         # matter what gain it is given, while every other joint tracks to <0.01. That
         # is the rig fighting the floor, not the PD path failing.
+        # G1_LL_RIG_YAW overrides the held base heading.
+        #
+        # The C-39 A/B found this: the reference MuJoCo sim spawns the robot at identity
+        # yaw (quat w=0.9998) and the twin's hospital spawn sits at 90 degrees
+        # (w=0.7074, z=0.7068). Projected gravity is yaw-invariant so it does not show up
+        # there -- but the driver commands facing=(1,0,0), i.e. world +x, and SONIC
+        # answers a 90 degree heading error by turning in place. In MuJoCo that command
+        # is "keep facing forward" and costs nothing; on the twin it is "turn 90 degrees"
+        # issued to a controller that is also trying to stand for the first time.
+        _yaw = os.environ.get("G1_LL_RIG_YAW")
+        if _yaw is not None:
+            y = float(_yaw)
+            self._spawn_quat = np.array(
+                [np.cos(y / 2), 0.0, 0.0, np.sin(y / 2)], dtype=np.float32)
+            print(f"[lowlevel-sim] rig yaw overridden to {y:.4f} rad "
+                  f"(quat w={float(self._spawn_quat[0]):.4f}) -- C-39 A/B", flush=True)
+
         _lift = float(os.environ.get("G1_LL_RIG_LIFT_M", "0"))
         if _lift:
             self._spawn_pos = np.asarray(self._spawn_pos, dtype=np.float32).copy()

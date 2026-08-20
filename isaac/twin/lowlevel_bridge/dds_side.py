@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import os
 import sys
 import time
 
@@ -136,7 +137,34 @@ class LowLevelDDS:
                 time.sleep(0.25)
 
     def _prime_static_fields(self) -> None:
+        # MUJOCO_COMPAT -- a C-39 A/B probe, not a mode of the bridge.
+        #
+        # The A/B established that SONIC stands in the reference MuJoCo sim and falls in
+        # the twin, with the same image, deploy binary, driver and DDS seam. The
+        # field-by-field diff (evidence/MM4/ab/) shows every remaining divergence is one
+        # where the TWIN IS MORE ROBOT-FAITHFUL than MuJoCo: a valid CRC where MuJoCo
+        # sends 0, mode_machine 5 where it sends 0, motor mode 1 where it sends 0,
+        # specific-force accel where it sends world linear acceleration (~0 standing),
+        # populated rpy and imu temperature where it sends zeros.
+        #
+        # SONIC was only ever validated against the less faithful one. This flag makes
+        # the twin lie in exactly MuJoCo's way so the hypothesis can be tested, and it is
+        # DIAGNOSTIC: shipping it would mean degrading the twin to match a reference
+        # bridge's omissions, which is the opposite of the point.
+        self._mj_compat = os.environ.get("G1_LL_MUJOCO_COMPAT", "0") == "1"
         ls = self.low_state
+        if self._mj_compat:
+            print("[lowlevel-dds] DIAGNOSTIC MUJOCO_COMPAT: mode_machine=0, motor mode=0,"
+                  " accel/rpy/temp zeroed, crc=0 -- NOT A DELIVERABLE", flush=True)
+            ls.mode_pr = 0
+            ls.mode_machine = 0
+            ls.version = [0, 0]
+            ls.imu_state.temperature = 0
+            for ms in ls.motor_state:
+                ms.mode = 0
+                ms.temperature = [0, 0]
+                ms.vol = 0.0
+            return
         ls.mode_pr = MODE_PR
         ls.mode_machine = MODE_MACHINE
         ls.version = [0, 0]
@@ -256,12 +284,16 @@ class LowLevelDDS:
         imu = ls.imu_state
         imu.quaternion = [float(x) for x in rec["quat_wxyz"]]
         imu.gyroscope = [float(x) for x in rec["gyro"]]
-        imu.accelerometer = [float(x) for x in rec["accel"]]
-        imu.rpy = [float(x) for x in rec["rpy"]]
+        if self._mj_compat:
+            imu.accelerometer = [0.0, 0.0, 0.0]
+            imu.rpy = [0.0, 0.0, 0.0]
+        else:
+            imu.accelerometer = [float(x) for x in rec["accel"]]
+            imu.rpy = [float(x) for x in rec["rpy"]]
 
         # tick is MILLISECONDS of sim time, not a message counter -- see module docstring.
         ls.tick = int(round(float(rec["sim_time"]) * 1000.0)) & 0xFFFFFFFF
-        ls.crc = self.crc.Crc(ls)
+        ls.crc = 0 if self._mj_compat else self.crc.Crc(ls)
         return True
 
     def spin(self, duration_s: float | None, stats_every_s: float = 5.0):

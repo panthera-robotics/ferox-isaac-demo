@@ -1,0 +1,28 @@
+# ferox/sonic-mujoco:humble — the REFERENCE MuJoCo sim, for the C-39 A/B.
+#
+# This is the sim side of `deploy.sh sim`: the bridge that fed W3's 17.53 m SONIC walk.
+# Standing it up on this box lets the identical fork be run against the reference instead
+# of against the twin, which is the one experiment that says whether C-39 is a twin
+# problem or an upstream one.
+#
+# Built on ferox/twin-lowlevel:humble because that image already carries cyclonedds
+# 0.10.2 and the CRC library, and the reference sim needs the same DDS stack.
+#
+# NOTE the sdk2py precedence. gear_sonic's MuJoCo bridge imports OdoState_, which the
+# STOCK unitree_sdk2py does not have -- upstream vendors a patched copy under
+# external_dependencies/. That copy is put FIRST on PYTHONPATH. Checked before relying on
+# it: the vendored LowState_ is field-for-field identical to stock, so this changes what
+# imports, not what goes on the wire.
+FROM ferox/twin-lowlevel:humble
+
+RUN pip3 install --no-cache-dir mujoco tyro scipy pin
+
+# Headless, and MUJOCO_GL is deliberately NOT set. The W3 sim image records that
+# MUJOCO_GL=egl fails at eglInitialize on this class of box, and osmesa needs libOSMesa
+# which is not installed -- setting either makes `import OpenGL` fail before the sim even
+# starts. MuJoCo only initialises GL when a viewer or renderer is created, and this run
+# uses neither (--enable-onscreen false --enable-offscreen false).
+ENV PYTHONPATH=/upstream/external_dependencies/unitree_sdk2_python:/upstream
+
+WORKDIR /upstream
+CMD ["bash"]
