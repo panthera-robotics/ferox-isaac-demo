@@ -108,6 +108,7 @@ class LowLevelDDS:
         self.n_pub = 0
         self.n_cmd = 0
         self.n_crc_bad = 0
+        self.n_nan_cmd = 0
         self._last_good = None
         # rt/lowstate is paced on WALL time, because the consumer -- an sdk2 client,
         # and SONIC in MM4 -- runs in wall time and expects ~1 kHz of state per real
@@ -217,6 +218,17 @@ class LowLevelDDS:
             self.n_crc_bad += 1
             return
 
+        # Reject a command carrying NaN/Inf outright. Measured: once SONIC's own state
+        # estimate diverges on a fallen robot it can emit non-finite targets, and the
+        # bridge computed tau = kp*(NaN - q) and handed NaN to PhysX, which poisons the
+        # articulation for good. A non-finite command is not a command -- dropping it
+        # here means the watchdog sees silence and fail-closed damping takes over, which
+        # is the correct response to a controller that has lost its mind.
+        vals = [(mc.q, mc.dq, mc.tau, mc.kp, mc.kd) for mc in msg.motor_cmd]
+        if not np.all(np.isfinite(np.asarray(vals, dtype=np.float64))):
+            self.n_nan_cmd += 1
+            return
+
         n = min(len(msg.motor_cmd), shm.N_MOTOR)
         q_d = np.zeros(shm.N_MOTOR, np.float32)
         dq_d = np.zeros(shm.N_MOTOR, np.float32)
@@ -301,7 +313,7 @@ class LowLevelDDS:
                 el = now - t0
                 print(f"[lowlevel-dds] t={el:6.1f}s  lowstate={self.n_pub} "
                       f"({self.n_pub/el:8.3f} Hz)  lowcmd={self.n_cmd} "
-                      f"({self.n_cmd/el:7.2f} Hz)  crc_bad={self.n_crc_bad} "
+                      f"({self.n_cmd/el:7.2f} Hz)  crc_bad={self.n_crc_bad} nan_cmd={self.n_nan_cmd} "
                       f"imu2={self.n_imu} ({self.n_imu/el:8.3f} Hz)  "
                       f"repeat={100*self.n_repeat/max(1,self.n_pub):5.1f}%  "
                       f"sim_stale={stale_reads}  dex3_state={self.n_hand_pub} "
@@ -324,7 +336,7 @@ class LowLevelDDS:
         el = time.perf_counter() - t0
         return {"seconds": el, "lowstate_msgs": self.n_pub,
                 "lowstate_hz": self.n_pub / el, "lowcmd_msgs": self.n_cmd,
-                "lowcmd_hz": self.n_cmd / el, "crc_bad": self.n_crc_bad,
+                "lowcmd_hz": self.n_cmd / el, "crc_bad": self.n_crc_bad, "nan_cmd_dropped": self.n_nan_cmd,
                 "sim_stale_reads": stale_reads}
 
 

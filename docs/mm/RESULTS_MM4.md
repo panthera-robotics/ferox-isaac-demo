@@ -273,8 +273,10 @@ to 499 Hz with `crc_bad=0` throughout.
 | ~~C-32~~ | withdrawn — 10.15.1.29 IS the campaign pin (Mohammed), W3 provenance |
 | C-33 | Kevin's `kevin/g1-fail-closed-safety` branch is fetched but NOT merged into this image; the fail-closed proven here is the twin's own (MM3), not Kevin's |
 | C-36 | `rt/secondary_imu` is COMPOSED from the pelvis IMU through the waist chain, not an independent torso IMU as on the real G1; its gyro omits the waist joints' own rates |
-| C-37 | SONIC's nominal stance (knee 0.669) and the omni policy's (knee 0.124) differ by 0.55 rad; the twin does not survive the transition between them |
+| C-39 | SONIC's nominal stance (knee 0.669) and the omni policy's (knee 0.124) differ by 0.55 rad; the twin does not survive the transition between them, even ramped over 8 s |
 | C-36 | `rt/secondary_imu` is COMPOSED from the pelvis IMU through the waist chain, not an independent torso sensor; its gyro omits the waist joints' own rates |
+| C-38 | Dex5 finger drives ship at kp≈35810 / kd 0 from the URDF import; driving them from `rt/dex3` at that stiffness shakes the ARMS, which is why SONIC's guard named `body_dq[20]`/`[24]`. `G1_LL_HAND_KP` re-gains them |
+| C-40 | SONIC can emit non-finite `rt/lowcmd` once its state estimate diverges on a fallen robot; the bridge dropped it into `tau = kp*(NaN − q)` and handed NaN to PhysX. Now rejected on both halves — note `np.clip` propagates NaN rather than removing it |
 | C-37 | `TWIN_ARMATURE=0.01` is now required for `lowcmd`/`handoff`. The twin's USD ships no rotor inertia, and an explicit PD on bare link inertia chatters |
 
 ## Open questions for Mohammed

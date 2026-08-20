@@ -229,6 +229,7 @@ class LowLevelSimBridge:
         self.n_hold = 0
         self.n_hand_cmd = 0
         self._rig_ignored_cmds = 0
+        self.n_nan_tau = 0
         # The Dex5 finger joints keep the USD import's position drives, and those are
         # STIFF -- measured kp 35809.9 with kd 0. Driving them from rt/dex3 at that
         # stiffness slams the fingers, and the reaction travels up the arm: SONIC's
@@ -566,6 +567,12 @@ class LowLevelSimBridge:
             tau = HOLD_KP * (self.q_hold - q) + HOLD_KD * (0.0 - dq)
             self.n_hold += 1
 
+        # Belt and braces against the same failure the DDS side now filters: whatever
+        # arrives, a non-finite torque must never reach PhysX. np.clip does NOT remove
+        # NaN -- it propagates it -- so this has to be an explicit check.
+        if not np.all(np.isfinite(tau)):
+            self.n_nan_tau += 1
+            tau = -SAFE_KD * dq
         tau = np.clip(tau, -URDF_EFFORT_LIMIT, URDF_EFFORT_LIMIT)
 
         if self.has_hands and rec is not None and self._dex3_apply:
@@ -732,7 +739,8 @@ class LowLevelSimBridge:
                 "idle_hold_updates": self.n_hold,
                 "hand_cmd_applied": self.n_hand_cmd,
                 "torn_cmd_reads": self.n_torn_reads,
-                "rig_ignored_cmds": self._rig_ignored_cmds}
+                "rig_ignored_cmds": self._rig_ignored_cmds,
+                "nan_tau_blocked": self.n_nan_tau}
 
     def close(self) -> None:
         self.state.close()
