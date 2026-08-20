@@ -1,0 +1,543 @@
+{
+  "trials": 20,
+  "successes": 0,
+  "success_rate": 0.0,
+  "taxonomy": {
+    "REACH_TIMEOUT": 12,
+    "NO_GRIP": 7,
+    "DESCEND_TIMEOUT": 1
+  },
+  "config": {
+    "robot_root": "/World/G1",
+    "object_name": "soup_can",
+    "trials": 20,
+    "seed": 20260820,
+    "base_offset": [
+      0.1,
+      0.38
+    ],
+    "base_yaw": -1.5708,
+    "pregrasp_offset": [
+      0.0,
+      0.0,
+      0.13
+    ],
+    "grasp_offset": [
+      0.0,
+      0.0,
+      0.072
+    ],
+    "grasp_tol": 0.06,
+    "descend_timeout_s": 15.0,
+    "reach_tol": 0.08,
+    "ik_lambda": 0.08,
+    "ik_max_step": 0.01,
+    "ik_lead_cap": 0.25,
+    "ik_k_null": 0.6,
+    "settle_s": 6.0,
+    "fallen_z": 0.55,
+    "spawn_z": 0.8,
+    "reach_timeout_s": 30.0,
+    "close_s": 2.5,
+    "close_rad": 1.35,
+    "lift_h": 0.14,
+    "lift_success_h": 0.05,
+    "lift_timeout_s": 8.0,
+    "carry_vec": [
+      -1.0,
+      0.0,
+      0.0
+    ],
+    "carry_dist": 1.0,
+    "carry_timeout_s": 20.0,
+    "drop_h": 0.02,
+    "place_s": 2.0,
+    "retreat_s": 2.0,
+    "table_h": 0.75,
+    "cheat_attach": false,
+    "fix_base": true,
+    "fix_base_arm_kp": 400.0,
+    "fix_base_arm_kd": 20.0,
+    "fix_base_ik_lead": 0.25,
+    "fix_base_ik_step": 0.01,
+    "skip_carry": true,
+    "place_vec": [
+      -0.22,
+      0.0,
+      0.0
+    ],
+    "randomize_m": 0.06,
+    "stage_y": -1.31,
+    "surface": "table",
+    "counter_xy": [
+      -2.6,
+      2.05
+    ],
+    "counter_h": 0.9,
+    "out_dir": "/workspace/ferox_isaac/mm5_out_v2"
+  },
+  "rows": [
+    {
+      "trial": 1,
+      "seed": 20260821,
+      "object": "soup_can",
+      "outcome": "REACH_TIMEOUT",
+      "detail": "102 mm from pre-grasp",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7242,
+        -1.2759,
+        0.7978
+      ],
+      "obj_end": [
+        1.8255,
+        -1.3512,
+        0.7827
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 30.005
+      }
+    },
+    {
+      "trial": 2,
+      "seed": 20260822,
+      "object": "soup_can",
+      "outcome": "NO_GRIP",
+      "detail": "hand closed, object rose -0.016 m",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7784,
+        -1.3464,
+        0.7978
+      ],
+      "obj_end": [
+        1.8384,
+        -1.6362,
+        0.7823
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 1.28,
+        "DESCEND": 0.015,
+        "GRASP": 3.005,
+        "LIFT": 8.005
+      }
+    },
+    {
+      "trial": 3,
+      "seed": 20260823,
+      "object": "soup_can",
+      "outcome": "NO_GRIP",
+      "detail": "hand closed, object rose -0.016 m",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7156,
+        -1.349,
+        0.7978
+      ],
+      "obj_end": [
+        1.8585,
+        -1.624,
+        0.7822
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 1.29,
+        "DESCEND": 0.02,
+        "GRASP": 3.005,
+        "LIFT": 8.005
+      }
+    },
+    {
+      "trial": 4,
+      "seed": 20260824,
+      "object": "soup_can",
+      "outcome": "DESCEND_TIMEOUT",
+      "detail": "300 mm from grasp pose",
+      "cheat_attach": false,
+      "obj_start": [
+        1.8155,
+        -1.3335,
+        0.7978
+      ],
+      "obj_end": [
+        1.8823,
+        -1.62,
+        0.7832
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 1.235,
+        "DESCEND": 15.005
+      }
+    },
+    {
+      "trial": 5,
+      "seed": 20260825,
+      "object": "soup_can",
+      "outcome": "REACH_TIMEOUT",
+      "detail": "148 mm from pre-grasp",
+      "cheat_attach": false,
+      "obj_start": [
+        1.8009,
+        -1.31,
+        0.7978
+      ],
+      "obj_end": [
+        1.8339,
+        -1.4512,
+        0.7826
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 30.005
+      }
+    },
+    {
+      "trial": 6,
+      "seed": 20260826,
+      "object": "soup_can",
+      "outcome": "NO_GRIP",
+      "detail": "hand closed, object rose -0.016 m",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7298,
+        -1.3232,
+        0.7978
+      ],
+      "obj_end": [
+        1.761,
+        -1.279,
+        0.7822
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 1.235,
+        "DESCEND": 0.02,
+        "GRASP": 3.005,
+        "LIFT": 8.005
+      }
+    },
+    {
+      "trial": 7,
+      "seed": 20260827,
+      "object": "soup_can",
+      "outcome": "REACH_TIMEOUT",
+      "detail": "215 mm from pre-grasp",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7552,
+        -1.29,
+        0.7978
+      ],
+      "obj_end": [
+        1.7569,
+        -1.5117,
+        0.7821
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 30.005
+      }
+    },
+    {
+      "trial": 8,
+      "seed": 20260828,
+      "object": "soup_can",
+      "outcome": "NO_GRIP",
+      "detail": "hand closed, object rose -0.016 m",
+      "cheat_attach": false,
+      "obj_start": [
+        1.8118,
+        -1.3233,
+        0.7978
+      ],
+      "obj_end": [
+        1.7354,
+        -1.9682,
+        0.7821
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 1.26,
+        "DESCEND": 0.005,
+        "GRASP": 3.005,
+        "LIFT": 8.005
+      }
+    },
+    {
+      "trial": 9,
+      "seed": 20260829,
+      "object": "soup_can",
+      "outcome": "REACH_TIMEOUT",
+      "detail": "219 mm from pre-grasp",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7893,
+        -1.3133,
+        0.7978
+      ],
+      "obj_end": [
+        1.7995,
+        -1.5426,
+        0.7826
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 30.005
+      }
+    },
+    {
+      "trial": 10,
+      "seed": 20260830,
+      "object": "soup_can",
+      "outcome": "REACH_TIMEOUT",
+      "detail": "1326 mm from pre-grasp",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7302,
+        -1.3133,
+        0.7978
+      ],
+      "obj_end": [
+        1.8066,
+        -2.396,
+        0.0322
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 30.005
+      }
+    },
+    {
+      "trial": 11,
+      "seed": 20260831,
+      "object": "soup_can",
+      "outcome": "REACH_TIMEOUT",
+      "detail": "338 mm from pre-grasp",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7301,
+        -1.2928,
+        0.7978
+      ],
+      "obj_end": [
+        1.903,
+        -1.6117,
+        0.7832
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 30.005
+      }
+    },
+    {
+      "trial": 12,
+      "seed": 20260832,
+      "object": "soup_can",
+      "outcome": "REACH_TIMEOUT",
+      "detail": "144 mm from pre-grasp",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7728,
+        -1.304,
+        0.7978
+      ],
+      "obj_end": [
+        1.8712,
+        -1.4336,
+        0.7822
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 30.005
+      }
+    },
+    {
+      "trial": 13,
+      "seed": 20260833,
+      "object": "soup_can",
+      "outcome": "REACH_TIMEOUT",
+      "detail": "112 mm from pre-grasp",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7517,
+        -1.2577,
+        0.7978
+      ],
+      "obj_end": [
+        1.831,
+        -1.3559,
+        0.7822
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 30.005
+      }
+    },
+    {
+      "trial": 14,
+      "seed": 20260834,
+      "object": "soup_can",
+      "outcome": "NO_GRIP",
+      "detail": "hand closed, object rose -0.015 m",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7373,
+        -1.341,
+        0.7978
+      ],
+      "obj_end": [
+        1.9399,
+        -1.5784,
+        0.7831
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 1.27,
+        "DESCEND": 0.015,
+        "GRASP": 3.005,
+        "LIFT": 8.005
+      }
+    },
+    {
+      "trial": 15,
+      "seed": 20260835,
+      "object": "soup_can",
+      "outcome": "REACH_TIMEOUT",
+      "detail": "117 mm from pre-grasp",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7899,
+        -1.3054,
+        0.7978
+      ],
+      "obj_end": [
+        1.8855,
+        -1.3973,
+        0.7822
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 30.005
+      }
+    },
+    {
+      "trial": 16,
+      "seed": 20260836,
+      "object": "soup_can",
+      "outcome": "REACH_TIMEOUT",
+      "detail": "183 mm from pre-grasp",
+      "cheat_attach": false,
+      "obj_start": [
+        1.824,
+        -1.2678,
+        0.7978
+      ],
+      "obj_end": [
+        1.9932,
+        -1.4167,
+        0.7821
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 30.005
+      }
+    },
+    {
+      "trial": 17,
+      "seed": 20260837,
+      "object": "soup_can",
+      "outcome": "REACH_TIMEOUT",
+      "detail": "169 mm from pre-grasp",
+      "cheat_attach": false,
+      "obj_start": [
+        1.8293,
+        -1.2982,
+        0.7978
+      ],
+      "obj_end": [
+        2.0005,
+        -1.4334,
+        0.7821
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 30.005
+      }
+    },
+    {
+      "trial": 18,
+      "seed": 20260838,
+      "object": "soup_can",
+      "outcome": "REACH_TIMEOUT",
+      "detail": "170 mm from pre-grasp",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7644,
+        -1.2887,
+        0.7978
+      ],
+      "obj_end": [
+        1.9244,
+        -1.4216,
+        0.7821
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 30.005
+      }
+    },
+    {
+      "trial": 19,
+      "seed": 20260839,
+      "object": "soup_can",
+      "outcome": "NO_GRIP",
+      "detail": "hand closed, object rose -0.015 m",
+      "cheat_attach": false,
+      "obj_start": [
+        1.7528,
+        -1.3637,
+        0.7978
+      ],
+      "obj_end": [
+        1.9858,
+        -1.4911,
+        0.7832
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 1.27,
+        "DESCEND": 0.01,
+        "GRASP": 3.005,
+        "LIFT": 8.005
+      }
+    },
+    {
+      "trial": 20,
+      "seed": 20260840,
+      "object": "soup_can",
+      "outcome": "NO_GRIP",
+      "detail": "hand closed, object rose -0.015 m",
+      "cheat_attach": false,
+      "obj_start": [
+        1.8171,
+        -1.3416,
+        0.7978
+      ],
+      "obj_end": [
+        1.9844,
+        -1.4845,
+        0.7826
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 1.275,
+        "DESCEND": 0.01,
+        "GRASP": 3.005,
+        "LIFT": 8.005
+      }
+    }
+  ]
+}

@@ -61,13 +61,54 @@ def dls_step(J: np.ndarray, err: np.ndarray, lam: float = 0.08,
     return dq
 
 
+def topdown_quat(cur_quat_wxyz) -> np.ndarray:
+    """Nearest orientation to `cur` whose palm-local +z points at world -z.
+
+    MEASURED, not assumed: at the pre-grasp the palm's local z already lands on
+    world [-0.096, -0.081, -0.992], i.e. the Dex5 palm naturally faces DOWN out of this
+    arm's reaching posture. So the grasp this robot wants is top-down, and constraining
+    orientation means snapping that axis to straight down while leaving the roll about it
+    wherever the null space put it -- a 5-DoF task, which is all a symmetric can needs.
+    """
+    w, x, y, z = (float(v) for v in cur_quat_wxyz)
+    R = np.array([
+        [1-2*(y*y+z*z), 2*(x*y-z*w),   2*(x*z+y*w)],
+        [2*(x*y+z*w),   1-2*(x*x+z*z), 2*(y*z-x*w)],
+        [2*(x*z-y*w),   2*(y*z+x*w),   1-2*(x*x+y*y)]])
+    zt = np.array([0.0, 0.0, -1.0])
+    xc = R[:, 0] - zt * float(R[:, 0] @ zt)        # current x, flattened into the plane
+    n = float(np.linalg.norm(xc))
+    xc = xc / n if n > 1e-6 else np.array([1.0, 0.0, 0.0])
+    yt = np.cross(zt, xc)
+    Rt = np.column_stack([xc, yt, zt])
+    t = Rt[0, 0] + Rt[1, 1] + Rt[2, 2]
+    if t > 0:
+        S = np.sqrt(t + 1.0) * 2
+        q = np.array([0.25*S, (Rt[2,1]-Rt[1,2])/S, (Rt[0,2]-Rt[2,0])/S, (Rt[1,0]-Rt[0,1])/S])
+    elif Rt[0,0] > Rt[1,1] and Rt[0,0] > Rt[2,2]:
+        S = np.sqrt(1.0 + Rt[0,0] - Rt[1,1] - Rt[2,2]) * 2
+        q = np.array([(Rt[2,1]-Rt[1,2])/S, 0.25*S, (Rt[0,1]+Rt[1,0])/S, (Rt[0,2]+Rt[2,0])/S])
+    elif Rt[1,1] > Rt[2,2]:
+        S = np.sqrt(1.0 + Rt[1,1] - Rt[0,0] - Rt[2,2]) * 2
+        q = np.array([(Rt[0,2]-Rt[2,0])/S, (Rt[0,1]+Rt[1,0])/S, 0.25*S, (Rt[1,2]+Rt[2,1])/S])
+    else:
+        S = np.sqrt(1.0 + Rt[2,2] - Rt[0,0] - Rt[1,1]) * 2
+        q = np.array([(Rt[1,0]-Rt[0,1])/S, (Rt[0,2]+Rt[2,0])/S, (Rt[1,2]+Rt[2,1])/S, 0.25*S])
+    return q / np.linalg.norm(q)
+
+
 def pose_error(cur_pos: np.ndarray, cur_quat_wxyz: np.ndarray,
-               tgt_pos: np.ndarray, tgt_quat_wxyz: np.ndarray | None) -> np.ndarray:
+               tgt_pos: np.ndarray, tgt_quat_wxyz: np.ndarray | None,
+               w_rot: float = 0.35) -> np.ndarray:
     """6-vector task error. Orientation term is zero when no target is given."""
     err = np.zeros(6)
     err[:3] = np.asarray(tgt_pos, float) - np.asarray(cur_pos, float)
     if tgt_quat_wxyz is None:
         return err
+    # Orientation is weighted DOWN relative to position. A can is symmetric about its
+    # axis, so getting the palm level matters and the roll about it does not; letting the
+    # orientation term compete equally just steals authority from the reach.
+    
     q_c = np.asarray(cur_quat_wxyz, float)
     q_t = np.asarray(tgt_quat_wxyz, float)
     if float(q_c @ q_t) < 0.0:
@@ -83,5 +124,5 @@ def pose_error(cur_pos: np.ndarray, cur_quat_wxyz: np.ndarray,
     v = np.array([ex, ey, ez])
     n = float(np.linalg.norm(v))
     if n > 1e-9:
-        err[3:] = 2.0 * np.arctan2(n, abs(ew)) * (v / n) * (1.0 if ew >= 0 else -1.0)
+        err[3:] = w_rot * 2.0 * np.arctan2(n, abs(ew)) * (v / n) * (1.0 if ew >= 0 else -1.0)
     return err

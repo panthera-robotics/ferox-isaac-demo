@@ -40,7 +40,7 @@ class MM5Config:
     # FIXED-BASE variant that is harmless -- the base is held and cannot be toppled --
     # and it is one more reason the fixed-base result is not the mobile one.
     base_offset: tuple = (0.10, 0.38)      # (+x, +y) from the object, world frame
-    base_yaw: float = -1.5708              # face -y, i.e. face the table
+    base_yaw: float = -1.5708              # face -y (table); +1.5708 faces +y (counter)
 
     # A pre-grasp is OFFSET from the object by design -- the fingers close over the
     # remainder. 6 cm above the can's centre is where a side grasp starts.
@@ -49,7 +49,17 @@ class MM5Config:
     # which matters when the reach is workspace-limited. Going closer than this by moving
     # the BASE does not work -- at 0.32 m the body is inside the table and knocks the can
     # onto the floor before the arm arrives.
-    pregrasp_offset: tuple = (0.0, 0.06, 0.05)
+    # TOP-DOWN grasp, because that is what this arm's posture naturally presents: the
+    # palm's local z measured at [-0.096, -0.081, -0.992], i.e. already facing the table.
+    # Pre-grasp is directly ABOVE the can; DESCEND then comes straight down onto it.
+    pregrasp_offset: tuple = (0.0, 0.0, 0.13)
+    # 9 cm above the can's CENTRE is ~4 cm above its lid (the can is 0.101 tall), which
+    # is inside the Dex5's finger length. Going lower costs forward reach -- the arm is
+    # already at the edge of its workspace at this height -- and the first v2 run stalled
+    # 114 mm short trying to descend 9.5 cm.
+    grasp_offset: tuple = (0.0, 0.0, 0.072)
+    grasp_tol: float = 0.06
+    descend_timeout_s: float = 15.0
     reach_tol: float = 0.08
     ik_lambda: float = 0.08
     # A SLOW reach. The omni policy holds the arms as part of its own action and was
@@ -64,9 +74,11 @@ class MM5Config:
     settle_s: float = 6.0
     fallen_z: float = 0.55
     spawn_z: float = 0.80                 # pelvis below this = the robot is down
-    reach_timeout_s: float = 35.0
-    close_s: float = 1.5
-    close_rad: float = 0.9
+    reach_timeout_s: float = 30.0
+    close_s: float = 2.5
+    # Closure. The Dex5 finger joints run to ~1.4-1.7 rad, and 0.9 left the hand open
+    # around a 66 mm can -- it closed and did not grip (`NO_GRIP`, object rose -0.015 m).
+    close_rad: float = 1.35
     lift_h: float = 0.14
     lift_success_h: float = 0.05
     lift_timeout_s: float = 8.0
@@ -76,7 +88,7 @@ class MM5Config:
     drop_h: float = 0.02
     place_s: float = 2.0
     retreat_s: float = 2.0
-    table_h: float = 0.75
+    table_h: float = 0.75           # "is it still on a surface" threshold; see surface
 
     cheat_attach: bool = False
     # FIXED-BASE VARIANT. The base is held kinematically so the pipeline can be tested
@@ -105,6 +117,20 @@ class MM5Config:
     # closed 0.11 m of a 0.70 m gap and stalled against the arm's own limits. This is a
     # scenario choice and is stated as one, not a fudge: the pick is still a real pick.
     stage_y: float = -1.31                 # table near edge is y = -1.20
+
+    # SURFACE. The table top is 0.75 m and the arm, from a fixed base 0.38 m away, tops
+    # out with the palm around z = 0.95 -- measured, repeatedly: it reaches the pre-grasp
+    # 0.13 m above the can and then cannot descend the last 9 cm, stalling 114 mm short.
+    # The lab's counter is 0.90 m, 15 cm higher, which puts the can inside the workspace
+    # instead of at its floor. Staging there is a scenario choice and is stated as one.
+    #   counter 2.40 x 0.60 x 0.90 centred (-2.60, 2.40) -> near edge y = 2.10
+    # ATTEMPTED and reverted: staging on the counter puts the can at a reachable HEIGHT
+    # but needs its own base placement (approach from -y, right arm then on the +x side)
+    # and that geometry was not tuned inside the time box -- it reached only 577-641 mm.
+    # Left as the documented next step; the table staging is what the N=20 below used.
+    surface: str = "table"
+    counter_xy: tuple = (-2.60, 2.05)
+    counter_h: float = 0.90
     out_dir: str = "/workspace/ferox_isaac/mm5_out"
 
 
@@ -249,9 +275,20 @@ class MM5Runner:
                       flush=True)
                 self.state = "DONE"
                 return
-            self.home_obj_xyz = np.array([p[0], self.cfg.stage_y, p[2]], float)
-            print(f"[mm5] staging object at the table's near edge: "
-                  f"{np.round(self.home_obj_xyz,4)} (was {np.round(p,4)})", flush=True)
+            if self.cfg.surface == "counter":
+                half = float(p[2]) - 0.75          # the can's half-height above the table
+                self.home_obj_xyz = np.array(
+                    [self.cfg.counter_xy[0], self.cfg.counter_xy[1],
+                     self.cfg.counter_h + half + 0.002], float)
+                self.cfg.base_offset = (self.cfg.base_offset[0], -abs(self.cfg.base_offset[1]))
+                self.cfg.base_yaw = 1.5708         # face +y, toward the counter
+                print(f"[mm5] staging object on the COUNTER (0.90 m) at "
+                      f"{np.round(self.home_obj_xyz,4)} (was {np.round(p,4)}) -- the "
+                      f"table at 0.75 m is below this arm's workspace", flush=True)
+            else:
+                self.home_obj_xyz = np.array([p[0], self.cfg.stage_y, p[2]], float)
+                print(f"[mm5] staging object at the table's near edge: "
+                      f"{np.round(self.home_obj_xyz,4)} (was {np.round(p,4)})", flush=True)
             # Snapshot the settled standing pose now, before any trial disturbs it.
             self._home_q = np.asarray(self.art.get_joint_positions(), np.float32).copy()
             print(f"[mm5] home object pose {np.round(p,4)}", flush=True)

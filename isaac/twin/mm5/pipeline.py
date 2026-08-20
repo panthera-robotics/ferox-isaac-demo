@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .ik import dls_step, pose_error
+from .ik import dls_step, pose_error, topdown_quat
 
 # SDK 22..28 -- the right arm. Named, never sliced: Isaac interleaves the hands through
 # the body joints (RULE-HAND-NAME) and an index slice here would grab fingers.
@@ -73,7 +73,7 @@ SDK_BODY_JOINTS = [
     "left_wrist_yaw_joint",
 ]
 
-STAGES = ["APPROACH", "REACH", "GRASP", "LIFT", "CARRY", "PLACE", "RELEASE", "RETREAT"]
+STAGES = ["APPROACH", "REACH", "DESCEND", "GRASP", "LIFT", "CARRY", "PLACE", "RELEASE", "RETREAT"]
 
 
 @dataclass
@@ -150,6 +150,10 @@ class MM5Pipeline:
 
     # ------------------------------------------------------------------ helpers
 
+    def _surface_h(self) -> float:
+        return (self.cfg.counter_h if getattr(self.cfg, "surface", "table") == "counter"
+                else self.cfg.table_h)
+
     def _obj_prim(self, name):
         from pxr import UsdGeom, Usd
         for root in ("/World/Env/objects", "/World/panthera_lab/objects"):
@@ -209,7 +213,7 @@ class MM5Pipeline:
                            cheat_attach=self.cfg.cheat_attach)
         p = obj_start if obj_start is not None else self.obj_pose(object_name)
         self.trial.obj_start = tuple(float(v) for v in p) if p is not None else (0, 0, 0)
-        if self.trial.obj_start[2] < self.cfg.table_h - 0.05:
+        if self.trial.obj_start[2] < self._surface_h() - 0.05:
             # The reset failed to get the object back on the table. Scoring this as
             # anything but a harness failure is how the false positives happened.
             self._enter("APPROACH")
@@ -275,10 +279,22 @@ class MM5Pipeline:
 
         elif self.stage_name == "REACH":
             target = obj + np.array(self.cfg.pregrasp_offset)
-            err = pose_error(palm, palm_q, target, None)
+            err = pose_error(palm, palm_q, target, topdown_quat(palm_q))
             d = float(np.linalg.norm(err[:3]))
             if d < self.cfg.reach_tol:
-                self._enter("GRASP")
+                # Palm frame at the pre-grasp, printed once per trial: the columns of R
+                # are the palm's local x/y/z expressed in world. Needed to choose a grasp
+                # orientation at all -- "point the palm at the can" is meaningless until
+                # you know which local axis leaves the palm.
+                w, x, y, z = palm_q
+                R = np.array([
+                    [1-2*(y*y+z*z), 2*(x*y-z*w),   2*(x*z+y*w)],
+                    [2*(x*y+z*w),   1-2*(x*x+z*z), 2*(y*z-x*w)],
+                    [2*(x*z-y*w),   2*(y*z+x*w),   1-2*(x*x+y*y)]])
+                self.log(f"  palm quat={np.round(palm_q,4)}")
+                self.log(f"  palm local x->{np.round(R[:,0],3)} y->{np.round(R[:,1],3)} "
+                         f"z->{np.round(R[:,2],3)}")
+                self._enter("DESCEND")
                 self.log(f"pre-grasp reached, {d*1000:.0f} mm")
             elif t_in_stage > self.cfg.reach_timeout_s:
                 self._fail("REACH_TIMEOUT", f"{d*1000:.0f} mm from pre-grasp")
@@ -287,6 +303,23 @@ class MM5Pipeline:
                         int(t_in_stage) % 5 == 0:
                     self.log(f"  d={d*1000:6.0f} mm  palm={np.round(palm,3)} "
                              f"armq={np.round(np.asarray(self.art.get_joint_positions(), float)[self.arm_idx][:4],3)}")
+                self._servo(err)
+
+        elif self.stage_name == "DESCEND":
+            # Straight down onto the can with the palm held level. Separated from REACH
+            # so a failure to get ABOVE the object and a failure to come DOWN onto it are
+            # different rows.
+            target = obj + np.array(self.cfg.grasp_offset)
+            err = pose_error(palm, palm_q, target, topdown_quat(palm_q))
+            d = float(np.linalg.norm(err[:3]))
+            if d < self.cfg.grasp_tol:
+                self._enter("GRASP")
+                self.log(f"at grasp pose, {d*1000:.0f} mm")
+            elif obj[2] < self._surface_h() - 0.05:
+                self._fail("KNOCKED_OFF_IN_DESCEND", f"object z={obj[2]:.3f}")
+            elif t_in_stage > self.cfg.descend_timeout_s:
+                self._fail("DESCEND_TIMEOUT", f"{d*1000:.0f} mm from grasp pose")
+            else:
                 self._servo(err)
 
         elif self.stage_name == "GRASP":
@@ -302,9 +335,15 @@ class MM5Pipeline:
             if obj[2] - self.trial.obj_start[2] > self.cfg.lift_success_h:
                 self._enter("PLACE" if self.cfg.skip_carry else "CARRY")
                 self.log(f"lifted {obj[2]-self.trial.obj_start[2]:.3f} m")
+            elif obj[2] < self._surface_h() - 0.05:
+                # The can left the table rather than rising with the hand. A different
+                # problem from a hand that closed and did not grip, and it was hiding in
+                # the same bucket: `rose -0.765 m` is the table height, not a grip failure.
+                self._fail("KNOCKED_OFF_IN_LIFT",
+                           f"object fell to z={obj[2]:.3f}")
             elif t_in_stage > self.cfg.lift_timeout_s:
-                self._fail("LIFT_FAILED",
-                           f"object rose {obj[2]-self.trial.obj_start[2]:.3f} m")
+                self._fail("NO_GRIP",
+                           f"hand closed, object rose {obj[2]-self.trial.obj_start[2]:+.3f} m")
 
         elif self.stage_name == "CARRY":
             tgt = (np.array(self.trial.obj_start)
@@ -343,7 +382,7 @@ class MM5Pipeline:
                 placed = float(np.linalg.norm(obj[:2] - np.array(self.trial.obj_start)[:2]))
                 want = (float(np.linalg.norm(np.array(self.cfg.place_vec)[:2]))
                         if self.cfg.skip_carry else self.cfg.carry_dist)
-                if obj[2] < self.cfg.table_h - 0.10:
+                if obj[2] < self._surface_h() - 0.10:
                     self._fail("PLACED_OFF_TABLE", f"object z={obj[2]:.3f}")
                 elif placed < want * 0.5:
                     self._fail("NOT_MOVED", f"object moved only {placed:.2f} m")
