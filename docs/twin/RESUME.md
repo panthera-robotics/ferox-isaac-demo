@@ -11,6 +11,29 @@ plausible one.
 
 ## 0. You are here
 
+**MM campaign, 2026-08-20. MM3 PASS. MM4 and mobile MM5 are both blocked on ONE thing:
+C-39 — SONIC will not balance the twin, and it is not the twin's wire.**
+
+| | State |
+|---|---|
+| **MM3 — low-level DDS bridge** | **PASS.** `rt/lowstate` at 1041.68 Hz (measured off the robot, not the 500 Hz the gate asked for), 16/16 field-parity checks, fail-closed 6/6 inside 100 ms, 20-entry dex3 wire at 208 Hz. Test (a) rewritten by Mohammed as (a1) suspended-base PD hold — 28/29 joints inside 0.05 rad — and (a2) balance, moved to MM4. |
+| **MM4 — SONIC** | **PARTIAL, parked.** The x86_64 image builds and runs, and SONIC closes the loop on the twin: reads `rt/lowstate`, prints `G1 type: 5`, commands `rt/lowcmd` at 499 Hz with CRC on. It will not stand the robot. |
+| **C-39 — the blocker** | **NOT the twin's wire.** Conventions diffed field-by-field against the reference MuJoCo bridge (the one that fed W3's 17.53 m walk) and against the DT bag: they match. Not the stance transition, and **not the hand mass** — with the palms zeroed to 0.34 kg/hand the result matches to three figures. SONIC's own commanded targets are out of range: 3 of 29 beyond the URDF limits, a 1.648 rad knee against its own 0.30 nominal, with the robot upright and its observations clean. **Start at `docs/mm/evidence/MM4/C39_FORK.md`.** |
+| **MM5 — manipulation** | Mobile is 0/20, `ROBOT_FELL` ×20 — the omni policy cannot hold balance while the arm reaches, which is C-39 from the other side. The **fixed-base variant** is the reported result; see RESULTS_MM5. |
+| **MM1b — retrain** | **PARKED.** Finished 6000/6000, reward −3.35 → +1.24, episode length 24 → 55 of a 1000-step ceiling. It learned to fall over more slowly. `ferox-g1-locomotion policy/PROVENANCE_v2_mm1b_c.md` retires the "one more overnight" claim. |
+| **Media** | **None, everywhere. C-23** — this box cannot run the camera and cannot film the live sim. Every MM gate states it per-gate. |
+| **MM6 / MM7** | Not started; both need the camera, so both need the 4090 day. |
+
+**Next instance, do this first:** read `docs/mm/evidence/MM4/C39_FORK.md`, then run the
+same fork against the reference MuJoCo sim rather than the twin. If SONIC commands
+out-of-range targets there too, the twin is exonerated entirely and the fault is in how
+this deploy is driven. That single experiment decides whether mobile manipulation is a
+twin problem or an upstream one, and the wire is already proven identical either way.
+
+---
+
+## 0b. You are here — DT campaign (previous)
+
 **G1: mount fixed, lidar 360°, camera unverified on this GPU. Go2 bag pending.
 DT6 / DT7 deferred.**
 

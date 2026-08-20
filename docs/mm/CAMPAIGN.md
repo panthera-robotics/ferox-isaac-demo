@@ -1,5 +1,25 @@
 # Ferox Motion & Manipulation campaign (MM0–MM9) — Claude Code prompt
 
+> ## STATUS — 2026-08-20 (MM campaign, gates MM0–MM5 run)
+>
+> | gate | verdict | one line |
+> |---|---|---|
+> | MM0 | PASS-with-deviations | box conforms; camera items deferred (C-23) |
+> | MM1 | PASS-with-deviations | locomotion contract + motion suite; yaw root-caused |
+> | MM1b | **PARKED** | retrain finished 6000/6000 and is not a walking policy — `PROVENANCE_v2_mm1b_c.md` |
+> | MM2 | PARTIAL | venue built and verified; nav 0/6 (C-26), door does not open |
+> | MM3 | **PASS** | low-level DDS bridge; (a) rewritten as (a1)/(a2) |
+> | MM4 | **PARTIAL — parked** | SONIC x86 built and closed-loop on the twin; will not balance it (C-39) |
+> | MM5 | see RESULTS_MM5 | fixed-base variant is the result; mobile parked behind C-39 |
+> | MM6–MM8 | not started | MM6/MM7 need the camera (C-23); MM8 is media |
+> | MM9 | this pass | persistence |
+>
+> **The one thing blocking mobile manipulation is C-39**, and it is not the twin's wire:
+> the conventions were diffed field-by-field against the reference MuJoCo bridge and the
+> DT bag and they match (`evidence/MM4/CONVENTION_TABLE.md`). SONIC's own commanded
+> targets are out of range — 3 of 29 beyond the URDF limits, a 1.648 rad knee against its
+> own 0.30 nominal — with the robot upright and its observations clean.
+>
 > ## STATUS — 2026-08-19
 >
 > **MM0 RUNNING on an RTX 4080 SUPER 16 GB, by decision. The 4090 is required for

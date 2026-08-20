@@ -161,3 +161,16 @@ G1's did for OQ-2.
   that way. It rebuilds itself on first run, slowly.
 * **The reference driver clones** under `~/panthera/ref/` are other repositories; RESUME.md
   lists the exact clone commands and the commits this campaign read.
+
+## MM campaign (MM0–MM5) — no captures
+
+**Nothing was filmed or photographed in the entire MM campaign, and that is C-23, not an
+oversight.** This box cannot run the twin camera (the ROS 2 image writer segfaults, five
+boots for five) and cannot film the live sim (the offscreen follow camera SIGSEGVs on
+creation). Both routes were re-confirmed during MM3, where enabling `TWIN_CAMERA=1`
+crashed the sim at `world.step(render=True)` in the camera render-product warm-up.
+
+Every MM gate therefore states "media deferred, C-23" in its own RESULTS header, and the
+evidence is numbers and logs under `docs/mm/evidence/MM<n>/`. The MM8 shot list stands;
+it needs the 4090 day.
+
