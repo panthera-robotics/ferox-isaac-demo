@@ -176,6 +176,7 @@ docker exec -d \
   -e TWIN_CAMERA="${TWIN_CAMERA:-1}" \
   -e TWIN_CONTACT_MATERIAL="${TWIN_CONTACT_MATERIAL:-0}" \
   -e TWIN_ARMATURE="${TWIN_ARMATURE:-}" \
+  -e TWIN_JOINT_FRICTION="${TWIN_JOINT_FRICTION:-}" \
   -e HAND="${HAND:-none}" \
   -e MM5_PROBE="${MM5_PROBE:-0}" \
   -e MM5="${MM5:-0}" \
@@ -185,6 +186,10 @@ docker exec -d \
   -e MM5_CHEAT_ATTACH="${MM5_CHEAT_ATTACH:-0}" \
   -e MM5_FIX_BASE="${MM5_FIX_BASE:-0}" \
   -e MM5_OUT="${MM5_OUT:-/workspace/ferox_isaac/mm5_out}" \
+  -e MM5_SURFACE="${MM5_SURFACE:-table}" \
+  -e MM5_PLACE_FROM_WORKSPACE="${MM5_PLACE_FROM_WORKSPACE:-0}" \
+  -e MM5_TARGET_R="${MM5_TARGET_R:-0.315}" \
+  -e MM5_PELVIS_Z="${MM5_PELVIS_Z:-0.80}" \
   -e TWIN_HAND_KG="${TWIN_HAND_KG:-}" \
   -e TWIN_HAND_KP="${TWIN_HAND_KP:-5.0}" \
   -e TWIN_HAND_KD="${TWIN_HAND_KD:-0.1}" \
@@ -200,6 +205,8 @@ docker exec -d \
   -e G1_LL_TRACE="${G1_LL_TRACE:-0}" \
   -e G1_LL_HOLD_POSE="${G1_LL_HOLD_POSE:-spawn}" \
   -e G1_LL_PD="${G1_LL_PD:-explicit}" \
+  -e G1_LL_PD_PROBE="${G1_LL_PD_PROBE:-0}" \
+  -e G1_LL_HOLD_KINEMATIC="${G1_LL_HOLD_KINEMATIC:-0}" \
   -e G1_PHYSICS_HZ="${G1_PHYSICS_HZ:-1000}" \
   -e G1_LL_FIX_BASE="${G1_LL_FIX_BASE:-0}" \
   -e G1_LL_RIG_RELEASE_S="${G1_LL_RIG_RELEASE_S:-3}" \

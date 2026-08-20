@@ -152,10 +152,12 @@ class LowLevelDDS:
         # DIAGNOSTIC: shipping it would mean degrading the twin to match a reference
         # bridge's omissions, which is the opposite of the point.
         self._mj_compat = os.environ.get("G1_LL_MUJOCO_COMPAT", "0") == "1"
+        self._mj_prev = None
+        self._mj_ddq = np.zeros(shm.N_MOTOR, np.float64)
         ls = self.low_state
         if self._mj_compat:
             print("[lowlevel-dds] DIAGNOSTIC MUJOCO_COMPAT: mode_machine=0, motor mode=0,"
-                  " accel/rpy/temp zeroed, crc=0 -- NOT A DELIVERABLE", flush=True)
+                  " accel/rpy/temp zeroed, ddq populated, crc=0 -- NOT A DELIVERABLE", flush=True)
             ls.mode_pr = 0
             ls.mode_machine = 0
             ls.version = [0, 0]
@@ -277,9 +279,22 @@ class LowLevelDDS:
     def _fill(self, rec) -> bool:
         ls = self.low_state
         q, dq, tau = rec["q"], rec["dq"], rec["tau_est"]
+        # MuJoCo populates ddq; the real robot never does (whole-bag scan) and neither
+        # does the twin.  Under the compat lie the twin must populate it too, or the
+        # bisect has a hole in exactly the field the diff flagged (absmax 0.832 vs 0.0).
+        if self._mj_compat:
+            now = _monotonic_ns()
+            if self._mj_prev is not None:
+                pdq, pns = self._mj_prev
+                dt = (now - pns) * 1e-9
+                if dt > 1e-6:
+                    self._mj_ddq = (np.asarray(dq, np.float64) - pdq) / dt
+            self._mj_prev = (np.asarray(dq, np.float64).copy(), now)
         for i in range(N_LIVE):
             ms = ls.motor_state[i]
             ms.q = float(q[i]); ms.dq = float(dq[i]); ms.tau_est = float(tau[i])
+            if self._mj_compat:
+                ms.ddq = float(self._mj_ddq[i])
 
         imu = ls.imu_state
         imu.quaternion = [float(x) for x in rec["quat_wxyz"]]

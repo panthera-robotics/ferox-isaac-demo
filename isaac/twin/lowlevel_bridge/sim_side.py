@@ -370,6 +370,9 @@ class LowLevelSimBridge:
         # stand: an explicit 500 Hz PD that is too soft, versus a humanoid that
         # genuinely cannot balance without CoM feedback. Only the second is a finding.
         self._implicit = os.environ.get("G1_LL_PD", "explicit") == "implicit"
+        self._pd_probe = os.environ.get("G1_LL_PD_PROBE", "0") == "1"
+        self._hold_kinematic = os.environ.get("G1_LL_HOLD_KINEMATIC", "0") == "1"
+        self._pd_probe_next = 0.0
         view = self.art._articulation_view
         kp0 = np.zeros(N_SDK, np.float32)
         if self._implicit:
@@ -598,6 +601,26 @@ class LowLevelSimBridge:
             tau = (kp * (q_d - q)
                    + kd * (np.asarray(rec["dq_d"][:N_SDK], np.float32) - dq)
                    + np.asarray(rec["tau_ff"][:N_SDK], np.float32))
+            # C-39, 1b(4).  Comparing the wire against the twin's applied torque gave
+            # an impossible pair: kp*(q_d - q) computed from rt/lowcmd and rt/lowstate
+            # is 80.4 Nm on L_hip_p, while the twin reports COMMANDING 6.5 Nm with
+            # sat=0/29.  One of the three inputs the PD actually uses is therefore not
+            # the one on the wire.  This prints them from `rec` itself rather than
+            # inferring: whichever of kp, q_d or q disagrees with the wire is C-39.
+            if self._pd_probe and self._pd_probe_next <= self.sim_time:
+                self._pd_probe_next = self.sim_time + 5.0
+                err = kp * (q_d - q)
+                order = np.argsort(-np.abs(err))[:6]
+                print(f"[lowlevel-sim][PD-PROBE] t={self.sim_time:.2f} "
+                      f"|tau|max={np.abs(tau).max():.2f} "
+                      f"cmd_count={int(rec['cmd_count'])} age_ms="
+                      f"{(time.clock_gettime_ns(time.CLOCK_MONOTONIC)-int(rec['stamp_ns']))/1e6:.1f}",
+                      flush=True)
+                for i in order:
+                    print(f"[lowlevel-sim][PD-PROBE]   sdk[{int(i):2d}] kp={kp[i]:8.3f} "
+                          f"kd={kd[i]:6.3f} q_d={q_d[i]:+8.4f} q={q[i]:+8.4f} "
+                          f"dq={dq[i]:+7.3f} -> kp*e={err[i]:+8.2f} tau={tau[i]:+8.2f}",
+                          flush=True)
         elif self._first_cmd_seen:
             if self._mode != 1:
                 # MEASURED, not asserted. The 100 ms in the campaign is a requirement
@@ -618,6 +641,29 @@ class LowLevelSimBridge:
         else:
             # IDLE HOLD, never yet commanded. Holds the spawn stance; see HOLD_KP.
             self._mode = 2
+            # C-39.  HOLD_KP is a TORQUE hold, and the PD probe showed it does not
+            # actually reach the stance it is given: asked for SONIC's nominal pose it
+            # settles at hip -0.522 against a target of -0.100 and drives the waist to
+            # +0.520, its mechanical stop, against a target of 0.0.  So every fork run
+            # so far -- including the turn-6 "SONIC from its own nominal stance" -- has
+            # released SONIC from a pose ~0.4 rad away from the one it was told the
+            # robot would be in.  That is not the experiment anyone intended.
+            #
+            # With the base already rigged, holding the JOINTS kinematically too costs
+            # nothing and makes the release pose exactly the commanded one.  It is a
+            # diagnostic for the initial condition, not a control mode: once the rig
+            # releases, this branch stops running and the torque path resumes.
+            if self._hold_kinematic:
+                # set_joint_positions, NOT apply_action.  In effort control mode with
+                # the drive gains zeroed a position TARGET is ignored -- the first
+                # attempt at this used apply_action and moved the stance by 0.0000 rad,
+                # which is a no-op dressed up as an experiment.  A state write is the
+                # only thing that actually places the joints.
+                qs = np.asarray(self.art.get_joint_positions(), np.float32).copy()
+                vs = np.zeros_like(qs)
+                qs[self.sdk_to_sim_idx] = self.q_hold
+                self.art.set_joint_positions(qs)
+                self.art.set_joint_velocities(vs)
             tau = HOLD_KP * (self.q_hold - q) + HOLD_KD * (0.0 - dq)
             self.n_hold += 1
 

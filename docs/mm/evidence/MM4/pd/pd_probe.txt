@@ -1,0 +1,20 @@
+[lowlevel-sim][PD-PROBE] t=27.76 |tau|max=0.00 cmd_count=9999 age_ms=0.9
+[lowlevel-sim][PD-PROBE]   sdk[25] kp=  14.251 kd= 0.907 q_d= +0.0000 q= +0.0000 dq= +0.000 -> kp*e=   -0.00 tau=   -0.00
+[lowlevel-sim][PD-PROBE]   sdk[27] kp=  16.778 kd= 1.068 q_d= +0.0000 q= +0.0000 dq= +0.000 -> kp*e=   -0.00 tau=   -0.00
+[lowlevel-sim][PD-PROBE]   sdk[18] kp=  14.251 kd= 0.907 q_d= +0.0000 q= +0.0000 dq= -0.000 -> kp*e=   -0.00 tau=   +0.00
+[lowlevel-sim][PD-PROBE]   sdk[22] kp=  14.251 kd= 0.907 q_d= +0.0000 q= +0.0000 dq= +0.000 -> kp*e=   -0.00 tau=   -0.00
+[lowlevel-sim][PD-PROBE]   sdk[14] kp=  28.501 kd= 1.814 q_d= +0.0000 q= +0.0000 dq= +0.000 -> kp*e=   -0.00 tau=   -0.00
+[lowlevel-sim][PD-PROBE]   sdk[20] kp=  16.778 kd= 1.068 q_d= +0.0000 q= +0.0000 dq= -0.000 -> kp*e=   -0.00 tau=   +0.00
+[lowlevel-sim][PD-PROBE] t=32.76 |tau|max=11.58 cmd_count=15480 age_ms=1.8
+[lowlevel-sim][PD-PROBE]   sdk[22] kp=  14.251 kd= 0.907 q_d= +0.0000 q= +0.8123 dq= +0.001 -> kp*e=  -11.58 tau=  -11.58
+[lowlevel-sim][PD-PROBE]   sdk[15] kp=  14.251 kd= 0.907 q_d= +0.0000 q= +0.7788 dq= +0.005 -> kp*e=  -11.10 tau=  -11.10
+[lowlevel-sim][PD-PROBE]   sdk[ 3] kp=  99.098 kd= 6.309 q_d= +0.3000 q= +0.2579 dq= -0.015 -> kp*e=   +4.18 tau=   +4.27
+[lowlevel-sim][PD-PROBE]   sdk[ 9] kp=  99.098 kd= 6.309 q_d= +0.3000 q= +0.2604 dq= +0.004 -> kp*e=   +3.92 tau=   +3.90
+[lowlevel-sim][PD-PROBE]   sdk[14] kp=  28.501 kd= 1.814 q_d= +0.0000 q= -0.0664 dq= +0.011 -> kp*e=   +1.89 tau=   +1.87
+[lowlevel-sim][PD-PROBE]   sdk[18] kp=  14.251 kd= 0.907 q_d= +0.0000 q= +0.1172 dq= -0.025 -> kp*e=   -1.67 tau=   -1.65
+[lowlevel-sim][PD-PROBE] t=37.76 |tau|max=10.25 cmd_count=21942 age_ms=0.5
+[lowlevel-sim][PD-PROBE]   sdk[22] kp=  14.251 kd= 0.907 q_d= +0.0000 q= +0.7196 dq= -0.000 -> kp*e=  -10.25 tau=  -10.25
+[lowlevel-sim][PD-PROBE]   sdk[15] kp=  14.251 kd= 0.907 q_d= +0.0000 q= +0.7150 dq= +0.000 -> kp*e=  -10.19 tau=  -10.19
+[lowlevel-sim][PD-PROBE]   sdk[ 3] kp=  99.098 kd= 6.309 q_d= +0.3000 q= +0.2558 dq= +0.007 -> kp*e=   +4.38 tau=   +4.33
+[lowlevel-sim][PD-PROBE]   sdk[ 9] kp=  99.098 kd= 6.309 q_d= +0.3000 q= +0.2569 dq= -0.008 -> kp*e=   +4.27 tau=   +4.32
+[lowlevel-sim][PD-PROBE]   sdk[25] kp=  14.251 kd= 0.907 q_d= +0.0000 q= +0.1500 dq= -0.003 -> kp*e=   -2.14 tau=   -2.13

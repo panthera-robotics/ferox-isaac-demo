@@ -126,6 +126,8 @@ class MM5Pipeline:
         self._hand_target = np.zeros(len(RIGHT_HAND_JOINTS), np.float32)
         self._grip_ratio = 0.0
         self._log = []
+        self._trace = []
+        self._trace_next = 0.0
         # Legs + torso: every SDK joint that is not the right arm.
         self.body_idx = np.array(
             [names.index(n) for n in SDK_BODY_JOINTS if n in names], np.int32)
@@ -194,6 +196,39 @@ class MM5Pipeline:
                 pass
         pos, quat = self._palm_prim.get_world_pose()
         return np.asarray(pos, float), np.asarray(quat, float)
+
+    def body_pose(self, name: str):
+        """World pose of any robot link, (pos, quat_wxyz), from PHYSICS.
+
+        The generic form of `palm_pose`, and for the same reason -- PhysX writes link
+        transforms to Fabric, not back to USD, so the UsdGeom route returns the
+        authored pose and never moves.  v3 needs the right SHOULDER, because the base
+        placement is now computed from where the shoulder actually is instead of being
+        found by iterating on the reach error.
+        """
+        from isaacsim.core.prims import SingleRigidPrim
+        if not hasattr(self, "_body_prims"):
+            self._body_prims = {}
+        if name not in self._body_prims:
+            pr = SingleRigidPrim(f"{self.cfg.robot_root}/{name}")
+            try:
+                pr.initialize()
+            except Exception:
+                pass
+            self._body_prims[name] = pr
+        pos, quat = self._body_prims[name].get_world_pose()
+        return np.asarray(pos, float), np.asarray(quat, float)
+
+    def find_body(self, candidates):
+        """First of `candidates` that exists on this articulation, or None."""
+        try:
+            names = list(self.art._articulation_view.body_names)
+        except Exception:
+            return None
+        for c in candidates:
+            if c in names:
+                return c
+        return None
 
     def arm_jacobian(self):
         """(6, 7) task Jacobian for the right palm w.r.t. the right-arm joints."""
@@ -266,6 +301,26 @@ class MM5Pipeline:
         # next four stages for the wrong ones. Without it the taxonomy filled up with
         # REACH_TIMEOUT rows that were really one topple.
         base_z = float(np.asarray(self.art.get_world_pose()[0], float)[2])
+
+        # JOINT TRACE for the 4090 day (C-23).  Media is deferred, so this run produces
+        # no video -- but a numeric trace of every joint the pipeline drives, the palm
+        # and the object, at 50 Hz, is enough to replay the episode for camera later
+        # without re-running the physics.  Text log lines are not: they say what the
+        # stage machine decided, not where the arm was.
+        if self.sim_time >= self._trace_next:
+            self._trace_next = self.sim_time + 0.02
+            q = np.asarray(self.art.get_joint_positions(), float)
+            self._trace.append({
+                "t": round(self.sim_time, 4), "trial": self.trial.index,
+                "stage": self.stage_name,
+                "arm_q": [round(float(q[i]), 5) for i in self.arm_idx],
+                "hand_q": [round(float(q[i]), 5) for i in self.hand_idx],
+                "palm": [round(float(v), 5) for v in palm],
+                "palm_quat": [round(float(v), 5) for v in palm_q],
+                "obj": [round(float(v), 5) for v in obj],
+                "base_z": round(base_z, 5),
+            })
+
         if base_z < self.cfg.fallen_z:
             self._fail("ROBOT_FELL", f"pelvis z={base_z:.3f} during {self.stage_name}")
             return

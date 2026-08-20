@@ -131,6 +131,32 @@ class MM5Config:
     surface: str = "table"
     counter_xy: tuple = (-2.60, 2.05)
     counter_h: float = 0.90
+
+    # ---------------------------------------------------------------- GRASP V3
+    # v1 and v2 both found the base offset by ITERATING: pick a number, run 20 trials,
+    # read the reach error, pick another.  That produced 0.38 m and a documented
+    # workspace ceiling -- the palm tops out near z = 0.95 while the can sits at 0.80,
+    # so the arm reaches the pre-grasp 0.13 m high and cannot descend onto the can.
+    # It also never converged for the counter: 577-641 mm, box expired.
+    #
+    # v3 computes it instead.  The arm's reachable set is a cone around the SHOULDER,
+    # not around the pelvis, so the shoulder is what the placement has to be measured
+    # from.  MEASURE the shoulder in the robot's own frame at the home pose, then solve
+    # the one unknown -- how far forward to stand -- so the can lands at `target_r`,
+    # comfortably inside the 0.39 m limit rather than at its edge where both previous
+    # runs stalled.  One measurement, one solve, no iteration.
+    place_from_workspace: bool = False
+    target_r: float = 0.315         # can this far from the RIGHT SHOULDER (0.30-0.33)
+    lateral_offset: float = 0.10    # can this far to the robot's right, as v1/v2 had it
+    min_forward: float = 0.20       # never solve the base inside the furniture
+    max_forward: float = 0.60
+    # The base is rig-held in this variant, so pelvis height is a free parameter rather
+    # than a consequence of standing.  Lowering it is how the arm reaches a 0.90 m
+    # counter that would otherwise sit above the shoulder's comfortable cone -- the
+    # robot "crouches" to the work.  A real G1 can crouch; this one is held, so the
+    # crouch costs nothing and is NOT proof the balancer could hold it.  Labelled.
+    pelvis_z: float = 0.80
+    right_shoulder_body: str = ""   # "" = autodetect
     out_dir: str = "/workspace/ferox_isaac/mm5_out"
 
 
@@ -146,6 +172,7 @@ class MM5Runner:
         self._rigid = None
         self._home_q = None
         self._base_pose = None
+        self._measure_until = 0.0
         self.state = "INIT"
         self._t = 0.0
         os.makedirs(cfg.out_dir, exist_ok=True)
@@ -229,6 +256,70 @@ class MM5Runner:
             pass
         return newp
 
+    def _solve_base_offset(self, obj_xyz):
+        """Solve the base placement from the MEASURED shoulder, once, analytically.
+
+        Both earlier variants tuned `base_offset` by hand against the reach error and
+        both landed at the edge of the workspace -- v2 reached every pre-grasp but sat
+        0.13 m above a can it could not then descend onto.  The reachable set is a cone
+        about the SHOULDER, so:
+
+          1. stand the robot at a provisional pose and let physics settle it,
+          2. read the right shoulder and the pelvis from PhysX and difference them,
+             giving the shoulder in the robot's own frame (lateral, forward, up),
+          3. solve the single remaining unknown -- forward distance -- from
+                 target_r^2 = lateral^2 + forward^2 + vertical^2
+             where vertical is fixed by the surface height and the pelvis height.
+
+        If the vertical term alone already exceeds target_r the can is simply too high
+        or too low for the cone at this pelvis height, and the solve says so instead of
+        quietly returning a complex root -- which is exactly the information the
+        counter attempt lacked when it was iterating.
+        """
+        yaw = self.cfg.base_yaw
+        fwd = np.array([-np.sin(yaw), np.cos(yaw)])      # robot +x(forward) in world
+        right = np.array([np.cos(yaw), np.sin(yaw)])     # robot +y(right)  in world
+
+        name = self.cfg.right_shoulder_body or self.pipe.find_body([
+            "right_shoulder_yaw_link", "right_shoulder_roll_link",
+            "right_shoulder_pitch_link", "right_shoulder_link"])
+        if name is None:
+            print("[mm5][v3] no right-shoulder link found; keeping the tuned offset",
+                  flush=True)
+            return None
+        sh_w, _ = self.pipe.body_pose(name)
+        base_w, _ = self.art.get_world_pose()
+        d = np.asarray(sh_w, float)[:2] - np.asarray(base_w, float)[:2]
+        s_fwd, s_lat = float(d @ fwd), float(d @ right)
+        s_up = float(sh_w[2] - base_w[2])
+
+        vert = float(obj_xyz[2]) - (self.cfg.pelvis_z + s_up)
+        lat = self.cfg.lateral_offset - s_lat
+        rem = self.cfg.target_r ** 2 - vert ** 2 - lat ** 2
+        print(f"[mm5][v3] shoulder '{name}' in the robot frame: forward {s_fwd:+.4f} "
+              f"right {s_lat:+.4f} up {s_up:+.4f} (pelvis at {self.cfg.pelvis_z:.2f})",
+              flush=True)
+        print(f"[mm5][v3] can at z={float(obj_xyz[2]):.4f} -> vertical {vert:+.4f} m, "
+              f"lateral {lat:+.4f} m, target_r {self.cfg.target_r:.3f} m", flush=True)
+        if rem <= 0.0:
+            print(f"[mm5][v3] UNREACHABLE at this pelvis height: the vertical and "
+                  f"lateral terms alone are {np.hypot(vert, lat):.4f} m, which already "
+                  f"exceeds target_r {self.cfg.target_r:.3f}. Lower `pelvis_z` (the base "
+                  f"is rig-held, so crouching to the work is free) or raise target_r.",
+                  flush=True)
+            return None
+        forward = s_fwd + float(np.sqrt(rem))
+        clamped = float(np.clip(forward, self.cfg.min_forward, self.cfg.max_forward))
+        if clamped != forward:
+            print(f"[mm5][v3] solved forward {forward:.4f} clamped to {clamped:.4f} "
+                  f"[{self.cfg.min_forward}, {self.cfg.max_forward}]", flush=True)
+        off = -clamped * fwd - self.cfg.lateral_offset * right
+        print(f"[mm5][v3] SOLVED base_offset {np.round(off,4).tolist()} -- the can is "
+              f"{self.cfg.target_r:.3f} m from the shoulder, {clamped:.3f} m forward of "
+              f"the pelvis (v2 used 0.38 m and stalled at the workspace edge)",
+              flush=True)
+        return (float(off[0]), float(off[1]))
+
     def _stand_robot(self, obj_xyz):
         """Reset the robot to a clean standing state at the reach pose for this object.
 
@@ -242,7 +333,10 @@ class MM5Runner:
         y = float(obj_xyz[1] + self.cfg.base_offset[1])
         yaw = self.cfg.base_yaw
         quat = np.array([np.cos(yaw / 2), 0.0, 0.0, np.sin(yaw / 2)], np.float32)
-        pos = np.array([x, y, self.cfg.spawn_z], np.float32)
+        # spawn_z is also the "robot is down" threshold, so the held-base pelvis
+        # height is its own knob rather than a reuse of that one.
+        z = self.cfg.pelvis_z if self.cfg.fix_base else self.cfg.spawn_z
+        pos = np.array([x, y, z], np.float32)
         self.art.set_world_pose(pos, quat)
         self.art.set_linear_velocity(np.zeros(3, np.float32))
         self.art.set_angular_velocity(np.zeros(3, np.float32))
@@ -292,6 +386,25 @@ class MM5Runner:
             # Snapshot the settled standing pose now, before any trial disturbs it.
             self._home_q = np.asarray(self.art.get_joint_positions(), np.float32).copy()
             print(f"[mm5] home object pose {np.round(p,4)}", flush=True)
+            if self.cfg.place_from_workspace:
+                # Stand once at the tuned offset purely so the shoulder can be MEASURED
+                # in a settled pose; the solve then replaces that offset for every trial.
+                self._stand_robot(self.home_obj_xyz)
+                self._measure_until = self._t + 0.5
+                self.state = "MEASURE"
+            else:
+                self.state = "NEXT"
+            return
+
+        if self.state == "MEASURE":
+            if self._t < self._measure_until:
+                return
+            off = self._solve_base_offset(self.home_obj_xyz)
+            if off is not None:
+                self.cfg.base_offset = off
+            else:
+                print("[mm5][v3] falling back to the tuned base_offset "
+                      f"{self.cfg.base_offset}", flush=True)
             self.state = "NEXT"
             return
 
@@ -340,6 +453,15 @@ class MM5Runner:
                    "taxonomy": tax, "config": asdict(self.cfg), "rows": rows}
         with open(os.path.join(self.cfg.out_dir, "mm5_results.json"), "w") as fh:
             json.dump(summary, fh, indent=2)
+
+        # Joint trace, one JSON object per line, 50 Hz. Media is deferred to the 4090
+        # day (C-23); this is what lets that day replay the episode for camera instead
+        # of re-running twenty trials of physics to find a good one.
+        tp = os.path.join(self.cfg.out_dir, "mm5_trace.jsonl")
+        with open(tp, "w") as fh:
+            for rec in self.pipe._trace:
+                fh.write(json.dumps(rec) + "\n")
+        print(f"[mm5] joint trace: {len(self.pipe._trace)} samples -> {tp}", flush=True)
 
         lines = [f"# MM5 results — {n} trials, {self.cfg.object_name}", "",
                  f"**Balancer: omni locomotion policy** (SONIC parked at C-39; "

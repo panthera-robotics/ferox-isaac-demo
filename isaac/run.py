@@ -94,6 +94,56 @@ WORLD_ENV_PRIM = "/World/Env"
 TRAIN_ARMATURE = 0.01
 
 
+def _apply_joint_friction(stage, robot_root: str, value: float) -> None:
+    """Set PhysX joint FRICTION on every revolute joint under the robot.
+
+    C-39, 1b(2).  The reference MuJoCo model the SONIC deploy was validated against
+    (`g1_29dof_old.xml`) gives every actuated joint `frictionloss="0.2"` -- 0.1 on the
+    wrists -- alongside `damping="0.05"` and `armature="0.01"`.  The twin matches the
+    armature (TWIN_ARMATURE) but the URDF importer wrote no dry friction at all, so
+    every joint in the twin is free where the reference joint has a 0.2 Nm breakaway.
+    Across 29 joints that is real quasi-static holding torque that the reference robot
+    has and this one does not.
+
+    Read back and counted, for the same reason armature is: a silent no-op here reads
+    exactly like "joint friction was not the problem".
+    """
+    from pxr import PhysxSchema, Usd, UsdPhysics
+
+    root = stage.GetPrimAtPath(robot_root)
+    if not root or not root.IsValid():
+        raise RuntimeError(f"joint friction: {robot_root} not in stage")
+    n = 0
+    for prim in Usd.PrimRange(root):
+        if not prim.IsA(UsdPhysics.RevoluteJoint):
+            continue
+        api = PhysxSchema.PhysxJointAPI.Apply(prim)
+        # The schema accessor is not present on every Isaac build; the underlying
+        # attribute is. Fall back to it rather than taking the whole sim down --
+        # the first attempt at this raised during stage setup and Isaac exited at
+        # 12.5 s with no traceback, which costs a run to learn nothing.
+        try:
+            api.CreateJointFrictionAttr().Set(value)
+            got = api.GetJointFrictionAttr().Get()
+        except AttributeError:
+            from pxr import Sdf
+            at = prim.CreateAttribute("physxJoint:jointFriction", Sdf.ValueTypeNames.Float)
+            at.Set(value)
+            got = at.Get()
+        # float32 storage: 0.2 reads back as 0.20000000298023224, so the tolerance
+        # has to be a float32 epsilon and not the 1e-9 used for armature. The first
+        # attempt used 1e-9, rejected a CORRECT write, and cost a run that then had
+        # to be discarded -- the read-back guard has to be right or it is worse than
+        # no guard at all.
+        if got is None or abs(float(got) - value) > 1e-6:
+            raise RuntimeError(f"joint friction on {prim.GetPath()} read back {got}")
+        n += 1
+    if n == 0:
+        raise RuntimeError(f"joint friction: no revolute joints under {robot_root}")
+    print(f"[TWIN] joint friction {value} applied and read back on {n} joints",
+          flush=True)
+
+
 def _apply_training_armature(stage, robot_root: str, value: float) -> None:
     """Set PhysX joint armature on every revolute joint under the robot.
 
@@ -1175,6 +1225,14 @@ class RobotRosRunner(object):
         if os.environ.get("TWIN_ARMATURE"):
             _apply_training_armature(self._world.stage, robot_root,
                                      float(os.environ["TWIN_ARMATURE"]))
+        if os.environ.get("TWIN_JOINT_FRICTION"):
+            try:
+                _apply_joint_friction(self._world.stage, robot_root,
+                                      float(os.environ["TWIN_JOINT_FRICTION"]))
+            except Exception as exc:
+                print(f"[TWIN] joint friction NOT applied: {exc!r} -- continuing "
+                      f"WITHOUT it; any result from this run is a run at zero dry "
+                      f"friction and must not be reported as testing it", flush=True)
 
         cmd_min, cmd_max = _resolve_command_limits(deploy_cfg, env_cfg)
         args_min = np.array([-vx_max, -vy_max, -wz_max], dtype=np.float32)
@@ -1704,6 +1762,11 @@ class RobotRosRunner(object):
                     seed=int(os.environ.get("MM5_SEED", "20260820")),
                     cheat_attach=os.environ.get("MM5_CHEAT_ATTACH", "0") == "1",
                     fix_base=os.environ.get("MM5_FIX_BASE", "0") == "1",
+                    surface=os.environ.get("MM5_SURFACE", "table"),
+                    place_from_workspace=(
+                        os.environ.get("MM5_PLACE_FROM_WORKSPACE", "0") == "1"),
+                    target_r=float(os.environ.get("MM5_TARGET_R", "0.315")),
+                    pelvis_z=float(os.environ.get("MM5_PELVIS_Z", "0.80")),
                     out_dir=os.environ.get("MM5_OUT", "/workspace/ferox_isaac/mm5_out"),
                 )
                 self._mm5 = MM5Runner(self._robot.robot, self._world.stage, cfg)
