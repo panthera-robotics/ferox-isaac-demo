@@ -58,7 +58,29 @@ class MM5Config:
     # already at the edge of its workspace at this height -- and the first v2 run stalled
     # 114 mm short trying to descend 9.5 cm.
     grasp_offset: tuple = (0.0, 0.0, 0.072)
-    grasp_tol: float = 0.06
+    # v3 applies the same stand-offs ALONG the computed approach axis rather than
+    # always along world -z; on a table the two are the same thing.
+    pregrasp_standoff: float = 0.13
+    # 0.072 came from v2, where the approach was TOP-DOWN and the number meant
+    # "palm this far above the lid" -- 0.072 against a 0.101 m can is ~20 mm of
+    # clearance over the rim, inside the finger length. Along a SIDE approach the same
+    # number means "palm this far from the can's AXIS", and with a 33 mm radius that
+    # leaves 39 mm of air between palm and wall: the fingers close on nothing, which
+    # is exactly what the counter trials reported (NO_GRIP at 25 mm, object rose
+    # -0.018 m). Same stand-off measured against the surface the palm actually faces.
+    grasp_standoff: float = 0.045
+    # Orientation weight. v2 used 0.35 so a workspace-limited reach could not have its
+    # authority stolen by the rotation term -- and the consequence was that the palm
+    # never actually reached the commanded axis, measuring [-0.698,-0.700,0.153] at a
+    # pre-grasp that was supposed to be top-down. With the base now solved so the can
+    # sits 0.315 m from the shoulder, the reach is no longer at the workspace edge and
+    # orientation can be afforded real weight.
+    w_rot: float = 0.8
+    # The hand used to close at `grasp_tol` = 60 mm from the grasp pose, which is most
+    # of a can-radius away; every counter trial closed on air. If the arm cannot get
+    # closer than this the honest outcome is DESCEND_TIMEOUT, not a NO_GRIP that reads
+    # like a gripper problem.
+    grasp_tol: float = 0.025
     descend_timeout_s: float = 15.0
     reach_tol: float = 0.08
     ik_lambda: float = 0.08
@@ -105,6 +127,14 @@ class MM5Config:
     # 350 mm short.
     fix_base_arm_kp: float = 400.0
     fix_base_arm_kd: float = 20.0
+    # The lead cap is how far the IK target may run ahead of the arm. v1 raised it
+    # from 0.10 to 0.25 because at 0.10 "the target stops advancing as soon as the
+    # arm's own tracking error reaches the cap, and the reach stalled at a repeatable
+    # 350 mm short". v3 shows the SAME signature one stage later: DESCEND stalls at
+    # 51-57 mm in eight of thirteen timeouts even though the can is randomised over a
+    # +-6 cm box. A workspace boundary moves with the target; a fixed stall distance
+    # is a cap. Raised again for the fixed-base variant, where there is no balance to
+    # protect and the cap's original purpose does not apply.
     fix_base_ik_lead: float = 0.25
     fix_base_ik_step: float = 0.010
     skip_carry: bool = True
@@ -129,7 +159,11 @@ class MM5Config:
     # and that geometry was not tuned inside the time box -- it reached only 577-641 mm.
     # Left as the documented next step; the table staging is what the N=20 below used.
     surface: str = "table"
-    counter_xy: tuple = (-2.60, 2.05)
+    # The counter is 2.40 x 0.60 x 0.90 centred (-2.60, 2.40), so it spans y 2.10..2.70
+    # and its NEAR EDGE is y = 2.10. The first v3 run staged the can at y = 2.05 -- five
+    # centimetres in FRONT of the counter -- and it fell to the floor on trial 1
+    # (z = 0.032) before the arm ever moved. Staged 0.15 m inside the edge instead.
+    counter_xy: tuple = (-2.60, 2.25)
     counter_h: float = 0.90
 
     # ---------------------------------------------------------------- GRASP V3
@@ -147,7 +181,7 @@ class MM5Config:
     # runs stalled.  One measurement, one solve, no iteration.
     place_from_workspace: bool = False
     target_r: float = 0.315         # can this far from the RIGHT SHOULDER (0.30-0.33)
-    lateral_offset: float = 0.10    # can this far to the robot's right, as v1/v2 had it
+    lateral_offset: float = 0.0     # can this far right OF THE SHOULDER (0 = in front)
     min_forward: float = 0.20       # never solve the base inside the furniture
     max_forward: float = 0.60
     # The base is rig-held in this variant, so pelvis height is a free parameter rather
@@ -277,8 +311,13 @@ class MM5Runner:
         counter attempt lacked when it was iterating.
         """
         yaw = self.cfg.base_yaw
-        fwd = np.array([-np.sin(yaw), np.cos(yaw)])      # robot +x(forward) in world
-        right = np.array([np.cos(yaw), np.sin(yaw)])     # robot +y(right)  in world
+        # Robot forward is +x in its own frame, so world forward is R(yaw) @ [1,0].
+        # The first cut had these two swapped -- [-sin, cos] is the robot's LEFT, not
+        # its forward -- which put the solved base beside the counter instead of in
+        # front of it. Worth stating because the error is invisible in the output:
+        # both are unit vectors and the solve still "converges", just to the wrong pose.
+        fwd = np.array([np.cos(yaw), np.sin(yaw)])       # robot +x (forward) in world
+        right = np.array([np.sin(yaw), -np.cos(yaw)])    # robot -y (right)   in world
 
         name = self.cfg.right_shoulder_body or self.pipe.find_body([
             "right_shoulder_yaw_link", "right_shoulder_roll_link",
@@ -293,8 +332,14 @@ class MM5Runner:
         s_fwd, s_lat = float(d @ fwd), float(d @ right)
         s_up = float(sh_w[2] - base_w[2])
 
+        # Lateral offset is measured from the SHOULDER, not the pelvis, for the same
+        # reason the whole solve is: the cone is about the shoulder. v3's first run
+        # took it from the pelvis, and since the shoulder sits 0.178 m to the right of
+        # the pelvis a "0.10 m to the robot's right" can landed 0.078 m to the LEFT of
+        # the shoulder. The arm answered by winding shoulder_roll to 1.538 -- its
+        # clamped stop -- and the reach froze at exactly 105 mm and stayed there.
         vert = float(obj_xyz[2]) - (self.cfg.pelvis_z + s_up)
-        lat = self.cfg.lateral_offset - s_lat
+        lat = self.cfg.lateral_offset
         rem = self.cfg.target_r ** 2 - vert ** 2 - lat ** 2
         print(f"[mm5][v3] shoulder '{name}' in the robot frame: forward {s_fwd:+.4f} "
               f"right {s_lat:+.4f} up {s_up:+.4f} (pelvis at {self.cfg.pelvis_z:.2f})",
@@ -313,7 +358,7 @@ class MM5Runner:
         if clamped != forward:
             print(f"[mm5][v3] solved forward {forward:.4f} clamped to {clamped:.4f} "
                   f"[{self.cfg.min_forward}, {self.cfg.max_forward}]", flush=True)
-        off = -clamped * fwd - self.cfg.lateral_offset * right
+        off = -clamped * fwd - (s_lat + self.cfg.lateral_offset) * right
         print(f"[mm5][v3] SOLVED base_offset {np.round(off,4).tolist()} -- the can is "
               f"{self.cfg.target_r:.3f} m from the shoulder, {clamped:.3f} m forward of "
               f"the pelvis (v2 used 0.38 m and stalled at the workspace edge)",
@@ -390,6 +435,13 @@ class MM5Runner:
                 # Stand once at the tuned offset purely so the shoulder can be MEASURED
                 # in a settled pose; the solve then replaces that offset for every trial.
                 self._stand_robot(self.home_obj_xyz)
+                # Place the object once here too. On the first v3 run trial 1 read the
+                # can 7 m away for its whole 36 s -- still on the table it had been
+                # staged off -- because the rigid prim is resolved on first use and the
+                # very first set_world_pose did not take. Trials 2..N were fine. One
+                # warm-up placement, with the MEASURE settle giving physics time to
+                # apply it, costs nothing and makes trial 1 a real sample.
+                self._place_object(self.cfg.seed)
                 self._measure_until = self._t + 0.5
                 self.state = "MEASURE"
             else:

@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .ik import dls_step, pose_error, topdown_quat
+from .ik import dls_step, pose_error, topdown_quat, approach_quat
 
 # SDK 22..28 -- the right arm. Named, never sliced: Isaac interleaves the hands through
 # the body joints (RULE-HAND-NAME) and an index slice here would grab fingers.
@@ -128,6 +128,7 @@ class MM5Pipeline:
         self._log = []
         self._trace = []
         self._trace_next = 0.0
+        self._axis_cache = None
         # Legs + torso: every SDK joint that is not the right arm.
         self.body_idx = np.array(
             [names.index(n) for n in SDK_BODY_JOINTS if n in names], np.int32)
@@ -230,6 +231,59 @@ class MM5Pipeline:
                 return c
         return None
 
+    def _approach(self, obj):
+        """(axis, pregrasp, graspose) for this target, computed from the geometry.
+
+        The axis is the direction the PALM travels to close on the can, and it is
+        chosen by where the can sits relative to the SHOULDER rather than fixed:
+
+          * can well below the shoulder (a 0.75 m table) -> straight down, which is
+            what v2 measured and what that geometry wants;
+          * can near shoulder height (the 0.90 m counter) -> horizontal, in from the
+            robot, because a top-down grasp at shoulder height asks the elbow to climb
+            over the hand and the measured palm z at that pre-grasp came out nearly
+            horizontal AND pointing away from the can.
+
+        Blended across the band between so there is no discontinuity mid-reach. The
+        stand-off distances are the same numbers v2 used, just applied along this axis
+        instead of always along world -z.
+        """
+        # FROZEN PER TRIAL. The axis depends on the SHOULDER, and the shoulder link
+        # moves as the arm moves -- so recomputing it every step puts the target in a
+        # feedback loop with the thing chasing it. Observed directly: a reach sitting
+        # at 164 mm walked steadily out to 1426 mm over four seconds with the shoulder
+        # yaw winding to -2.0 rad. The geometry that picks the axis is the geometry at
+        # the START of the reach, when the arm is still in its settled posture.
+        if self._axis_cache is not None:
+            return self._axis_cache
+        obj = np.asarray(obj, float)
+        sh = self._shoulder_w()
+        if sh is None:
+            a = np.array([0.0, 0.0, -1.0])
+        else:
+            drop = float(sh[2] - obj[2])          # how far the can is BELOW the shoulder
+            horiz = obj[:2] - sh[:2]
+            n = float(np.linalg.norm(horiz))
+            h = np.array([horiz[0]/n, horiz[1]/n, 0.0]) if n > 1e-6 else np.array([1.0, 0, 0])
+            # 1.0 at drop >= 0.25 m (table), 0.0 at drop <= 0.10 m (counter).
+            w = float(np.clip((drop - 0.10) / 0.15, 0.0, 1.0))
+            a = w * np.array([0.0, 0.0, -1.0]) + (1.0 - w) * h
+            a = a / max(float(np.linalg.norm(a)), 1e-9)
+        pre = obj - a * float(self.cfg.pregrasp_standoff)
+        gr = obj - a * float(self.cfg.grasp_standoff)
+        self._axis_cache = (a, pre, gr)
+        return self._axis_cache
+
+    def _shoulder_w(self):
+        name = getattr(self, "_sh_name", None)
+        if name is None:
+            name = self.find_body(["right_shoulder_yaw_link", "right_shoulder_roll_link",
+                                   "right_shoulder_pitch_link", "right_shoulder_link"])
+            self._sh_name = name or ""
+        if not self._sh_name:
+            return None
+        return self.body_pose(self._sh_name)[0]
+
     def arm_jacobian(self):
         """(6, 7) task Jacobian for the right palm w.r.t. the right-arm joints."""
         J = np.asarray(self.view.get_jacobians())[0]      # (nbody, 6, 6+ndof)
@@ -244,6 +298,7 @@ class MM5Pipeline:
     # -------------------------------------------------------------------- stages
 
     def start_trial(self, index, seed, object_name, obj_start=None):
+        self._axis_cache = None
         self.trial = Trial(index=index, seed=seed, object_name=object_name,
                            cheat_attach=self.cfg.cheat_attach)
         p = obj_start if obj_start is not None else self.obj_pose(object_name)
@@ -333,8 +388,9 @@ class MM5Pipeline:
                 self.log(f"palm at {np.round(palm,3)}, object at {np.round(obj,3)}")
 
         elif self.stage_name == "REACH":
-            target = obj + np.array(self.cfg.pregrasp_offset)
-            err = pose_error(palm, palm_q, target, topdown_quat(palm_q))
+            axis, target, _ = self._approach(obj)
+            err = pose_error(palm, palm_q, target, approach_quat(palm_q, axis),
+                             w_rot=self.cfg.w_rot)
             d = float(np.linalg.norm(err[:3]))
             if d < self.cfg.reach_tol:
                 # Palm frame at the pre-grasp, printed once per trial: the columns of R
@@ -364,8 +420,12 @@ class MM5Pipeline:
             # Straight down onto the can with the palm held level. Separated from REACH
             # so a failure to get ABOVE the object and a failure to come DOWN onto it are
             # different rows.
-            target = obj + np.array(self.cfg.grasp_offset)
-            err = pose_error(palm, palm_q, target, topdown_quat(palm_q))
+            # No orientation term here. The approach axis was established during REACH
+            # and the palm is already on it; the last few centimetres are pure
+            # translation, and spending DLS authority re-asserting an orientation the
+            # palm already has is what left DESCEND timing out 102 mm short.
+            _, _, target = self._approach(obj)
+            err = pose_error(palm, palm_q, target, None)
             d = float(np.linalg.norm(err[:3]))
             if d < self.cfg.grasp_tol:
                 self._enter("GRASP")

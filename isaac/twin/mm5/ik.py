@@ -70,12 +70,32 @@ def topdown_quat(cur_quat_wxyz) -> np.ndarray:
     orientation means snapping that axis to straight down while leaving the roll about it
     wherever the null space put it -- a 5-DoF task, which is all a symmetric can needs.
     """
+    return approach_quat(cur_quat_wxyz, np.array([0.0, 0.0, -1.0]))
+
+
+def approach_quat(cur_quat_wxyz, axis) -> np.ndarray:
+    """Nearest orientation to `cur` whose palm-local +z points along `axis`.
+
+    The generalisation of `topdown_quat`, and the reason for it is the counter.  v2
+    measured the palm naturally facing DOWN and concluded the grasp this arm wants is
+    top-down -- true for a can on a 0.75 m table, 0.30 m BELOW the shoulder.  On the
+    0.90 m counter the can sits 0.05 m below the shoulder, essentially level, and a
+    top-down grasp there asks the elbow to climb above the hand.  Measured at the
+    counter pre-grasp, the palm's local z came out at [-0.698, -0.700, 0.153]: nearly
+    horizontal, and pointing AWAY from the can.
+
+    So the approach axis is not a fixed choice, it is a function of where the can is
+    relative to the shoulder, and v3 computes it per-target rather than assuming
+    either answer.  Roll about the axis is left free -- 5 DoF, all a symmetric can
+    needs.
+    """
     w, x, y, z = (float(v) for v in cur_quat_wxyz)
     R = np.array([
         [1-2*(y*y+z*z), 2*(x*y-z*w),   2*(x*z+y*w)],
         [2*(x*y+z*w),   1-2*(x*x+z*z), 2*(y*z-x*w)],
         [2*(x*z-y*w),   2*(y*z+x*w),   1-2*(x*x+y*y)]])
-    zt = np.array([0.0, 0.0, -1.0])
+    zt = np.asarray(axis, float)
+    zt = zt / max(float(np.linalg.norm(zt)), 1e-9)
     xc = R[:, 0] - zt * float(R[:, 0] @ zt)        # current x, flattened into the plane
     n = float(np.linalg.norm(xc))
     xc = xc / n if n > 1e-6 else np.array([1.0, 0.0, 0.0])
