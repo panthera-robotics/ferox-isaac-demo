@@ -768,6 +768,46 @@ class G1VelocityPolicy(PolicyController):
                         len(self._hand_dofs),
                         [all_names[i] for i in self._hand_dofs[:4]] + ["..."])
 
+        # DIAGNOSTIC ONLY -- C-39 payload bisect. NEVER a deliverable.
+        #
+        # TWIN_HAND_KG sets the TOTAL mass of each Dex5 hand by adjusting the palm body,
+        # which carries 0.685702 kg of the hand's 1.025045 kg (contract, Unitree URDF).
+        # The rest of the hand -- 0.339343 kg of fingers -- is left alone, so the floor
+        # of this knob is ~0.34 kg per hand.
+        #
+        # Why this exists: the C-39 fork showed SONIC falls even when handed a robot in
+        # its OWN nominal stance, which rules out the stance transition and leaves the
+        # payload. The W campaign proved SONIC's balance against hands 0.69 kg/hand
+        # LIGHTER than reality, so "SONIC balances the G1" was never established at this
+        # robot's true hand mass. This measures the margin. Running the twin with a
+        # lightened hand and calling it a pass would be reproducing that same defect,
+        # which is exactly why every run under this flag is labelled diagnostic.
+        _hand_kg = os.environ.get("TWIN_HAND_KG")
+        if _hand_kg and len(self._hand_dofs):
+            target = float(_hand_kg)
+            palm_kg = max(0.001, target - 0.339343)
+            try:
+                view = self.robot._articulation_view
+                bodies = list(view.body_names)
+                idx = [bodies.index(b) for b in ("base_link00L", "base_link00")
+                       if b in bodies]
+                m = view.get_body_masses()
+                before = [float(np.ravel(m)[i]) for i in idx]
+                new_m = np.array(m, dtype=np.float32).copy()
+                for i in idx:
+                    new_m[0][i] = palm_kg
+                view.set_body_masses(new_m)
+                after = [float(np.ravel(view.get_body_masses())[i]) for i in idx]
+                logger.warning("[G1] DIAGNOSTIC TWIN_HAND_KG=%.3f -> palm mass %.4f kg "
+                               "on %d bodies (was %s, now %s) -- NOT A DELIVERABLE",
+                               target, palm_kg, len(idx),
+                               [round(v, 4) for v in before], [round(v, 4) for v in after])
+                print(f"[G1] DIAGNOSTIC hand mass -> {target:.3f} kg/hand "
+                      f"(palm {palm_kg:.4f}, was {[round(v,4) for v in before]}) "
+                      f"-- NOT A DELIVERABLE", flush=True)
+            except Exception as exc:
+                print(f"[G1] TWIN_HAND_KG failed: {exc!r}", flush=True)
+
         # C-38: cap the Dex5 finger drive gains.
         #
         # The URDF import leaves them at kp 35809.9 with kd 0.000 -- read back and

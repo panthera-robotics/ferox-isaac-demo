@@ -279,7 +279,15 @@ class LowLevelSimBridge:
         # initialize() has just placed the articulation at deploy.yaml's default pose.
         self.q_hold = np.asarray(
             self.art.get_joint_positions(), dtype=np.float32)[self.sdk_to_sim_idx].copy()
-        if os.environ.get("G1_LL_HOLD_POSE", "spawn") == "zero":
+        _hp = os.environ.get("G1_LL_HOLD_POSE", "spawn")
+        if _hp == "sonic":
+            # Hold SONIC'S OWN nominal stance while it boots, so that when the rig lets
+            # go it inherits a robot already in the pose it trains from. This is the
+            # C-39 fork: if the twin stands from here, C-39 is the TRANSITION (the omni
+            # policy's stance is simply not SONIC's); if it still falls, the stance was
+            # never the problem and the hand mass is.
+            self.q_hold = SONIC_DEFAULT_Q.copy()
+        elif _hp == "zero":
             # The sdk2py example's stage 1 drives to ZERO posture, and that is not
             # naivety: straight legs put the ground reaction almost through the knee
             # and ankle axes, so a joint-space PD needs very little torque to hold it.
