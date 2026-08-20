@@ -1,0 +1,4 @@
+[mm3-stand] waiting for rt/lowstate...
+[mm3-stand] rt/lowstate up, mode_machine=5
+[mm3-stand] STAND seconds=63.00006046000635 lowcmd_sent=31499 lowcmd_hz=499.9836471585003 lowstate_recv=65678 lowstate_hz=1041.0767132719182 hold_samples=62501 roll_abs_max=8.235083448493441e-11 pitch_abs_max=8.22852827542242e-11 roll_rms=8.235083448493441e-11 pitch_rms=8.22852827542242e-11 track_err_mean_rad=0.042022015899419785 track_err_max_rad=0.39144179224967957 track_err_max_joint=21
+[mm3-stand] SILENCE silence_s=3.005676778004272 lowstate_recv=3128 lowstate_hz=1041.6613426720337 roll_abs_max=8.235083448493441e-11 pitch_abs_max=8.22852827542242e-11 pose_drift_from_target_mean_rad=0.1658570021390915 pose_drift_from_target_max_rad=1.120113730430603 joint_speed_final_max=0.029998667538166046

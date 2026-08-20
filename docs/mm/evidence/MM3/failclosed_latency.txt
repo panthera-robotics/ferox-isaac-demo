@@ -1,0 +1,6 @@
+[lowlevel-sim] FAIL-CLOSED engaged at t=9.215s, last command age 85.32 ms (deadline <= 100 ms) PASS
+[lowlevel-sim] FAIL-CLOSED engaged at t=13.740s, last command age 98.60 ms (deadline <= 100 ms) PASS
+[lowlevel-sim] FAIL-CLOSED engaged at t=18.260s, last command age 96.36 ms (deadline <= 100 ms) PASS
+[lowlevel-sim] FAIL-CLOSED engaged at t=22.640s, last command age 89.48 ms (deadline <= 100 ms) PASS
+[lowlevel-sim] FAIL-CLOSED engaged at t=27.155s, last command age 86.31 ms (deadline <= 100 ms) PASS
+[lowlevel-sim] FAIL-CLOSED engaged at t=31.700s, last command age 94.04 ms (deadline <= 100 ms) PASS

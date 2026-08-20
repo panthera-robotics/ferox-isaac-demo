@@ -1,0 +1,7 @@
+[mm3-dex3] waiting for rt/dex3/*/state ...
+[mm3-dex3] SHAPE motor_state=20 press_sensor_state=12 pressure_per_zone=12
+[mm3-dex3] RATE left=208.35 Hz right=208.34 Hz (gate >=200 Hz)
+[mm3-dex3] DRIVE left: active_moved_mean=0.0536 rad active_moved_max=0.2748 passive_moved_max=0.0378
+[mm3-dex3]   passive left: 4:Roll_21L=0.0188  8:Roll_31L=0.0031  12:Link_41L=0.0378  16:Roll_51L=0.0089
+[mm3-dex3] DRIVE right: active_moved_mean=0.1327 rad active_moved_max=0.8599 passive_moved_max=0.2054
+[mm3-dex3]   passive right: 4:Roll_21R=0.0222  8:Roll_31R=0.0131  12:Roll_41R=0.2054  16:Roll_51R=0.0060

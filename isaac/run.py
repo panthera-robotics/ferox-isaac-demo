@@ -36,6 +36,7 @@ else:
 import argparse
 import logging
 import os
+import sys
 import time
 from typing import Optional, Tuple
 
@@ -1118,6 +1119,18 @@ class RobotRosRunner(object):
         self._enable_sensors = enable_sensors
         self._enable_keyboard = enable_keyboard
         self._twin = twin
+        # G1_CONTROL selects who drives the articulation (MM3, CAMPAIGN 4.2):
+        #   "policy" (default) -- the omni locomotion policy, unchanged behaviour
+        #   "lowcmd"           -- rt/lowcmd via the low-level DDS bridge, and the
+        #                         policy never runs. The two must NEVER co-drive;
+        #                         on_physics_step asserts that by branching, not by
+        #                         summing.
+        self._g1_control = os.environ.get("G1_CONTROL", "policy").strip().lower()
+        self._lowlevel = None
+        if self._g1_control not in ("policy", "lowcmd"):
+            raise ValueError(f"G1_CONTROL must be 'policy' or 'lowcmd', got {self._g1_control!r}")
+        if self._g1_control == "lowcmd" and robot_type != ROBOT_G1:
+            raise ValueError("G1_CONTROL=lowcmd is only meaningful for --robot_type g1")
         self._twin_report = {}
 
         self._vx_max = vx_max
@@ -1599,6 +1612,30 @@ class RobotRosRunner(object):
         if self.first_step:
             self._robot.initialize()
             self.first_step = False
+            if self._g1_control == "lowcmd" and self._lowlevel is None:
+                # Built HERE, not in setup(): the articulation has no DOF names until
+                # initialize() has run, and the bridge maps every joint by name.
+                # It also has to land after initialize(), which sets position-control
+                # gains the bridge then zeroes in favour of its own torques.
+                from twin.lowlevel_bridge.sim_side import LowLevelSimBridge
+
+                self._lowlevel = LowLevelSimBridge(
+                    self._robot.robot,
+                    physics_dt=self._physics_dt,
+                    pd_hz=float(os.environ.get("G1_PD_HZ", "500")),
+                    cmd_timeout_ms=float(os.environ.get("G1_CMD_TIMEOUT_MS", "85")),
+                )
+                print("[PANTHERA-MARK] low-level bridge attached (G1_CONTROL=lowcmd)",
+                      flush=True)
+            return
+
+        if self._g1_control == "lowcmd":
+            # rt/lowcmd owns the articulation. The locomotion policy is not stepped
+            # at all -- not zeroed, not blended, not run-and-discarded -- so there is
+            # no path by which both can write joint targets in the same step.
+            if self._lowlevel is not None:
+                self._lowlevel.on_physics_step(step_size)
+            self._update_odom()
             return
         if self._reset_latch is not None and self._reset_latch.take():
             self.needs_reset = True
@@ -1749,6 +1786,40 @@ def main():
         )
     if args.robot_root is None:
         args.robot_root = "/World/G1" if args.robot_type == ROBOT_G1 else "/World/Go2"
+
+    # Under G1_CONTROL=lowcmd the physics rate is part of the wire contract, not a
+    # performance knob. rt/lowstate.tick is a MILLISECOND counter (measured 1000.064/s
+    # on the robot -- docs/mm/evidence/MM3/PREREQS.md), so physics must step in whole
+    # milliseconds or the published tick advances in twos and stops looking like the
+    # robot's +1. But tick fidelity turned out to be the SMALLER reason.
+    #
+    # The twin's publishers decimate an INTEGER number of steps off the physics and
+    # render clocks, so physics_dt decides which contract rates are even reachable --
+    # the same arithmetic that produced C-15 and C-16 on the Go2. Measured in sim time
+    # under G1_CONTROL=lowcmd (docs/mm/evidence/MM3/ros_topics_under_lowcmd.txt):
+    #
+    #   500 Hz physics : /livox/imu 500/3 = 166.67 against 200 (-16.7%, FAIL)
+    #                    imu/data   500/6 =  83.33 against 93.7 (-11.1%, FAIL)
+    #                    /tf        500/10 = 50.00 against 100  (-50.0%, FAIL)
+    #  1000 Hz physics : 1000/5 = 200 exactly, 1000/11 = 90.9 (-3.0%), 1000/10 = 100
+    #                    exactly -- every rate lands, because 1000 is a multiple of
+    #                    both 200 and 100 and 500 is not.
+    #
+    # So 1000 Hz is the arithmetically correct choice and 500 Hz silently breaks three
+    # interfaces that already passed. PD still runs at the 500 Hz CAMPAIGN 4.2 asks
+    # for, applied every 2nd physics step -- pd_apply_hz and the physics rate are
+    # separate numbers, exactly like the two lowstate rates.
+    #
+    # The cost is real-time factor (~0.30 at 1000 Hz, 0.73 at 500). That moves WALL
+    # rates only; the twin's sensors are stamped and gated in SIM time, which is why
+    # `ros2 topic hz` reads every topic low by the same factor and is the wrong
+    # instrument here. It does mean rt/lowstate, which IS wall-paced, repeats state
+    # between physics steps -- measured and declared as C-29, not hidden.
+    if os.environ.get("G1_CONTROL", "policy").strip().lower() == "lowcmd" \
+            and "--physics_dt" not in sys.argv:
+        args.physics_dt = 1.0 / float(os.environ.get("G1_PHYSICS_HZ", "1000"))
+        logger.info("G1_CONTROL=lowcmd -> physics_dt %.6f s (%.0f Hz)",
+                    args.physics_dt, 1.0 / args.physics_dt)
 
     logger.info("Running %s robot simulation", args.robot_type.upper())
 

@@ -151,6 +151,11 @@ SIM_CMD_VEL_TOPIC="/ferox/${ROBOT_ID}/cmd_vel"
 #
 # physics_dt is untouched either way, so the walking policy (200 Hz physics,
 # decimation 4, 50 Hz policy) is unaffected. Legacy mode:=sim keeps its old default.
+#
+# G1_CONTROL=lowcmd is the one case that DOES move physics_dt: run.py drops it to
+# 1/1000 so rt/lowstate.tick advances one millisecond per step (MM3). The render
+# steps above survive that unchanged -- 0.02 / 0.001 = 20 and 0.025 / 0.001 = 25,
+# both integers -- so the lidar decimation arithmetic still lands on the contract.
 TWIN_RENDER_ARG=""
 if [ "${TWIN:-0}" = "1" ]; then
   case "$ROBOT" in
@@ -172,6 +177,15 @@ docker exec -d \
   -e TWIN_CONTACT_MATERIAL="${TWIN_CONTACT_MATERIAL:-0}" \
   -e TWIN_ARMATURE="${TWIN_ARMATURE:-}" \
   -e HAND="${HAND:-none}" \
+  -e G1_CONTROL="${G1_CONTROL:-policy}" \
+  -e G1_PD_HZ="${G1_PD_HZ:-500}" \
+  -e G1_CMD_TIMEOUT_MS="${G1_CMD_TIMEOUT_MS:-85}" \
+  -e G1_LL_REPORT_STEPS="${G1_LL_REPORT_STEPS:-5000}" \
+  -e G1_LL_TRACE="${G1_LL_TRACE:-0}" \
+  -e G1_LL_HOLD_POSE="${G1_LL_HOLD_POSE:-spawn}" \
+  -e G1_LL_PD="${G1_LL_PD:-explicit}" \
+  -e G1_PHYSICS_HZ="${G1_PHYSICS_HZ:-1000}" \
+  -e G1_LL_FIX_BASE="${G1_LL_FIX_BASE:-0}" \
   "$SIM_CONTAINER" bash -c "
   cd /workspace/ferox_isaac && \
   /isaac-sim/python.sh run.py \

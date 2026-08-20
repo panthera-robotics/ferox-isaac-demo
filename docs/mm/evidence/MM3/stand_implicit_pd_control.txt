@@ -1,0 +1,8 @@
+[lowlevel-sim] spawn base_z=0.7975 hold_pose=spawn q_hold[:6]=[-0.10000000149011612, 0.0, 0.0, 0.30000001192092896, -0.20000000298023224, 0.0]
+[lowlevel-sim] DIAGNOSTIC: implicit PD, bridge torques disabled
+[lowlevel-sim] t=   2.00 mode=hold       pd=999 hold=999 failclosed=0 base_z=+0.130 pitch=+0.913 roll=+2.466 |tau|max=  0.00 sat=0/29 knee_L=+0.324 hip_p_L=+0.029
+[lowlevel-sim] t=   4.00 mode=hold       pd=1999 hold=1999 failclosed=0 base_z=+0.095 pitch=+1.471 roll=-3.084 |tau|max=  0.00 sat=0/29 knee_L=+0.271 hip_p_L=-0.115
+[lowlevel-sim] t=   6.00 mode=hold       pd=2999 hold=2999 failclosed=0 base_z=+0.095 pitch=+1.471 roll=-3.078 |tau|max=  0.00 sat=0/29 knee_L=+0.271 hip_p_L=-0.114
+[lowlevel-sim] t=   8.00 mode=hold       pd=3999 hold=3999 failclosed=0 base_z=+0.095 pitch=+1.471 roll=-3.076 |tau|max=  0.00 sat=0/29 knee_L=+0.271 hip_p_L=-0.114
+[lowlevel-sim] t=  10.00 mode=hold       pd=4999 hold=4999 failclosed=0 base_z=+0.095 pitch=+1.471 roll=-3.076 |tau|max=  0.00 sat=0/29 knee_L=+0.271 hip_p_L=-0.115
+[lowlevel-sim] t=  12.00 mode=hold       pd=5999 hold=5999 failclosed=0 base_z=+0.095 pitch=+1.471 roll=-3.075 |tau|max=  0.00 sat=0/29 knee_L=+0.271 hip_p_L=-0.114

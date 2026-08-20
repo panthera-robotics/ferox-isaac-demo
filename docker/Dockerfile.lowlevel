@@ -47,8 +47,19 @@ RUN pip3 install --no-cache-dir "cyclonedds==0.10.2" numpy
 # opencv-python is in the sdk's install_requires but is only used by its video
 # client, which nothing here touches; skipping it keeps the image ~1 GB smaller.
 COPY unitree_sdk2_python /opt/unitree_sdk2_python
+# The sdk's setup.py declares no package_data, so pip installs the .py files and
+# silently drops unitree_sdk2py/utils/lib/crc_*.so.  Everything imports fine and the
+# failure only surfaces at CRC() construction -- i.e. at the first real message, not
+# at build time.  The .so files are copied in explicitly, and the verification below
+# constructs a CRC so a regression fails the BUILD rather than a gate run.
 RUN pip3 install --no-cache-dir --no-deps /opt/unitree_sdk2_python \
- && python3 -c "from unitree_sdk2py.idl.unitree_hg.msg.dds_ import LowState_, LowCmd_, HandCmd_, HandState_; print('sdk2py IDL ok')"
+ && SITE="$(python3 -c 'import unitree_sdk2py, os; print(os.path.dirname(unitree_sdk2py.__file__))')" \
+ && cp -a /opt/unitree_sdk2_python/unitree_sdk2py/utils/lib "$SITE/utils/lib" \
+ && python3 -c "\
+from unitree_sdk2py.idl.unitree_hg.msg.dds_ import LowState_, LowCmd_, HandCmd_, HandState_; \
+from unitree_sdk2py.utils.crc import CRC; \
+from unitree_sdk2py.idl.default import unitree_hg_msg_dds__LowState_ as mk; \
+print('sdk2py IDL ok, CRC ok:', CRC().Crc(mk()))"
 
 # --------------------------------------------------- ROS unitree_hg / _go msgs
 # This is the half that makes the DT bag readable.  unitree_api is built too
