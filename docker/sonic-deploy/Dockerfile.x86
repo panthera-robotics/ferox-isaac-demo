@@ -45,7 +45,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # X86 DELTA 2 — just: x86_64 musl tarball, was aarch64-unknown-linux-musl.
 RUN set -eux; \
-    curl -fsSL -o /tmp/just.tgz \
+    curl -fsSL --retry 6 --retry-delay 4 --retry-all-errors -o /tmp/just.tgz \
       "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-x86_64-unknown-linux-musl.tar.gz"; \
     mkdir -p /tmp/just && tar xzf /tmp/just.tgz -C /tmp/just; \
     install -m 0755 /tmp/just/just /usr/local/bin/just; \
@@ -56,7 +56,7 @@ RUN set -eux; \
 # install_deps.sh:388-390 selects the aarch64 tarball only for ARM hosts and this
 # one otherwise, so this follows upstream rather than diverging from it.
 RUN set -eux; \
-    curl -fsSL -o /tmp/ort.tgz \
+    curl -fsSL --retry 6 --retry-delay 4 --retry-all-errors -o /tmp/ort.tgz \
       "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-x64-${ORT_VERSION}.tgz"; \
     mkdir -p /tmp/ort && tar xzf /tmp/ort.tgz -C /tmp/ort --strip-components=1; \
     mkdir -p /opt/onnxruntime; \
@@ -98,7 +98,8 @@ RUN set -eux; \
              NvInferPluginBase.h NvInferPluginUtils.h NvInferRuntime.h \
              NvInferRuntimeBase.h NvInferRuntimeCommon.h NvInferRuntimePlugin.h \
              NvInferVersion.h NvOnnxConfig.h NvOnnxParser.h; do \
-        curl -fsSL -o "$h" "${BASE}/${h}"; \
+        curl -fsSL --retry 6 --retry-delay 4 --retry-all-errors \
+             -o "$h" "${BASE}/${h}"; \
     done; \
     grep -q NV_TENSORRT_MAJOR NvInferVersion.h
 
