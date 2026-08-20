@@ -2,8 +2,10 @@
 
 Host: RTX 4080 SUPER 16 GB (sm_89) / driver 580.105.08 / CUDA 13.0
 Date: 2026-08-20
-Verdict: **PARTIAL** — image, interop and the ZMQ command path are done and proven.
-SONIC drives the twin. What is not done is SONIC *balancing* it free-standing.
+Verdict: **PARTIAL — parked.** Image, interop and the ZMQ command path are done and
+proven; SONIC drives the twin. SONIC will not *balance* it free-standing, and after a
+3 h time-boxed convention diff that is **not** a representational bug — the handover
+artifact is `evidence/MM4/CONVENTION_TABLE.md` and **C-39 stays open**.
 
 The two things MM4 is really for both landed: an x86_64 SONIC deploy stack that runs,
 and SONIC closing the loop on the twin over DDS. What is not done is driving it
@@ -25,7 +27,8 @@ completes, so it holds a static stance instead of walking.
 | scripted sequence commands delivered end to end (14 segments) | **PASS** | `evidence/MM4/sonic_handshake_closed.txt` |
 | policy → `lowcmd` hand-off, one-way, never co-driving | **PASS** | `G1_CONTROL=handoff`, `evidence/MM4/handoff.txt` |
 | policy latency measured | **PASS** — policy 2.62–3.00 ms, planner model 2.93 ms, total 2.99 ms; LowState age 3.5–5.2 ms, IMU age 3.5–4.5 ms | `evidence/MM4/sonic_loop_timing.txt` |
-| SONIC balances the twin free-standing (stand → walk → turn → POSE) | **FAIL** | below |
+| SONIC balances the twin free-standing (stand → walk → turn → POSE) | **FAIL — parked, C-39** | below |
+| (a) reference convention diff vs the MuJoCo bridge that fed W3's 17.53 m walk | **PASS** — conventions match; mismatches are log-only | `evidence/MM4/CONVENTION_TABLE.md` |
 | SONIC and omni never co-drive (asserted) | **PASS** | `G1_CONTROL` branches in `on_physics_step`; the policy is not stepped at all under `lowcmd` |
 | metrics + clip per step | **DEFERRED** (C-23) | no media on this box; see MM3 |
 
@@ -256,6 +259,35 @@ Policy inference is ~3.0 ms against a 20 ms control period, so SONIC has ample h
 even on a 4080 shared with the sim. Bridge side: `rt/lowstate` 1041.68 Hz,
 `rt/secondary_imu` 1041.68 Hz, `rt/dex3/*/state` 208.33 Hz, `rt/lowcmd` accepted at up
 to 499 Hz with `crc_bad=0` throughout.
+
+## (a) The convention diff — done, and it exonerates the wire
+
+Full table in `evidence/MM4/CONVENTION_TABLE.md`. Read from the reference source
+(`gear_sonic/utils/mujoco_sim/`), cross-checked against the DT bag. Headline:
+
+* **Projected gravity comes from the quaternion alone**
+  (`g1_deploy_onnx_ref.cpp:1622` — `quat_rotate(conj(base_quat), {0,0,−1})`), not from
+  any accelerometer. w-first on both sides and in the bag. **Match.**
+* **Base angular velocity** is body-frame on both sides. **Match.**
+* **Joint order is SDK order** — independently confirmed, because the reference config
+  `g1_29dof_sonic_model12.yaml` lists `DEFAULT_DOF_ANGLES` in exactly that order.
+* The three mismatches — `imu.accelerometer` (I publish specific force like the robot;
+  MuJoCo publishes world linear acceleration), `imu.rpy`, and `motor_state.ddq` — appear
+  **exactly once** in the deploy, in a call to `LogFullState`. They never reach the policy.
+* `rt/secondary_imu` is a **liveness requirement, not an observation**. That is why
+  publishing it at all was the unlock, and why its accelerometer costs nothing.
+
+The two most-suspected culprits were both checked first and both cleared: the secondary
+IMU is composed from the right link (torso) in the right frame (world quaternion, local
+gyro), and the quaternion order is w-first everywhere.
+
+**So C-39 is dynamic, not representational.** The reference pins SONIC's nominal stance
+at hip −0.1 / knee **0.30** / ankle −0.2 with **all arms 0.0**; the twin hands over at
+knee ≈0.11 with elbows at 0.97 and a 1 kg hand on each. SONIC answers by crouching —
+observed commanding knee 0.669, more than double its own default — and goes over.
+Blending the hand-over target to SONIC's own `DEFAULT_DOF_ANGLES` over 4 s does not fix
+it, and neither does capping the Dex5 finger gains (C-38), which was tried last because
+it changes the hand dynamics materially. Parked here per the time-box.
 
 ## What changed
 
