@@ -187,6 +187,7 @@ docker exec -d \
   -e G1_PHYSICS_HZ="${G1_PHYSICS_HZ:-1000}" \
   -e G1_LL_FIX_BASE="${G1_LL_FIX_BASE:-0}" \
   -e G1_LL_RIG_RELEASE_S="${G1_LL_RIG_RELEASE_S:-3}" \
+  -e G1_LL_RIG_LIFT_M="${G1_LL_RIG_LIFT_M:-0}" \
   "$SIM_CONTAINER" bash -c "
   cd /workspace/ferox_isaac && \
   /isaac-sim/python.sh run.py \

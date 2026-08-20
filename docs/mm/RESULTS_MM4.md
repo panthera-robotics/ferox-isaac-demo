@@ -129,19 +129,20 @@ this publisher does not set.
 | id | one line |
 |---|---|
 | C-30 (extended) | the test rig gains an `until_commanded` mode: hold the base until a controller has had authority for N s, then release — mirrors bringing a real G1 up on a hoist and lowering it once the controller is live |
-| C-32 | TensorRT pinned 10.15.1.29, not the campaign's 10.13 (see OQ 1) |
+| ~~C-32~~ | withdrawn — 10.15.1.29 IS the campaign pin (Mohammed), W3 provenance |
 | C-33 | Kevin's `kevin/g1-fail-closed-safety` branch is fetched but NOT merged into this image; the fail-closed proven here is the twin's own (MM3), not Kevin's |
 
 ## Open questions for Mohammed
 
-1. **TensorRT 10.13 or 10.15.1.29?** MM4 says 10.13. W3's own recipe pins 10.15.1.29
-   and its comments record 10.13 as the version that came out internally inconsistent
-   (headers 10.13.0.35 against libs 10.13.3.9). **Default taken: 10.15.1.29**, the
-   pin that is known to build, with the skew guard kept.
-2. **The planner handshake.** Is there a reference ZMQ publisher for `zmq_manager`
-   anywhere in the W3/W5 work, or on the Spark? Writing one from the headers got two
-   thirds of the way; a known-good sender would close it in minutes rather than by
-   further reverse-engineering.
+1. ~~TensorRT 10.13 or 10.15.1.29?~~ **DECIDED (Mohammed): 10.15.1.29 is the campaign
+   pin.** Provenance is W3's recipe, which records 10.13 as the version that came out
+   internally inconsistent (headers 10.13.0.35 against libs 10.13.3.9). The skew guard
+   stays. C-32 is closed as a decision rather than a deviation.
+2. ~~The planner handshake.~~ **ANSWERED: it was in the repo.**
+   `panthera-g1-wbc tools/scripted_walk.py` drives exactly this, and it imports
+   NVIDIA's own builders from `gear_sonic.utils.teleop.zmq.zmq_planner_sender` rather
+   than reimplementing them. This gate now does the same. See "What the reference
+   publisher fixed".
 3. **Should SONIC own the bring-up rig?** SONIC needs ~15 s to build/load engines, and
    MM3 established the twin cannot stand unaided for those 15 s — so without the rig
    SONIC always inherits a robot already face-down. `until_commanded` handles it, but

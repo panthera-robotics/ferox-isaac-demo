@@ -41,7 +41,9 @@ RUN git clone --depth 1 --branch ${CYCLONEDDS_TAG} \
 ENV CYCLONEDDS_HOME=/opt/cyclonedds
 ENV LD_LIBRARY_PATH=/opt/cyclonedds/lib:${LD_LIBRARY_PATH}
 
-RUN pip3 install --no-cache-dir "cyclonedds==0.10.2" numpy
+# pyzmq is here for MM4: the SONIC deploy is commanded over ZMQ, and the driver
+# runs in this image so it can sit alongside the DDS bridge on one host.
+RUN pip3 install --no-cache-dir "cyclonedds==0.10.2" numpy pyzmq
 
 # ------------------------------------------------------------ unitree_sdk2py
 # opencv-python is in the sdk's install_requires but is only used by its video

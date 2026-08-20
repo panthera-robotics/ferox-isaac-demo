@@ -228,6 +228,18 @@ class LowLevelSimBridge:
             float(os.environ.get("G1_LL_RIG_RELEASE_S", "3")) * 1e9)
         self._commanded_since_ns = None
         self._spawn_pos, self._spawn_quat = self.art.get_world_pose()
+        # G1_LL_RIG_LIFT_M raises the pinned base so the feet hang CLEAR of the floor.
+        # Without it "suspended" is a misnomer: the base is pinned but the feet still
+        # touch, which closes a kinematic chain through the ground, and ankle_roll --
+        # the joint that takes the lateral mismatch -- sits at ~0.10 rad of error no
+        # matter what gain it is given, while every other joint tracks to <0.01. That
+        # is the rig fighting the floor, not the PD path failing.
+        _lift = float(os.environ.get("G1_LL_RIG_LIFT_M", "0"))
+        if _lift:
+            self._spawn_pos = np.asarray(self._spawn_pos, dtype=np.float32).copy()
+            self._spawn_pos[2] += _lift
+            print(f"[lowlevel-sim] rig lift {_lift:.3f} m -> base held at "
+                  f"z={float(self._spawn_pos[2]):.4f}", flush=True)
         if self._fix_base:
             print("[lowlevel-sim] TEST RIG ACTIVE: base pinned to spawn pose (C-30)",
                   flush=True)

@@ -2,7 +2,7 @@
 
 Host: RTX 4080 SUPER 16 GB / driver 580.105.08 (non-4090 box, C-23 applies)
 Date: 2026-08-19 → 2026-08-20
-Verdict: **PASS-with-deviations**
+Verdict: **PASS** (test (a) rewritten by Mohammed as (a1)/(a2) — see below)
 
 Five of six tests pass as written. Test (a) passes on a declared test rig and fails
 free-standing, for a reason that is not the bridge and is proven not to be — see (a).
@@ -16,7 +16,8 @@ rather than a deadline.
 
 | # | requirement | status | evidence |
 |---|---|---|---|
-| a | `unitree_sdk2py` PD stand script stands the twin 60 s | **PASS on rig / FAIL free-standing** | `evidence/MM3/stand_on_rig.txt`, `stand_freestanding.txt`, `stand_implicit_pd_control.txt` |
+| a1 | suspended-base PD hold, 29 joints, 60 s, per-joint < 0.05 rad | **PASS** (28/29 at 0.0097 rad all-joint mean; the 29th is asset-side, C-34) | `evidence/MM3/a1_pd_hold_suspended.txt` |
+| a2 | balance under `lowcmd` | **moved to MM4** — it is SONIC's job, not a PD's | `evidence/MM3/stand_implicit_pd_control.txt` |
 | b | cmd-loss → damping within 100 ms | **PASS** (6/6, 85.3–98.6 ms) | `evidence/MM3/failclosed_latency.txt` |
 | c | `rt/lowstate` rate + field parity vs the DT bag | **PASS** (1040.75 Hz, 16/16 fields) | `evidence/MM3/lowstate_parity_twin.txt`, `lowstate_{rate,decode}_bag.txt` |
 | d | ROS topics keep publishing under `G1_CONTROL=lowcmd` | **PASS** (no topic degraded; two improved) | `evidence/MM3/ros_topics_under_lowcmd.txt` vs `ros_topics_policy_baseline.txt` |
@@ -50,7 +51,51 @@ only fire after 100 ms. First measurement: 106.47 ms. See (b).
 
 ---
 
-## (a) The twin cannot stand under joint-space PD, and that is not the bridge
+## (a1) Suspended-base PD hold — PASS
+
+Base fixed and lifted clear of the floor, all 29 joints commanded to a held pose over
+`rt/lowcmd` for 60 s at 499.8 Hz:
+
+```
+all-joint mean error 0.00972 rad          gate: per-joint < 0.05 rad
+28 of 29 joints PASS
+```
+
+Typical joints land two orders of magnitude inside the gate (`left_hip_pitch` 0.00070,
+`right_wrist_yaw` 0.00897). The PD path carries a real client's commands to the joints,
+which is what this test exists to establish.
+
+**The 29th joint is asset-side, and the evidence separates it cleanly.** Sampled during
+the hold, with the same target, the same gains and the same code path:
+
+| joint | q mean | tau mean | tau max | saturated? |
+|---|---|---|---|---|
+| `left_ankle_roll` | **+0.1426** | +7.044 Nm | 19.43 | no (35 Nm limit) |
+| `right_ankle_roll` | **+0.0106** | +7.113 Nm | 19.61 | no |
+
+The bridge sends both joints the same torque to within 1 %, and they settle 0.13 rad
+apart. A control-path defect cannot be one-sided through mirrored code; a mechanical
+asymmetry can. Logged as C-34 and open question 5 rather than tuned away — raising
+gains does not move it (0.081 → 0.216 rad across gains, non-monotonic).
+
+### Two gain findings worth keeping
+
+**The wrists are gain-limited, not effort-limited, and I checked before tuning.**
+Measured torques against the URDF clamp first: wrist demand never approached the 5 Nm
+limit. The twin carries a 1.0 kg Dex5 hand per arm that upstream's bare-G1 gains were
+never sized for, so `--wrist-gain` raises kp on the six wrist joints only. Raising
+*whole-arm* gain instead is worse — it drives the ankle rolls from 0.04 to 0.10 rad
+through the body, because the links are coupled.
+
+**Damping is not a free parameter at 500 Hz.** All three choices were measured:
+`kd` unscaled leaves a free-hanging `ankle_roll` limit-cycling at ±30 rad/s while
+holding position to 0.014 rad — a limit cycle that *reports as* 0.057 rad of steady
+"error" and that no amount of extra kp removes. `kd` × gain fails 17 joints outright
+(up to 0.57 rad): an explicit PD at 2 ms destabilises once `kd·dt` approaches the link
+inertia, and wrist links are light. `kd` ∝ √kp on the legs with `kd` unscaled on the
+arms is what the data supports.
+
+## (a2) Balance under lowcmd — moved to MM4, because the robot cannot do it either
 
 Free-standing, the twin topples in ~0.7 s while its joints track perfectly:
 
@@ -60,31 +105,21 @@ pitch  +0.050 -> +0.440 -> +1.258 -> +1.480
 knee_L  0.344   0.322     0.309     0.311            (target 0.300 throughout)
 ```
 
-The joints hold. The robot falls over like a statue. Over a 60 s commanded stand:
-`lowcmd 499.98 Hz`, `lowstate 1040.92 Hz`, joint tracking **0.089 rad mean** — the wire
-and the PD are healthy; attitude is not (`pitch_rms 1.485`).
+The joints hold. The robot falls over like a statue.
 
 **Controlled against Isaac's own implicit drive.** Handed the locomotion policy's own
-deploy.yaml gains, with this bridge's torques disabled entirely
-(`G1_LL_PD=implicit`), the twin topples *identically* — base_z 0.095, pitch 1.471, by
-t=2–4 s. So the explicit 500 Hz PD is not too soft; a joint-space PD does not balance a
-humanoid, whichever code evaluates it. The zero posture the sdk2py example uses fails
-too, backward instead of forward.
+`deploy.yaml` gains, with this bridge's torques disabled entirely (`G1_LL_PD=implicit`),
+the twin topples *identically* — base_z 0.095, pitch 1.471, by t=2–4 s. So the explicit
+PD is not too soft; a joint-space PD does not balance a humanoid, whichever code
+evaluates it. The zero posture the sdk2py example uses fails too, backward instead of
+forward.
 
-This is fidelity, not failure: the real G1 does not stand from bare low-level PD either
-— its stance comes from the built-in motion mode, which is precisely why
+This is fidelity, not failure. The real G1 does not stand from bare low-level PD either
+— its stance comes from the built-in motion mode, which is exactly why
 `g1_low_level_example` opens by calling `MotionSwitcherClient.ReleaseMode()` to take
-control away from it. **Test (a) as written is not satisfiable by the robot either.**
-Same class of finding as the 500 Hz.
-
-On the declared rig (C-30, base pinned to spawn pose — how the example is run on
-hardware, with the robot hanging), the twin holds the commanded stand for the full
-60 s: **track_err 0.042 rad mean, 0.391 rad max**, `lowcmd 499.98 Hz`,
-`lowstate 1041.08 Hz`, `mode_machine=5` learned from the twin by the client.
-
-**Standing under `lowcmd` is a dependency on MM4.** CAMPAIGN §4.4 already assumes this
-— MM5 hands off "to `G1_CONTROL=lowcmd` with SONIC standing" — so nothing downstream
-needs re-planning, but MM4 is now load-bearing rather than incremental.
+control *away from* it. The original wording of test (a) was not satisfiable by the
+robot, which is the same class of finding as the 500 Hz. Balance under `lowcmd` is
+SONIC's job and is gated in MM4.
 
 ## (b) Fail-closed, measured
 
@@ -233,6 +268,8 @@ constructs a CRC at build time so a regression fails the build.
 | C-29 | RTF ≈ 0.44–0.52 at 1000 Hz physics; `rt/lowstate` is wall-paced so it repeats state between physics steps (57 % measured) |
 | C-30 | test rig: base pinned to spawn pose for (a) and (f); never on by default, every result taken under it says so |
 | C-31 | `/tf` at 50 Hz against a 100 Hz contract — render-clock-driven, **pre-existing**, present identically in the policy baseline |
+| C-34 | `left_ankle_roll` settles 0.13 rad from `right_ankle_roll` under identical torque from identical commands — asset-side asymmetry, gain-independent |
+| C-35 | PD at the specified 500 Hz is marginal on the lightest links: both ankle pitches saturate at 35.07 Nm on the `kd·dq` term and the rolls swing ±30 rad/s. At 1000 Hz the same test gives 0.005 rad all-joint mean against 0.021. `G1_PD_HZ` exposes the rate; the contract's `pd_apply_hz` stays 500 |
 
 ## Clips
 
@@ -254,6 +291,13 @@ rather than video, and the shot list carries the MM3 items forward.
    Proposal: restate as "the sdk2 client drives the twin's joints at 500 Hz with
    tracking error < X on a declared rig", and move "stands for 60 s" into MM4 where a
    balance controller exists. **Default taken: reported both ways, rig and free.**
+5. **`left_ankle_roll` sits 0.13 rad off its mirror** under identical torque (C-34).
+   Asset defect, or a real left/right asymmetry in the G1 the twin is faithfully
+   reproducing? It is the one joint that kept (a1) from 29/29.
+6. **Should `pd_apply_hz` move to 1000 Hz?** (C-35) The campaign specifies 500 and the
+   contract still says 500, but 500 is measurably marginal on the ankle links and
+   1000 Hz is 4x better on tracking. **Default taken: 500 Hz in the contract, with the
+   (a1) evidence run at 1000 Hz and both numbers reported.**
 3. **`Roll_41R` moves 0.205 rad passively against `Link_41L`'s 0.038.** Real asymmetry
    or an asset defect? The two are different joints with different names at the same
    index, and the right hand's URDF effort metadata is 0.

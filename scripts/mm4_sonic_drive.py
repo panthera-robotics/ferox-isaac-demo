@@ -1,152 +1,197 @@
 #!/usr/bin/env python3
 """MM4: drive the SONIC deploy through its scripted sequence over ZMQ.
 
-SONIC's `--input-type zmq_manager` subscribes to three topics on one host:port
-(see gear_sonic_deploy/src/g1/g1_deploy_onnx_ref/include/input_interface/zmq_manager.hpp):
+Modelled directly on panthera-g1-wbc `tools/scripted_walk.py` (the driver that closed
+this loop on the Spark for W1/W2) and, like it, it IMPORTS NVIDIA's own wire-format
+builders from `gear_sonic.utils.teleop.zmq.zmq_planner_sender` rather than
+reimplementing them, so the wire format stays owned by upstream.
 
-    command  {start, stop, planner, delta_heading}   start/stop and mode switch
-    planner  {mode, movement, facing, speed, height} per-frame locomotion
-    pose     {joint_pos, joint_vel, body_quat, ...}  streamed frames, POSE mode
+Reverse-engineering the format from the C++ headers got two thirds of the way and
+three details wrong, every one of them silent rather than loud:
 
-Wire format per zmq_packed_message_subscriber.hpp: one single-part ZMQ message of
-    [topic prefix][1280-byte null-padded JSON header][concatenated binary fields]
-with the header naming each field's dtype and shape. Single-part is deliberate --
-it is what lets ZMQ_CONFLATE drop stale frames safely, so this publisher must never
-split a message across parts.
+  * `WALK` is 2. LocomotionMode is IDLE/SLOW_WALK/WALK/RUN = 0/1/2/3, so a "1" that
+    looks like a walk command is a SLOW_WALK.
+  * `speed` and `height` use **-1.0** to mean "mode default". Sending 0.0 is a literal
+    zero speed, i.e. a robot correctly obeying an order to go nowhere.
+  * the start command has to be re-sent on EVERY beat, not fired once. ZMQ PUB drops
+    everything published before a SUB finishes connecting, and the deploy spends a
+    long time in TensorRT init; a single start lands in that hole and is simply lost.
 
-The sequence is MM4's: stand -> weight shift -> planner walking -> heading
-turn-in-place -> stop -> POSE arms-only. Each step prints what it sent so a run can
-be read against the deploy's own log.
+Sequence per CAMPAIGN 4.2 / MM4: stand -> weight shift -> planner walking (vx, vy) ->
+heading turn-in-place -> stop -> POSE-mode arms-only targets while balancing.
+
+Arms-only is done with the planner message's optional `upper_body_position` (float[17]
+= waist 3 + arms 14, SDK indices 12..28) while the planner keeps driving the legs --
+that IS "arms-only targets while balancing". Switching the manager to STREAMED_MOTION
+instead would hand it the whole body and stop it balancing, which is the opposite of
+what the gate asks for.
+
+Run inside ferox/twin-lowlevel:humble with PYTHONPATH pointed at the upstream repo.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
+import sys
 import time
+from dataclasses import dataclass
+from typing import Sequence
 
-import numpy as np
 import zmq
 
-HEADER_SIZE = 1280
+try:
+    from gear_sonic.utils.teleop.zmq.zmq_planner_sender import (
+        build_command_message,
+        build_planner_message,
+    )
+except ImportError as exc:  # pragma: no cover
+    sys.exit(f"Cannot import NVIDIA's ZMQ builders ({exc}).\n"
+             "Mount the upstream repo and set PYTHONPATH to it.")
 
-# LocomotionMode, from localmotion_kplanner.hpp. Only the ones this script uses.
-MODE_IDLE = 0
-MODE_WALK = 1
+# gear_sonic/scripts/pico_manager_thread_server.py:101-109
+IDLE, SLOW_WALK, WALK, RUN = 0, 1, 2, 3
+_MODE_NAMES = {IDLE: "IDLE", SLOW_WALK: "SLOW_WALK", WALK: "WALK", RUN: "RUN"}
+
+N_UPPER = 17
+
+# deploy.yaml's default stance for SDK joints 12..28, i.e. the pose SONIC already
+# holds. Arms-only phases move AWAY from this and return to it.
+UPPER_NEUTRAL = [
+    0.0, 0.0, 0.0,                              # waist yaw / roll / pitch
+    0.30, 0.25, 0.0, 0.97, 0.15, 0.0, 0.0,      # left  shoulder p/r/y, elbow, wrist r/p/y
+    0.30, -0.25, 0.0, 0.97, -0.15, 0.0, 0.0,    # right shoulder p/r/y, elbow, wrist r/p/y
+]
+# Both arms raised forward and out: shoulder_pitch swings negative (arm forward) and
+# the elbow opens. Deliberately inside the URDF limits with margin.
+UPPER_REACH = [
+    0.0, 0.0, 0.0,
+    -0.60, 0.45, 0.0, 0.40, 0.15, 0.0, 0.0,
+    -0.60, -0.45, 0.0, 0.40, -0.15, 0.0, 0.0,
+]
 
 
-def pack(fields: dict[str, np.ndarray]) -> bytes:
-    """Build one packed message: 1280-byte JSON header + concatenated payload."""
-    hdr_fields, blobs = [], []
-    for name, arr in fields.items():
-        a = np.ascontiguousarray(arr)
-        # dtype strings must be exactly what SONIC's decoder compares against
-        # (zmq_manager.hpp / zmq_packed_message_subscriber.hpp): bool, u8, i8, i16,
-        # i32, i64, f16, f32, f64. "b8" is NOT in that set -- sending it made every
-        # command message parse as "missing fields (need: start, stop, planner)" and
-        # SONIC held a static default pose through an entire scripted sequence while
-        # looking perfectly healthy.
-        dtype = {"float32": "f32", "float64": "f64", "float16": "f16",
-                 "int8": "i8", "int16": "i16", "int32": "i32", "int64": "i64",
-                 "uint8": "u8", "bool": "bool"}[a.dtype.name]
-        hdr_fields.append({"name": name, "dtype": dtype, "shape": list(a.shape)})
-        blobs.append(a.tobytes())
-    header = json.dumps({"v": 1, "endian": "le", "count": 1, "fields": hdr_fields}).encode()
-    if len(header) > HEADER_SIZE:
-        raise ValueError(f"header {len(header)} B exceeds the fixed {HEADER_SIZE} B slot")
-    return header.ljust(HEADER_SIZE, b"\0") + b"".join(blobs)
+@dataclass
+class Segment:
+    name: str
+    seconds: float
+    mode: int = IDLE
+    movement: Sequence[float] = (0.0, 0.0, 0.0)   # body frame: +x fwd, +y left
+    facing: Sequence[float] = (1.0, 0.0, 0.0)
+    speed: float = -1.0                            # -1 = mode default
+    height: float = -1.0                           # -1 = default
+    upper: Sequence[float] | None = None           # 17 upper-body targets, or None
 
 
-class SonicDriver:
-    def __init__(self, host: str, port: int):
-        self.ctx = zmq.Context()
-        self.sock = self.ctx.socket(zmq.PUB)
-        self.sock.bind(f"tcp://{host}:{port}")
-        # PUB/SUB drops everything sent before the subscriber finishes connecting,
-        # and SONIC connects on its own schedule. Without this pause the whole
-        # sequence can be published into a void and the deploy simply never starts.
-        time.sleep(1.0)
+MM4_PLAN: list[Segment] = [
+    Segment("stand",        20.0, mode=IDLE),
+    # Weight shift: SONIC has no "shift" primitive, so it is commanded as a slow
+    # lateral walk that reverses -- the robot loads one foot then the other, which is
+    # what a weight shift IS. Named for what it is rather than for what it looks like.
+    Segment("shift_left",    8.0, mode=SLOW_WALK, movement=(0.0, 1.0, 0.0)),
+    Segment("shift_right",   8.0, mode=SLOW_WALK, movement=(0.0, -1.0, 0.0)),
+    Segment("settle",        4.0, mode=IDLE),
+    Segment("walk_fwd",     20.0, mode=WALK, movement=(1.0, 0.0, 0.0)),
+    Segment("walk_back",    10.0, mode=WALK, movement=(-1.0, 0.0, 0.0)),
+    Segment("strafe_left",  12.0, mode=WALK, movement=(0.0, 1.0, 0.0)),
+    Segment("strafe_right", 12.0, mode=WALK, movement=(0.0, -1.0, 0.0)),
+    Segment("settle2",       4.0, mode=IDLE),
+    # Turn in place: no translation, the facing vector swings. NOT delta_heading --
+    # that is a one-shot offset on the command topic, not a sustained turn.
+    Segment("turn_left",    15.0, mode=WALK, movement=(0.0, 0.0, 0.0), facing=(0.0, 1.0, 0.0)),
+    Segment("turn_right",   15.0, mode=WALK, movement=(0.0, 0.0, 0.0), facing=(0.0, -1.0, 0.0)),
+    Segment("stop",          6.0, mode=IDLE),
+    Segment("arms_reach",   12.0, mode=IDLE, upper=UPPER_REACH),
+    Segment("arms_return",   8.0, mode=IDLE, upper=UPPER_NEUTRAL),
+]
 
-    def _send(self, topic: str, fields: dict[str, np.ndarray]) -> None:
-        self.sock.send(topic.encode() + pack(fields))
 
-    def command(self, start=False, stop=False, planner=True, delta_heading=0.0) -> None:
-        self._send("command", {
-            "start": np.array([start], np.bool_),
-            "stop": np.array([stop], np.bool_),
-            "planner": np.array([planner], np.bool_),
-            "delta_heading": np.array([delta_heading], np.float32),
-        })
-        print(f"  [command] start={start} stop={stop} planner={planner} "
-              f"delta_heading={delta_heading:+.3f}", flush=True)
+def log(msg: str) -> None:
+    print(f"[mm4] {msg}", flush=True)
 
-    # movement and facing are THREE-vectors, not two. The decoder memcpy's a fixed
-    # i<3 loop out of each buffer (zmq_manager.hpp OnPlannerReceived), so a 2-element
-    # field is read one float past its end -- which is not a parse error, just a
-    # garbage third component, and it presents as "Planner initialization timeout"
-    # with no indication that the shape was wrong.
-    def planner(self, mode=MODE_IDLE, movement=(0.0, 0.0, 0.0), facing=(1.0, 0.0, 0.0),
-                speed=0.0, height=0.0) -> None:
-        self._send("planner", {
-            "mode": np.array([mode], np.int32),
-            "movement": np.array(movement, np.float32),
-            "facing": np.array(facing, np.float32),
-            "speed": np.array([speed], np.float32),
-            "height": np.array([height], np.float32),
-        })
 
-    def hold(self, seconds: float, label: str, **planner_kw) -> None:
-        """Stream one planner frame per 20 ms for `seconds`.
-
-        The manager resets locomotion to IDLE if no planner message arrives within
-        1 s (PLANNER_TIMEOUT), so every phase has to keep streaming even when it is
-        asking for nothing -- "stand" is a continuously re-sent zero command, not
-        the absence of one.
-        """
-        print(f"[phase] {label} ({seconds:.1f}s) {planner_kw}", flush=True)
-        t0 = time.perf_counter()
-        while time.perf_counter() - t0 < seconds:
-            self.planner(**planner_kw)
-            time.sleep(0.02)
+def send_planner(sock, seg: Segment) -> None:
+    kw = {}
+    if seg.upper is not None:
+        if len(seg.upper) != N_UPPER:
+            raise ValueError(f"{seg.name}: upper must be {N_UPPER} long, got {len(seg.upper)}")
+        kw["upper_body_position"] = list(seg.upper)
+        kw["upper_body_velocity"] = [0.0] * N_UPPER
+    sock.send(build_planner_message(
+        seg.mode, list(seg.movement), list(seg.facing), seg.speed, seg.height, **kw))
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--host", default="127.0.0.1")
-    ap.add_argument("--port", type=int, default=5556)
-    ap.add_argument("--scale", type=float, default=1.0,
-                    help="multiply every phase duration (0.25 for a quick smoke)")
+    ap.add_argument("--bind", default="tcp://*:5556")
+    ap.add_argument("--rate-hz", type=float, default=50.0,
+                    help="planner rate; 50 matches the deploy's control loop")
+    ap.add_argument("--hold-s", type=float, default=60.0,
+                    help="how long to repeat start, covering TensorRT init")
+    ap.add_argument("--settle-s", type=float, default=3.0,
+                    help="pause after bind so SUBs connect (ZMQ slow joiner)")
+    ap.add_argument("--scale", type=float, default=1.0, help="scale every segment")
+    ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    d = SonicDriver(args.host, args.port)
-    s = args.scale
+    plan = [Segment(s.name, s.seconds * args.scale, s.mode, s.movement, s.facing,
+                    s.speed, s.height, s.upper) for s in MM4_PLAN]
+    log(f"MM4 plan: {len(plan)} segments, {sum(s.seconds for s in plan):.0f}s")
+    for s in plan:
+        log(f"    {s.name:<13} {s.seconds:5.1f}s  {_MODE_NAMES[s.mode]:<9} "
+            f"move={tuple(s.movement)} facing={tuple(s.facing)}"
+            f"{'  +arms' if s.upper is not None else ''}")
+    if args.dry_run:
+        return 0
 
-    print("== MM4 SONIC sequence ==", flush=True)
-    d.command(start=True, planner=True)
-    d.hold(6 * s, "stand", mode=MODE_IDLE, movement=(0.0, 0.0, 0.0), speed=0.0)
-    d.hold(6 * s, "weight shift", mode=MODE_IDLE, movement=(0.0, 0.0, 0.0), speed=0.0, height=-0.03)
-    d.hold(10 * s, "planner walking +vx", mode=MODE_WALK, movement=(1.0, 0.0, 0.0), speed=0.3)
-    d.hold(8 * s, "planner walking +vy", mode=MODE_WALK, movement=(0.0, 1.0, 0.0), speed=0.2)
+    ctx = zmq.Context()
+    sock = ctx.socket(zmq.PUB)
+    sock.setsockopt(zmq.LINGER, 1000)
+    sock.bind(args.bind)
+    log(f"bound PUB {args.bind}; settling {args.settle_s:.1f}s for subscribers")
+    time.sleep(args.settle_s)
 
-    print("[phase] heading turn-in-place", flush=True)
-    # Turn is a delta_heading on the COMMAND topic, not a planner field: the planner
-    # carries a facing vector, and asking for yaw by rotating `facing` would also
-    # change where the robot walks. Kept separate for that reason.
-    for _ in range(int(8 * s)):
-        d.command(start=True, planner=True, delta_heading=0.4)
-        d.hold(1.0, "  turning", mode=MODE_IDLE, movement=(0.0, 0.0, 0.0), speed=0.0)
+    period = 1.0 / args.rate_hz
+    idle = Segment("idle", 0.0, mode=IDLE)
+    try:
+        log(f"holding start+planner for {args.hold_s:.0f}s (covers TensorRT init)")
+        t0 = time.monotonic()
+        next_beat = t0
+        announced = 0.0
+        while time.monotonic() - t0 < args.hold_s:
+            sock.send(build_command_message(start=True, stop=False, planner=True))
+            send_planner(sock, idle)
+            el = time.monotonic() - t0
+            if el - announced >= 15.0:
+                announced = el
+                log(f"    still holding start ({el:.0f}/{args.hold_s:.0f}s)")
+            next_beat += period
+            time.sleep(max(0.0, next_beat - time.monotonic()))
 
-    d.hold(4 * s, "stop", mode=MODE_IDLE, movement=(0.0, 0.0, 0.0), speed=0.0)
+        log("running plan")
+        for seg in plan:
+            log(f"  -> {seg.name} ({seg.seconds:.0f}s, {_MODE_NAMES[seg.mode]})")
+            seg_start = time.monotonic()
+            while time.monotonic() - seg_start < seg.seconds:
+                send_planner(sock, seg)
+                next_beat += period
+                time.sleep(max(0.0, next_beat - time.monotonic()))
 
-    print("[phase] POSE mode -- arms only, balancing", flush=True)
-    d.command(start=True, planner=False)   # planner=false -> STREAMED_MOTION
-    print("  NOTE: pose frames require a 29-DoF joint_pos stream; MM4 sends none here.",
-          flush=True)
-    time.sleep(2.0)
-    d.command(start=True, planner=True)    # back to planner before stopping
+        log("stopping control")
+        for _ in range(int(args.rate_hz)):
+            send_planner(sock, idle)
+            sock.send(build_command_message(start=False, stop=True, planner=False))
+            time.sleep(period)
+    except KeyboardInterrupt:
+        log("interrupted; sending stop")
+        for _ in range(10):
+            sock.send(build_command_message(start=False, stop=True, planner=False))
+            time.sleep(0.02)
+        return 130
+    finally:
+        sock.close()
+        ctx.term()
 
-    d.command(stop=True, planner=True)
-    print("== sequence complete ==", flush=True)
+    log("done")
     return 0
 
 
