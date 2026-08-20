@@ -65,6 +65,23 @@ URDF_EFFORT_LIMIT = np.array([
 # getting one arbitrary constant.
 SAFE_KD = 0.05 * URDF_EFFORT_LIMIT
 
+# SONIC's own nominal stance, from the reference config that fed W3's 17.53 m MuJoCo
+# walk: gear_sonic/utils/mujoco_sim/wbc_configs/g1_29dof_sonic_model12.yaml
+# DEFAULT_DOF_ANGLES. Listed there in SDK order, which independently confirms the joint
+# order this bridge writes.
+#
+# It matters because the omni policy hands over holding a DIFFERENT stance -- knee 0.124
+# against SONIC's 0.300, and elbows at 0.97 with a 1 kg hand on each against SONIC's 0.0,
+# which puts the CoM well forward of where SONIC expects it. Handing SONIC a robot in a
+# pose it never trains from is what C-39 actually is.
+SONIC_DEFAULT_Q = np.array([
+    -0.1, 0.0, 0.0, 0.3, -0.2, 0.0,      # left leg
+    -0.1, 0.0, 0.0, 0.3, -0.2, 0.0,      # right leg
+    0.0, 0.0, 0.0,                        # waist
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,    # left arm
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,    # right arm
+], dtype=np.float32)
+
 # IDLE HOLD, used ONLY before the first rt/lowcmd ever arrives, in SDK order.
 #
 # This is not a softened fail-closed -- it is the twin's stand-in for the G1's own
@@ -230,6 +247,7 @@ class LowLevelSimBridge:
         self.n_hand_cmd = 0
         self._rig_ignored_cmds = 0
         self.n_nan_tau = 0
+        self._blend_to_nominal = os.environ.get("G1_HANDOFF_TO_NOMINAL", "1") == "1"
         # The Dex5 finger joints keep the USD import's position drives, and those are
         # STIFF -- measured kp 35809.9 with kd 0. Driving them from rt/dex3 at that
         # stiffness slams the fingers, and the reaction travels up the arm: SONIC's
@@ -534,10 +552,21 @@ class LowLevelSimBridge:
             kp = np.asarray(rec["kp"][:N_SDK], np.float32)
             kd = np.asarray(rec["kd"][:N_SDK], np.float32)
             q_d = np.asarray(rec["q_d"][:N_SDK], np.float32)
+            if self._blend_to_nominal:
+                # Drive to SONIC'S OWN nominal stance first, then yield to its live
+                # commands. Blending straight to q_d hands SONIC a robot in the omni
+                # policy's pose, which it answers by crouching -- observed commanding
+                # knee 0.669 against its own 0.300 default.
+                q_d = SONIC_DEFAULT_Q
             if self._blend_from is not None:
                 now_ns = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
                 if now_ns >= self._blend_until_ns:
                     self._blend_from = None
+                    if self._blend_to_nominal:
+                        self._blend_to_nominal = False
+                        print(f"[lowlevel-sim] nominal stance reached at "
+                              f"t={self.sim_time:.3f}s; SONIC now has live control",
+                              flush=True)
                 else:
                     a = 1.0 - (self._blend_until_ns - now_ns) / (self._blend_s * 1e9)
                     q_d = (1.0 - a) * self._blend_from + a * q_d

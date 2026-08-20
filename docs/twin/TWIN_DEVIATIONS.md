@@ -1019,3 +1019,24 @@ twin — took four minutes once I did it. Recorded because the campaign's premis
 that the twin follows the robot, and a change authorized on my wrong diagnosis would
 have silently broken exactly that.
 
+## C-38 — Dex5 finger drive gains capped (MM4)
+
+The URDF import gives every Dex5 finger joint a position drive of **kp 35809.9 with
+kd 0.000**, read back off the live articulation rather than inferred. That is not a
+gain anyone chose: the Dex5's own URDF gives those joints a **0.93 N m** effort limit,
+so 35810 N m/rad saturates the actuator at 26 microradians of error. The practical
+result is a rigid, undamped finger that slams to its target, and the reaction travels
+up the arm — it surfaced as SONIC's safety guard tripping on `body_dq[20]` and
+`body_dq[24]`, which are *arm* joints, not finger ones.
+
+The twin now caps them at **kp 5.0 / kd 0.1** (`TWIN_HAND_KP` / `TWIN_HAND_KD`),
+applied in `run.py` at articulation init so it holds in every control mode. This is a
+documented conservative set, not a value copied from `configs/wbc`: that config
+declares the Dex5 fingers **passive** (`NUM_HAND_MOTORS: 0`) and so has no finger gains
+to copy. 5 N m/rad reaches the 0.93 N m limit at 0.19 rad of error, a sensible band for
+a finger, and kd 0.1 gives damping the joint previously had none of.
+
+**Deviation from the real hand:** the real Dex5's closed-loop finger stiffness has not
+been measured, so this is chosen-and-declared rather than matched. It replaces a value
+that was certainly wrong with one that is defensible.
+

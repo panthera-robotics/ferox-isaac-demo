@@ -768,6 +768,34 @@ class G1VelocityPolicy(PolicyController):
                         len(self._hand_dofs),
                         [all_names[i] for i in self._hand_dofs[:4]] + ["..."])
 
+        # C-38: cap the Dex5 finger drive gains.
+        #
+        # The URDF import leaves them at kp 35809.9 with kd 0.000 -- read back and
+        # measured, not guessed. That was never a real gain: the Dex5's own URDF gives
+        # its finger joints a 0.93 N m effort limit, so a 35810 N m/rad stiffness
+        # saturates the actuator at 26 MICRORADIANS of error. Its practical effect is a
+        # rigid, undamped finger that slams to its target and shakes the ARM it hangs
+        # from -- which is how it first showed up, as SONIC's safety guard tripping on
+        # body_dq[20] and body_dq[24], both arm joints.
+        #
+        # 5.0 / 0.1 is a documented conservative set rather than a value from
+        # configs/wbc: that config declares the Dex5 fingers PASSIVE
+        # (NUM_HAND_MOTORS: 0), so it has no finger gains to copy. 5 N m/rad reaches
+        # the 0.93 N m limit at 0.19 rad of error, which is a sensible band for a
+        # finger, and kd 0.1 gives it damping it previously had none of.
+        if len(self._hand_dofs):
+            hand_kp = float(os.environ.get("TWIN_HAND_KP", "5.0"))
+            hand_kd = float(os.environ.get("TWIN_HAND_KD", "0.1"))
+            if hand_kp > 0:
+                n_hand = len(self._hand_dofs)
+                self.robot._articulation_view.set_gains(
+                    np.full(n_hand, hand_kp, dtype=np.float32),
+                    np.full(n_hand, hand_kd, dtype=np.float32),
+                    joint_indices=self._hand_dofs)
+                logger.info("[G1] Dex5 finger gains capped to kp=%.2f kd=%.2f on %d "
+                            "joints (URDF import gave kp=35809.9 kd=0.0) -- C-38",
+                            hand_kp, hand_kd, n_hand)
+
         if len(self._default_pos_sim) != dof_count:
             raise ValueError(
                 f"deploy.yaml default_joint_pos has {len(self._default_pos_sim)} values, "
