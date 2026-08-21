@@ -101,6 +101,21 @@ class MM5Config:
     # Closure. The Dex5 finger joints run to ~1.4-1.7 rad, and 0.9 left the hand open
     # around a 66 mm can -- it closed and did not grip (`NO_GRIP`, object rose -0.015 m).
     close_rad: float = 1.35
+    # GRASP V5. The hand closes fully and does not hold, so closure has to become
+    # FORCE-generating rather than merely complete.
+    #   overclose_rad -- drive the finger targets PAST the contact pose; a position
+    #     drive makes force out of error, and a target AT contact makes ~none.
+    #   grip_kp/kd    -- C-38 capped the finger drives at 5.0, which is the SONIC-IDLE
+    #     value (so an idle hand does not fight itself), not a grasping value. Raised
+    #     for GRASP and LIFT only and reverted afterwards; the URDF effort clamp
+    #     (0.93 Nm per finger joint) still bounds what this can produce.
+    #   min_grip_contacts -- do not LIFT a hand that is not touching the object.
+    overclose_rad: float = 0.25
+    grip_kp: float = 20.0
+    grip_kd: float = 0.5
+    idle_hand_kp: float = 5.0
+    idle_hand_kd: float = 0.1
+    min_grip_contacts: int = 2
     lift_h: float = 0.14
     lift_success_h: float = 0.05
     lift_timeout_s: float = 8.0
@@ -405,6 +420,7 @@ class MM5Runner:
         if self.cfg.fix_base:
             self.pipe._body_hold = self._home_q[self.pipe.body_idx].astype(np.float32)
         self.pipe._arm_target = None
+        self.pipe._grip_gains(False)
         self.pipe._grip_ratio = 0.0
         self.pipe._hand_target = np.zeros(len(self.pipe._hand_target), np.float32)
         return pos
@@ -503,6 +519,9 @@ class MM5Runner:
                 # AND the axis. The stand-off was the visible half of the error; this
                 # is the half that made every previous grasp close on air -- the IK was
                 # aligning the palm's +z while the fingers close along its +y.
+                self.pipe._hand_body_names = set(g.get("hand_bodies", []))
+                print(f"[mm5][v5] hand link set for contact counting: "
+                      f"{len(self.pipe._hand_body_names)} links", flush=True)
                 c = np.asarray(g["closed_centre_palm"], float)
                 self.pipe.grasp_axis_local = c / max(float(np.linalg.norm(c)), 1e-9)
                 print(f"[mm5][v4] grasp axis in the palm frame: "

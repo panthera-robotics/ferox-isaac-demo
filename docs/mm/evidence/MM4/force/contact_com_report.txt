@@ -1,0 +1,117 @@
+[lowlevel-sim][CONTACT] t=   0.50 left_ankle_roll_link   |F|=    0.36 N  Fz=   +0.03 pos=[7.77209997177124, 2.118299961090088, 0.048500001430511475]
+[lowlevel-sim][CONTACT] t=   0.50 right_ankle_roll_link  |F|=    0.44 N  Fz=   +0.04 pos=[7.773399829864502, 1.88100004196167, 0.04839999973773956]
+[lowlevel-sim][COM] t=   0.50 total_mass= 39.005 kg com=[7.8197, 2.0005, 0.7634] ankles_x=[7.7721, 7.7734] ankles_y=[2.1183, 1.881] com_x - mean_ankle_x = +0.0469 m
+[lowlevel-sim][CONTACT] t=   1.00 left_ankle_roll_link   |F|=    0.60 N  Fz=   +0.06 pos=[7.766300201416016, 2.118499994277954, 0.04879999905824661]
+[lowlevel-sim][CONTACT] t=   1.00 right_ankle_roll_link  |F|=    0.48 N  Fz=   +0.07 pos=[7.76800012588501, 1.8813999891281128, 0.048700001090765]
+[lowlevel-sim][COM] t=   1.00 total_mass= 39.005 kg com=[7.8263, 2.0006, 0.7634] ankles_x=[7.7663, 7.768] ankles_y=[2.1185, 1.8814] com_x - mean_ankle_x = +0.0591 m
+[lowlevel-sim][CONTACT] t=   1.50 left_ankle_roll_link   |F|=    0.02 N  Fz=   -0.00 pos=[7.774099826812744, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   1.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.774199962615967, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   1.50 total_mass= 39.005 kg com=[7.8279, 2.0006, 0.7621] ankles_x=[7.7741, 7.7742] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0537 m
+[lowlevel-sim][CONTACT] t=   2.00 left_ankle_roll_link   |F|=    0.02 N  Fz=   -0.00 pos=[7.7743000984191895, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   2.00 right_ankle_roll_link  |F|=    0.01 N  Fz=   -0.00 pos=[7.773900032043457, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   2.00 total_mass= 39.005 kg com=[7.8275, 2.0006, 0.7622] ankles_x=[7.7743, 7.7739] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=   2.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   2.50 right_ankle_roll_link  |F|=    0.02 N  Fz=   +0.00 pos=[7.773799896240234, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   2.50 total_mass= 39.005 kg com=[7.8275, 2.0006, 0.7622] ankles_x=[7.774, 7.7738] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0536 m
+[lowlevel-sim][CONTACT] t=   3.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   3.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   3.00 total_mass= 39.005 kg com=[7.8275, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0535 m
+[lowlevel-sim][CONTACT] t=   3.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   3.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   3.50 total_mass= 39.005 kg com=[7.8275, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0535 m
+[lowlevel-sim][CONTACT] t=   4.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   4.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   4.00 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=   4.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   4.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   4.50 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=   5.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   5.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   5.00 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=   5.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   5.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   5.50 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=   6.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   6.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   6.00 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=   6.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   6.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   6.50 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=   7.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   7.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   7.00 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=   7.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   7.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   7.50 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=   8.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   8.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   8.00 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=   8.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   8.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   8.50 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=   9.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   9.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   9.00 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=   9.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=   9.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=   9.50 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=  10.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=  10.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=  10.00 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=  10.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=  10.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=  10.50 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=  11.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=  11.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=  11.00 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7622] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=  11.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=  11.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=  11.50 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7623] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=  12.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=  12.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=  12.00 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7623] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=  12.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=  12.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   -0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=  12.50 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7623] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=  13.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=  13.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=  13.00 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7623] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=  13.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=  13.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=  13.50 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7623] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=  14.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=  14.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=  14.00 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7623] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=  14.50 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=  14.50 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=  14.50 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7623] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=  15.00 left_ankle_roll_link   |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 2.118499994277954, 0.04830000177025795]
+[lowlevel-sim][CONTACT] t=  15.00 right_ankle_roll_link  |F|=    0.00 N  Fz=   +0.00 pos=[7.77400016784668, 1.881500005722046, 0.04830000177025795]
+[lowlevel-sim][COM] t=  15.00 total_mass= 39.005 kg com=[7.8274, 2.0006, 0.7623] ankles_x=[7.774, 7.774] ankles_y=[2.1185, 1.8815] com_x - mean_ankle_x = +0.0534 m
+[lowlevel-sim][CONTACT] t=  15.50 left_ankle_roll_link   |F|=  100.05 N  Fz=  -97.61 pos=[7.773799896240234, 2.1185998916625977, 0.03500000014901161]
+[lowlevel-sim][CONTACT] t=  15.50 right_ankle_roll_link  |F|=  154.58 N  Fz= -154.54 pos=[7.773799896240234, 1.881500005722046, 0.03500000014901161]
+[lowlevel-sim][COM] t=  15.50 total_mass= 39.005 kg com=[7.8956, 2.0006, 0.7303] ankles_x=[7.7738, 7.7738] ankles_y=[2.1186, 1.8815] com_x - mean_ankle_x = +0.1217 m
+[lowlevel-sim][CONTACT] t=  16.00 left_ankle_roll_link   |F|=  131.18 N  Fz= -115.85 pos=[7.786799907684326, 2.1185998916625977, 0.06560000032186508]
+[lowlevel-sim][CONTACT] t=  16.00 right_ankle_roll_link  |F|=  115.43 N  Fz= -111.75 pos=[7.787199974060059, 1.881500005722046, 0.06610000133514404]
+[lowlevel-sim][COM] t=  16.00 total_mass= 39.005 kg com=[8.3269, 2.0024, 0.5166] ankles_x=[7.7868, 7.7872] ankles_y=[2.1186, 1.8815] com_x - mean_ankle_x = +0.5400 m
+[lowlevel-sim][CONTACT] t=  16.50 left_ankle_roll_link   |F|=   20.54 N  Fz=  +13.45 pos=[8.101200103759766, 2.113300085067749, 0.12309999763965607]
+[lowlevel-sim][CONTACT] t=  16.50 right_ankle_roll_link  |F|=   27.58 N  Fz=  +20.97 pos=[8.103500366210938, 1.8741999864578247, 0.1225999966263771]
+[lowlevel-sim][COM] t=  16.50 total_mass= 39.005 kg com=[8.8034, 2.0052, 0.1282] ankles_x=[8.1012, 8.1035] ankles_y=[2.1133, 1.8742] com_x - mean_ankle_x = +0.7011 m
+[lowlevel-sim][CONTACT] t=  17.00 left_ankle_roll_link   |F|=    4.59 N  Fz=   +4.42 pos=[8.110300064086914, 2.1136999130249023, 0.12600000202655792]
+[lowlevel-sim][CONTACT] t=  17.00 right_ankle_roll_link  |F|=    2.03 N  Fz=   +0.90 pos=[8.113300323486328, 1.8726999759674072, 0.12630000710487366]
+[lowlevel-sim][COM] t=  17.00 total_mass= 39.005 kg com=[8.8176, 2.0046, 0.1061] ankles_x=[8.1103, 8.1133] ankles_y=[2.1137, 1.8727] com_x - mean_ankle_x = +0.7059 m
+[lowlevel-sim][CONTACT] t=  17.50 left_ankle_roll_link   |F|=    3.46 N  Fz=   +3.37 pos=[8.111200332641602, 2.113600015640259, 0.12620000541210175]
+[lowlevel-sim][CONTACT] t=  17.50 right_ankle_roll_link  |F|=    4.96 N  Fz=   +4.75 pos=[8.1141996383667, 1.871999979019165, 0.1265999972820282]
+[lowlevel-sim][COM] t=  17.50 total_mass= 39.005 kg com=[8.8186, 2.0042, 0.1051] ankles_x=[8.1112, 8.1142] ankles_y=[2.1136, 1.872] com_x - mean_ankle_x = +0.7059 m
+[lowlevel-sim][CONTACT] t=  18.00 left_ankle_roll_link   |F|=    6.16 N  Fz=   +3.46 pos=[8.11139965057373, 2.1135001182556152, 0.12630000710487366]
+[lowlevel-sim][CONTACT] t=  18.00 right_ankle_roll_link  |F|=    3.59 N  Fz=   -1.61 pos=[8.114399909973145, 1.8717000484466553, 0.1266999989748001]
+[lowlevel-sim][COM] t=  18.00 total_mass= 39.005 kg com=[8.8188, 2.0040, 0.1049] ankles_x=[8.1114, 8.1144] ankles_y=[2.1135, 1.8717] com_x - mean_ankle_x = +0.7059 m
+[lowlevel-sim][CONTACT] t=  18.50 left_ankle_roll_link   |F|=    5.36 N  Fz=   +4.56 pos=[8.111700057983398, 2.1133999824523926, 0.12639999389648438]
+[lowlevel-sim][CONTACT] t=  18.50 right_ankle_roll_link  |F|=    4.01 N  Fz=   +2.57 pos=[8.114700317382812, 1.871500015258789, 0.12680000066757202]
+[lowlevel-sim][COM] t=  18.50 total_mass= 39.005 kg com=[8.8191, 2.0039, 0.1046] ankles_x=[8.1117, 8.1147] ankles_y=[2.1134, 1.8715] com_x - mean_ankle_x = +0.7059 m
+[lowlevel-sim][CONTACT] t=  19.00 left_ankle_roll_link   |F|=    6.35 N  Fz=   +2.36 pos=[8.111900329589844, 2.113300085067749, 0.1264999955892563]
+[lowlevel-sim][CONTACT] t=  19.00 right_ankle_roll_link  |F|=    5.21 N  Fz=   +2.47 pos=[8.114899635314941, 1.871399998664856, 0.12690000236034393]
+[lowlevel-sim][COM] t=  19.00 total_mass= 39.005 kg com=[8.8193, 2.0038, 0.1044] ankles_x=[8.1119, 8.1149] ankles_y=[2.1133, 1.8714] com_x - mean_ankle_x = +0.7059 m
+[lowlevel-sim][CONTACT] t=  19.50 left_ankle_roll_link   |F|=    3.98 N  Fz=   +3.51 pos=[8.112099647521973, 2.1131999492645264, 0.1264999955892563]
+[lowlevel-sim][CONTACT] t=  19.50 right_ankle_roll_link  |F|=    7.84 N  Fz=   +5.83 pos=[8.115099906921387, 1.8716000318527222, 0.12690000236034393]
+[lowlevel-sim][COM] t=  19.50 total_mass= 39.005 kg com=[8.8194, 2.0038, 0.1043] ankles_x=[8.1121, 8.1151] ankles_y=[2.1132, 1.8716] com_x - mean_ankle_x = +0.7059 m

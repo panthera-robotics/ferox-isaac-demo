@@ -369,7 +369,29 @@ class LowLevelSimBridge:
         # which separates two very different explanations for a twin that will not
         # stand: an explicit 500 Hz PD that is too soft, versus a humanoid that
         # genuinely cannot balance without CoM feedback. Only the second is a finding.
-        self._implicit = os.environ.get("G1_LL_PD", "explicit") == "implicit"
+        # G1_LL_PD selects the FORCE PATH, C-39 item 3.
+        #   explicit  (default) -- this bridge computes tau and applies it as effort
+        #   implicit_hold       -- the old diagnostic: PhysX drives at HOLD_KP, q_hold
+        #   implicit            -- lowcmd applied as PhysX IMPLICIT JOINT DRIVES, with
+        #                          stiffness=kp, damping=kd, target=q_d, velocity
+        #                          target=dq_d and tau_ff as applied effort
+        #
+        # The reference for SONIC-class control in Isaac is unitree_sim_isaaclab, and it
+        # does NOT integrate a PD in Python: `set_joint_position_target(full_action)`
+        # onto ImplicitActuatorCfg drives (robots/unitree.py). Its gains are its own
+        # config's, not the wire's -- waist stiffness 10000, arms 300-400, effort_limit
+        # 1000 -- which is a rigid-target teleop sim rather than a torque-faithful one.
+        # This mode is the faithful hybrid: implicit drives, but driven by the kp/kd
+        # SONIC actually sends, with the URDF effort clamp still in force.
+        #
+        # Why it might matter: an explicit PD integrated at 1 kHz is a spring evaluated
+        # at the START of the step, so its stable gain is bounded by the timestep. The
+        # implicit drive is solved WITH the contact constraints in the same solve, and
+        # holds gains an explicit loop of the same rate cannot.
+        _pd = os.environ.get("G1_LL_PD", "explicit")
+        self._implicit = _pd == "implicit_hold"
+        self._implicit_lowcmd = _pd == "implicit"
+        self._gains_set = None
         self._pd_probe = os.environ.get("G1_LL_PD_PROBE", "0") == "1"
         self._hold_kinematic = os.environ.get("G1_LL_HOLD_KINEMATIC", "0") == "1"
         self._tilt_deg = float(os.environ.get("G1_LL_RIG_TILT_DEG", "0"))
@@ -378,6 +400,10 @@ class LowLevelSimBridge:
         self._tilt_next_log = 0.0
         self._gt_trace = os.environ.get("G1_LL_GT_TRACE", "0") == "1"
         self._gt_next = 0.0
+        self._rig_release_at_s = float(os.environ.get("G1_LL_RIG_RELEASE_AT_S", "0"))
+        self._ankle_trace = os.environ.get("G1_LL_ANKLE_TRACE", "0") == "1"
+        self._ankle_rows = []
+        self._contact_on = os.environ.get("G1_LL_CONTACT_REPORT", "0") == "1"
         self._pd_probe_next = 0.0
         view = self.art._articulation_view
         kp0 = np.zeros(N_SDK, np.float32)
@@ -386,6 +412,23 @@ class LowLevelSimBridge:
             self.art.get_articulation_controller().switch_control_mode("position")
             print("[lowlevel-sim] DIAGNOSTIC: implicit PD, bridge torques disabled",
                   flush=True)
+            return
+        if self._implicit_lowcmd:
+            # Position mode: PhysX solves the PD with the contacts. Gains are set from
+            # the wire on the first command; the effort ceiling is the same
+            # URDF_EFFORT_LIMIT the explicit path clips to, so the A/B isolates the
+            # force PATH rather than the torque budget.
+            view.set_gains(HOLD_KP, HOLD_KD, joint_indices=self.sdk_to_sim_idx)
+            try:
+                view.set_max_efforts(URDF_EFFORT_LIMIT.astype(np.float32),
+                                     joint_indices=self.sdk_to_sim_idx)
+            except Exception as exc:
+                print(f"[lowlevel-sim] set_max_efforts unavailable ({exc!r}); implicit "
+                      f"drives run at the USD's own effort limits -- state this in any "
+                      f"result taken from this mode", flush=True)
+            self.art.get_articulation_controller().switch_control_mode("position")
+            print("[lowlevel-sim] FORCE PATH: implicit PhysX joint drives from lowcmd "
+                  "(C-39 item 3); explicit torque path is OFF", flush=True)
             return
         print("[lowlevel-sim][trace] set_gains", flush=True)
         view.set_gains(kp0, kp0.copy(), joint_indices=self.sdk_to_sim_idx)
@@ -586,6 +629,8 @@ class LowLevelSimBridge:
             kp = np.asarray(rec["kp"][:N_SDK], np.float32)
             kd = np.asarray(rec["kd"][:N_SDK], np.float32)
             q_d = np.asarray(rec["q_d"][:N_SDK], np.float32)
+            drive = (kp, kd, q_d, np.asarray(rec["dq_d"][:N_SDK], np.float32),
+                     np.asarray(rec["tau_ff"][:N_SDK], np.float32))
             if self._blend_to_nominal:
                 # Drive to SONIC'S OWN nominal stance first, then yield to its live
                 # commands. Blending straight to q_d hands SONIC a robot in the omni
@@ -604,6 +649,7 @@ class LowLevelSimBridge:
                 else:
                     a = 1.0 - (self._blend_until_ns - now_ns) / (self._blend_s * 1e9)
                     q_d = (1.0 - a) * self._blend_from + a * q_d
+            drive = (drive[0], drive[1], q_d.astype(np.float32), drive[3], drive[4])
             tau = (kp * (q_d - q)
                    + kd * (np.asarray(rec["dq_d"][:N_SDK], np.float32) - dq)
                    + np.asarray(rec["tau_ff"][:N_SDK], np.float32))
@@ -643,6 +689,12 @@ class LowLevelSimBridge:
             # FAIL-CLOSED. Damping only -- see the module docstring on why the last
             # q_d is deliberately dropped rather than held.
             tau = -SAFE_KD * dq
+            # Fail-closed under implicit drives is damping only: zero stiffness, kd
+            # from SAFE_KD, and no position target to hold. Same contract as the
+            # explicit path -- see the module docstring on why q_d is dropped.
+            drive = (np.zeros(N_SDK, np.float32), SAFE_KD.astype(np.float32),
+                     q.astype(np.float32), np.zeros(N_SDK, np.float32),
+                     np.zeros(N_SDK, np.float32))
             self.n_failclosed += 1
         else:
             # IDLE HOLD, never yet commanded. Holds the spawn stance; see HOLD_KP.
@@ -671,6 +723,8 @@ class LowLevelSimBridge:
                 self.art.set_joint_positions(qs)
                 self.art.set_joint_velocities(vs)
             tau = HOLD_KP * (self.q_hold - q) + HOLD_KD * (0.0 - dq)
+            drive = (HOLD_KP, HOLD_KD, self.q_hold.astype(np.float32),
+                     np.zeros(N_SDK, np.float32), np.zeros(N_SDK, np.float32))
             self.n_hold += 1
 
         # Belt and braces against the same failure the DDS side now filters: whatever
@@ -681,11 +735,27 @@ class LowLevelSimBridge:
             tau = -SAFE_KD * dq
         tau = np.clip(tau, -URDF_EFFORT_LIMIT, URDF_EFFORT_LIMIT)
 
+        # C-39 item 2: ankle q/dq/tau at the full PD rate, for the C-35 limit cycle.
+        # SDK 4,5 = left ankle pitch/roll; 10,11 = right. Buffered and dumped rather
+        # than printed, because printing at 1 kHz is how the report line got shredded.
+        if self._ankle_trace:
+            self._ankle_rows.append((
+                round(self.sim_time, 5),
+                *[round(float(q[i]), 5) for i in (4, 5, 10, 11)],
+                *[round(float(dq[i]), 5) for i in (4, 5, 10, 11)],
+                *[round(float(tau[i]), 4) for i in (4, 5, 10, 11)]))
+            if len(self._ankle_rows) >= 60000:
+                self._dump_ankles()
+
         if self.has_hands and rec is not None and self._dex3_apply:
             self._apply_hand_cmd(rec)
 
         # Written against the body joint indices only, so the finger joints are not
         # handed a zero-effort command that would fight their own position drives.
+        if self._implicit_lowcmd:
+            self._apply_implicit(*drive)
+            self.n_pd += 1
+            return
         self._trace("apply_action(joint_efforts)")
         # ArticulationAction, not SingleArticulation.set_joint_efforts(). The direct
         # setter reports no error and leaves the joints unactuated -- with it, the
@@ -819,11 +889,172 @@ class LowLevelSimBridge:
         self.art.set_linear_velocity(np.zeros(3, np.float32))
         self.art.set_angular_velocity(np.zeros(3, np.float32))
 
+    def _apply_implicit(self, kp, kd, q_d, dq_d, tau_ff) -> None:
+        """Drive the 29 body joints as PhysX implicit PD, from the wire's own gains.
+
+        set_gains is called only when the gains CHANGE. SONIC's are constant per run,
+        so at 1 kHz this is one call at the start and none afterwards; calling it every
+        step would put a 29-joint tensor write in the physics loop for nothing.
+
+        The effort clamp still applies -- `max_efforts` is the same URDF_EFFORT_LIMIT
+        the explicit path clips to, so the two modes are limited identically and an A/B
+        between them is a test of the FORCE PATH and not of the torque budget.
+        """
+        from isaacsim.core.utils.types import ArticulationAction
+        view = self.art._articulation_view
+        key = (kp.tobytes(), kd.tobytes())
+        if key != self._gains_set:
+            view.set_gains(kp, kd, joint_indices=self.sdk_to_sim_idx)
+            self._gains_set = key
+            print(f"[lowlevel-sim] implicit drives: kp[:6]={np.round(kp[:6],2).tolist()} "
+                  f"kd[:6]={np.round(kd[:6],2).tolist()}", flush=True)
+        self.art.apply_action(ArticulationAction(
+            joint_positions=q_d.astype(np.float32),
+            joint_velocities=dq_d.astype(np.float32),
+            joint_efforts=np.clip(tau_ff, -URDF_EFFORT_LIMIT,
+                                  URDF_EFFORT_LIMIT).astype(np.float32),
+            joint_indices=self.sdk_to_sim_idx))
+
+    def _contact_report(self) -> None:
+        """Per-foot contact: net force, and the support polygon if points are exposed.
+
+        Via the articulation's own tensor APIs, NOT by constructing prim views at
+        runtime -- doing that for the hand invalidated the whole physics view mid-run
+        and ended the episode. Whatever is unavailable is NAMED rather than silently
+        skipped, because "no contact reported" and "no contact API" look identical in
+        a log and mean opposite things.
+        """
+        view = self.art._articulation_view
+        try:
+            names = list(view.body_names)
+        except Exception:
+            print("[lowlevel-sim][CONTACT] no body_names", flush=True)
+            return
+        feet = [(i, n) for i, n in enumerate(names) if "ankle_roll" in n or "foot" in n.lower()]
+        if not feet:
+            print(f"[lowlevel-sim][CONTACT] no foot links among {len(names)} bodies",
+                  flush=True)
+            return
+        F = None
+        tried = []
+        for holder, hname in ((view, "view"), (getattr(view, "_physics_view", None), "physx")):
+            if holder is None:
+                continue
+            for attr in ("get_net_contact_forces", "get_link_incoming_joint_force"):
+                fn = getattr(holder, attr, None)
+                if fn is None:
+                    continue
+                try:
+                    F = np.asarray(fn())
+                    tried.append(f"{hname}.{attr}->OK{F.shape}")
+                    break
+                except Exception as exc:
+                    tried.append(f"{hname}.{attr}->{type(exc).__name__}")
+                    F = None
+            if F is not None:
+                break
+        if F is None:
+            print(f"[lowlevel-sim][CONTACT] no contact-force API; tried {tried}", flush=True)
+            return
+        # WHICH API answered matters and was not recorded on the first pass:
+        # get_net_contact_forces is ground contact, get_link_incoming_joint_force is
+        # the joint reaction. Both are plausible magnitudes at a foot and they mean
+        # different things, so the source is now printed with the number.
+        F = F.reshape(-1, len(names), F.shape[-1])[0]
+        src = tried[-1] if tried else "unknown"
+        lt = None
+        for attr in ("get_link_transforms", "get_transforms"):
+            fn = getattr(getattr(view, "_physics_view", None), attr, None) or getattr(view, attr, None)
+            if fn is None:
+                continue
+            try:
+                lt = np.asarray(fn()).reshape(-1, len(names), 7)[0]
+                break
+            except Exception:
+                lt = None
+        for i, n in feet:
+            f = F[i][:3]
+            pos = lt[i][:3] if lt is not None else None
+            print(f"[lowlevel-sim][CONTACT] t={self.sim_time:7.2f} {n:<22} "
+                  f"|F|={float(np.linalg.norm(f)):8.2f} N  Fz={float(f[2]):+8.2f} "
+                  f"pos={None if pos is None else np.round(pos, 4).tolist()} "
+                  f"src={src}", flush=True)
+
+    def _com_report(self) -> None:
+        """Whole-body CoM against the feet -- is the held stance statically stable?
+
+        Item 1 assumed a statically stable pose must stand. That assumption is worth
+        CHECKING before concluding anything from its failure: if the twin's CoM is not
+        over its support polygon at the nominal stance, no PD in any force path can
+        hold it, and the fall is geometry rather than control. This is a CoM location,
+        not a mass/inertia diff -- it uses the twin's own numbers and compares them to
+        the twin's own feet.
+        """
+        view = self.art._articulation_view
+        try:
+            names = list(view.body_names)
+        except Exception:
+            return
+        pv = getattr(view, "_physics_view", None)
+        M = T = None
+        for holder in (pv, view):
+            if holder is None:
+                continue
+            try:
+                M = np.asarray(holder.get_masses()).reshape(-1)[:len(names)]
+            except Exception:
+                M = None
+            for attr in ("get_link_transforms", "get_transforms"):
+                fn = getattr(holder, attr, None)
+                if fn is None:
+                    continue
+                try:
+                    T = np.asarray(fn()).reshape(-1, len(names), 7)[0]
+                    break
+                except Exception:
+                    T = None
+            if M is not None and T is not None:
+                break
+        if M is None or T is None or len(M) != len(names):
+            print(f"[lowlevel-sim][COM] unavailable (masses={None if M is None else len(M)}, "
+                  f"transforms={T is not None})", flush=True)
+            return
+        tot = float(M.sum())
+        com = (T[:, :3] * M[:, None]).sum(axis=0) / max(tot, 1e-9)
+        feet = [i for i, n in enumerate(names) if "ankle_roll" in n]
+        fx = [float(T[i][0]) for i in feet]
+        fy = [float(T[i][1]) for i in feet]
+        print(f"[lowlevel-sim][COM] t={self.sim_time:7.2f} total_mass={tot:7.3f} kg "
+              f"com=[{com[0]:.4f}, {com[1]:.4f}, {com[2]:.4f}] "
+              f"ankles_x={[round(v,4) for v in fx]} ankles_y={[round(v,4) for v in fy]} "
+              f"com_x - mean_ankle_x = {com[0] - float(np.mean(fx)):+.4f} m", flush=True)
+
+    def _dump_ankles(self) -> None:
+        path = "/tmp/ankle_trace.csv"
+        new = not os.path.exists(path)
+        with open(path, "a") as fh:
+            if new:
+                fh.write("t,q_lap,q_lar,q_rap,q_rar,dq_lap,dq_lar,dq_rap,dq_rar,"
+                         "tau_lap,tau_lar,tau_rap,tau_rar\n")
+            for r in self._ankle_rows:
+                fh.write(",".join(str(v) for v in r) + "\n")
+        print(f"[lowlevel-sim] ankle trace: +{len(self._ankle_rows)} rows -> {path}",
+              flush=True)
+        self._ankle_rows = []
+
     def on_physics_step(self, step_size: float) -> None:
         self.sim_time += float(step_size)
         self.n_step += 1
         if self._fix_base:
             self._hold_base()
+            # C-39 item 1, the STATIC DISCRIMINATOR. Releasing on a timer instead of on
+            # "a controller has had authority for N seconds" is the whole point: it lets
+            # the twin be dropped onto its feet with NOTHING driving it but the bridge's
+            # own idle hold, so a fall cannot be blamed on SONIC.
+            if self._rig_release_at_s > 0 and self.sim_time >= self._rig_release_at_s:
+                self._fix_base = False
+                print(f"[lowlevel-sim] TEST RIG RELEASED at t={self.sim_time:.3f}s "
+                      f"ON A TIMER -- no controller required (C-39 item 1)", flush=True)
             if self._rig_auto_release:
                 now = time.clock_gettime_ns(time.CLOCK_MONOTONIC)
                 if self._cmd_fresh():
@@ -853,6 +1084,9 @@ class LowLevelSimBridge:
                   f"z={float(np.asarray(gp, float)[2]):.4f}", flush=True)
         if self.n_step % int(os.environ.get('G1_LL_REPORT_STEPS', '5000')) == 0:
             self._report()
+            if self._contact_on:
+                self._contact_report()
+                self._com_report()
         self._publish_state()
         if not self.active:
             return

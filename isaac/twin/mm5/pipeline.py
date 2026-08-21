@@ -87,6 +87,8 @@ class Trial:
     outcome: str = "RUNNING"
     detail: str = ""
     cheat_attach: bool = False
+    grip_contacts: int = -1
+    grip_force_n: float = 0.0
 
     def as_row(self) -> dict:
         return {"trial": self.index, "seed": self.seed, "object": self.object_name,
@@ -94,7 +96,9 @@ class Trial:
                 "cheat_attach": self.cheat_attach,
                 "obj_start": [round(v, 4) for v in self.obj_start],
                 "obj_end": [round(v, 4) for v in self.obj_end],
-                "stage_s": {k: round(v, 3) for k, v in self.stage_times.items()}}
+                "stage_s": {k: round(v, 3) for k, v in self.stage_times.items()},
+                "grip_contacts": self.grip_contacts,
+                "grip_force_n": self.grip_force_n}
 
 
 class MM5Pipeline:
@@ -132,6 +136,7 @@ class MM5Pipeline:
         # Palm-frame direction the fingers close along. +z is the WRONG axis for the
         # Dex5 and is only the default so this runs before HANDCAL has measured it.
         self.grasp_axis_local = np.array([0.0, 0.0, 1.0])
+        self._hand_body_names = set()
         # Legs + torso: every SDK joint that is not the right arm.
         self.body_idx = np.array(
             [names.index(n) for n in SDK_BODY_JOINTS if n in names], np.int32)
@@ -254,6 +259,55 @@ class MM5Pipeline:
             if c in names:
                 return c
         return None
+
+    def finger_contacts(self):
+        """(n_in_contact, total |F|, per-finger |F|) for the right hand's links.
+
+        v4 fixed WHERE the hand closes; the hand still closes fully and does not hold.
+        Before adding force there is a prior question -- are the fingers touching the
+        object at all, or closing through it? Zero contact at full closure would mean
+        the finger COLLIDERS are missing, which is a different bug entirely and one
+        this campaign has already hit once on the YCB objects (C-41).
+
+        Same net-contact-force route as the foot audit: one tensor read, no per-body
+        prim wrappers. Constructing those mid-run invalidates the physics view.
+        """
+        view = self.view
+        try:
+            names = list(view.body_names)
+        except Exception:
+            return None
+        F = None
+        tried = []
+        for hn, holder in (("view", view), ("physx", getattr(view, "_physics_view", None))):
+            if holder is None:
+                continue
+            fn = getattr(holder, "get_net_contact_forces", None)
+            if fn is None:
+                tried.append(f"{hn}: absent")
+                continue
+            try:
+                A = np.asarray(fn())
+                F = A.reshape(-1, len(names), A.shape[-1])[0][:, :3]
+                tried.append(f"{hn}: OK {A.shape}")
+                break
+            except Exception as exc:
+                tried.append(f"{hn}: {type(exc).__name__}")
+                F = None
+        if F is None:
+            if not getattr(self, "_contact_api_warned", False):
+                self._contact_api_warned = True
+                self.log(f"NO net-contact-force API: {tried}. Finger contact cannot be "
+                         f"counted, so the LIFT gate is inactive and any NO_GRIP row "
+                         f"below is NOT evidence about colliders.")
+            return None
+        mags = []
+        for i, n in enumerate(names):
+            if n in self._hand_body_names:
+                mags.append(float(np.linalg.norm(F[i])))
+        if not mags:
+            return None
+        return sum(1 for m in mags if m > 0.5), float(sum(mags)), mags
 
     def _approach(self, obj):
         """(axis, pregrasp, graspose) for this target, computed from the geometry.
@@ -463,9 +517,32 @@ class MM5Pipeline:
                 self._servo(err)
 
         elif self.stage_name == "GRASP":
+            # PHASE GAINS. C-38 capped the finger drives at kp 5.0 because the imported
+            # value was 35810, which was never a real gain -- but 5.0 is the SONIC-IDLE
+            # figure, chosen so an idle hand does not fight itself, and it cannot
+            # generate grip. Raised for GRASP and LIFT only, and reverted when the trial
+            # ends, so the idle hand is unchanged. The URDF effort clamp still applies.
+            self._grip_gains(True)
             self._grip_ratio = min(1.0, self._grip_ratio + dt / self.cfg.close_s)
             self._set_hand(self._grip_ratio)
             if self._grip_ratio >= 1.0 and t_in_stage > self.cfg.close_s + 0.5:
+                fc = self.finger_contacts()
+                if fc is None:
+                    self.log("finger contact unreadable; lifting on closure alone")
+                    self._enter("LIFT")
+                    return
+                n, tot, _ = fc
+                self.trial.grip_contacts = n
+                self.trial.grip_force_n = round(tot, 3)
+                self.log(f"closed: {n} finger links in contact, {tot:.2f} N total")
+                # LIFT GATE. Lifting on "the fingers finished moving" is what produced
+                # six NO_GRIP rows that had already decided their outcome before LIFT
+                # began. A hand that is not touching the object is not holding it.
+                if n < self.cfg.min_grip_contacts:
+                    self._fail("NO_CONTACT_AT_CLOSURE",
+                               f"{n} finger links in contact ({tot:.2f} N), "
+                               f"need {self.cfg.min_grip_contacts}")
+                    return
                 self._enter("LIFT")
 
         elif self.stage_name == "LIFT":
@@ -556,6 +633,21 @@ class MM5Pipeline:
         tgt = np.clip(tgt, ARM_Q_MIN + ARM_MARGIN, ARM_Q_MAX - ARM_MARGIN)
         self._arm_target = tgt.astype(np.float32)
 
+    def _grip_gains(self, on: bool) -> None:
+        """Raise the finger drive gains for the grasp phases, and put them back."""
+        if not self.has_hand or getattr(self, "_grip_gain_on", None) is on:
+            return
+        kp = self.cfg.grip_kp if on else self.cfg.idle_hand_kp
+        kd = self.cfg.grip_kd if on else self.cfg.idle_hand_kd
+        try:
+            self.view.set_gains(np.full(len(self.hand_idx), kp, np.float32),
+                                np.full(len(self.hand_idx), kd, np.float32),
+                                joint_indices=self.hand_idx)
+            self._grip_gain_on = on
+            self.log(f"finger drives -> kp {kp} kd {kd}")
+        except Exception as exc:
+            self.log(f"finger gain change failed: {exc!r}")
+
     def _set_hand(self, ratio):
         if not self.has_hand:
             return
@@ -563,7 +655,11 @@ class MM5Pipeline:
         for i in range(len(RIGHT_HAND_JOINTS)):
             if i in PASSIVE_HAND_IDX:
                 continue                     # unactuated on the real Dex5-1 (C-13)
-            q[i] = ratio * self.cfg.close_rad
+            # OVERCLOSE. A position drive makes force out of ERROR, so a target set
+            # AT the contact pose produces a hand that touches with ~zero force. The
+            # target is driven PAST contact by `overclose_rad`; the fingers cannot get
+            # there, and the residual error is the grip.
+            q[i] = ratio * (self.cfg.close_rad + self.cfg.overclose_rad)
         self._hand_target = q
 
     def reapply(self):

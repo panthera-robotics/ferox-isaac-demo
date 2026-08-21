@@ -205,3 +205,49 @@ than on distance.** That is not implemented; closure is still distance-triggered
 brief — but it affects closure TIMING, and the surviving failure is a hand that closes
 fully and still does not hold, so it was not the thing standing between v4 and a lift.
 Recorded as open rather than quietly dropped.
+
+---
+
+# Grasp v5 — closure made force-generating
+
+**0/20 (10 can, 10 cube). Still no lift.** Two of the four v5 items landed and changed
+the behaviour; two could not run, for a reason worth recording.
+
+| | v4 can | **v5 can** | **v5 cube** |
+|---|---|---|---|
+| GRASP reached | 6/10 | 6/10 | 5/10 |
+| `NO_GRIP` | 6 | **4** | 3 |
+| `KNOCKED_OFF_IN_LIFT` | 0 | **2** | **2** |
+| success | 0/10 | 0/10 | 0/10 |
+
+**(b) Overclose — done.** Finger targets are driven `overclose_rad = 0.25` past the
+contact pose. A position drive makes force out of ERROR, so a target set AT contact
+produces a hand that touches with almost none; the fingers cannot reach the overclosed
+target and the residual error is the grip.
+
+**(c) Phase gains — done.** C-38 capped the finger drives at kp 5.0, and that is the
+SONIC-IDLE value, chosen so an idle hand does not fight itself — not a grasping value.
+GRASP and LIFT now run at kp 20 / kd 0.5 and revert to 5.0 / 0.1 when the trial ends,
+so the idle hand is unchanged and the 0.93 Nm URDF effort clamp still bounds the result.
+The log shows the transition on every trial.
+
+**The effect is real and visible in the taxonomy.** `NO_GRIP` drops from 6 to 4 on the
+can, and **`KNOCKED_OFF_IN_LIFT` appears for the first time on both objects (2 + 2)** —
+the hand now moves the can while lifting, where v4's hand simply let it sit. That is a
+hand that has begun to grip and cannot yet hold. It is progress and it is not a lift.
+
+**(a) Contact counting and (d) the DT3 lift gate — COULD NOT RUN.**
+`get_net_contact_forces` is **absent on both the articulation wrapper and the physics
+view** in this Isaac build:
+
+    NO net-contact-force API: ['view: absent', 'physx: absent']
+
+Both items depend on it, so both are inactive, and the code says so at runtime rather
+than silently returning zero contacts. **This matters for how the rows above are read:
+no `NO_GRIP` row here is evidence about colliders**, because the question "are the
+fingers touching the object at all" was never answerable. The same absence corrected a
+C-39 result in the other workstream — the foot "contact" forces there are actually
+`get_link_incoming_joint_force`, a joint reaction, not ground contact.
+
+Finding the contact route that does work in this build is the next step for both
+workstreams, and it is one piece of work, not two.

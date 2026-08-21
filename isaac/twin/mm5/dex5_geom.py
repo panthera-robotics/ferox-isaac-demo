@@ -127,4 +127,9 @@ def measure(pipe, open_snapshot):
         "closed_centre_palm": [round(float(v), 5) for v in centre],
         "centre_dist_m": round(float(np.linalg.norm(centre)), 5),
         "tip_spread_m": round(float(np.linalg.norm(P - centre, axis=1).mean()), 5),
+        # Every link that belongs to the hand, for v5's contact counting. Discovered
+        # the same way the fingertips are -- by being near the palm -- rather than by
+        # a hard-coded name list, which the Dex5's upstream naming has already broken
+        # once (base_link00 / base_link00L).
+        "hand_bodies": sorted(moved.keys()),
     }
