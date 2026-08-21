@@ -1,21 +1,21 @@
 {
-  "variant": "dex5",
-  "n_links": 79,
+  "variant": "none",
+  "n_links": 30,
   "sources": {
     "masses": "physx.get_masses",
     "transforms": "physx.get_link_transforms",
     "coms": "physx.get_coms",
     "inertias": "physx.get_inertias"
   },
-  "total_mass_kg": 39.004749,
+  "total_mass_kg": 33.341145,
   "heaviest_links": [
     {
       "link": "torso_link",
-      "mass_kg": 6.78
+      "mass_kg": 7.816999
     },
     {
       "link": "pelvis",
-      "mass_kg": 3.813
+      "mass_kg": 3.814
     },
     {
       "link": "left_knee_link",
@@ -26,19 +26,19 @@
       "mass_kg": 1.932
     },
     {
-      "link": "left_hip_yaw_link",
-      "mass_kg": 1.702
-    },
-    {
       "link": "right_hip_yaw_link",
       "mass_kg": 1.702
     },
     {
-      "link": "right_hip_roll_link",
-      "mass_kg": 1.52
+      "link": "left_hip_yaw_link",
+      "mass_kg": 1.702
     },
     {
       "link": "left_hip_roll_link",
+      "mass_kg": 1.52
+    },
+    {
+      "link": "right_hip_roll_link",
       "mass_kg": 1.52
     },
     {
@@ -50,26 +50,26 @@
       "mass_kg": 1.35
     },
     {
-      "link": "head_link",
-      "mass_kg": 1.036
+      "link": "left_shoulder_yaw_link",
+      "mass_kg": 0.734
     },
     {
-      "link": "d435_link",
-      "mass_kg": 1.0
+      "link": "right_shoulder_yaw_link",
+      "mass_kg": 0.734
     }
   ],
   "duplicate_link_names": {},
   "com_method": "link origin + R*com_local",
   "com_world": [
-    7.79931,
-    2.007902,
-    0.737577
+    7.799923,
+    2.007214,
+    0.702113
   ],
   "ankle_mean_x": 7.799979,
-  "com_x_minus_ankle_x": -0.000669,
+  "com_x_minus_ankle_x": -5.6e-05,
   "foot_colliders": [
     {
-      "path": "/World/G1/left_ankle_roll_link/visuals/left_ankle_roll_link/node_STL_BINARY_/mesh",
+      "path": "/World/G1/left_ankle_roll_link/visuals/left_ankle_roll_link/mesh",
       "type": "Mesh",
       "collisionAPI": false,
       "extent": [
@@ -92,26 +92,20 @@
       "local_z_min": -0.035409
     },
     {
-      "path": "/World/G1/left_ankle_roll_link/collisions/mesh_0/sphere",
-      "type": "Sphere",
+      "path": "/World/G1/left_ankle_roll_link/collisions/mesh_0/box",
+      "type": "Cube",
       "collisionAPI": true,
       "extent": [
         [
-          -0.005,
-          -0.005,
-          -0.005
+          -0.075,
+          -0.03,
+          -0.0075
         ],
         [
-          0.005,
-          0.005,
-          0.005
+          0.075,
+          0.03,
+          0.0075
         ]
-      ],
-      "radius": 0.005,
-      "world_xyz": [
-        7.656454,
-        1.950112,
-        0.010869
       ]
     },
     {
@@ -132,9 +126,9 @@
       ],
       "radius": 0.005,
       "world_xyz": [
-        7.706454,
-        1.950072,
-        0.010869
+        7.656454,
+        1.950111,
+        0.01087
       ]
     },
     {
@@ -155,9 +149,9 @@
       ],
       "radius": 0.005,
       "world_xyz": [
-        7.65159,
-        2.120116,
-        0.010869
+        7.706454,
+        1.950072,
+        0.01087
       ]
     },
     {
@@ -178,13 +172,59 @@
       ],
       "radius": 0.005,
       "world_xyz": [
-        7.71159,
-        2.120068,
-        0.010869
+        7.651589,
+        2.120115,
+        0.01087
       ]
     },
     {
-      "path": "/World/G1/right_ankle_roll_link/visuals/right_ankle_roll_link/node_STL_BINARY_/mesh",
+      "path": "/World/G1/left_ankle_roll_link/collisions/mesh_4/sphere",
+      "type": "Sphere",
+      "collisionAPI": true,
+      "extent": [
+        [
+          -0.005,
+          -0.005,
+          -0.005
+        ],
+        [
+          0.005,
+          0.005,
+          0.005
+        ]
+      ],
+      "radius": 0.005,
+      "world_xyz": [
+        7.711589,
+        2.120068,
+        0.01087
+      ]
+    },
+    {
+      "path": "/World/G1/left_ankle_roll_link/collisions/mesh_5/sphere",
+      "type": "Sphere",
+      "collisionAPI": true,
+      "extent": [
+        [
+          -0.005,
+          -0.005,
+          -0.005
+        ],
+        [
+          0.005,
+          0.005,
+          0.005
+        ]
+      ],
+      "radius": 0.005,
+      "world_xyz": [
+        7.681605,
+        2.140092,
+        0.01287
+      ]
+    },
+    {
+      "path": "/World/G1/right_ankle_roll_link/visuals/right_ankle_roll_link/mesh",
       "type": "Mesh",
       "collisionAPI": false,
       "extent": [
@@ -207,26 +247,20 @@
       "local_z_min": -0.035409
     },
     {
-      "path": "/World/G1/right_ankle_roll_link/collisions/mesh_0/sphere",
-      "type": "Sphere",
+      "path": "/World/G1/right_ankle_roll_link/collisions/mesh_0/box",
+      "type": "Cube",
       "collisionAPI": true,
       "extent": [
         [
-          -0.005,
-          -0.005,
-          -0.005
+          -0.075,
+          -0.03,
+          -0.0075
         ],
         [
-          0.005,
-          0.005,
-          0.005
+          0.075,
+          0.03,
+          0.0075
         ]
-      ],
-      "radius": 0.005,
-      "world_xyz": [
-        7.893467,
-        1.949923,
-        0.010869
       ]
     },
     {
@@ -247,9 +281,9 @@
       ],
       "radius": 0.005,
       "world_xyz": [
-        7.943467,
-        1.949883,
-        0.010869
+        7.893467,
+        1.949923,
+        0.01087
       ]
     },
     {
@@ -270,9 +304,9 @@
       ],
       "radius": 0.005,
       "world_xyz": [
-        7.888602,
-        2.119927,
-        0.010869
+        7.943467,
+        1.949883,
+        0.01087
       ]
     },
     {
@@ -293,13 +327,59 @@
       ],
       "radius": 0.005,
       "world_xyz": [
+        7.888602,
+        2.119927,
+        0.01087
+      ]
+    },
+    {
+      "path": "/World/G1/right_ankle_roll_link/collisions/mesh_4/sphere",
+      "type": "Sphere",
+      "collisionAPI": true,
+      "extent": [
+        [
+          -0.005,
+          -0.005,
+          -0.005
+        ],
+        [
+          0.005,
+          0.005,
+          0.005
+        ]
+      ],
+      "radius": 0.005,
+      "world_xyz": [
         7.948602,
         2.119879,
-        0.010869
+        0.01087
+      ]
+    },
+    {
+      "path": "/World/G1/right_ankle_roll_link/collisions/mesh_5/sphere",
+      "type": "Sphere",
+      "collisionAPI": true,
+      "extent": [
+        [
+          -0.005,
+          -0.005,
+          -0.005
+        ],
+        [
+          0.005,
+          0.005,
+          0.005
+        ]
+      ],
+      "radius": 0.005,
+      "world_xyz": [
+        7.918618,
+        2.139903,
+        0.01287
       ]
     }
   ],
-  "foot_usda_lines": 52,
+  "foot_usda_lines": 18,
   "contact_api_hunt": {
     "view": [
       "_prepare_view_in_fabric",

@@ -1,0 +1,469 @@
+{
+  "twin_total_kg": 33.341141,
+  "ref_total_kg": 35.112142,
+  "total_delta_kg": -1.771001,
+  "matched_links": 30,
+  "matched_mass_delta_kg": -1.771001,
+  "twin_only_links": 0,
+  "twin_only_mass_kg": 0,
+  "ref_only_links": 0,
+  "ref_only_mass_kg": 0,
+  "by_abs_d_mass": [
+    {
+      "link": "torso_link",
+      "twin_kg": 7.816999,
+      "ref_kg": 9.598,
+      "d_mass_kg": -1.781001,
+      "twin_com_x": 0.002031,
+      "ref_com_x": 0.003317,
+      "d_com_x": -0.001286
+    },
+    {
+      "link": "waist_roll_link",
+      "twin_kg": 0.086,
+      "ref_kg": 0.047,
+      "d_mass_kg": 0.039,
+      "twin_com_x": 0.0,
+      "ref_com_x": 0.0,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "waist_yaw_link",
+      "twin_kg": 0.214,
+      "ref_kg": 0.244,
+      "d_mass_kg": -0.03,
+      "twin_com_x": 0.003494,
+      "ref_com_x": 0.003964,
+      "d_com_x": -0.00047
+    },
+    {
+      "link": "pelvis",
+      "twin_kg": 3.814,
+      "ref_kg": 3.813,
+      "d_mass_kg": 0.001,
+      "twin_com_x": 0.0,
+      "ref_com_x": 0.0,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_ankle_pitch_link",
+      "twin_kg": 0.074,
+      "ref_kg": 0.074,
+      "d_mass_kg": 0.0,
+      "twin_com_x": -0.007269,
+      "ref_com_x": -0.007269,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_ankle_roll_link",
+      "twin_kg": 0.608,
+      "ref_kg": 0.608,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.026505,
+      "ref_com_x": 0.026505,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_elbow_link",
+      "twin_kg": 0.6,
+      "ref_kg": 0.6,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.064956,
+      "ref_com_x": 0.064956,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_hip_pitch_link",
+      "twin_kg": 1.35,
+      "ref_kg": 1.35,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.002741,
+      "ref_com_x": 0.002741,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_hip_roll_link",
+      "twin_kg": 1.52,
+      "ref_kg": 1.52,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.029812,
+      "ref_com_x": 0.029812,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_hip_yaw_link",
+      "twin_kg": 1.702,
+      "ref_kg": 1.702,
+      "d_mass_kg": 0.0,
+      "twin_com_x": -0.057709,
+      "ref_com_x": -0.057709,
+      "d_com_x": 0.0
+    }
+  ],
+  "by_abs_d_com_x": [
+    {
+      "link": "torso_link",
+      "twin_kg": 7.816999,
+      "ref_kg": 9.598,
+      "d_mass_kg": -1.781001,
+      "twin_com_x": 0.002031,
+      "ref_com_x": 0.003317,
+      "d_com_x": -0.001286
+    },
+    {
+      "link": "waist_yaw_link",
+      "twin_kg": 0.214,
+      "ref_kg": 0.244,
+      "d_mass_kg": -0.03,
+      "twin_com_x": 0.003494,
+      "ref_com_x": 0.003964,
+      "d_com_x": -0.00047
+    },
+    {
+      "link": "left_ankle_pitch_link",
+      "twin_kg": 0.074,
+      "ref_kg": 0.074,
+      "d_mass_kg": 0.0,
+      "twin_com_x": -0.007269,
+      "ref_com_x": -0.007269,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_ankle_roll_link",
+      "twin_kg": 0.608,
+      "ref_kg": 0.608,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.026505,
+      "ref_com_x": 0.026505,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_elbow_link",
+      "twin_kg": 0.6,
+      "ref_kg": 0.6,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.064956,
+      "ref_com_x": 0.064956,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_hip_pitch_link",
+      "twin_kg": 1.35,
+      "ref_kg": 1.35,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.002741,
+      "ref_com_x": 0.002741,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_hip_roll_link",
+      "twin_kg": 1.52,
+      "ref_kg": 1.52,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.029812,
+      "ref_com_x": 0.029812,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_hip_yaw_link",
+      "twin_kg": 1.702,
+      "ref_kg": 1.702,
+      "d_mass_kg": 0.0,
+      "twin_com_x": -0.057709,
+      "ref_com_x": -0.057709,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_knee_link",
+      "twin_kg": 1.932,
+      "ref_kg": 1.932,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.005457,
+      "ref_com_x": 0.005457,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_shoulder_pitch_link",
+      "twin_kg": 0.718,
+      "ref_kg": 0.718,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.0,
+      "ref_com_x": 0.0,
+      "d_com_x": 0.0
+    }
+  ],
+  "twin_only": [],
+  "ref_only": [],
+  "all_matched": [
+    {
+      "link": "left_ankle_pitch_link",
+      "twin_kg": 0.074,
+      "ref_kg": 0.074,
+      "d_mass_kg": 0.0,
+      "twin_com_x": -0.007269,
+      "ref_com_x": -0.007269,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_ankle_roll_link",
+      "twin_kg": 0.608,
+      "ref_kg": 0.608,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.026505,
+      "ref_com_x": 0.026505,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_elbow_link",
+      "twin_kg": 0.6,
+      "ref_kg": 0.6,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.064956,
+      "ref_com_x": 0.064956,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_hip_pitch_link",
+      "twin_kg": 1.35,
+      "ref_kg": 1.35,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.002741,
+      "ref_com_x": 0.002741,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_hip_roll_link",
+      "twin_kg": 1.52,
+      "ref_kg": 1.52,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.029812,
+      "ref_com_x": 0.029812,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_hip_yaw_link",
+      "twin_kg": 1.702,
+      "ref_kg": 1.702,
+      "d_mass_kg": 0.0,
+      "twin_com_x": -0.057709,
+      "ref_com_x": -0.057709,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_knee_link",
+      "twin_kg": 1.932,
+      "ref_kg": 1.932,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.005457,
+      "ref_com_x": 0.005457,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_shoulder_pitch_link",
+      "twin_kg": 0.718,
+      "ref_kg": 0.718,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.0,
+      "ref_com_x": 0.0,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_shoulder_roll_link",
+      "twin_kg": 0.643,
+      "ref_kg": 0.643,
+      "d_mass_kg": 0.0,
+      "twin_com_x": -0.000227,
+      "ref_com_x": -0.000227,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_shoulder_yaw_link",
+      "twin_kg": 0.734,
+      "ref_kg": 0.734,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.010773,
+      "ref_com_x": 0.010773,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_wrist_pitch_link",
+      "twin_kg": 0.48405,
+      "ref_kg": 0.48405,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.023,
+      "ref_com_x": 0.023,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_wrist_roll_link",
+      "twin_kg": 0.085445,
+      "ref_kg": 0.085445,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.017139,
+      "ref_com_x": 0.017139,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "left_wrist_yaw_link",
+      "twin_kg": 0.254576,
+      "ref_kg": 0.254576,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.070824,
+      "ref_com_x": 0.070824,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "pelvis",
+      "twin_kg": 3.814,
+      "ref_kg": 3.813,
+      "d_mass_kg": 0.001,
+      "twin_com_x": 0.0,
+      "ref_com_x": 0.0,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_ankle_pitch_link",
+      "twin_kg": 0.074,
+      "ref_kg": 0.074,
+      "d_mass_kg": 0.0,
+      "twin_com_x": -0.007269,
+      "ref_com_x": -0.007269,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_ankle_roll_link",
+      "twin_kg": 0.608,
+      "ref_kg": 0.608,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.026505,
+      "ref_com_x": 0.026505,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_elbow_link",
+      "twin_kg": 0.6,
+      "ref_kg": 0.6,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.064956,
+      "ref_com_x": 0.064956,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_hip_pitch_link",
+      "twin_kg": 1.35,
+      "ref_kg": 1.35,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.002741,
+      "ref_com_x": 0.002741,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_hip_roll_link",
+      "twin_kg": 1.52,
+      "ref_kg": 1.52,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.029812,
+      "ref_com_x": 0.029812,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_hip_yaw_link",
+      "twin_kg": 1.702,
+      "ref_kg": 1.702,
+      "d_mass_kg": 0.0,
+      "twin_com_x": -0.057709,
+      "ref_com_x": -0.057709,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_knee_link",
+      "twin_kg": 1.932,
+      "ref_kg": 1.932,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.005457,
+      "ref_com_x": 0.005457,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_shoulder_pitch_link",
+      "twin_kg": 0.718,
+      "ref_kg": 0.718,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.0,
+      "ref_com_x": 0.0,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_shoulder_roll_link",
+      "twin_kg": 0.643,
+      "ref_kg": 0.643,
+      "d_mass_kg": 0.0,
+      "twin_com_x": -0.000227,
+      "ref_com_x": -0.000227,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_shoulder_yaw_link",
+      "twin_kg": 0.734,
+      "ref_kg": 0.734,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.010773,
+      "ref_com_x": 0.010773,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_wrist_pitch_link",
+      "twin_kg": 0.48405,
+      "ref_kg": 0.48405,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.023,
+      "ref_com_x": 0.023,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_wrist_roll_link",
+      "twin_kg": 0.085445,
+      "ref_kg": 0.085445,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.017139,
+      "ref_com_x": 0.017139,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "right_wrist_yaw_link",
+      "twin_kg": 0.254576,
+      "ref_kg": 0.254576,
+      "d_mass_kg": 0.0,
+      "twin_com_x": 0.070824,
+      "ref_com_x": 0.070824,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "torso_link",
+      "twin_kg": 7.816999,
+      "ref_kg": 9.598,
+      "d_mass_kg": -1.781001,
+      "twin_com_x": 0.002031,
+      "ref_com_x": 0.003317,
+      "d_com_x": -0.001286
+    },
+    {
+      "link": "waist_roll_link",
+      "twin_kg": 0.086,
+      "ref_kg": 0.047,
+      "d_mass_kg": 0.039,
+      "twin_com_x": 0.0,
+      "ref_com_x": 0.0,
+      "d_com_x": 0.0
+    },
+    {
+      "link": "waist_yaw_link",
+      "twin_kg": 0.214,
+      "ref_kg": 0.244,
+      "d_mass_kg": -0.03,
+      "twin_com_x": 0.003494,
+      "ref_com_x": 0.003964,
+      "d_com_x": -0.00047
+    }
+  ]
+}

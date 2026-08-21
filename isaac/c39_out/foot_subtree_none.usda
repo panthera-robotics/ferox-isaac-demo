@@ -1,0 +1,18 @@
+    def Xform "left_ankle_roll_link"
+    def Xform "left_ankle_pitch_link"
+    def Xform "right_ankle_pitch_link"
+    def Xform "right_ankle_roll_link"
+            def PhysicsRevoluteJoint "left_ankle_pitch_joint" (
+                rel physics:body1 = </World/G1/left_ankle_pitch_link>
+            def PhysicsRevoluteJoint "left_ankle_roll_joint" (
+                rel physics:body0 = </World/G1/left_ankle_pitch_link>
+                rel physics:body1 = </World/G1/left_ankle_roll_link>
+            def PhysicsRevoluteJoint "right_ankle_pitch_joint" (
+                rel physics:body1 = </World/G1/right_ankle_pitch_link>
+            def PhysicsRevoluteJoint "right_ankle_roll_joint" (
+                rel physics:body0 = </World/G1/right_ankle_pitch_link>
+                rel physics:body1 = </World/G1/right_ankle_roll_link>
+        def Xform "left_ankle_pitch_link" (
+        def Xform "left_ankle_roll_link" (
+        def Xform "right_ankle_pitch_link" (
+        def Xform "right_ankle_roll_link" (

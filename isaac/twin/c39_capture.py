@@ -158,6 +158,21 @@ def capture(art, stage, out_dir: str, variant: str) -> None:
             ext = p.GetAttribute("extent").Get() if p.HasAttribute("extent") else None
             if ext:
                 e["extent"] = [[round(float(v), 6) for v in pt] for pt in ext]
+            # Sphere colliders carry a radius and an xform, not points -- and the
+            # spheres ARE the foot's contact geometry, so their centres in the ankle
+            # frame are the fore/aft reach the diff needs.
+            if p.GetTypeName() == "Sphere":
+                r = p.GetAttribute("radius").Get() if p.HasAttribute("radius") else None
+                e["radius"] = _f(r)
+                try:
+                    from pxr import UsdGeom, Usd as _U
+                    xf = UsdGeom.Xformable(p)
+                    m = xf.ComputeLocalToWorldTransform(_U.TimeCode.Default())
+                    t = m.ExtractTranslation()
+                    e["world_xyz"] = [round(float(t[0]), 6), round(float(t[1]), 6),
+                                      round(float(t[2]), 6)]
+                except Exception as exc:
+                    e["xform_error"] = repr(exc)
             pts = p.GetAttribute("points").Get() if p.HasAttribute("points") else None
             if pts:
                 a = np.array([[float(v[0]), float(v[1]), float(v[2])] for v in pts])
