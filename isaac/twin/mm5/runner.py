@@ -196,6 +196,10 @@ class MM5Config:
     # runs stalled.  One measurement, one solve, no iteration.
     # v4: measure the hand instead of arguing about the stand-off. See dex5_geom.py.
     measure_hand: bool = False
+    # v6: ContactSensor prim paths created at world setup (run.py), because in this
+    # build they must exist before the sim steps. Empty = no contact route, and the
+    # pipeline says so out loud rather than reporting zero contacts.
+    contact_sensor_paths: tuple = ()
     grasp_clearance: float = 0.010   # fingers must pass the widest part before closing
     pregrasp_extra: float = 0.085    # pre-grasp this much further out along the axis
     place_from_workspace: bool = False

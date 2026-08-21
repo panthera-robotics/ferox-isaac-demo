@@ -192,6 +192,28 @@ def capture(art, stage, out_dir: str, variant: str) -> None:
         feet_out.append({"error": repr(exc)})
     report["foot_colliders"] = feet_out
 
+    # HAND COLLIDERS. Grasp v6 could not attach a ContactSensor to any finger tip
+    # because no prim under those links carries CollisionAPI. Whether the fingers have
+    # collision geometry AT ALL is a bigger question than the sensor -- a hand with no
+    # colliders closes THROUGH the object, which would explain every NO_GRIP row in
+    # v1..v6 -- so it is answered here directly.
+    hand_out = {"collision_prims": [], "scanned": 0}
+    try:
+        from pxr import Usd, UsdPhysics
+        for p in Usd.PrimRange.Stage(stage, Usd.TraverseInstanceProxies()):
+            path = p.GetPath().pathString
+            if "Link_" not in path and "base_link00" not in path:
+                continue
+            hand_out["scanned"] += 1
+            if p.HasAPI(UsdPhysics.CollisionAPI):
+                hand_out["collision_prims"].append(
+                    {"path": path, "type": str(p.GetTypeName())})
+    except Exception as exc:
+        hand_out["error"] = repr(exc)
+    hand_out["n_collision_prims"] = len(hand_out["collision_prims"])
+    hand_out["collision_prims"] = hand_out["collision_prims"][:20]
+    report["hand_colliders"] = hand_out
+
     # Export the foot subtree as usda text, so the offline session can read what the
     # binary usdc would not give up.
     try:

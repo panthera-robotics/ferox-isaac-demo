@@ -251,3 +251,53 @@ C-39 result in the other workstream — the foot "contact" forces there are actu
 
 Finding the contact route that does work in this build is the next step for both
 workstreams, and it is one piece of work, not two.
+
+---
+
+# Grasp v6 — the contact route, attempted twice, still not attached
+
+**0/20 (can 0/10, cube 0/10). No lift.** v6 kept v5's overclose and phase gains and
+tried to add the contact-triggered close and lift gate on the route task 1 identified.
+**The route did not attach, so v6 is behaviourally v5** and its rows carry the same
+caveat: `grip_contacts` is `-1` on every trial, so **no `NO_GRIP` row in this campaign
+is evidence about finger colliders.**
+
+| | v5 can | **v6 can** | **v6 cube** |
+|---|---|---|---|
+| GRASP reached | 6/10 | 5/10 | 2/10 |
+| `NO_GRIP` | 4 | 4 | 2 |
+| `KNOCKED_OFF_IN_DESCEND` | 1 | 1 | 3 |
+| `KNOCKED_OFF_IN_LIFT` | 2 | 1 | 0 |
+| `DESCEND_TIMEOUT` | 3 | 4 | 5 |
+| success | 0/10 | 0/10 | 0/10 |
+
+## Why the contact route did not attach, precisely
+
+Two attempts, both instructive, neither successful:
+
+1. **Sensors on the link Xform.** `ContactSensor` prims were created at world setup on
+   `/World/G1/Link_{1..5}4R` — creation reported 5/5 — and then every one failed at
+   `initialize()` with *"Contact Sensor needs to be created under another prim that has
+   collision api enabled on"*. The link Xform has no collision; the collider lives at
+   `<link>/collisions/...`. **Creation succeeding and initialisation failing much later
+   is the trap here** — the setup log says 5/5 and looks fine.
+
+2. **Sensors on the collision child.** Re-parenting to the first descendant carrying
+   `CollisionAPI` found **0/5**, because the search used `Usd.PrimRange(prim, predicate)`
+   — which does not descend into instance proxies. Corrected to `PrimRange.Stage` with a
+   path-prefix filter, and it still reported 0/5 at setup time.
+
+The most useful thing v6 produced is the answer to the question underneath all of it:
+**the fingers DO have collision geometry.** A stage scan with instance proxies finds
+**42 prims with `CollisionAPI`** across the two hands —
+`/World/G1/Link_44L/collisions/Link_44L/node_STL_BINARY_` and its 20 siblings per hand,
+plus each palm. So the hand is *not* closing through the object, and the collider
+hypothesis behind grasp (a) is dead. What remains unexplained is why a sensor cannot be
+parented to those prims at setup time, and that is one focused piece of work rather than
+a campaign.
+
+## Standing caveat on every grasp result so far
+
+`grip_contacts = -1` in v5 and v6 means the lift gate never armed and no trial's outcome
+was decided by measured contact. The taxonomy is honest about stage reach and object
+motion; it is silent on whether the fingers touched.

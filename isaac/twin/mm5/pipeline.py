@@ -137,6 +137,7 @@ class MM5Pipeline:
         # Dex5 and is only the default so this runs before HANDCAL has measured it.
         self.grasp_axis_local = np.array([0.0, 0.0, 1.0])
         self._hand_body_names = set()
+        self._cs = None
         # Legs + torso: every SDK joint that is not the right arm.
         self.body_idx = np.array(
             [names.index(n) for n in SDK_BODY_JOINTS if n in names], np.int32)
@@ -272,6 +273,30 @@ class MM5Pipeline:
         Same net-contact-force route as the foot audit: one tensor read, no per-body
         prim wrappers. Constructing those mid-run invalidates the physics view.
         """
+        # ROUTE A: ContactSensor prims, the only working route in this build.
+        paths = list(getattr(self.cfg, "contact_sensor_paths", ()) or ())
+        if paths:
+            if self._cs is None:
+                from isaacsim.sensors.physics import ContactSensor
+                self._cs = []
+                for p in paths:
+                    try:
+                        s = ContactSensor(prim_path=p, name=f"cs_{len(self._cs)}")
+                        s.initialize()
+                        self._cs.append(s)
+                    except Exception as exc:
+                        self.log(f"contact sensor {p} unusable: {exc!r}")
+            mags = []
+            for s in self._cs:
+                try:
+                    fr = s.get_current_frame()
+                except Exception:
+                    continue
+                f = float(fr.get("force", 0.0) or 0.0)
+                mags.append(f)
+            if mags:
+                return sum(1 for m in mags if m > 0.05), float(sum(mags)), mags
+
         view = self.view
         try:
             names = list(view.body_names)

@@ -158,6 +158,65 @@ def _apply_sensor_masses(robot) -> None:
           flush=True)
 
 
+# Grasp v6. The contact route in THIS build: RigidContactView is absent and the
+# articulation has no get_net_contact_forces, so finger contact has to come from
+# ContactSensor prims -- and those must EXIST BEFORE the sim starts stepping, which is
+# why this runs at world setup and not from the MM5 pipeline.
+# (get_link_incoming_joint_force is present but is a joint reaction, not contact; it was
+# misread as ground contact once already and is deliberately not used here.)
+DEX5_TIP_LINKS = ("Link_14R", "Link_24R", "Link_34R", "Link_44R", "Link_54R")
+
+
+def _collision_child(stage, link_path: str):
+    """First descendant of `link_path` carrying CollisionAPI, or None.
+
+    A ContactSensor must be parented to a prim that HAS collision, and the link Xform
+    does not -- URDF import puts the collider under `<link>/collisions/mesh_N/...` and
+    instances it. Parenting to the link itself is rejected at initialize() with
+    "needs to be created under another prim that has collision api enabled on", which
+    happens well after creation appears to have succeeded.
+    """
+    # PrimRange.Stage + a path-prefix filter, NOT PrimRange(prim, predicate): the
+    # per-prim form does not descend into instance proxies, so it returns nothing for
+    # links whose geometry the URDF importer instanced -- which is all of them. The
+    # stage form found 42 hand collision prims where the per-prim form found 0.
+    from pxr import Usd, UsdPhysics
+    pref = link_path.rstrip("/") + "/"
+    for p in Usd.PrimRange.Stage(stage, Usd.TraverseInstanceProxies()):
+        sp = p.GetPath().pathString
+        if not sp.startswith(pref):
+            continue
+        if p.HasAPI(UsdPhysics.CollisionAPI):
+            return sp
+    return None
+
+
+def _make_hand_contact_sensors(robot_root: str, stage=None) -> list:
+    made = []
+    try:
+        from isaacsim.sensors.physics import ContactSensor
+    except Exception as exc:
+        print(f"[TWIN] hand contact sensors unavailable: {exc!r}", flush=True)
+        return made
+    for link in DEX5_TIP_LINKS:
+        parent = (_collision_child(stage, f"{robot_root}/{link}") if stage is not None
+                  else None)
+        if parent is None:
+            print(f"[TWIN] no collision prim under {link}; no sensor", flush=True)
+            continue
+        path = f"{parent}/contact_sensor"
+        try:
+            ContactSensor(prim_path=path, name=f"cs_{link}", frequency=60,
+                          translation=None, min_threshold=0.0, max_threshold=1e7,
+                          radius=-1.0)
+            made.append((link, path))
+        except Exception as exc:
+            print(f"[TWIN] contact sensor on {link} failed: {exc!r}", flush=True)
+    print(f"[TWIN] hand contact sensors created: {len(made)}/{len(DEX5_TIP_LINKS)} "
+          f"{[m[0] for m in made]}", flush=True)
+    return made
+
+
 def _apply_joint_friction(stage, robot_root: str, value: float) -> None:
     """Set PhysX joint FRICTION on every revolute joint under the robot.
 
@@ -1279,6 +1338,11 @@ class RobotRosRunner(object):
         if os.environ.get("TWIN_CONTACT_MATERIAL") == "1":
             _apply_training_contact_material(self._world.stage, robot_root)
 
+        # Before any stepping -- see DEX5_TIP_LINKS.
+        self._hand_contact_sensors = (
+            _make_hand_contact_sensors(robot_root, self._world.stage)
+            if os.environ.get("TWIN_HAND_CONTACT_SENSORS") == "1" else [])
+
         # TWIN_ARMATURE: rotor inertia, which the twin's USD does not have.
         # unitree_rl_lab's UNITREE_G1_29DOF_CFG sets armature=0.01 on EVERY
         # actuator group; the URDF importer wrote 0.0 on all 29 (and all 69)
@@ -1828,6 +1892,8 @@ class RobotRosRunner(object):
                     fix_base=os.environ.get("MM5_FIX_BASE", "0") == "1",
                     surface=os.environ.get("MM5_SURFACE", "table"),
                     measure_hand=os.environ.get("MM5_MEASURE_HAND", "0") == "1",
+                    contact_sensor_paths=[p for _, p in
+                                          getattr(self, "_hand_contact_sensors", [])],
                     place_from_workspace=(
                         os.environ.get("MM5_PLACE_FROM_WORKSPACE", "0") == "1"),
                     target_r=float(os.environ.get("MM5_TARGET_R", "0.315")),
