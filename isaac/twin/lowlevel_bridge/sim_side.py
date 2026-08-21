@@ -372,6 +372,12 @@ class LowLevelSimBridge:
         self._implicit = os.environ.get("G1_LL_PD", "explicit") == "implicit"
         self._pd_probe = os.environ.get("G1_LL_PD_PROBE", "0") == "1"
         self._hold_kinematic = os.environ.get("G1_LL_HOLD_KINEMATIC", "0") == "1"
+        self._tilt_deg = float(os.environ.get("G1_LL_RIG_TILT_DEG", "0"))
+        self._tilt_start_s = float(os.environ.get("G1_LL_RIG_TILT_START_S", "8"))
+        self._tilt_ramp_s = float(os.environ.get("G1_LL_RIG_TILT_RAMP_S", "6"))
+        self._tilt_next_log = 0.0
+        self._gt_trace = os.environ.get("G1_LL_GT_TRACE", "0") == "1"
+        self._gt_next = 0.0
         self._pd_probe_next = 0.0
         view = self.art._articulation_view
         kp0 = np.zeros(N_SDK, np.float32)
@@ -791,7 +797,25 @@ class LowLevelSimBridge:
         robot hangs. The rig is never on by default and every result taken under it
         says so.
         """
-        self.art.set_world_pose(self._spawn_pos, self._spawn_quat)
+        quat = self._spawn_quat
+        if self._tilt_deg != 0.0 and self.sim_time >= self._tilt_start_s:
+            # C-39 TILT PROBE. The torque-decay signature says SONIC may not be SEEING
+            # the fall at all, and the only way to tell a live IMU from a frozen or
+            # wrongly-framed one is to MOVE the robot by a known amount and check that
+            # what goes on the wire moves with it. Ramp the held base's pitch to a
+            # commanded angle and hold; ground truth is printed alongside so the wire
+            # can be differenced against it rather than eyeballed.
+            el = self.sim_time - self._tilt_start_s
+            frac = min(1.0, el / max(self._tilt_ramp_s, 1e-6))
+            th = np.radians(self._tilt_deg) * frac
+            qp = np.array([np.cos(th / 2), 0.0, np.sin(th / 2), 0.0], np.float64)
+            quat = _quat_mul(np.asarray(self._spawn_quat, np.float64), qp).astype(np.float32)
+            if self.sim_time >= self._tilt_next_log:
+                self._tilt_next_log = self.sim_time + 0.25
+                print(f"[lowlevel-sim][TILT] t={self.sim_time:.2f} commanded_pitch="
+                      f"{np.degrees(th):+7.3f} deg  base_quat_wxyz="
+                      f"{np.round(quat, 5).tolist()}", flush=True)
+        self.art.set_world_pose(self._spawn_pos, quat)
         self.art.set_linear_velocity(np.zeros(3, np.float32))
         self.art.set_angular_velocity(np.zeros(3, np.float32))
 
@@ -814,6 +838,19 @@ class LowLevelSimBridge:
                     # Authority lost again (fail-closed or idle) -- restart the clock
                     # rather than releasing onto a robot nothing is driving.
                     self._commanded_since_ns = None
+        if self._gt_trace and self.sim_time >= self._gt_next:
+            # C-39 item 2. Ground truth straight from the articulation, to be
+            # differenced against what SONIC logged itself consuming over the same
+            # window. Printed on its own line so the two can be joined on sim time.
+            self._gt_next = self.sim_time + 0.05
+            gp, gq = self.art.get_world_pose()
+            gav = np.asarray(self.art.get_angular_velocity(), float)
+            glv = np.asarray(self.art.get_linear_velocity(), float)
+            print(f"[lowlevel-sim][GT] t={self.sim_time:.3f} "
+                  f"quat={np.round(np.asarray(gq, float), 5).tolist()} "
+                  f"angvel={np.round(gav, 5).tolist()} "
+                  f"linvel={np.round(glv, 5).tolist()} "
+                  f"z={float(np.asarray(gp, float)[2]):.4f}", flush=True)
         if self.n_step % int(os.environ.get('G1_LL_REPORT_STEPS', '5000')) == 0:
             self._report()
         self._publish_state()

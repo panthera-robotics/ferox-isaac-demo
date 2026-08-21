@@ -1,0 +1,9 @@
+[mm5][v4] Dex5 closed-pose geometry, palm frame: 26 of 28 hand bodies moved
+[mm5][v4]   Link_34R         palm_xyz=[-0.01197, 0.14233, -0.00259] travel=0.0872 m
+[mm5][v4]   Link_44R         palm_xyz=[-0.03397, 0.13833, -0.00258] travel=0.0870 m
+[mm5][v4]   Link_54R         palm_xyz=[-0.05598, 0.13433, -0.00257] travel=0.0869 m
+[mm5][v4]   Link_24R         palm_xyz=[0.01003, 0.13833, -0.0026] travel=0.0859 m
+[mm5][v4]   Link_33R         palm_xyz=[-0.01198, 0.12134, -0.00342] travel=0.0832 m
+[mm5][v4] fingers close about [-0.02078, 0.13493, -0.00275] = 0.1366 m from the palm origin, mean tip spread 0.0215 m
+[mm5][v4] grasp_standoff 0.0450 -> 0.1466 m (measured centre + 0.010 clearance), replacing an argued number with a measured one
+[mm5][v4] grasp axis in the palm frame: [-0.1522, 0.9881, -0.0201] (v2/v3 constrained palm +z = [0,0,1] -- the wrong axis)

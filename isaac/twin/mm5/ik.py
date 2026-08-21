@@ -73,48 +73,62 @@ def topdown_quat(cur_quat_wxyz) -> np.ndarray:
     return approach_quat(cur_quat_wxyz, np.array([0.0, 0.0, -1.0]))
 
 
-def approach_quat(cur_quat_wxyz, axis) -> np.ndarray:
-    """Nearest orientation to `cur` whose palm-local +z points along `axis`.
+def approach_quat(cur_quat_wxyz, axis, local_axis=None) -> np.ndarray:
+    """Nearest orientation to `cur` that points the hand's GRASP AXIS along `axis`.
 
-    The generalisation of `topdown_quat`, and the reason for it is the counter.  v2
-    measured the palm naturally facing DOWN and concluded the grasp this arm wants is
-    top-down -- true for a can on a 0.75 m table, 0.30 m BELOW the shoulder.  On the
-    0.90 m counter the can sits 0.05 m below the shoulder, essentially level, and a
-    top-down grasp there asks the elbow to climb above the hand.  Measured at the
-    counter pre-grasp, the palm's local z came out at [-0.698, -0.700, 0.153]: nearly
-    horizontal, and pointing AWAY from the can.
+    `local_axis` is the direction, in the palm's own frame, along which the fingers
+    close. It defaults to +z for backward compatibility, and +z IS WRONG for the Dex5.
 
-    So the approach axis is not a fixed choice, it is a function of where the can is
-    relative to the shoulder, and v3 computes it per-target rather than assuming
-    either answer.  Roll about the axis is left free -- 5 DoF, all a symmetric can
-    needs.
+    Measured (dex5_geom, closed pose, one tensor read of every link): the four distal
+    finger links converge at palm-frame [-0.021, 0.135, -0.003], 0.1366 m from the palm
+    origin along the palm's local +Y. v2 and v3 both constrained the palm's local +Z --
+    a different axis entirely -- which is why every "top-down" and "side" grasp closed
+    on air while reporting the palm correctly oriented. The palm was pointed correctly
+    for an axis the fingers do not use.
+
+    Minimal rotation from where the grasp axis currently points to where it should,
+    composed onto the current orientation. Roll about the axis is left free, which is
+    all a symmetric can needs.
     """
-    w, x, y, z = (float(v) for v in cur_quat_wxyz)
+    q = np.asarray(cur_quat_wxyz, float)
+    w, x, y, z = (float(v) for v in q)
     R = np.array([
         [1-2*(y*y+z*z), 2*(x*y-z*w),   2*(x*z+y*w)],
         [2*(x*y+z*w),   1-2*(x*x+z*z), 2*(y*z-x*w)],
         [2*(x*z-y*w),   2*(y*z+x*w),   1-2*(x*x+y*y)]])
-    zt = np.asarray(axis, float)
-    zt = zt / max(float(np.linalg.norm(zt)), 1e-9)
-    xc = R[:, 0] - zt * float(R[:, 0] @ zt)        # current x, flattened into the plane
-    n = float(np.linalg.norm(xc))
-    xc = xc / n if n > 1e-6 else np.array([1.0, 0.0, 0.0])
-    yt = np.cross(zt, xc)
-    Rt = np.column_stack([xc, yt, zt])
-    t = Rt[0, 0] + Rt[1, 1] + Rt[2, 2]
-    if t > 0:
-        S = np.sqrt(t + 1.0) * 2
-        q = np.array([0.25*S, (Rt[2,1]-Rt[1,2])/S, (Rt[0,2]-Rt[2,0])/S, (Rt[1,0]-Rt[0,1])/S])
-    elif Rt[0,0] > Rt[1,1] and Rt[0,0] > Rt[2,2]:
-        S = np.sqrt(1.0 + Rt[0,0] - Rt[1,1] - Rt[2,2]) * 2
-        q = np.array([(Rt[2,1]-Rt[1,2])/S, 0.25*S, (Rt[0,1]+Rt[1,0])/S, (Rt[0,2]+Rt[2,0])/S])
-    elif Rt[1,1] > Rt[2,2]:
-        S = np.sqrt(1.0 + Rt[1,1] - Rt[0,0] - Rt[2,2]) * 2
-        q = np.array([(Rt[0,2]-Rt[2,0])/S, (Rt[0,1]+Rt[1,0])/S, 0.25*S, (Rt[1,2]+Rt[2,1])/S])
+    a = np.asarray(local_axis if local_axis is not None else [0.0, 0.0, 1.0], float)
+    a = a / max(float(np.linalg.norm(a)), 1e-9)
+    v = R @ a                                   # where the grasp axis points now
+    t = np.asarray(axis, float)
+    t = t / max(float(np.linalg.norm(t)), 1e-9)  # where it should point
+    cross = np.cross(v, t)
+    sn = float(np.linalg.norm(cross))
+    cs = float(np.dot(v, t))
+    if sn < 1e-9:
+        if cs > 0:
+            return q                             # already aligned
+        # Antiparallel: rotate a half turn about any axis perpendicular to v.
+        perp = np.array([1.0, 0.0, 0.0])
+        if abs(v[0]) > 0.9:
+            perp = np.array([0.0, 1.0, 0.0])
+        cross = np.cross(v, perp)
+        cross /= max(float(np.linalg.norm(cross)), 1e-9)
+        ang = np.pi
     else:
-        S = np.sqrt(1.0 + Rt[2,2] - Rt[0,0] - Rt[1,1]) * 2
-        q = np.array([(Rt[1,0]-Rt[0,1])/S, (Rt[0,2]+Rt[2,0])/S, (Rt[1,2]+Rt[2,1])/S, 0.25*S])
-    return q / np.linalg.norm(q)
+        cross = cross / sn
+        ang = float(np.arctan2(sn, cs))
+    qd = np.array([np.cos(ang / 2), *(np.sin(ang / 2) * cross)])
+    return _quat_mul(qd, q)
+
+
+def _quat_mul(a, b):
+    w1, x1, y1, z1 = (float(v) for v in a)
+    w2, x2, y2, z2 = (float(v) for v in b)
+    return np.array([
+        w1*w2 - x1*x2 - y1*y2 - z1*z2,
+        w1*x2 + x1*w2 + y1*z2 - z1*y2,
+        w1*y2 - x1*z2 + y1*w2 + z1*x2,
+        w1*z2 + x1*y2 - y1*x2 + z1*w2])
 
 
 def pose_error(cur_pos: np.ndarray, cur_quat_wxyz: np.ndarray,

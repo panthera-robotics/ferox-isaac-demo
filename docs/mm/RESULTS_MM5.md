@@ -135,3 +135,73 @@ No video, per C-23 — deferred to the 4090 day. A **joint trace** is written in
 joint angles, hand joint angles, palm position and quaternion, object pose and pelvis
 height for every trial. That is enough for the 4090 day to replay an episode for
 camera without re-running twenty trials of physics to find a good one.
+
+---
+
+# Grasp v4 — the hand measured, and the axis was wrong
+
+**0/20 (10 soup can, 10 × 5 cm cube). Still no lift.** But v4 found the defect that
+made every previous version close on air, and it was not the stand-off everyone was
+bisecting — it was the **axis**.
+
+## The measurement
+
+Drive the fingers closed, then read every link of the hand out of PhysX in ONE tensor
+call and express it in the palm frame (`dex5_geom.py`). At the closed pose the four
+distal finger links converge here:
+
+| link | palm-frame xyz | travel when closing |
+|---|---|---|
+| `Link_34R` | `[-0.012, 0.142, -0.003]` | 0.0872 m |
+| `Link_44R` | `[-0.034, 0.138, -0.003]` | 0.0870 m |
+| `Link_54R` | `[-0.056, 0.134, -0.003]` | 0.0869 m |
+| `Link_24R` | `[+0.010, 0.138, -0.003]` | 0.0859 m |
+
+**The fingers close about `[-0.021, 0.135, -0.003]`, 0.1366 m from the palm origin,
+along the palm's local +Y.** Two things follow, and both are corrections to work that
+looked finished:
+
+1. **The stand-off is 0.147 m, not 0.045 or 0.072.** Every version of this pipeline
+   placed the palm roughly THREE TIMES too close — the palm was essentially at the can,
+   so the fingers had nothing to close behind and the palm simply pushed it. That is
+   what `object rose -0.017 m` had been reporting all along: not a weak grip, a shove.
+2. **The grasp axis is the palm's +Y. v2 and v3 constrained its +Z.** `topdown_quat`
+   and then `approach_quat` both aligned an axis the fingers do not use. Every "the
+   palm now arrives with its z on the can" line in the v3 write-up was true and
+   irrelevant. The palm was pointed correctly for the wrong axis.
+
+`approach_quat` is now a minimal rotation that carries a *measured* palm-local axis
+onto the world approach direction, rather than a hand-written "flatten +z" construction.
+
+## Result
+
+| | v3 | **v4 can** | **v4 cube** |
+|---|---|---|---|
+| REACH / DESCEND reached | 20/20 | 10/10 | 10/10 |
+| GRASP reached | 2/20 (10%) | **6/10 (60%)** | 1/10 |
+| LIFT reached | 2/20 | **6/10** | 1/10 |
+| success | 0/20 | 0/10 | 0/10 |
+
+v4 can: `NO_GRIP` 6, `KNOCKED_OFF_IN_DESCEND` 2, `DESCEND_TIMEOUT` 2.
+v4 cube: `DESCEND_TIMEOUT` 6, `KNOCKED_OFF_IN_DESCEND` 3, `NO_GRIP` 1.
+
+The measured geometry moved GRASP from 10% to 60% on the can — the single largest
+improvement any version has produced — and the hand now closes around the can rather
+than beside it. It still does not hold it.
+
+**The cube is the control and it says something useful.** A 5 cm cube is lighter
+(0.100 kg vs 0.349) and boxy, so if the failure were grip mechanics the cube should do
+BETTER. It does worse on reach (`DESCEND_TIMEOUT` 6 of 10) because a smaller object
+puts the grasp pose deeper in, but its one `NO_GRIP` reports `object rose -0.002 m`
+against the can's -0.017: the cube is barely disturbed. So the palm is no longer
+shoving the object — that half is fixed — and what remains is closure force or finger
+travel, not placement.
+
+## Not done, and stated rather than skipped
+
+The brief also asked to **trigger finger closure on the DT3 contact zones firing rather
+than on distance.** That is not implemented; closure is still distance-triggered at
+`grasp_tol`. It is the right next change and it is now the ONLY item left from the v4
+brief — but it affects closure TIMING, and the surviving failure is a hand that closes
+fully and still does not hold, so it was not the thing standing between v4 and a lift.
+Recorded as open rather than quietly dropped.

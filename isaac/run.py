@@ -1763,6 +1763,7 @@ class RobotRosRunner(object):
                     cheat_attach=os.environ.get("MM5_CHEAT_ATTACH", "0") == "1",
                     fix_base=os.environ.get("MM5_FIX_BASE", "0") == "1",
                     surface=os.environ.get("MM5_SURFACE", "table"),
+                    measure_hand=os.environ.get("MM5_MEASURE_HAND", "0") == "1",
                     place_from_workspace=(
                         os.environ.get("MM5_PLACE_FROM_WORKSPACE", "0") == "1"),
                     target_r=float(os.environ.get("MM5_TARGET_R", "0.315")),

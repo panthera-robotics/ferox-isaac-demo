@@ -129,6 +129,9 @@ class MM5Pipeline:
         self._trace = []
         self._trace_next = 0.0
         self._axis_cache = None
+        # Palm-frame direction the fingers close along. +z is the WRONG axis for the
+        # Dex5 and is only the default so this runs before HANDCAL has measured it.
+        self.grasp_axis_local = np.array([0.0, 0.0, 1.0])
         # Legs + torso: every SDK joint that is not the right arm.
         self.body_idx = np.array(
             [names.index(n) for n in SDK_BODY_JOINTS if n in names], np.int32)
@@ -211,7 +214,17 @@ class MM5Pipeline:
         if not hasattr(self, "_body_prims"):
             self._body_prims = {}
         if name not in self._body_prims:
-            pr = SingleRigidPrim(f"{self.cfg.robot_root}/{name}")
+            # RESOLVE the prim path, never assume `robot_root/name`. Links are nested
+            # at whatever depth the URDF import produced, and constructing a
+            # SingleRigidPrim on a path that does not exist does not merely fail --
+            # it took the ARTICULATION VIEW down with it ("Provided pattern list did
+            # not match any articulations"), after which set_world_pose raised and the
+            # run was over. A wrong path here is not a missing measurement, it is a
+            # corrupted sim.
+            path = self._body_path(name)
+            if path is None:
+                raise KeyError(f"no prim for body {name!r}")
+            pr = SingleRigidPrim(path)
             try:
                 pr.initialize()
             except Exception:
@@ -219,6 +232,17 @@ class MM5Pipeline:
             self._body_prims[name] = pr
         pos, quat = self._body_prims[name].get_world_pose()
         return np.asarray(pos, float), np.asarray(quat, float)
+
+    def _body_path(self, name: str):
+        """Full prim path for a body name, from one stage walk, cached."""
+        if not hasattr(self, "_body_paths"):
+            from pxr import Usd
+            self._body_paths = {}
+            root = self.stage.GetPrimAtPath(self.cfg.robot_root)
+            if root and root.IsValid():
+                for pr in Usd.PrimRange(root):
+                    self._body_paths.setdefault(pr.GetName(), pr.GetPath().pathString)
+        return self._body_paths.get(name)
 
     def find_body(self, candidates):
         """First of `candidates` that exists on this articulation, or None."""
@@ -389,7 +413,8 @@ class MM5Pipeline:
 
         elif self.stage_name == "REACH":
             axis, target, _ = self._approach(obj)
-            err = pose_error(palm, palm_q, target, approach_quat(palm_q, axis),
+            err = pose_error(palm, palm_q, target,
+                             approach_quat(palm_q, axis, self.grasp_axis_local),
                              w_rot=self.cfg.w_rot)
             d = float(np.linalg.norm(err[:3]))
             if d < self.cfg.reach_tol:

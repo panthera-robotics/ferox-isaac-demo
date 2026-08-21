@@ -179,6 +179,10 @@ class MM5Config:
     # the one unknown -- how far forward to stand -- so the can lands at `target_r`,
     # comfortably inside the 0.39 m limit rather than at its edge where both previous
     # runs stalled.  One measurement, one solve, no iteration.
+    # v4: measure the hand instead of arguing about the stand-off. See dex5_geom.py.
+    measure_hand: bool = False
+    grasp_clearance: float = 0.010   # fingers must pass the widest part before closing
+    pregrasp_extra: float = 0.085    # pre-grasp this much further out along the axis
     place_from_workspace: bool = False
     target_r: float = 0.315         # can this far from the RIGHT SHOULDER (0.30-0.33)
     lateral_offset: float = 0.0     # can this far right OF THE SHOULDER (0 = in front)
@@ -207,6 +211,9 @@ class MM5Runner:
         self._home_q = None
         self._base_pose = None
         self._measure_until = 0.0
+        self._handcal_until = 0.0
+        self._hand_open_snap = {}
+        self.hand_geom = None
         self.state = "INIT"
         self._t = 0.0
         os.makedirs(cfg.out_dir, exist_ok=True)
@@ -289,6 +296,11 @@ class MM5Runner:
         except Exception:
             pass
         return newp
+
+    def _snap_hand(self):
+        """World positions of every link at the OPEN pose, via one tensor read."""
+        from .dex5_geom import snapshot
+        return snapshot(self.pipe)
 
     def _solve_base_offset(self, obj_xyz):
         """Solve the base placement from the MEASURED shoulder, once, analytically.
@@ -431,6 +443,15 @@ class MM5Runner:
             # Snapshot the settled standing pose now, before any trial disturbs it.
             self._home_q = np.asarray(self.art.get_joint_positions(), np.float32).copy()
             print(f"[mm5] home object pose {np.round(p,4)}", flush=True)
+            if self.cfg.measure_hand:
+                # HANDCAL before anything else: the stand-off the base solve needs is a
+                # property of the HAND, and measuring it costs one close-and-open.
+                self._stand_robot(self.home_obj_xyz)
+                self._hand_open_snap = self._snap_hand()
+                self.pipe._set_hand(1.0)
+                self._handcal_until = self._t + max(self.cfg.close_s, 2.0) + 1.0
+                self.state = "HANDCAL"
+                return
             if self.cfg.place_from_workspace:
                 # Stand once at the tuned offset purely so the shoulder can be MEASURED
                 # in a settled pose; the solve then replaces that offset for every trial.
@@ -441,6 +462,55 @@ class MM5Runner:
                 # very first set_world_pose did not take. Trials 2..N were fine. One
                 # warm-up placement, with the MEASURE settle giving physics time to
                 # apply it, costs nothing and makes trial 1 a real sample.
+                self._place_object(self.cfg.seed)
+                self._measure_until = self._t + 0.5
+                self.state = "MEASURE"
+            else:
+                self.state = "NEXT"
+            return
+
+        if self.state == "HANDCAL":
+            if self._t < self._handcal_until:
+                return
+            from .dex5_geom import measure
+            g = measure(self.pipe, self._hand_open_snap)
+            self.pipe._set_hand(0.0)
+            if g is None:
+                print("[mm5][v4] hand geometry NOT measurable; keeping the argued "
+                      f"stand-off {self.cfg.grasp_standoff}", flush=True)
+            else:
+                self.hand_geom = g
+                print(f"[mm5][v4] Dex5 closed-pose geometry, palm frame: "
+                      f"{g['n_moved']} of {g['n_hand_bodies']} hand bodies moved",
+                      flush=True)
+                for t in g["tips"]:
+                    print(f"[mm5][v4]   {t['body']:<16} palm_xyz={t['palm_xyz']} "
+                          f"travel={t['travel_m']:.4f} m", flush=True)
+                print(f"[mm5][v4] fingers close about {g['closed_centre_palm']} "
+                      f"= {g['centre_dist_m']:.4f} m from the palm origin, mean tip "
+                      f"spread {g['tip_spread_m']:.4f} m", flush=True)
+                # THE STAND-OFF, measured. The object's axis has to sit where the
+                # fingers converge, so the palm must be that far from it -- plus a
+                # little, because the fingers have to pass the widest part of the
+                # object before they close behind it.
+                so = float(g["centre_dist_m"]) + self.cfg.grasp_clearance
+                print(f"[mm5][v4] grasp_standoff {self.cfg.grasp_standoff:.4f} -> "
+                      f"{so:.4f} m (measured centre + {self.cfg.grasp_clearance:.3f} "
+                      f"clearance), replacing an argued number with a measured one",
+                      flush=True)
+                self.cfg.grasp_standoff = so
+                self.cfg.pregrasp_standoff = so + self.cfg.pregrasp_extra
+                # AND the axis. The stand-off was the visible half of the error; this
+                # is the half that made every previous grasp close on air -- the IK was
+                # aligning the palm's +z while the fingers close along its +y.
+                c = np.asarray(g["closed_centre_palm"], float)
+                self.pipe.grasp_axis_local = c / max(float(np.linalg.norm(c)), 1e-9)
+                print(f"[mm5][v4] grasp axis in the palm frame: "
+                      f"{np.round(self.pipe.grasp_axis_local, 4).tolist()} "
+                      f"(v2/v3 constrained palm +z = [0,0,1] -- the wrong axis)",
+                      flush=True)
+            if self.cfg.place_from_workspace:
+                self._stand_robot(self.home_obj_xyz)
                 self._place_object(self.cfg.seed)
                 self._measure_until = self._t + 0.5
                 self.state = "MEASURE"

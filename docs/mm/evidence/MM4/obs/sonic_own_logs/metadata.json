@@ -1,0 +1,20 @@
+{
+  "logging": {
+    "dt": 0.02,
+    "num_joints": 29,
+    "num_actions": 29,
+    "ring_capacity": 10000
+  },
+  "robot_config": {
+    "control_frequency": 50,
+    "encoder_file": "policy/sonic_v1_1/model_encoder.onnx",
+    "is_using_encoder": true,
+    "model_path": "policy/sonic_v1_1/model_decoder.onnx",
+    "obs_config_path": "policy/sonic_v1_1/observation_config.yaml",
+    "planner_fp16": false,
+    "planner_frequency": 10,
+    "planner_path": "planner/target_vel/V2/planner_sonic.onnx",
+    "policy_fp16": false,
+    "reference_motion_path": "reference/example/"
+  }
+}

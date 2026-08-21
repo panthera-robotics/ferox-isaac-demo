@@ -188,6 +188,7 @@ docker exec -d \
   -e MM5_OUT="${MM5_OUT:-/workspace/ferox_isaac/mm5_out}" \
   -e MM5_SURFACE="${MM5_SURFACE:-table}" \
   -e MM5_PLACE_FROM_WORKSPACE="${MM5_PLACE_FROM_WORKSPACE:-0}" \
+  -e MM5_MEASURE_HAND="${MM5_MEASURE_HAND:-0}" \
   -e MM5_TARGET_R="${MM5_TARGET_R:-0.315}" \
   -e MM5_PELVIS_Z="${MM5_PELVIS_Z:-0.80}" \
   -e TWIN_HAND_KG="${TWIN_HAND_KG:-}" \
@@ -207,6 +208,10 @@ docker exec -d \
   -e G1_LL_PD="${G1_LL_PD:-explicit}" \
   -e G1_LL_PD_PROBE="${G1_LL_PD_PROBE:-0}" \
   -e G1_LL_HOLD_KINEMATIC="${G1_LL_HOLD_KINEMATIC:-0}" \
+  -e G1_LL_GT_TRACE="${G1_LL_GT_TRACE:-0}" \
+  -e G1_LL_RIG_TILT_DEG="${G1_LL_RIG_TILT_DEG:-0}" \
+  -e G1_LL_RIG_TILT_START_S="${G1_LL_RIG_TILT_START_S:-8}" \
+  -e G1_LL_RIG_TILT_RAMP_S="${G1_LL_RIG_TILT_RAMP_S:-6}" \
   -e G1_PHYSICS_HZ="${G1_PHYSICS_HZ:-1000}" \
   -e G1_LL_FIX_BASE="${G1_LL_FIX_BASE:-0}" \
   -e G1_LL_RIG_RELEASE_S="${G1_LL_RIG_RELEASE_S:-3}" \
