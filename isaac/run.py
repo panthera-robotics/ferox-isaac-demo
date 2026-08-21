@@ -94,6 +94,70 @@ WORLD_ENV_PRIM = "/World/Env"
 TRAIN_ARMATURE = 0.01
 
 
+# C-39. Four links carry the URDF importer's default mass of exactly 1.000 kg because
+# they have NO <inertial> block in any of the three G1 URDFs on this box -- checked, not
+# assumed. Together they are exactly 4.000000 kg, which is the whole of the 39.004757 vs
+# 35.004757 discrepancy, and three of the four sit high (torso, head camera, lidar) so
+# the phantom mass lands where it damages a balancer most.
+#
+# Replaced with the real components' published masses. These are NOT ground truth from
+# the URDF -- the URDF has nothing to give -- so they are stated here as the source of
+# record and the total is asserted after applying them.
+SENSOR_MASS_KG = {
+    "d435_link": 0.072,      # Intel RealSense D435, 72 g
+    "mid360_link": 0.265,    # Livox MID-360, 265 g
+    "imu_in_torso": 0.005,   # a board-level IMU
+    "imu_in_pelvis": 0.005,
+}
+
+
+def _apply_sensor_masses(robot) -> None:
+    """Replace placeholder sensor-link masses, read back, and assert the total."""
+    view = robot._articulation_view
+    pv = getattr(view, "_physics_view", None)
+    if pv is None or not hasattr(pv, "get_masses"):
+        print("[TWIN] sensor-mass fix: no masses API; NOT applied", flush=True)
+        return
+    import numpy as _np
+    names = list(view.body_names)
+    M = _np.asarray(pv.get_masses()).reshape(-1)[:len(names)].astype(_np.float32)
+    before = float(M.sum())
+    hit = {}
+    for i, n in enumerate(names):
+        if n in SENSOR_MASS_KG:
+            hit[n] = (float(M[i]), SENSOR_MASS_KG[n])
+            M[i] = SENSOR_MASS_KG[n]
+    if not hit:
+        print("[TWIN] sensor-mass fix: none of the four links present", flush=True)
+        return
+    # set_masses on this build's view wants (data, indices) -- the indices argument is
+    # positional and required, and omitting it fails with a TypeError that reads like an
+    # API-absent error rather than a signature one.
+    import warp as _wp  # noqa: F401  (present wherever the physx view is)
+    applied = False
+    for call in (lambda: pv.set_masses(M.reshape(1, -1), _np.array([0], dtype=_np.int32)),
+                 lambda: pv.set_masses(M.reshape(1, -1), None),
+                 lambda: pv.set_masses(M.reshape(1, -1))):
+        try:
+            call()
+            applied = True
+            break
+        except Exception as exc:
+            last = exc
+    if not applied:
+        print(f"[TWIN] sensor-mass fix FAILED to apply: {last!r}", flush=True)
+        return
+    got = _np.asarray(pv.get_masses()).reshape(-1)[:len(names)]
+    for n, (old_m, new_m) in hit.items():
+        i = names.index(n)
+        if abs(float(got[i]) - new_m) > 1e-6:
+            raise RuntimeError(f"sensor mass on {n} read back {got[i]}, wanted {new_m}")
+        print(f"[TWIN] sensor mass {n}: {old_m:.6f} -> {float(got[i]):.6f} kg", flush=True)
+    print(f"[TWIN] total mass {before:.6f} -> {float(got.sum()):.6f} kg "
+          f"(removed {before - float(got.sum()):.6f} kg of placeholder sensor mass)",
+          flush=True)
+
+
 def _apply_joint_friction(stage, robot_root: str, value: float) -> None:
     """Set PhysX joint FRICTION on every revolute joint under the robot.
 
@@ -1771,6 +1835,12 @@ class RobotRosRunner(object):
                     out_dir=os.environ.get("MM5_OUT", "/workspace/ferox_isaac/mm5_out"),
                 )
                 self._mm5 = MM5Runner(self._robot.robot, self._world.stage, cfg)
+
+            if os.environ.get("TWIN_SENSOR_MASS_FIX") == "1":
+                try:
+                    _apply_sensor_masses(self._robot.robot)
+                except Exception as exc:
+                    print(f"[TWIN] sensor-mass fix error: {exc!r}", flush=True)
 
             if os.environ.get("C39_CAPTURE"):
                 try:
