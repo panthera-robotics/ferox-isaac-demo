@@ -174,3 +174,15 @@ Every MM gate therefore states "media deferred, C-23" in its own RESULTS header,
 evidence is numbers and logs under `docs/mm/evidence/MM<n>/`. The MM8 shot list stands;
 it needs the 4090 day.
 
+
+## 2026-08-21 — C-39 capture + grasp v4-v6 traces
+
+| file | bytes | sha256 |
+|---|---|---|
+| `docs/mm/evidence/C39/links_dex5.csv` | 10734 | af9c861d47986242074227c60778809ee876ce5ce9ea0c7e8cb9cc0505e4827d |
+| `docs/mm/evidence/C39/links_none.csv` | 4360 | 42f3cd6b0cee4c5918b707260199739b25a89a5ba1dbbdfaa0167fa23f69789b |
+| `docs/mm/evidence/C39/links_mujoco_ref.csv` | 3368 | e648e5580e41bc759d84179309c2ad12816751cbbdf5b0a746306dfc47f25323 |
+| `docs/mm/evidence/C39/capture_dex5.json` | 6716 | 8031b3a50b0a6660e1743d3f4e38395f3a720f2adae12bc8d747f17d94ce2449 |
+| `docs/mm/evidence/MM5/graspv6_cube_trace.jsonl` | 3164434 | 182439eb29b21188b2eca85053e2fafca726cc0cedaca2f0e48cb8f5e733075f |
+| `docs/mm/evidence/MM5/graspv3_trace.jsonl` | 7591279 | f418e0dd3ada904089575e4132c97ae133b416edbde20751abb9ab8fbf68920b |
+| `docs/mm/evidence/MM4/force/contact_com_report.txt` | 17991 | 84cb430e7d57dd009a8fd473f056516c1474532125aba098f60f2a8a2fab3991 |

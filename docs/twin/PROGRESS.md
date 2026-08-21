@@ -1,3 +1,76 @@
+# MORNING BLOCK — 2026-08-21 overnight run
+
+## Tasks
+| # | task | result |
+|---|---|---|
+| 1 | persistence + capture | **DONE** — tagged `mm-persist-6`, crash-safe from there |
+| 2 | offline C-39 diff | **DONE** — verdict row below |
+| 3 | fix the defect the diff names | **DONE, and it does not stand the robot** |
+| 4 | full MM4 sequence | **SKIPPED** per the brief (task 3 did not stand SONIC) |
+| 5 | grasp v6 | **DONE** — 0/20; contact route did not attach |
+| 6 | mobile MM5 | **SKIPPED** per the brief |
+| 7 | this block | done |
+
+## The C-39 verdict row
+
+    torso_link    twin 7.816999    reference 9.598    delta -1.781001
+
+30 links matched bare-twin against the reference MJCF, none unique to either side, and
+everything except `torso_link` agrees within 0.04 kg.
+
+**And the +4.000 kg is found, exactly:** four links carry the URDF importer's
+no-inertial-block default of exactly 1.000000 kg — `d435_link`, `mid360_link`,
+`imu_in_torso`, `imu_in_pelvis` — summing to 4.000000 against a discrepancy whose
+fractional part is identical. Three of the four sit high. Fixed
+(`TWIN_SENSOR_MASS_FIX=1`, 39.004749 → 35.351749 kg, each mass read back), and **the
+robot still falls, indistinguishably.**
+
+**Two of my own earlier numbers are withdrawn**, and the conclusion built on them with
+them: the CoM report weighted link ORIGINS rather than centres of mass, and
+`com_x_minus_ankle_x` is the LATERAL offset at this spawn yaw (the feet separate in X by
+0.237 m, so X is lateral and +Y is forward). Corrected, the CoM sits **+0.0339 m forward
+of the ankles inside a support polygon running −0.024 to +0.146** — margin 0.112 m to
+the toe. **The twin is statically stable at the nominal stance, so the brief's task-3
+premise ("required bias 0.73 rad > ankle travel 0.52") does not survive its own task-1
+data, and there is no static-margin defect to convict.**
+
+## Grasp / MM5 numbers
+
+v6: **0/20** (can 0/10, cube 0/10). Best stage reach remains v4's 60% GRASP on the can;
+v6 can 5/10, v6 cube 2/10. The contact route was attempted twice and did not attach, so
+v6 is behaviourally v5. **Standing caveat: `grip_contacts = -1` on every trial in v5 and
+v6, so no `NO_GRIP` row in this campaign is evidence about finger colliders.** What v6
+did settle: the fingers **do** have collision geometry — 42 `CollisionAPI` prims across
+the two hands.
+
+## Top 3 decisions for you
+
+1. **C-39 is not a parameter defect.** Wire, observations, control loop, hands, force
+   path, friction, physics rate, static margin and mass are all now measured and
+   cleared. A statically stable pose that will not stand under a stiff joint-space hold
+   with *nothing running*, in either force path, points at the solver or the
+   articulation's constraint behaviour. Do you want the next box spent on that
+   (`set_max_efforts` actually taking effect, articulation self-collision, root handling
+   at rig release), or is C-39 parked and SONIC replaced?
+2. **The sensor-mass fix is correct but unproven as a fix.** Keep it on by default
+   (it is right on its own merits, 11% of mass wrongly placed) or keep it behind the
+   env switch until something depends on it?
+3. **Grasp is blocked on one narrow thing** — parenting a `ContactSensor` to an
+   instanced collision prim. Worth one focused session, or switch to the physx
+   contact-report callback with `PhysxContactReportAPI`, which needs no prim parenting?
+
+## Exact next command
+
+    cd ~/panthera/ferox-isaac-demo && git checkout mohammed/mm-campaign && \
+      nohup env MASSFIX=1 PDMODE=explicit CONTACT=1 ANKLE=1 RELAT=15 \
+      bash /tmp/.../static_run.sh "solver audit" > /tmp/solver.log 2>&1 &
+
+(the static discriminator is the cheapest reproducer: 2 minutes to a fall, nothing
+running but the bridge's own hold — `scripts/static_run.sh` equivalent is in
+`docs/mm/evidence/MM4/pd/fork_run.sh`)
+
+---
+
 # PROGRESS — overnight run 2026-08-18
 
 ## RUN SUMMARY — DT2, DT3 and DT5 complete

@@ -1,23 +1,53 @@
-# RESUME — rebuild this box from zero, from GitHub alone
+# RESUME — you are here
 
-Written so a fresh instance with nothing but this repository can get back to where the
-campaign is. Read [§0 You are here](#0-you-are-here) first, then work down.
-
-Everything here was executed on the box it describes. Where a number matters (a driver
-version, a `render_dt`, a tolerance) it is the number that actually worked, not a
-plausible one.
-
----
-
-## 0. You are here
-
-**MM campaign, 2026-08-20. MM3 PASS. MM4 and mobile MM5 are both blocked on ONE thing:
-C-39 — SONIC will not balance the twin, and it is not the twin's wire.**
-
-| | State |
+## Hardware
+| need | machine |
 |---|---|
-| **MM3 — low-level DDS bridge** | **PASS.** `rt/lowstate` at 1041.68 Hz (measured off the robot, not the 500 Hz the gate asked for), 16/16 field-parity checks, fail-closed 6/6 inside 100 ms, 20-entry dex3 wire at 208 Hz. Test (a) rewritten by Mohammed as (a1) suspended-base PD hold — 28/29 joints inside 0.05 rad — and (a2) balance, moved to MM4. |
-| **MM4 — SONIC** | **PARTIAL, parked.** The x86_64 image builds and runs, and SONIC closes the loop on the twin: reads `rt/lowstate`, prints `G1 type: 5`, commands `rt/lowcmd` at 499 Hz with CRC on. It will not stand the robot. |
+| **C-39 offline diff / mass+CoM analysis** | **any machine, NO GPU** — `tools/c39_mjcf_mass.py`, `tools/c39_diff.py`, the CSVs in `docs/mm/evidence/C39/` |
+| C-39 solver experiments (the live question) | this box or any Isaac GPU box |
+| Media / video (C-23) | **4090 day** — still deferred, nothing shot |
+| Grasp contact-sensor work | Isaac GPU box |
+
+## You are here
+
+**C-39 — not a parameter defect.** Everything proposed has been measured and cleared:
+the wire (a full MuJoCo lie changes nothing), SONIC's observations (tracks a commanded
+tilt to 0.003°, its own logs match ground truth with zero lag), the control loop
+(a 15° tilt moves `q_d` by 1.15 rad), the hands (a bare 29-DoF robot falls identically),
+the force path (explicit and implicit PD fall the same), friction, physics rate, and now
+**the static margin and the mass**.
+
+The corrected geometry: mass 39.004757 kg (35.351749 after the sensor-mass fix), CoM
+**+0.0339 m forward of the ankles inside a −0.024 … +0.146 support polygon**, 0.112 m of
+margin to the toe. **The twin is statically stable and still will not stand with nothing
+running.** That points at the solver or the articulation's constraint behaviour, not at
+any parameter yet examined.
+
+**Next:** `set_max_efforts` actually taking effect on implicit drives, articulation
+self-collision, and root/base handling at rig release. The static discriminator is the
+cheapest reproducer — 2 min to a fall, no controller involved.
+
+**Found and fixed on the way:** four links carried the URDF importer's 1.000 kg
+no-inertial-block default (`d435_link`, `mid360_link`, `imu_in_torso`, `imu_in_pelvis`)
+= exactly the +4.000 kg. `TWIN_SENSOR_MASS_FIX=1`, read back and asserted. Correct on its
+own merits; does **not** stand the robot.
+
+**Grasp — 60% GRASP reached, blocked on the contact API.** v4's measured hand geometry
+(fingers close 0.1366 m from the palm origin along palm **+Y**, not +Z) took GRASP from
+10% to 60% on the can. v5 added overclose and phase gains; v6 tried the contact route and
+**it would not attach** — sensors on the link Xform create 5/5 then fail at
+`initialize()` (no collision on the Xform), and re-parenting to the collision child finds
+0/5. The fingers **do** have colliders (42 `CollisionAPI` prims across both hands), so
+that hypothesis is dead. **Standing caveat: `grip_contacts = -1` throughout v5/v6 — no
+`NO_GRIP` row in this campaign is evidence about colliders.** Latest: v6 **0/20**.
+
+## Withdrawn numbers (do not reuse)
+- CoM offset `+0.054 m` and required ankle torque `20.7 Nm` — computed from link
+  ORIGINS, not centres of mass.
+- `com_x_minus_ankle_x` — that is the **lateral** offset at this spawn yaw.
+- Foot "contact" forces from `get_link_incoming_joint_force` — a **joint reaction**, not
+  ground contact. `get_net_contact_forces` is absent in this build.
+
 | **C-39 — SONIC IS OUT OF THE LOOP. PINGED AGAIN.** | The static discriminator settles it: PD-hold the nominal stance with the base free and **nothing running at all** — no SONIC, no bridge, no lowcmd — and it still falls in 2 s. Implicit PhysX drives fall identically, so the force path is not it either. **The arithmetic:** mass 39.005 kg, CoM **5.4 cm ahead of the ankles** → 20.7 Nm of ankle torque needed → at kp 40 that is **0.52 rad of deflection, which is the joint's entire travel**. No joint-space PD at these gains can hold this stance. **Read `docs/mm/evidence/MM4/C39_FORCEPATH.md`.** Open: the twin's foot collider vs MuJoCo's four 5 mm spheres (toe 0.12 m ahead of the ankle). NOTE `get_net_contact_forces` is absent in this build — the foot forces are joint reactions, not contact. |
 | **C-39 — SONIC SEES THE FALL (still true)** | Observability is proven, not assumed: the IMU wire tracks a commanded 18° tilt to 0.003°; SONIC's OWN logged state (`--enable-csv-logs`) runs 0→89.09° against ground truth's 0→88.63° with **zero measured lag**; and a 15° tilt moves its commanded posture by 1.15 rad, so the loop is closed. Then the **bare 29-DoF robot with no hands falls too** — so the hands are not the wall. Per the decision matrix this is the PING branch. **Read `docs/mm/evidence/MM4/C39_OBSERVABILITY.md`; traces in `MM4/obs/`.** Note `g1_29dof_trainhands.usd` is NOT bare — it references the locked-hands Dex5 asset; `HAND=none` is the bare robot. |
 | **C-39 — the wire is CLEARED; it is the BODY** | The complete MuJoCo lie (all six fields, `ddq` included, CRC disabled so SONIC actually accepts it) changes NOTHING. Nor does trained friction, nor joint dry friction, nor the reference's real 200 Hz, nor releasing from the exact nominal stance. PD parity holds — `kp*e == tau` to three figures. **Twelve hypotheses are dead and the remaining difference is the ROBOT, not the message.** Two asymmetries in hand: the reference has 0.2 Nm/joint of dry friction the twin lacked, and it is a bare 29-DoF model with NO HANDS against the twin's 69-DoF Dex5. **Next step is a mass/inertia diff — total, per-link mass, per-link CoM, twin USD vs `g1_29dof_old.xml` — as one comparison of two robots. Start at `docs/mm/evidence/MM4/C39_DYNAMICS.md`.** Note: two prior forks were INVALID (a sed-mangled runner; a hold that never reached its commanded stance) — check the initial condition with `G1_LL_PD_PROBE=1` before trusting any new fork. |
