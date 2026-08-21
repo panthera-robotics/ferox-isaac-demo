@@ -1,0 +1,52 @@
+    def Xform "left_ankle_pitch_link"
+                    token outputs:mdl:displacement.connect = </Flattened_Prototype_143/left_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                    token outputs:mdl:surface.connect = </Flattened_Prototype_143/left_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                    token outputs:mdl:volume.connect = </Flattened_Prototype_143/left_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                rel material:binding = </Flattened_Prototype_143/left_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial>
+    def Xform "right_ankle_pitch_link"
+                    token outputs:mdl:displacement.connect = </Flattened_Prototype_160/right_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                    token outputs:mdl:surface.connect = </Flattened_Prototype_160/right_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                    token outputs:mdl:volume.connect = </Flattened_Prototype_160/right_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                rel material:binding = </Flattened_Prototype_160/right_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial>
+    def Xform "left_ankle_roll_link"
+                    token outputs:mdl:displacement.connect = </Flattened_Prototype_174/left_ankle_roll_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                    token outputs:mdl:surface.connect = </Flattened_Prototype_174/left_ankle_roll_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                    token outputs:mdl:volume.connect = </Flattened_Prototype_174/left_ankle_roll_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                rel material:binding = </Flattened_Prototype_174/left_ankle_roll_link/node_STL_BINARY_/Looks/DefaultMaterial>
+    def Xform "right_ankle_roll_link"
+                    token outputs:mdl:displacement.connect = </Flattened_Prototype_191/right_ankle_roll_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                    token outputs:mdl:surface.connect = </Flattened_Prototype_191/right_ankle_roll_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                    token outputs:mdl:volume.connect = </Flattened_Prototype_191/right_ankle_roll_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                rel material:binding = </Flattened_Prototype_191/right_ankle_roll_link/node_STL_BINARY_/Looks/DefaultMaterial>
+    def Xform "right_ankle_pitch_link"
+                    token outputs:mdl:displacement.connect = </Flattened_Prototype_194/right_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                    token outputs:mdl:surface.connect = </Flattened_Prototype_194/right_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                    token outputs:mdl:volume.connect = </Flattened_Prototype_194/right_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                rel material:binding = </Flattened_Prototype_194/right_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial>
+    def Xform "left_ankle_pitch_link"
+                    token outputs:mdl:displacement.connect = </Flattened_Prototype_260/left_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                    token outputs:mdl:surface.connect = </Flattened_Prototype_260/left_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                    token outputs:mdl:volume.connect = </Flattened_Prototype_260/left_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial/DefaultMaterial.outputs:out>
+                rel material:binding = </Flattened_Prototype_260/left_ankle_pitch_link/node_STL_BINARY_/Looks/DefaultMaterial>
+            </World/G1/joints/left_ankle_pitch_joint>,
+            </World/G1/joints/left_ankle_roll_joint>,
+            </World/G1/joints/right_ankle_pitch_joint>,
+            </World/G1/joints/right_ankle_roll_joint>,
+            </World/G1/left_ankle_pitch_link>,
+            </World/G1/left_ankle_roll_link>,
+            </World/G1/right_ankle_pitch_link>,
+            </World/G1/right_ankle_roll_link>,
+            def PhysicsRevoluteJoint "left_ankle_pitch_joint" (
+                rel physics:body1 = </World/G1/left_ankle_pitch_link>
+            def PhysicsRevoluteJoint "left_ankle_roll_joint" (
+                rel physics:body0 = </World/G1/left_ankle_pitch_link>
+                rel physics:body1 = </World/G1/left_ankle_roll_link>
+            def PhysicsRevoluteJoint "right_ankle_pitch_joint" (
+                rel physics:body1 = </World/G1/right_ankle_pitch_link>
+            def PhysicsRevoluteJoint "right_ankle_roll_joint" (
+                rel physics:body0 = </World/G1/right_ankle_pitch_link>
+                rel physics:body1 = </World/G1/right_ankle_roll_link>
+        def Xform "left_ankle_pitch_link" (
+        def Xform "left_ankle_roll_link" (
+        def Xform "right_ankle_pitch_link" (
+        def Xform "right_ankle_roll_link" (

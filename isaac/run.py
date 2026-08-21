@@ -1772,6 +1772,17 @@ class RobotRosRunner(object):
                 )
                 self._mm5 = MM5Runner(self._robot.robot, self._world.stage, cfg)
 
+            if os.environ.get("C39_CAPTURE"):
+                try:
+                    from twin.c39_capture import capture
+                    capture(self._robot.robot, self._world.stage,
+                            os.environ.get("C39_OUT", "/workspace/ferox_isaac/c39_out"),
+                            os.environ["C39_CAPTURE"])
+                except Exception as exc:
+                    import traceback
+                    print(f"[c39] capture FAILED: {exc!r}", flush=True)
+                    traceback.print_exc()
+
             if os.environ.get("MM5_PROBE") == "1":
                 try:
                     from twin.mm5_probe import probe

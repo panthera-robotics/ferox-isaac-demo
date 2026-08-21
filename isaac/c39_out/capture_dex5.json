@@ -1,0 +1,284 @@
+{
+  "variant": "dex5",
+  "n_links": 79,
+  "sources": {
+    "masses": "physx.get_masses",
+    "transforms": "physx.get_link_transforms",
+    "coms": "physx.get_coms",
+    "inertias": "physx.get_inertias"
+  },
+  "total_mass_kg": 39.004749,
+  "heaviest_links": [
+    {
+      "link": "torso_link",
+      "mass_kg": 6.78
+    },
+    {
+      "link": "pelvis",
+      "mass_kg": 3.813
+    },
+    {
+      "link": "left_knee_link",
+      "mass_kg": 1.932
+    },
+    {
+      "link": "right_knee_link",
+      "mass_kg": 1.932
+    },
+    {
+      "link": "left_hip_yaw_link",
+      "mass_kg": 1.702
+    },
+    {
+      "link": "right_hip_yaw_link",
+      "mass_kg": 1.702
+    },
+    {
+      "link": "right_hip_roll_link",
+      "mass_kg": 1.52
+    },
+    {
+      "link": "left_hip_roll_link",
+      "mass_kg": 1.52
+    },
+    {
+      "link": "right_hip_pitch_link",
+      "mass_kg": 1.35
+    },
+    {
+      "link": "left_hip_pitch_link",
+      "mass_kg": 1.35
+    },
+    {
+      "link": "head_link",
+      "mass_kg": 1.036
+    },
+    {
+      "link": "d435_link",
+      "mass_kg": 1.0
+    }
+  ],
+  "duplicate_link_names": {},
+  "com_method": "link origin + R*com_local",
+  "com_world": [
+    7.79931,
+    2.007902,
+    0.737577
+  ],
+  "ankle_mean_x": 7.799979,
+  "com_x_minus_ankle_x": -0.000669,
+  "foot_colliders": [
+    {
+      "path": "/World/G1/left_ankle_roll_link/visuals/left_ankle_roll_link/node_STL_BINARY_/mesh",
+      "type": "Mesh",
+      "collisionAPI": false,
+      "extent": [
+        [
+          -0.065841,
+          -0.037742,
+          -0.035409
+        ],
+        [
+          0.142365,
+          0.037841,
+          0.023584
+        ]
+      ],
+      "n_points": 39198,
+      "local_x_min": -0.065841,
+      "local_x_max": 0.142365,
+      "local_y_min": -0.037742,
+      "local_y_max": 0.037841,
+      "local_z_min": -0.035409
+    },
+    {
+      "path": "/World/G1/left_ankle_roll_link/collisions/mesh_0/sphere",
+      "type": "Sphere",
+      "collisionAPI": true,
+      "extent": [
+        [
+          -0.005,
+          -0.005,
+          -0.005
+        ],
+        [
+          0.005,
+          0.005,
+          0.005
+        ]
+      ]
+    },
+    {
+      "path": "/World/G1/left_ankle_roll_link/collisions/mesh_1/sphere",
+      "type": "Sphere",
+      "collisionAPI": true,
+      "extent": [
+        [
+          -0.005,
+          -0.005,
+          -0.005
+        ],
+        [
+          0.005,
+          0.005,
+          0.005
+        ]
+      ]
+    },
+    {
+      "path": "/World/G1/left_ankle_roll_link/collisions/mesh_2/sphere",
+      "type": "Sphere",
+      "collisionAPI": true,
+      "extent": [
+        [
+          -0.005,
+          -0.005,
+          -0.005
+        ],
+        [
+          0.005,
+          0.005,
+          0.005
+        ]
+      ]
+    },
+    {
+      "path": "/World/G1/left_ankle_roll_link/collisions/mesh_3/sphere",
+      "type": "Sphere",
+      "collisionAPI": true,
+      "extent": [
+        [
+          -0.005,
+          -0.005,
+          -0.005
+        ],
+        [
+          0.005,
+          0.005,
+          0.005
+        ]
+      ]
+    },
+    {
+      "path": "/World/G1/right_ankle_roll_link/visuals/right_ankle_roll_link/node_STL_BINARY_/mesh",
+      "type": "Mesh",
+      "collisionAPI": false,
+      "extent": [
+        [
+          -0.065841,
+          -0.037841,
+          -0.035409
+        ],
+        [
+          0.142365,
+          0.037742,
+          0.023584
+        ]
+      ],
+      "n_points": 39222,
+      "local_x_min": -0.065841,
+      "local_x_max": 0.142365,
+      "local_y_min": -0.037841,
+      "local_y_max": 0.037742,
+      "local_z_min": -0.035409
+    },
+    {
+      "path": "/World/G1/right_ankle_roll_link/collisions/mesh_0/sphere",
+      "type": "Sphere",
+      "collisionAPI": true,
+      "extent": [
+        [
+          -0.005,
+          -0.005,
+          -0.005
+        ],
+        [
+          0.005,
+          0.005,
+          0.005
+        ]
+      ]
+    },
+    {
+      "path": "/World/G1/right_ankle_roll_link/collisions/mesh_1/sphere",
+      "type": "Sphere",
+      "collisionAPI": true,
+      "extent": [
+        [
+          -0.005,
+          -0.005,
+          -0.005
+        ],
+        [
+          0.005,
+          0.005,
+          0.005
+        ]
+      ]
+    },
+    {
+      "path": "/World/G1/right_ankle_roll_link/collisions/mesh_2/sphere",
+      "type": "Sphere",
+      "collisionAPI": true,
+      "extent": [
+        [
+          -0.005,
+          -0.005,
+          -0.005
+        ],
+        [
+          0.005,
+          0.005,
+          0.005
+        ]
+      ]
+    },
+    {
+      "path": "/World/G1/right_ankle_roll_link/collisions/mesh_3/sphere",
+      "type": "Sphere",
+      "collisionAPI": true,
+      "extent": [
+        [
+          -0.005,
+          -0.005,
+          -0.005
+        ],
+        [
+          0.005,
+          0.005,
+          0.005
+        ]
+      ]
+    }
+  ],
+  "foot_usda_lines": 52,
+  "contact_api_hunt": {
+    "view": [
+      "_prepare_view_in_fabric",
+      "_view_in_fabric_prepared",
+      "get_coriolis_and_centrifugal_forces",
+      "get_generalized_gravity_forces",
+      "get_measured_joint_forces"
+    ],
+    "physx": [
+      "_dof_actuation_forces",
+      "_dof_actuation_forces_desc",
+      "apply_forces_and_torques_at_position",
+      "get_contact_offsets",
+      "get_coriolis_and_centrifugal_compensation_forces",
+      "get_coriolis_and_centrifugal_forces",
+      "get_dof_actuation_forces",
+      "get_dof_max_forces",
+      "get_dof_projected_joint_forces",
+      "get_generalized_gravity_forces",
+      "get_gravity_compensation_forces",
+      "get_link_incoming_joint_force",
+      "set_contact_offsets",
+      "set_dof_actuation_forces",
+      "set_dof_max_forces"
+    ],
+    "isaacsim.core.prims.RigidContactView": "module ok, attr absent",
+    "isaacsim.sensors.physics.ContactSensor": "present",
+    "omni.physx.get_physx_simulation_interface": "present"
+  }
+}

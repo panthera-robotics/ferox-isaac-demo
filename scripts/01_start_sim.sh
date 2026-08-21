@@ -179,6 +179,8 @@ docker exec -d \
   -e TWIN_JOINT_FRICTION="${TWIN_JOINT_FRICTION:-}" \
   -e HAND="${HAND:-none}" \
   -e MM5_PROBE="${MM5_PROBE:-0}" \
+  -e C39_CAPTURE="${C39_CAPTURE:-}" \
+  -e C39_OUT="${C39_OUT:-/workspace/ferox_isaac/c39_out}" \
   -e MM5="${MM5:-0}" \
   -e MM5_OBJECT="${MM5_OBJECT:-soup_can}" \
   -e MM5_TRIALS="${MM5_TRIALS:-20}" \
