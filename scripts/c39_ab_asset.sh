@@ -28,6 +28,12 @@ mkdir -p "$OUT"
 
 case "$ASSET" in
   twin) HAND_ARG=dex5_1p; OVERRIDE="" ;;
+  # twin_bare is the RIGHT twin side for this A/B and the reason is the reference:
+  # g1_29dof_old.xml has no hands at all, so comparing it against the Dex5 twin would
+  # differ in TWO things, not one. It is also the side that runs: with the Dex5 hands
+  # attached SONIC aborts on its own velocity limit ("body_dq[24] = 35.367 > 35")
+  # before the rig ever releases -- see evidence/C39/ab/twin_dex5_abort_*.
+  twin_bare) HAND_ARG=none; OVERRIDE="" ;;
   ref)  HAND_ARG=none
         OVERRIDE=/workspace/ferox_isaac/assets/g1_ref_mjcf/g1_29dof_old.usd
         [ -f "$DEMO_DIR/isaac/assets/g1_ref_mjcf/g1_29dof_old.usd" ] || {
@@ -76,14 +82,38 @@ docker run -d --name mm4_drive --network host \
   -v "$DEMO_DIR/scripts":/scripts:ro ferox/twin-lowlevel:humble \
   python3 /scripts/mm4_sonic_drive.py --bind 'tcp://*:5556' --hold-s "$DUR" >/dev/null
 
-echo "  running ${DUR}s ..."
-sleep "$DUR"
+# Wall-clock is the wrong clock. RTF on this box runs ~0.15 with 1 kHz physics under
+# G1_CONTROL=lowcmd, and SONIC's FIRST run also has to build its TensorRT engines, so a
+# fixed wall window can end before the rig has even released. Wait on the SIM clock
+# instead: release happens at t=30 s, and the verdict wants ~30 s of standing after it.
+WANT_T="${WANT_T:-60}"
+echo "  waiting for sim t=${WANT_T}s (wall budget ${DUR}s) ..."
+_t0=$SECONDS
+_t=0
+while [ $((SECONDS-_t0)) -lt "$DUR" ]; do
+  # Copy the tail out and parse it on the HOST. Doing the grep inside `docker exec
+  # bash -c '...'` nests three levels of quoting around a regex full of brackets and
+  # dollars, and one bad expansion there turns into a shell error on an unrelated line.
+  docker exec "$SIM_CONTAINER" tail -c 200000 /tmp/sim.log > /tmp/_ab_tail.txt 2>/dev/null || true
+  _t=$(python3 - <<'PYEOF'
+import re
+try:
+    txt = open('/tmp/_ab_tail.txt', errors='replace').read()
+except OSError:
+    txt = ''
+m = re.findall(r'\[lowlevel-sim\] t=\s*([0-9.]+)', txt)
+print(m[-1] if m else '0')
+PYEOF
+)
+  [ -z "$_t" ] && _t=0
+  if awk -v a="$_t" -v b="$WANT_T" 'BEGIN{exit !(a+0>=b+0)}'; then
+    echo "  reached sim t=$_t"; break
+  fi
+  sleep 10
+done
+echo "  stopping at sim t=$_t after $((SECONDS-_t0))s wall"
 
 # ---- 5. harvest -------------------------------------------------------------
-docker exec "$SIM_CONTAINER" cat /tmp/sim.log > "$OUT/${ASSET}_sim.log" 2>/dev/null || true
-docker logs mm4_sonic  > "$OUT/${ASSET}_sonic.log" 2>&1 || true
-docker logs mm3_bridge > "$OUT/${ASSET}_bridge.log" 2>&1 || true
-docker logs mm4_drive  > "$OUT/${ASSET}_drive.log" 2>&1 || true
-python3 "$DEMO_DIR/tools/c39_ab_verdict.py" "$OUT/${ASSET}_sim.log" "$ASSET" \
-  > "$OUT/${ASSET}_verdict.txt"
-cat "$OUT/${ASSET}_verdict.txt"
+# Same code path as scripts/c39_ab_harvest.sh, which exists so a run that is already
+# up can be captured without being restarted.
+bash "$DEMO_DIR/scripts/c39_ab_harvest.sh" "$ASSET"

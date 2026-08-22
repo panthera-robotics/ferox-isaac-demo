@@ -1,0 +1,527 @@
+[DEBUG] Program starting...
+[DEBUG] Arguments validated...
+[INFO] Using observation config: policy/sonic_v1_1/observation_config.yaml
+[INFO] Using encoder file: policy/sonic_v1_1/model_encoder.onnx
+[INFO] Using planner file: planner/target_vel/V2/planner_sonic.onnx
+[INFO] Using input type: zmq_manager
+[INFO] Using output type: all
+[DEBUG] Creating G1Deploy object...
+1787373053.118860 [0] g1_deploy_: selected interface "lo" is not multicast-capable: disabling multicast
+G1 type: 5
+Reading motion data from CSV files in: reference/example/
+Found 13 motion folders
+✓ Loaded tired_one_leg_jumping_R_001__A359 (500 timesteps)
+✓ Loaded macarena_001__A545 (1375 timesteps)
+✓ Loaded tired_forward_lunge_R_001__A359_M (810 timesteps)
+✓ Loaded forward_lunge_R_001__A359_M (399 timesteps)
+✓ Loaded squat_001__A359 (424 timesteps)
+✓ Loaded macarena_001__A545_M (1375 timesteps)
+✓ Loaded walking_quip_360_R_002__A428_M (455 timesteps)
+✓ Loaded dance_in_da_party_001__A464_M (497 timesteps)
+✓ Loaded tired_one_leg_jumping_R_001__A359_M (500 timesteps)
+✓ Loaded neutral_kick_R_001__A543_M (165 timesteps)
+✓ Loaded dance_in_da_party_001__A464 (497 timesteps)
+✓ Loaded walking_quip_360_R_002__A428 (455 timesteps)
+✓ Loaded neutral_kick_R_001__A543 (165 timesteps)
+✓ Motion data loaded successfully!
+Started with motion: tired_one_leg_jumping_R_001__A359 (paused at frame 0)
+Loading policy model...
+hash value in file 8966bfebdd001b742319ae77394cc3307eb888201accfdb625766909cdc7021f
+hash of onnx/gpu type 8966bfebdd001b742319ae77394cc3307eb888201accfdb625766909cdc7021f
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: Loaded engine size: 142 MiB
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: [MemUsageChange] TensorRT-managed allocation in IExecutionContext creation: CPU +0, GPU +0, now: CPU 0, GPU 142 (MiB)
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: obs_dict [1, 994]. 994 elements of type FLOAT
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: OUTPUT Tensor: action [1, 29]. 29 elements of type FLOAT
+✓ Successfully converted ONNX to TRT: policy/sonic_v1_1/policy_model_decoder.trt
+✓ Policy engine initialized successfully!
+  Model: policy/sonic_v1_1/model_decoder.onnx
+  Input dimension: 994
+  Action dimension: 29
+  Input tensor: obs_dict
+  Output tensor: action
+  Precision: FP32
+Capturing control policy CUDA graph...
+✓ Control policy CUDA graph captured successfully!
+✓ Policy model loaded successfully!
+Loading observation configuration...
+Using observation config file: policy/sonic_v1_1/observation_config.yaml
+Parsing observation config file: policy/sonic_v1_1/observation_config.yaml
+Found observations section at line 9
+  Parsed observation: token_state -> enabled
+  Parsed observation: his_base_angular_velocity_10frame_step1 -> enabled
+  Parsed observation: his_body_joint_positions_10frame_step1 -> enabled
+  Parsed observation: his_body_joint_velocities_10frame_step1 -> enabled
+  Parsed observation: his_last_actions_10frame_step1 -> enabled
+  Parsed observation: his_gravity_dir_10frame_step1 -> enabled
+Found encoder section at line 23
+  Encoder dimension: 64
+  Encoder use_fp16: false
+  Found encoder_observations subsection
+    Encoder obs: encoder_mode_4 -> enabled
+    Encoder obs: motion_joint_positions_10frame_step5 -> enabled
+    Encoder obs: motion_joint_velocities_10frame_step5 -> enabled
+    Encoder obs: motion_anchor_orientation_heading_10frame_step5 -> enabled
+    Encoder obs: motion_anchor_orientation_heading -> enabled
+    Encoder obs: motion_joint_positions_lowerbody_10frame_step5 -> enabled
+    Encoder obs: motion_joint_velocities_lowerbody_10frame_step5 -> enabled
+    Encoder obs: vr_3point_local_target -> enabled
+    Encoder obs: vr_3point_local_orn_target -> enabled
+    Encoder obs: smpl_joints_10frame_step1 -> enabled
+    Encoder obs: smpl_anchor_orientation_heading_10frame_step1 -> enabled
+    Encoder obs: motion_joint_positions_wrists_10frame_step1 -> enabled
+  Found encoder_modes subsection (after encoder_observations)
+    Found mode: g1
+      Mode ID: 0
+      Found required_observations for mode g1
+        - encoder_mode_4
+        - motion_joint_positions_10frame_step5
+        - motion_joint_velocities_10frame_step5
+        - motion_anchor_orientation_heading_10frame_step5
+    Saved mode 'g1' with 4 observations
+    Found mode: teleop
+      Mode ID: 1
+      Found required_observations for mode teleop
+        - encoder_mode_4
+        - motion_joint_positions_lowerbody_10frame_step5
+        - motion_joint_velocities_lowerbody_10frame_step5
+        - vr_3point_local_target
+        - vr_3point_local_orn_target
+        - motion_anchor_orientation_heading
+    Saved mode 'teleop' with 6 observations
+    Found mode: smpl
+      Mode ID: 2
+      Found required_observations for mode smpl
+        - encoder_mode_4
+        - smpl_joints_10frame_step1
+        - smpl_anchor_orientation_heading_10frame_step1
+        - motion_joint_positions_wrists_10frame_step1
+    Saved mode 'smpl' with 4 observations
+✓ Token state observation validated with encoder configuration
+Successfully parsed 6 observations
+Encoder config found with 12 input observations
+✓ Token state buffer initialized (size: 64)
+Initializing encoder...
+Loading encoder model...
+hash value in file 3abc48371235e2ccd69cfe7e8db2f3997bd07b2cbaea52e817a6ba848e7c29f8
+hash of onnx/gpu type 3abc48371235e2ccd69cfe7e8db2f3997bd07b2cbaea52e817a6ba848e7c29f8
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: Loaded engine size: 47 MiB
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: [MS] Running engine with multi stream info
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: [MS] Number of aux streams is 2
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: [MS] Number of total worker streams is 3
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: [MS] The main stream provided by execute/enqueue calls is the first worker stream
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: [MemUsageChange] TensorRT-managed allocation in IExecutionContext creation: CPU +0, GPU +0, now: CPU 0, GPU 189 (MiB)
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: obs_dict [1, 1751]. 1751 elements of type FLOAT
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: OUTPUT Tensor: encoded_tokens [1, 64]. 64 elements of type FLOAT
+✓ Encoder initialized successfully!
+  Model: policy/sonic_v1_1/model_encoder.onnx
+  Input dimension: 1751
+  Token dimension: 64
+  Input tensor: obs_dict
+  Output tensor: encoded_tokens
+Capturing encoder CUDA graph...
+✓ Encoder CUDA graph captured successfully!
+✓ Encoder model loaded successfully!
+Setting encode_mode for 13 loaded reference motions...
+  Motion 'tired_one_leg_jumping_R_001__A359' encode_mode set to: 0
+  Motion 'macarena_001__A545' encode_mode set to: 0
+  Motion 'tired_forward_lunge_R_001__A359_M' encode_mode set to: 0
+  Motion 'forward_lunge_R_001__A359_M' encode_mode set to: 0
+  Motion 'squat_001__A359' encode_mode set to: 0
+  Motion 'macarena_001__A545_M' encode_mode set to: 0
+  Motion 'walking_quip_360_R_002__A428_M' encode_mode set to: 0
+  Motion 'dance_in_da_party_001__A464_M' encode_mode set to: 0
+  Motion 'tired_one_leg_jumping_R_001__A359_M' encode_mode set to: 0
+  Motion 'neutral_kick_R_001__A543_M' encode_mode set to: 0
+  Motion 'dance_in_da_party_001__A464' encode_mode set to: 0
+  Motion 'walking_quip_360_R_002__A428' encode_mode set to: 0
+  Motion 'neutral_kick_R_001__A543' encode_mode set to: 0
+Planner motion encode_mode set to: 0
+LocalMotionPlannerBase constructor
+config_.version: 2
+config_.motion_look_ahead_steps: 2
+config_.default_height: 0.78874
+config_.initial_random_seed: 1234
+Available modes number: 27
+Initialize Engine...
+hash value in file 8aadbaeb35cbfdebe85eb328eb2ae826228a703c12045b353a02eb5bdce59601
+hash of onnx/gpu type 8aadbaeb35cbfdebe85eb328eb2ae826228a703c12045b353a02eb5bdce59601
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: Loaded engine size: 710 MiB
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: [MS] Running engine with multi stream info
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: [MS] Number of aux streams is 1
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: [MS] Number of total worker streams is 2
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: [MS] The main stream provided by execute/enqueue calls is the first worker stream
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(35)]: [MemUsageChange] TensorRT-managed allocation in IExecutionContext creation: CPU +0, GPU +1, now: CPU 0, GPU 897 (MiB)
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: context_mujoco_qpos [1, 4, 36]. 144 elements of type FLOAT
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: target_vel [1]. 1 elements of type FLOAT
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: mode [1]. 1 elements of type INT64
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: movement_direction [1, 3]. 3 elements of type FLOAT
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: facing_direction [1, 3]. 3 elements of type FLOAT
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: random_seed [1]. 1 elements of type INT64
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: has_specific_target [1, 1]. 1 elements of type INT64
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: specific_target_positions [1, 4, 3]. 12 elements of type FLOAT
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: specific_target_headings [1, 4]. 4 elements of type FLOAT
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: allowed_pred_num_tokens [1, 11]. 11 elements of type INT64
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: INPUT Tensor: height [1]. 1 elements of type FLOAT
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: OUTPUT Tensor: mujoco_qpos [1, 64, 36]. 2304 elements of type FLOAT
+INFO [/opt/gear_sonic_deploy/src/TRTInference/InferenceEngine.cpp(476)]: OUTPUT Tensor: num_pred_frames [1]. 1 elements of type INT32
+✓ Successfully converted ONNX to TRT: planner/target_vel/V2/planner_planner_sonic.trt
+Input tensors:
+  allowed_pred_num_tokens 1 11 int64
+  context_mujoco_qpos 1 4 36 float
+  facing_direction 1 3 float
+  has_specific_target 1 1 int64
+  height 1 float
+  mode 1 int64
+  movement_direction 1 3 float
+  random_seed 1 int64
+  specific_target_headings 1 4 float
+  specific_target_positions 1 4 3 float
+  target_vel 1 float
+Output tensors:
+  mujoco_qpos 1 64 36 float
+  num_pred_frames 1 int32
+✓ TensorRT planner model loaded successfully!
+Initializing encoder observations...
+✓ Initialized 12 encoder observations (total dim: 1751)
+
+=== Observation Configuration ===
+Active policy observations (runtime order):
+  1. token_state (64D) [offset: 0]
+  2. his_base_angular_velocity_10frame_step1 (30D) [offset: 64]
+  3. his_body_joint_positions_10frame_step1 (290D) [offset: 94]
+  4. his_body_joint_velocities_10frame_step1 (290D) [offset: 384]
+  5. his_last_actions_10frame_step1 (290D) [offset: 674]
+  6. his_gravity_dir_10frame_step1 (30D) [offset: 964]
+
+Policy Summary:
+  Total dimension: 994
+  Model dimension: 994
+  ✓ Dimension match: Configuration is valid!
+
+--- Encoder Observations ---
+  1. encoder_mode_4 (4D) [offset: 0]
+  2. motion_joint_positions_10frame_step5 (290D) [offset: 4]
+  3. motion_joint_velocities_10frame_step5 (290D) [offset: 294]
+  4. motion_anchor_orientation_heading_10frame_step5 (60D) [offset: 584]
+  5. motion_anchor_orientation_heading (6D) [offset: 644]
+  6. motion_joint_positions_lowerbody_10frame_step5 (120D) [offset: 650]
+  7. motion_joint_velocities_lowerbody_10frame_step5 (120D) [offset: 770]
+  8. vr_3point_local_target (9D) [offset: 890]
+  9. vr_3point_local_orn_target (12D) [offset: 899]
+  10. smpl_joints_10frame_step1 (720D) [offset: 911]
+  11. smpl_anchor_orientation_heading_10frame_step1 (60D) [offset: 1631]
+  12. motion_joint_positions_wrists_10frame_step1 (60D) [offset: 1691]
+
+Encoder Summary:
+  Total dimension: 1751
+  Model dimension: 1751
+  ✓ Dimension match: Encoder configuration is valid!
+================================
+
+[ZMQEndpointInterface] Connected to localhost:5556 topic='pose'
+[ZMQEndpointInterface] Press ENTER to toggle between loaded motions and ZMQ stream
+[ZMQManager] Initialized (default: PLANNER mode)
+  - Host: localhost:5556
+  - Command topic: 'command' (start/stop/mode)
+    Format: { start: bool, stop: bool, planner: bool }
+  - Planner topic: 'planner' (movement)
+  - Pose topic: 'pose' (streamed motion)
+Initialized ZMQ manager
+  Host: localhost:5556
+  Pose topic: pose
+  Command topic: command
+  Planner topic: planner
+  Conflate: disabled
+  Initial encoder mode: 0
+[INFO] Initial VR 3-point compliance: [0.5, 0.5, 0]
+[INFO] Initial hand max close ratio: 1 (1.0 = full closure allowed, 0.2 = limited)
+[INFO] Keyboard controls: g/h = left hand +/- 0.1, b/v = right hand +/- 0.1 (range: 0.01-0.5)
+[INFO] Keyboard controls: x/c = hand max close ratio +/- 0.1 (range: 0.2-1.0)
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Compliance control: DISABLED                                               │
+│  Policy does not observe 'vr_3point_compliance'.                            │
+│  Keyboard controls (g/h/b/v) will be ignored for this policy.               │
+│  To enable, use a compliance-aware policy that observes it natively.        │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Initializing realtime debug socket
+Binding to port: 5557 and topic: g1_debug
+[INFO] Realtime debug socket bound to port: 5557
+[ZMQ Output DEBUG] ZMQOutputHandler initialized with topics: 'g1_debug' (combined state+viz), 'robot_config' (config)
+Initialized ZMQ output interface
+[ZMQ Output] Robot config cached (10 fields, 339 bytes)
+Total output interfaces initialized: 1
+[ZMQManager] Planner enabled
+[DEBUG] G1Deploy object created successfully!
+Initializing planner...
+Setting planner_motion encode mode to 0
+Replanning with mode: IDLE, target_height: -1, target_vel: -1, movement: [0, 0, 0], facing: [1, 0, 0]
+Planner Init timing - Model: 4353us, Extract: 66us
+Planner initialized
+Planner initialized successfully!
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Init Done
+[Control] DEBUG: operator_state.start=true, transitioning to CONTROL state
+Planner() no data in planner_motion_, returning. If control loop is started, this should only happen once when planner is initialized. If control loop is not started, this should keep returning until control loop is started.
+[ZMQManager] Waiting for planner to be initialized
+Reset heading state to 1, 0, 0, 0
+Reset delta heading to 0
+Reset init reference data root rotation to current frame: -0.701854, 0.04748, 0.042075, 0.70949
+**********************************************************
+Reference motion name: tired_one_leg_jumping_R_001__A359
+**********************************************************
+[Mode Filter] Switched to mode 'g1' (ID=0) with 4 required observations
+Reset heading state to 1, 0, 0, 0
+Reset delta heading to 0
+Reset init reference data root rotation to current frame: 0.888511, -0.0508744, 0.455281, 0.0260685
+**********************************************************
+Reference motion name: planner_motion
+**********************************************************
+Replanning with mode: IDLE, target_height: 0, target_vel: 0, movement: [0, 0, 0], facing: [1, 0, 0]
+[ZMQManager] Waiting for planner to be initialized
+[ZMQManager] motion name is planner_motion
+Replanning with mode: IDLE, target_height: -1, target_vel: -1, movement: [0, 0, 0], facing: [1, 0, 0]
+Loop timing - LowState age: 0.572ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.578ms, Obs: 177us, Policy: 203us, Obs 2 Motor Command: 381us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 5.834ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 5.783ms, Obs: 239us, Policy: 219us, Obs 2 Motor Command: 458us, Post processing: 47us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.093ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.081ms, Obs: 188us, Policy: 208us, Obs 2 Motor Command: 396us, Post processing: 20us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 6.573ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 6.632ms, Obs: 1639us, Policy: 1646us, Obs 2 Motor Command: 3285us, Post processing: 33us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.379ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.404ms, Obs: 214us, Policy: 210us, Obs 2 Motor Command: 425us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.881ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.06ms, Obs: 238us, Policy: 213us, Obs 2 Motor Command: 452us, Post processing: 27us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.005ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.037ms, Obs: 163us, Policy: 202us, Obs 2 Motor Command: 366us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 6.937ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 7.003ms, Obs: 303us, Policy: 222us, Obs 2 Motor Command: 526us, Post processing: 16us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 7.17ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 7.148ms, Obs: 158us, Policy: 201us, Obs 2 Motor Command: 359us, Post processing: 13us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.298ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.386ms, Obs: 219us, Policy: 205us, Obs 2 Motor Command: 425us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.65ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.717ms, Obs: 220us, Policy: 206us, Obs 2 Motor Command: 426us, Post processing: 24us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 6.57ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 6.583ms, Obs: 2566us, Policy: 2523us, Obs 2 Motor Command: 5089us, Post processing: 20us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.596ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.625ms, Obs: 172us, Policy: 202us, Obs 2 Motor Command: 374us, Post processing: 16us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 7.053ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 7.068ms, Obs: 196us, Policy: 208us, Obs 2 Motor Command: 404us, Post processing: 18us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 5.204ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 5.261ms, Obs: 247us, Policy: 207us, Obs 2 Motor Command: 455us, Post processing: 18us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 11.582ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 11.618ms, Obs: 248us, Policy: 208us, Obs 2 Motor Command: 457us, Post processing: 70us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 9.481ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 9.453ms, Obs: 310us, Policy: 212us, Obs 2 Motor Command: 523us, Post processing: 34us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 11.769ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 11.726ms, Obs: 273us, Policy: 209us, Obs 2 Motor Command: 482us, Post processing: 30us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.205ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.23ms, Obs: 265us, Policy: 208us, Obs 2 Motor Command: 474us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.264ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.233ms, Obs: 314us, Policy: 207us, Obs 2 Motor Command: 521us, Post processing: 27us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.703ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.672ms, Obs: 262us, Policy: 203us, Obs 2 Motor Command: 466us, Post processing: 18us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.985ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.061ms, Obs: 221us, Policy: 224us, Obs 2 Motor Command: 445us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 19.756ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 19.674ms, Obs: 268us, Policy: 211us, Obs 2 Motor Command: 479us, Post processing: 62us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.032ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.989ms, Obs: 300us, Policy: 218us, Obs 2 Motor Command: 519us, Post processing: 27us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.672ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.618ms, Obs: 191us, Policy: 205us, Obs 2 Motor Command: 397us, Post processing: 20us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.214ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.196ms, Obs: 313us, Policy: 209us, Obs 2 Motor Command: 523us, Post processing: 25us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.29ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.335ms, Obs: 206us, Policy: 217us, Obs 2 Motor Command: 424us, Post processing: 25us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 25.537ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 25.556ms, Obs: 173us, Policy: 201us, Obs 2 Motor Command: 374us, Post processing: 16us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.421ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.445ms, Obs: 221us, Policy: 206us, Obs 2 Motor Command: 428us, Post processing: 24us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.681ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.756ms, Obs: 274us, Policy: 236us, Obs 2 Motor Command: 511us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.633ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.644ms, Obs: 250us, Policy: 205us, Obs 2 Motor Command: 456us, Post processing: 54us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 51.498ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 51.503ms, Obs: 341us, Policy: 220us, Obs 2 Motor Command: 562us, Post processing: 41us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 5.544ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 5.48ms, Obs: 272us, Policy: 222us, Obs 2 Motor Command: 495us, Post processing: 33us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.843ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.842ms, Obs: 247us, Policy: 207us, Obs 2 Motor Command: 454us, Post processing: 54us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 16.898ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 16.937ms, Obs: 309us, Policy: 209us, Obs 2 Motor Command: 518us, Post processing: 24us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 4.947ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 5.038ms, Obs: 213us, Policy: 212us, Obs 2 Motor Command: 426us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.459ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.481ms, Obs: 166us, Policy: 202us, Obs 2 Motor Command: 369us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.762ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.843ms, Obs: 230us, Policy: 205us, Obs 2 Motor Command: 435us, Post processing: 26us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.281ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.332ms, Obs: 297us, Policy: 210us, Obs 2 Motor Command: 508us, Post processing: 30us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.89ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.953ms, Obs: 244us, Policy: 207us, Obs 2 Motor Command: 451us, Post processing: 57us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 12.177ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 12.22ms, Obs: 227us, Policy: 225us, Obs 2 Motor Command: 452us, Post processing: 35us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.177ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.139ms, Obs: 234us, Policy: 206us, Obs 2 Motor Command: 441us, Post processing: 71us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 13.638ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 13.578ms, Obs: 1923us, Policy: 2727us, Obs 2 Motor Command: 4651us, Post processing: 18us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.525ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.559ms, Obs: 269us, Policy: 237us, Obs 2 Motor Command: 506us, Post processing: 19us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.654ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.692ms, Obs: 300us, Policy: 226us, Obs 2 Motor Command: 527us, Post processing: 44us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.958ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.952ms, Obs: 228us, Policy: 205us, Obs 2 Motor Command: 434us, Post processing: 65us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 28.01ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 28.096ms, Obs: 240us, Policy: 206us, Obs 2 Motor Command: 446us, Post processing: 27us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.734ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.788ms, Obs: 282us, Policy: 208us, Obs 2 Motor Command: 490us, Post processing: 25us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.988ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.991ms, Obs: 166us, Policy: 207us, Obs 2 Motor Command: 373us, Post processing: 16us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.143ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.199ms, Obs: 152us, Policy: 204us, Obs 2 Motor Command: 357us, Post processing: 19us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.087ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.093ms, Obs: 150us, Policy: 211us, Obs 2 Motor Command: 361us, Post processing: 19us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.752ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.674ms, Obs: 299us, Policy: 219us, Obs 2 Motor Command: 519us, Post processing: 26us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.933ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.896ms, Obs: 153us, Policy: 242us, Obs 2 Motor Command: 396us, Post processing: 15us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.495ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.549ms, Obs: 236us, Policy: 206us, Obs 2 Motor Command: 442us, Post processing: 25us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.64ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.573ms, Obs: 174us, Policy: 203us, Obs 2 Motor Command: 378us, Post processing: 15us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.654ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.722ms, Obs: 204us, Policy: 203us, Obs 2 Motor Command: 408us, Post processing: 24us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.777ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.788ms, Obs: 350us, Policy: 214us, Obs 2 Motor Command: 565us, Post processing: 31us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.789ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.791ms, Obs: 164us, Policy: 203us, Obs 2 Motor Command: 368us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.277ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.428ms, Obs: 237us, Policy: 200us, Obs 2 Motor Command: 437us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.443ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.521ms, Obs: 267us, Policy: 215us, Obs 2 Motor Command: 482us, Post processing: 57us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.875ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.818ms, Obs: 283us, Policy: 214us, Obs 2 Motor Command: 497us, Post processing: 25us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.615ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.634ms, Obs: 255us, Policy: 275us, Obs 2 Motor Command: 531us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 47.014ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 47.102ms, Obs: 218us, Policy: 206us, Obs 2 Motor Command: 425us, Post processing: 31us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.633ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.589ms, Obs: 257us, Policy: 232us, Obs 2 Motor Command: 489us, Post processing: 32us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 4.617ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 4.687ms, Obs: 174us, Policy: 209us, Obs 2 Motor Command: 383us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.721ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.753ms, Obs: 214us, Policy: 211us, Obs 2 Motor Command: 425us, Post processing: 41us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.145ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.192ms, Obs: 235us, Policy: 212us, Obs 2 Motor Command: 448us, Post processing: 26us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 44.649ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 44.616ms, Obs: 301us, Policy: 209us, Obs 2 Motor Command: 511us, Post processing: 26us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 4.768ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 4.939ms, Obs: 228us, Policy: 211us, Obs 2 Motor Command: 439us, Post processing: 24us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.766ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.817ms, Obs: 298us, Policy: 242us, Obs 2 Motor Command: 540us, Post processing: 30us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 7.922ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.572ms, Obs: 309us, Policy: 207us, Obs 2 Motor Command: 516us, Post processing: 27us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 17.244ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 17.293ms, Obs: 273us, Policy: 206us, Obs 2 Motor Command: 479us, Post processing: 39us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.345ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.365ms, Obs: 232us, Policy: 201us, Obs 2 Motor Command: 433us, Post processing: 15us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 6.332ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 6.421ms, Obs: 2559us, Policy: 2798us, Obs 2 Motor Command: 5357us, Post processing: 19us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.778ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.779ms, Obs: 161us, Policy: 204us, Obs 2 Motor Command: 366us, Post processing: 14us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.187ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.102ms, Obs: 189us, Policy: 206us, Obs 2 Motor Command: 395us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.721ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.702ms, Obs: 199us, Policy: 206us, Obs 2 Motor Command: 405us, Post processing: 18us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.358ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.397ms, Obs: 232us, Policy: 207us, Obs 2 Motor Command: 440us, Post processing: 64us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 12.115ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 12.11ms, Obs: 267us, Policy: 238us, Obs 2 Motor Command: 506us, Post processing: 31us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.654ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.757ms, Obs: 267us, Policy: 204us, Obs 2 Motor Command: 471us, Post processing: 16us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.815ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.731ms, Obs: 177us, Policy: 206us, Obs 2 Motor Command: 384us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.931ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.976ms, Obs: 390us, Policy: 225us, Obs 2 Motor Command: 616us, Post processing: 46us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.562ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.55ms, Obs: 216us, Policy: 208us, Obs 2 Motor Command: 425us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 9.666ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 9.673ms, Obs: 207us, Policy: 208us, Obs 2 Motor Command: 415us, Post processing: 23us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.288ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.296ms, Obs: 184us, Policy: 200us, Obs 2 Motor Command: 385us, Post processing: 18us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.901ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.973ms, Obs: 242us, Policy: 206us, Obs 2 Motor Command: 449us, Post processing: 57us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.784ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.839ms, Obs: 176us, Policy: 271us, Obs 2 Motor Command: 448us, Post processing: 14us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.844ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.858ms, Obs: 246us, Policy: 205us, Obs 2 Motor Command: 451us, Post processing: 20us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 14.124ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 14.19ms, Obs: 232us, Policy: 204us, Obs 2 Motor Command: 437us, Post processing: 56us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 13.728ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 13.745ms, Obs: 204us, Policy: 207us, Obs 2 Motor Command: 411us, Post processing: 24us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 4.023ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.549ms, Obs: 355us, Policy: 217us, Obs 2 Motor Command: 573us, Post processing: 36us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.642ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.601ms, Obs: 265us, Policy: 208us, Obs 2 Motor Command: 473us, Post processing: 50us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.708ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.779ms, Obs: 211us, Policy: 202us, Obs 2 Motor Command: 414us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 4.069ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 4.111ms, Obs: 285us, Policy: 207us, Obs 2 Motor Command: 492us, Post processing: 27us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 5.09ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 5.19ms, Obs: 227us, Policy: 209us, Obs 2 Motor Command: 437us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.264ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.297ms, Obs: 177us, Policy: 200us, Obs 2 Motor Command: 377us, Post processing: 16us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.561ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.5ms, Obs: 183us, Policy: 207us, Obs 2 Motor Command: 390us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 7.792ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 7.801ms, Obs: 340us, Policy: 229us, Obs 2 Motor Command: 569us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 5.545ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 5.524ms, Obs: 423us, Policy: 212us, Obs 2 Motor Command: 636us, Post processing: 34us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.604ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.656ms, Obs: 292us, Policy: 214us, Obs 2 Motor Command: 507us, Post processing: 27us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 9.538ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 9.556ms, Obs: 287us, Policy: 220us, Obs 2 Motor Command: 508us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 30.243ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 30.293ms, Obs: 168us, Policy: 206us, Obs 2 Motor Command: 374us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.121ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.202ms, Obs: 229us, Policy: 211us, Obs 2 Motor Command: 441us, Post processing: 24us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.074ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.113ms, Obs: 205us, Policy: 211us, Obs 2 Motor Command: 417us, Post processing: 25us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.603ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.66ms, Obs: 156us, Policy: 200us, Obs 2 Motor Command: 356us, Post processing: 14us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.345ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.367ms, Obs: 259us, Policy: 246us, Obs 2 Motor Command: 506us, Post processing: 33us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 15.291ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 15.342ms, Obs: 236us, Policy: 221us, Obs 2 Motor Command: 458us, Post processing: 35us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 15.85ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 15.931ms, Obs: 242us, Policy: 206us, Obs 2 Motor Command: 448us, Post processing: 57us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.287ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.303ms, Obs: 278us, Policy: 226us, Obs 2 Motor Command: 504us, Post processing: 35us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.66ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.671ms, Obs: 1180us, Policy: 217us, Obs 2 Motor Command: 1397us, Post processing: 27us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 19.532ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 19.593ms, Obs: 311us, Policy: 212us, Obs 2 Motor Command: 524us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 21.965ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 22.015ms, Obs: 172us, Policy: 201us, Obs 2 Motor Command: 373us, Post processing: 19us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.459ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.501ms, Obs: 196us, Policy: 209us, Obs 2 Motor Command: 406us, Post processing: 21us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.62ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.607ms, Obs: 233us, Policy: 199us, Obs 2 Motor Command: 433us, Post processing: 16us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.337ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.337ms, Obs: 190us, Policy: 201us, Obs 2 Motor Command: 392us, Post processing: 18us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.764ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.791ms, Obs: 175us, Policy: 207us, Obs 2 Motor Command: 383us, Post processing: 19us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.249ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.32ms, Obs: 324us, Policy: 242us, Obs 2 Motor Command: 567us, Post processing: 39us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.806ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.787ms, Obs: 244us, Policy: 206us, Obs 2 Motor Command: 450us, Post processing: 78us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 13.962ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 13.982ms, Obs: 193us, Policy: 206us, Obs 2 Motor Command: 399us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 4.936ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 4.942ms, Obs: 325us, Policy: 225us, Obs 2 Motor Command: 550us, Post processing: 24us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 23.488ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 23.511ms, Obs: 275us, Policy: 228us, Obs 2 Motor Command: 503us, Post processing: 15us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.477ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.491ms, Obs: 243us, Policy: 200us, Obs 2 Motor Command: 443us, Post processing: 15us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.511ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.57ms, Obs: 261us, Policy: 208us, Obs 2 Motor Command: 470us, Post processing: 55us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.649ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.679ms, Obs: 330us, Policy: 212us, Obs 2 Motor Command: 543us, Post processing: 31us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.606ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.657ms, Obs: 166us, Policy: 205us, Obs 2 Motor Command: 371us, Post processing: 22us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.598ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.65ms, Obs: 250us, Policy: 224us, Obs 2 Motor Command: 475us, Post processing: 18us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.094ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.13ms, Obs: 230us, Policy: 208us, Obs 2 Motor Command: 438us, Post processing: 25us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 8.727ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 8.749ms, Obs: 239us, Policy: 234us, Obs 2 Motor Command: 473us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 13.731ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 13.714ms, Obs: 187us, Policy: 210us, Obs 2 Motor Command: 397us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.74ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.824ms, Obs: 373us, Policy: 219us, Obs 2 Motor Command: 592us, Post processing: 40us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.953ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.837ms, Obs: 232us, Policy: 208us, Obs 2 Motor Command: 440us, Post processing: 57us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.159ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.221ms, Obs: 286us, Policy: 225us, Obs 2 Motor Command: 512us, Post processing: 27us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 5.557ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 5.604ms, Obs: 238us, Policy: 208us, Obs 2 Motor Command: 447us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 11.114ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 11.109ms, Obs: 265us, Policy: 210us, Obs 2 Motor Command: 475us, Post processing: 34us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.415ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.384ms, Obs: 297us, Policy: 212us, Obs 2 Motor Command: 509us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 6.115ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 6.157ms, Obs: 243us, Policy: 209us, Obs 2 Motor Command: 453us, Post processing: 60us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 12.472ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 12.491ms, Obs: 234us, Policy: 206us, Obs 2 Motor Command: 441us, Post processing: 27us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 4.486ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 4.502ms, Obs: 226us, Policy: 223us, Obs 2 Motor Command: 450us, Post processing: 64us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.283ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.347ms, Obs: 327us, Policy: 213us, Obs 2 Motor Command: 540us, Post processing: 32us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.882ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.826ms, Obs: 225us, Policy: 205us, Obs 2 Motor Command: 430us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 7.011ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 7.099ms, Obs: 321us, Policy: 209us, Obs 2 Motor Command: 530us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 8.212ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 8.266ms, Obs: 293us, Policy: 234us, Obs 2 Motor Command: 527us, Post processing: 41us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 5.467ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 5.485ms, Obs: 1590us, Policy: 202us, Obs 2 Motor Command: 1793us, Post processing: 14us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.802ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.799ms, Obs: 181us, Policy: 207us, Obs 2 Motor Command: 389us, Post processing: 18us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.663ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.666ms, Obs: 164us, Policy: 204us, Obs 2 Motor Command: 369us, Post processing: 16us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.006ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.886ms, Obs: 224us, Policy: 205us, Obs 2 Motor Command: 430us, Post processing: 13us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.61ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.615ms, Obs: 150us, Policy: 375us, Obs 2 Motor Command: 525us, Post processing: 15us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 14.204ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 14.217ms, Obs: 174us, Policy: 208us, Obs 2 Motor Command: 383us, Post processing: 15us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.599ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.602ms, Obs: 302us, Policy: 212us, Obs 2 Motor Command: 514us, Post processing: 36us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.075ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.077ms, Obs: 149us, Policy: 204us, Obs 2 Motor Command: 354us, Post processing: 25us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.813ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.858ms, Obs: 238us, Policy: 206us, Obs 2 Motor Command: 444us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 34.046ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 34.084ms, Obs: 2384us, Policy: 1664us, Obs 2 Motor Command: 4048us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.158ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.344ms, Obs: 253us, Policy: 208us, Obs 2 Motor Command: 462us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 5.628ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 5.614ms, Obs: 353us, Policy: 218us, Obs 2 Motor Command: 572us, Post processing: 46us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 3.777ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 3.839ms, Obs: 271us, Policy: 213us, Obs 2 Motor Command: 484us, Post processing: 35us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 7.589ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 7.645ms, Obs: 256us, Policy: 244us, Obs 2 Motor Command: 501us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.541ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.557ms, Obs: 2137us, Policy: 306us, Obs 2 Motor Command: 2444us, Post processing: 16us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.824ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.806ms, Obs: 246us, Policy: 208us, Obs 2 Motor Command: 454us, Post processing: 55us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.663ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.607ms, Obs: 194us, Policy: 211us, Obs 2 Motor Command: 405us, Post processing: 31us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 4.615ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 4.575ms, Obs: 962us, Policy: 236us, Obs 2 Motor Command: 1199us, Post processing: 36us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 42.985ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 42.991ms, Obs: 247us, Policy: 213us, Obs 2 Motor Command: 460us, Post processing: 67us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.583ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.617ms, Obs: 172us, Policy: 217us, Obs 2 Motor Command: 390us, Post processing: 16us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.56ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.59ms, Obs: 251us, Policy: 206us, Obs 2 Motor Command: 457us, Post processing: 76us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.173ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.213ms, Obs: 282us, Policy: 238us, Obs 2 Motor Command: 521us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 6.127ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 6.175ms, Obs: 161us, Policy: 231us, Obs 2 Motor Command: 393us, Post processing: 15us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 12.339ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 12.397ms, Obs: 273us, Policy: 216us, Obs 2 Motor Command: 490us, Post processing: 32us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 15.009ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 15.051ms, Obs: 187us, Policy: 206us, Obs 2 Motor Command: 393us, Post processing: 17us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.015ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.036ms, Obs: 189us, Policy: 202us, Obs 2 Motor Command: 392us, Post processing: 25us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.212ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.282ms, Obs: 309us, Policy: 210us, Obs 2 Motor Command: 520us, Post processing: 26us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 4.073ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 4.044ms, Obs: 195us, Policy: 208us, Obs 2 Motor Command: 404us, Post processing: 18us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.769ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.767ms, Obs: 175us, Policy: 206us, Obs 2 Motor Command: 382us, Post processing: 18us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 0.644ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.682ms, Obs: 353us, Policy: 214us, Obs 2 Motor Command: 567us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.918ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 1.962ms, Obs: 247us, Policy: 208us, Obs 2 Motor Command: 455us, Post processing: 72us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 1.643ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 0.596ms, Obs: 321us, Policy: 218us, Obs 2 Motor Command: 539us, Post processing: 37us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 6.705ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 6.742ms, Obs: 231us, Policy: 207us, Obs 2 Motor Command: 439us, Post processing: 25us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 6.718ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 6.804ms, Obs: 225us, Policy: 212us, Obs 2 Motor Command: 437us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.382ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.415ms, Obs: 434us, Policy: 216us, Obs 2 Motor Command: 650us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 2.811ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 2.855ms, Obs: 261us, Policy: 209us, Obs 2 Motor Command: 470us, Post processing: 29us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+Loop timing - LowState age: 25.731ms, Streaming data mean delay: 0ms, Streaming data std delay: 0ms, IMU age: 25.759ms, Obs: 348us, Policy: 227us, Obs 2 Motor Command: 575us, Post processing: 28us, Planner - Gather Input: 38us, Model: 2814us, Convert50Hz: 38us, Total: 2890us | HandCloseRatio: 1
+✗ Error: body_dq[24] = 35.367 > 35.
+✗ Error: Failed to gather robot state to logger in the middle of the control loop!
+Stopping control system.
+[DEBUG] Stopping G1Deploy...
+Stop
+[DEBUG] Waiting for cleanup...
+[DEBUG] Program exiting normally...

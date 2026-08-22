@@ -1,0 +1,1631 @@
+Authorization required, but no authorization protocol specified
+
+Authorization required, but no authorization protocol specified
+
+Authorization required, but no authorization protocol specified
+
+Authorization required, but no authorization protocol specified
+
+Authorization required, but no authorization protocol specified
+
+cat: '/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor': No such file or directory
+Authorization required, but no authorization protocol specified
+
+Authorization required, but no authorization protocol specified
+
+[Info] [carb] Logging to file: /isaac-sim/kit/logs/Kit/Isaac-Sim Python/5.1/kit_20260822_042925.log
+[0.113s] [ext: omni.kit.async_engine-0.0.3] startup
+[1.035s] [ext: omni.metrics.core-0.0.3] startup
+[1.036s] [ext: omni.client.lib-1.1.0] startup
+[1.074s] [ext: omni.blobkey-1.1.2] startup
+[1.074s] [ext: omni.stats-1.0.1] startup
+[1.082s] [ext: omni.datastore-0.0.0] startup
+[1.090s] [ext: omni.client-1.3.0] startup
+[1.096s] [ext: omni.ujitso.default-1.0.0] startup
+[1.099s] [ext: omni.hsscclient-1.1.2] startup
+[1.119s] [ext: omni.gpu_foundation.shadercache.vulkan-1.0.0] startup
+[1.149s] [ext: omni.assets.plugins-0.0.0] startup
+[1.151s] [ext: omni.gpu_foundation-0.0.0] startup
+[1.162s] [ext: carb.windowing.plugins-1.0.0] startup
+2026-08-22T04:29:26Z [1,118ms] [Warning] [carb.windowing-glfw.plugin] GLFW initialization failed.
+2026-08-22T04:29:26Z [1,118ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)
+[1.164s] [ext: omni.kit.renderer.init-0.0.0] startup
+2026-08-22T04:29:26Z [1,190ms] [Warning] [omni.platforminfo.plugin] failed to open the default display.  Can't verify X Server version.
+2026-08-22T04:29:26Z [1,398ms] [Warning] [carb.windowing-glfw.plugin] GLFW initialization failed.
+2026-08-22T04:29:26Z [1,398ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)
+
+|---------------------------------------------------------------------------------------------|
+| Driver Version: 580.105.08    | Graphics API: Vulkan
+|=============================================================================================|
+| GPU | Name                             | Active | LDA | GPU Memory | Vendor-ID | LUID       |
+|     |                                  |        |     |            | Device-ID | UUID       |
+|     |                                  |        |     |            | Bus-ID    |            |
+|---------------------------------------------------------------------------------------------|
+| 0   | NVIDIA GeForce RTX 4090          | Yes: 0 |     | 24810   MB | 10de      | 0          |
+|     |                                  |        |     |            | 2684      | ea3ff652.. |
+|     |                                  |        |     |            | 0         |            |
+|=============================================================================================|
+| OS: 24.04.2 LTS (Noble Numbat) ubuntu, Version: 24.04.2, Kernel: 6.8.0-87-generic
+| Processor: AMD EPYC 7713 64-Core Processor
+| Cores: 40 | Logical Cores: 40
+|---------------------------------------------------------------------------------------------|
+| Total Memory (MB): 135018 | Free Memory: 124717
+| Total Page/Swap (MB): 0 | Free Page/Swap: 0
+|---------------------------------------------------------------------------------------------|
+[2.204s] [ext: omni.kit.pipapi-0.0.0] startup
+[2.219s] [ext: omni.kit.pip_archive-0.0.0] startup
+[2.227s] [ext: omni.pip.compute-1.6.3] startup
+[2.236s] [ext: omni.materialx.libs-1.0.7] startup
+[2.253s] [ext: omni.pip.cloud-1.4.3] startup
+[2.284s] [ext: omni.isaac.core_archive-3.0.0] startup
+[2.293s] [ext: omni.usd.config-1.0.6] startup
+[2.308s] [ext: omni.gpucompute.plugins-0.0.0] startup
+[2.309s] [ext: omni.usd.libs-1.0.1] startup
+[2.428s] [ext: omni.kit.telemetry-0.5.2] startup
+[2.520s] [ext: omni.mdl-56.0.3] startup
+[3.094s] [ext: omni.iray.libs-0.0.0] startup
+[3.102s] [ext: omni.mdl.neuraylib-0.2.12] startup
+[3.119s] [ext: omni.kit.usd.mdl-1.1.5] startup
+[3.277s] [ext: omni.isaac.ml_archive-3.0.4] startup
+[3.283s] [ext: omni.kit.loop-isaac-1.3.7] startup
+[3.293s] [ext: omni.kit.test-2.0.1] startup
+[3.659s] [ext: omni.appwindow-1.1.10] startup
+2026-08-22T04:29:28Z [3,615ms] [Warning] [carb.windowing-glfw.plugin] GLFW initialization failed.
+2026-08-22T04:29:28Z [3,615ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)
+Authorization required, but no authorization protocol specified
+
+2026-08-22T04:29:28Z [3,617ms] [Warning] [carb.windowing-glfw.plugin] GLFW initialization failed.
+2026-08-22T04:29:28Z [3,617ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)
+2026-08-22T04:29:28Z [3,617ms] [Error] [omni.appwindow.plugin] Failed to acquire IWindowing interface
+2026-08-22T04:29:28Z [3,617ms] [Error] [omni.appwindow.plugin] IAppWindow::startup failed
+Authorization required, but no authorization protocol specified
+
+Authorization required, but no authorization protocol specified
+
+[3.669s] [ext: omni.kit.renderer.core-1.1.0] startup
+2026-08-22T04:29:29Z [3,649ms] [Warning] [carb.windowing-glfw.plugin] GLFW initialization failed.
+2026-08-22T04:29:29Z [3,649ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)
+[3.704s] [ext: omni.kit.renderer.capture-0.0.0] startup
+[3.717s] [ext: omni.kit.renderer.imgui-2.0.5] startup
+2026-08-22T04:29:29Z [3,678ms] [Warning] [carb.windowing-glfw.plugin] GLFW initialization failed.
+2026-08-22T04:29:29Z [3,678ms] [Warning] [carb] Failed to startup plugin carb.windowing-glfw.plugin (interfaces: [carb::windowing::IGLContext v1.0],[carb::windowing::IWindowing v1.5]) (impl: carb.windowing-glfw.plugin)
+2026-08-22T04:29:29Z [3,679ms] [Warning] [omni.ui.windowmanager.plugin] Failed to set app window for default window set!
+[3.733s] [ext: omni.ui-2.27.1] startup
+[3.763s] [ext: omni.kit.mainwindow-1.0.3] startup
+[3.773s] [ext: carb.audio-0.1.0] startup
+[3.780s] [ext: omni.uiaudio-1.0.0] startup
+[3.787s] [ext: omni.kit.uiapp-0.0.0] startup
+[3.787s] [ext: omni.usd.schema.metrics.assembler-107.3.1] startup
+[3.801s] [ext: omni.usd.schema.audio-0.0.0] startup
+[3.814s] [ext: omni.anim.graph.schema-107.3.3] startup
+[3.838s] [ext: omni.usd_resolver-1.0.0] startup
+[3.850s] [ext: omni.usd.core-1.5.3] startup
+[3.853s] [ext: omni.usd.schema.render_settings.rtx-0.0.0] startup
+[3.929s] [ext: omni.usd.schema.semantics-0.0.0] startup
+[3.940s] [ext: isaacsim.robot.schema-3.6.0] startup
+[3.965s] [ext: omni.usd.schema.geospatial-0.0.0] startup
+[3.976s] [ext: omni.usd.schema.anim-0.0.0] startup
+[4.013s] [ext: omni.kit.window.popup_dialog-2.0.24] startup
+[4.037s] [ext: usdrt.scenegraph-7.6.1] startup
+[4.133s] [ext: omni.timeline-1.0.14] startup
+[4.140s] [ext: omni.resourcemonitor-107.0.1] startup
+[4.152s] [ext: omni.activity.core-1.0.3] startup
+[4.159s] [ext: omni.kit.widget.nucleus_connector-2.0.1] startup
+[4.181s] [ext: omni.hydra.usdrt_delegate-7.5.1] startup
+[4.198s] [ext: omni.kit.actions.core-1.0.0] startup
+[4.211s] [ext: omni.graph.exec-0.9.6] startup
+[4.212s] [ext: omni.kit.commands-1.4.10] startup
+[4.238s] [ext: omni.kit.usd_undo-0.1.8] startup
+[4.247s] [ext: omni.kit.exec.core-0.13.4] startup
+[4.260s] [ext: omni.kit.audiodeviceenum-1.0.2] startup
+[4.269s] [ext: omni.hydra.scene_delegate-0.3.4] startup
+[4.276s] [ext: omni.usd-1.13.10] startup
+[4.368s] [ext: omni.kit.asset_converter-5.0.17] startup
+[4.400s] [ext: omni.usd.schema.flow-107.1.1] startup
+[4.406s] [ext: omni.usd.schema.omnigraph-1.0.0] startup
+[4.422s] [ext: omni.usd.schema.omni_sensors-0.0.0] startup
+[4.430s] [ext: omni.anim.navigation.schema-107.3.3] startup
+[4.442s] [ext: omni.inspect-1.0.2] startup
+[4.448s] [ext: omni.kit.notification_manager-1.0.10] startup
+[4.461s] [ext: omni.graph.core-2.184.5] startup
+[4.464s] [ext: isaacsim.core.deprecation_manager-0.2.7] startup
+[4.472s] [ext: omni.usd.schema.physx-107.3.26] startup
+[4.526s] [ext: omni.usd.schema.isaac-3.0.5] startup
+[4.526s] [ext: omni.usd.schema.omniscripting-1.0.0] startup
+[4.540s] [ext: omni.usd.schema.omni_lens_distortion-0.0.0] startup
+[4.548s] [ext: omni.kvdb-107.3.26] startup
+[4.556s] [ext: omni.usdphysics-107.3.26] startup
+[4.565s] [ext: omni.physx.foundation-107.3.26] startup
+[4.573s] [ext: omni.localcache-107.3.26] startup
+[4.581s] [ext: omni.convexdecomposition-107.3.26] startup
+[4.590s] [ext: omni.physx.cooking-107.3.26] startup
+[4.600s] [ext: omni.physx-107.3.26] startup
+[4.623s] [ext: omni.physics-107.3.26] startup
+[4.635s] [ext: omni.kit.usd.layers-2.2.11] startup
+[4.682s] [ext: omni.physics.physx-107.3.26] startup
+2026-08-22T04:29:30Z [4,638ms] [Warning] [carb] Acquiring non optional plugin interface which is not listed as dependency: [omni::physx::IPhysxBenchmarks v1.0] (plugin: <default plugin>), by client: omni.physics.physx.plugin. Add it to CARB_PLUGIN_IMPL_DEPS() macro of a client.
+[4.690s] [ext: omni.physics.stageupdate-107.3.26] startup
+[4.700s] [ext: omni.kit.numpy.common-0.1.3] startup
+[4.709s] [ext: isaacsim.core.version-2.0.6] startup
+[4.718s] [ext: omni.isaac.dynamic_control-2.0.7] startup
+2026-08-22T04:29:30Z [4,687ms] [Warning] [omni.isaac.dynamic_control] omni.isaac.dynamic_control is deprecated as of Isaac Sim 4.5. No action is needed from end-users.
+[4.736s] [ext: isaacsim.storage.native-1.5.1] startup
+[4.760s] [ext: omni.kit.menu.core-1.1.2] startup
+[4.771s] [ext: omni.kit.helper.file_utils-0.1.9] startup
+[4.784s] [ext: omni.usd.metrics.assembler-107.3.1] startup
+[4.803s] [ext: omni.kit.widget.context_menu-1.2.5] startup
+[4.816s] [ext: omni.warp.core-1.8.2] startup
+[5.321s] [ext: omni.usd.metrics.assembler.physics-107.3.26] startup
+[5.345s] [ext: omni.physics.tensors-107.3.26] startup
+[5.379s] [ext: omni.kit.context_menu-1.8.6] startup
+[5.400s] [ext: omni.kit.clipboard-1.0.5] startup
+[5.407s] [ext: isaacsim.core.utils-3.5.1] startup
+[5.425s] [ext: omni.kit.widget.filebrowser-2.12.3] startup
+[5.471s] [ext: omni.kit.widget.options_menu-1.1.6] startup
+[5.493s] [ext: omni.kit.widget.path_field-2.0.11] startup
+[5.506s] [ext: omni.index.libs-380600.8087.0] startup
+[5.506s] [ext: omni.ui.scene-1.11.5] startup
+[5.517s] [ext: omni.kit.widget.options_button-1.0.3] startup
+[5.528s] [ext: omni.kit.widget.browser_bar-2.0.10] startup
+[5.539s] [ext: omni.index-1.0.1] startup
+[5.540s] [ext: omni.hydra.rtx.shadercache.vulkan-1.0.0] startup
+[5.552s] [ext: omni.kit.window.filepicker-2.13.4] startup
+[5.683s] [ext: omni.volume-0.5.2] startup
+[5.692s] [ext: omni.ujitso.client-0.0.0] startup
+[5.693s] [ext: omni.graph.tools-1.79.2] startup
+[5.884s] [ext: omni.graph.image.core-0.6.1] startup
+[5.885s] [ext: omni.hydra.rtx-1.0.0] startup
+2026-08-22T04:29:31Z [5,862ms] [Warning] [omni.log] Source: omni.hydra was already registered.
+[5.934s] [ext: omni.kit.window.file_importer-1.1.18] startup
+[5.950s] [ext: omni.kit.menu.utils-2.0.5] startup
+[6.013s] [ext: omni.graph.image.nodes-1.3.1] startup
+[6.014s] [ext: omni.kit.widget.searchable_combobox-1.0.6] startup
+[6.029s] [ext: omni.kit.hydra_texture-1.4.6] startup
+[6.044s] [ext: omni.kit.material.library-2.0.7] startup
+[6.089s] [ext: omni.hydra.engine.stats-1.0.3] startup
+[6.101s] [ext: omni.kit.viewport.scene_camera_model-1.0.6] startup
+[6.114s] [ext: omni.kit.widget.settings-1.2.6] startup
+[6.138s] [ext: omni.kit.viewport.legacy_gizmos-1.0.19] startup
+[6.149s] [ext: omni.kit.widget.viewport-107.1.3] startup
+[6.188s] [ext: omni.kit.viewport.registry-104.0.6] startup
+[6.198s] [ext: omni.kit.raycast.query-1.1.0] startup
+[6.215s] [ext: omni.physx.tensors-107.3.26] startup
+[6.220s] [ext: omni.kit.window.drop_support-1.0.5] startup
+[6.230s] [ext: omni.kit.primitive.mesh-1.0.17] startup
+[6.262s] [ext: omni.kit.viewport.window-107.2.0] startup
+2026-08-22T04:29:31Z [6,256ms] [Error] [omni.kit.window.drop_support.drop_support] Cannot setup ExternalDragDrop without a default window
+2026-08-22T04:29:31Z [6,257ms] [Error] [omni.ui.python] AttributeError: 'NoneType' object has no attribute 'get_window_minimize_event_stream'
+
+At:
+  /isaac-sim/extscache/omni.kit.viewport.window-107.2.0+69cbf6ad/omni/kit/viewport/window/window.py(136): __init__
+  /isaac-sim/extscache/omni.kit.viewport.window-107.2.0+69cbf6ad/omni/kit/viewport/window/menu_entry.py(203): __show_window
+  /isaac-sim/extscache/omni.kit.viewport.window-107.2.0+69cbf6ad/omni/kit/viewport/window/menu_entry.py(139): <lambda>
+  /isaac-sim/extscache/omni.kit.viewport.window-107.2.0+69cbf6ad/omni/kit/viewport/window/menu_entry.py(141): __init__
+  /isaac-sim/extscache/omni.kit.viewport.window-107.2.0+69cbf6ad/omni/kit/viewport/window/menu_entry.py(250): <listcomp>
+  /isaac-sim/extscache/omni.kit.viewport.window-107.2.0+69cbf6ad/omni/kit/viewport/window/menu_entry.py(249): create_viewport_window_menu
+  /isaac-sim/extscache/omni.kit.viewport.window-107.2.0+69cbf6ad/omni/kit/viewport/window/extension.py(37): on_startup
+  /isaac-sim/kit/kernel/py/omni/ext/_impl/_internal.py(173): _startup_ext
+  /isaac-sim/kit/kernel/py/omni/ext/_impl/_internal.py(233): startup
+  /isaac-sim/kit/kernel/py/omni/ext/_impl/_internal.py(337): startup_extension
+  PythonExtension.cpp::startup()(2): <module>
+  /isaac-sim/exts/isaacsim.simulation_app/isaacsim/simulation_app/simulation_app.py(534): _start_app
+  /isaac-sim/exts/isaacsim.simulation_app/isaacsim/simulation_app/simulation_app.py(270): __init__
+  /workspace/ferox_isaac/run.py(32): <module>
+
+[6.352s] [ext: omni.kit.window.preferences-1.8.0] startup
+[6.398s] [ext: isaacsim.core.simulation_manager-1.4.4] startup
+[10.793s] [ext: omni.graph.action_core-1.1.7] startup
+[10.804s] [ext: omni.graph-1.141.2] startup
+[11.001s] [ext: omni.kit.viewport.utility-1.1.2] startup
+[11.014s] [ext: omni.kit.viewport.menubar.core-107.2.1] startup
+[11.100s] [ext: isaacsim.core.prims-0.6.1] startup
+[11.257s] [ext: omni.graph.action_nodes-1.50.4] startup
+[11.270s] [ext: omni.kit.stage_template.core-1.1.22] startup
+[11.287s] [ext: omni.syntheticdata-0.6.13] startup
+[11.595s] [ext: omni.graph.nodes-1.170.10] startup
+[11.664s] [ext: omni.graph.action-1.130.0] startup
+[11.693s] [ext: omni.kit.stage_templates-2.0.0] startup
+[11.750s] [ext: omni.kit.widget.filter-1.1.4] startup
+[11.779s] [ext: omni.kit.widget.graph-2.0.0] startup
+[11.885s] [ext: omni.kit.property.adapter.core-1.0.2] startup
+[11.903s] [ext: omni.kit.window.file_exporter-1.0.33] startup
+[11.918s] [ext: omni.kit.widget.searchfield-1.1.8] startup
+[11.936s] [ext: omni.kit.hotkeys.core-1.3.10] startup
+[11.938s] [ext: omni.kit.graph.delegate.default-1.2.3] startup
+[11.950s] [ext: omni.kit.property.adapter.fabric-1.0.3] startup
+[11.978s] [ext: omni.kit.widget.stage-3.1.4] startup
+[12.126s] [ext: omni.kit.property.adapter.usd-1.0.2] startup
+[12.151s] [ext: omni.kit.graph.editor.core-1.5.3] startup
+[12.207s] [ext: omni.kit.widget.material_preview-1.0.16] startup
+[12.239s] [ext: omni.kit.widget.highlight_label-1.0.3] startup
+[12.257s] [ext: omni.kit.window.file-2.0.5] startup
+[12.311s] [ext: omni.kit.window.content_browser_registry-0.0.6] startup
+[12.327s] [ext: omni.kit.window.property-1.12.1] startup
+[12.373s] [ext: omni.kit.window.content_browser-3.1.3] startup
+2026-08-22T04:29:37Z [12,403ms] [Error] [omni.kit.window.drop_support.drop_support] Cannot setup ExternalDragDrop without a default window
+[12.450s] [ext: omni.kit.graph.usd.commands-1.3.1] startup
+[12.472s] [ext: omni.kit.property.usd-4.5.12] startup
+[12.616s] [ext: omni.graph.ui_nodes-1.50.5] startup
+[12.633s] [ext: omni.videoencoding-0.1.2] startup
+[12.647s] [ext: omni.kit.window.material_graph-1.9.1] startup
+[12.769s] [ext: omni.warp-1.8.2] startup
+[12.841s] [ext: isaacsim.core.api-4.8.0] startup
+[13.167s] [ext: omni.graph.scriptnode-1.50.0] startup
+[13.203s] [ext: isaacsim.test.docstring-1.1.0] startup
+[13.256s] [ext: isaacsim.core.experimental.utils-0.3.0] startup
+[13.276s] [ext: omni.replicator.core-1.12.27] startup
+2026-08-22T04:29:38Z [13,323ms] [Warning] [pxr.Semantics] pxr.Semantics is deprecated - please use Semantics instead
+2026-08-22T04:29:39Z [13,644ms] [Warning] [omni.graph.core.plugin] Found duplicate of category 'Replicator' - was 'Annotators', adding 'Fabric Reader'
+2026-08-22T04:29:39Z [13,644ms] [Warning] [omni.graph.core.plugin] Category 'Replicator' not accepted on node type 'omni.replicator.core.FabricReader' in extension 'omni.replicator.core'
+2026-08-22T04:29:39Z [13,645ms] [Warning] [omni.replicator.core.scripts.extension] No material configuration file, adding configuration to material settings directly.
+[13.696s] [ext: isaacsim.core.experimental.prims-0.8.1] startup
+[13.891s] [ext: omni.kit.window.extensions-1.4.27] startup
+[14.016s] [ext: isaacsim.core.experimental.objects-0.4.0] startup
+[14.137s] [ext: omni.ui_query-1.1.8] startup
+[14.161s] [ext: omni.kit.manipulator.viewport-107.0.1] startup
+[14.189s] [ext: isaacsim.robot.surface_gripper-3.3.1] startup
+[14.229s] [ext: omni.kit.ui_test-1.3.7] startup
+[14.283s] [ext: omni.graph.visualization.nodes-2.1.3] startup
+[14.401s] [ext: isaacsim.robot_motion.lula-4.0.8] startup
+[14.487s] [ext: isaacsim.core.nodes-3.4.3] startup
+[14.632s] [ext: isaacsim.gui.components-1.2.1] startup
+[14.726s] [ext: isaacsim.robot_motion.motion_generation-8.0.26] startup
+[14.910s] [ext: isaacsim.robot.manipulators-3.3.6] startup
+[15.030s] [ext: isaacsim.core.experimental.materials-0.4.0] startup
+[15.217s] [ext: isaacsim.robot.manipulators.examples-1.1.2] startup
+[15.274s] [ext: isaacsim.cortex.framework-1.0.12] startup
+[15.327s] [ext: isaacsim.cortex.behaviors-2.0.14] startup
+[15.375s] [ext: omni.isaac.cortex.sample_behaviors-2.0.5] startup
+2026-08-22T04:29:40Z [15,377ms] [Warning] [omni.isaac.cortex] omni.isaac.cortex has been deprecated in favor of isaacsim.cortex.framework. Please update your code accordingly.
+2026-08-22T04:29:40Z [15,408ms] [Warning] [omni.isaac.cortex.sample_behaviors] omni.isaac.cortex.sample_behaviors has been deprecated in favor of isaacsim.cortex.behaviors. Please update your code accordingly.
+[15.455s] [ext: omni.kit.widget.zoombar-1.0.6] startup
+[15.495s] [ext: isaacsim.gui.content_browser-0.1.11] startup
+[15.541s] [ext: omni.kit.browser.core-2.3.13] startup
+[15.683s] [ext: omni.kit.widget.stage_icons-1.0.8] startup
+[15.732s] [ext: omni.kit.widget.prompt-1.0.7] startup
+[15.829s] [ext: omni.kit.usd.collect-2.4.5] startup
+[16.015s] [ext: omni.kit.browser.folder.core-1.10.9] startup
+[16.465s] [ext: omni.kit.window.stage-2.6.1] startup
+[16.698s] [ext: omni.kit.usdz_export-1.0.9] startup
+[16.806s] [ext: omni.kit.tool.collect-2.2.18] startup
+[16.977s] [ext: omni.kit.menu.stage-1.2.7] startup
+[17.051s] [ext: omni.kit.tool.asset_importer-4.3.2] startup
+[17.445s] [ext: isaacsim.robot.wheeled_robots-4.0.24] startup
+[17.760s] [ext: isaacsim.examples.browser-0.2.1] startup
+[17.859s] [ext: isaacsim.asset.importer.urdf-2.4.30] startup
+[18.477s] [ext: omni.isaac.wheeled_robots-3.0.7] startup
+2026-08-22T04:29:43Z [18,451ms] [Warning] [omni.isaac.wheeled_robots] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,461ms] [Warning] [omni.isaac.wheeled_robots.controllers] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,462ms] [Warning] [omni.isaac.wheeled_robots.controllers.ackermann_controller] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,463ms] [Warning] [omni.isaac.wheeled_robots.controllers.differential_controller] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,464ms] [Warning] [omni.isaac.wheeled_robots.controllers.holonomic_controller] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,465ms] [Warning] [omni.isaac.wheeled_robots.controllers.quintic_path_planner] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,466ms] [Warning] [omni.isaac.wheeled_robots.controllers.stanley_control] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,467ms] [Warning] [omni.isaac.wheeled_robots.controllers.wheel_base_pose_controller] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,469ms] [Warning] [omni.isaac.wheeled_robots.impl] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,473ms] [Warning] [omni.isaac.wheeled_robots.robots] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,473ms] [Warning] [omni.isaac.wheeled_robots.robots.holonomic_robot_usd_setup] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,474ms] [Warning] [omni.isaac.wheeled_robots.robots.wheeled_robot] omni.isaac.wheeled_robots has been deprecated in favor of isaacsim.robot.wheeled_robots. Please update your code accordingly.
+[18.525s] [ext: isaacsim.simulation_app-2.12.2] startup
+[18.531s] [ext: omni.isaac.franka-1.0.7] startup
+2026-08-22T04:29:43Z [18,496ms] [Warning] [omni.isaac.franka] omni.isaac.franka has been deprecated in favor of isaacsim.robot.manipulators.examples.franka. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,497ms] [Warning] [omni.isaac.franka.franka] omni.isaac.franka has been deprecated in favor of isaacsim.robot.manipulators.examples.franka. Please update your code accordingly.
+2026-08-22T04:29:43Z [18,579ms] [Warning] [omni.isaac.franka.kinematics_solver] omni.isaac.franka has been deprecated in favor of isaacsim.robot.manipulators.examples.franka. Please update your code accordingly.
+[18.625s] [ext: omni.isaac.kit-2.0.6] startup
+2026-08-22T04:29:43Z [18,597ms] [Warning] [omni.isaac.kit] omni.isaac.kit has been deprecated in favor of isaacsim.simulation_app. Please update your code accordingly.
+[18.644s] [ext: omni.kit.selection-0.1.6] startup
+[18.663s] [ext: omni.isaac.lula-4.0.6] startup
+2026-08-22T04:29:44Z [18,628ms] [Warning] [omni.isaac.lula] omni.isaac.lula has been deprecated in favor of isaacsim.robot_motion.lula. Please update your code accordingly.
+[18.677s] [ext: isaacsim.robot_motion.lula_test_widget-1.0.12] startup
+[18.712s] [ext: isaacsim.asset.browser-1.3.23] startup
+[19.030s] [ext: omni.kit.viewport.actions-107.0.2] startup
+[19.056s] [ext: isaacsim.gui.menu-2.4.4] startup
+[19.101s] [ext: omni.isaac.manipulators-3.0.7] startup
+2026-08-22T04:29:44Z [19,068ms] [Warning] [omni.isaac.manipulators] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,070ms] [Warning] [omni.isaac.manipulators.controllers] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,071ms] [Warning] [omni.isaac.manipulators.controllers.pick_place_controller] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,076ms] [Warning] [omni.isaac.manipulators.controllers.stacking_controller] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,079ms] [Warning] [omni.isaac.manipulators.grippers] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,079ms] [Warning] [omni.isaac.manipulators.grippers.gripper] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,079ms] [Warning] [omni.isaac.manipulators.grippers.parallel_gripper] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,080ms] [Warning] [omni.isaac.manipulators.grippers.surface_gripper] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,082ms] [Warning] [omni.isaac.manipulators.manipulators] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,083ms] [Warning] [omni.isaac.manipulators.manipulators.single_manipulator] omni.isaac.manipulators has been deprecated in favor of isaacsim.robot.manipulators. Please update your code accordingly.
+[19.131s] [ext: omni.isaac.lula_test_widget-1.0.6] startup
+2026-08-22T04:29:44Z [19,100ms] [Warning] [omni.isaac.lula_test_widget] omni.isaac.lula_test_widget has been deprecated in favor of isaacsim.robot_motion.lula_test_widget. Please update your code accordingly.
+[19.146s] [ext: omni.isaac.asset_browser-1.0.6] startup
+2026-08-22T04:29:44Z [19,107ms] [Warning] [omni.isaac.asset_browser] omni.isaac.asset_browser has been deprecated in favor of isaacsim.asset.browser. Please update your code accordingly.
+[19.156s] [ext: omni.kit.viewport.menubar.display-107.0.3] startup
+[19.174s] [ext: omni.isaac.menu-1.0.6] startup
+2026-08-22T04:29:44Z [19,141ms] [Warning] [omni.isaac.menu] omni.isaac.menu has been deprecated in favor of isaacsim.gui.menu. Please update your code accordingly.
+[19.190s] [ext: omni.isaac.motion_generation-8.0.7] startup
+2026-08-22T04:29:44Z [19,157ms] [Warning] [omni.isaac.motion_generation] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,157ms] [Warning] [omni.isaac.motion_generation.articulation_kinematics_solver] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,157ms] [Warning] [omni.isaac.motion_generation.articulation_motion_policy] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,158ms] [Warning] [omni.isaac.motion_generation.articulation_trajectory] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,158ms] [Warning] [omni.isaac.motion_generation.kinematics_interface] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,161ms] [Warning] [omni.isaac.motion_generation.lula] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,161ms] [Warning] [omni.isaac.motion_generation.lula.kinematics] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,162ms] [Warning] [omni.isaac.motion_generation.lula.motion_policies] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,162ms] [Warning] [omni.isaac.motion_generation.lula.path_planners] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,163ms] [Warning] [omni.isaac.motion_generation.lula.trajectory_generator] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,163ms] [Warning] [omni.isaac.motion_generation.motion_policy_controller] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,163ms] [Warning] [omni.isaac.motion_generation.motion_policy_interface] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,164ms] [Warning] [omni.isaac.motion_generation.path_planner_visualizer] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,164ms] [Warning] [omni.isaac.motion_generation.path_planning_interface] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,165ms] [Warning] [omni.isaac.motion_generation.trajectory] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,165ms] [Warning] [omni.isaac.motion_generation.world_interface] omni.isaac.motion_generation has been deprecated in favor of isaacsim.robot_motion.motion_generation. Please update your code accordingly.
+[19.214s] [ext: omni.isaac.assets_check-0.3.13] startup
+2026-08-22T04:29:44Z [19,178ms] [Warning] [omni.isaac.assets_check] omni.isaac.assets_check has been deprecated in favor of isaacsim.asset.browser. Please update your code accordingly.
+[19.225s] [ext: isaacsim.gui.sensors.icon-2.0.3] startup
+[19.342s] [ext: isaacsim.asset.importer.mjcf-2.5.13] startup
+[19.380s] [ext: omni.sensors.nv.common-3.0.0] startup
+[19.407s] [ext: isaacsim.sensors.physics-0.4.3] startup
+[19.431s] [ext: omni.sensors.net-1.0.0] startup
+[19.448s] [ext: omni.isaac.nucleus-1.0.6] startup
+2026-08-22T04:29:44Z [19,411ms] [Warning] [omni.isaac.nucleus] omni.isaac.nucleus has been deprecated in favor of isaacsim.storage.native. Please update your code accordingly.
+2026-08-22T04:29:44Z [19,411ms] [Warning] [omni.isaac.nucleus.nucleus] omni.isaac.nucleus.nucleus has been deprecated in favor of isaacsim.storage.native. Please update your code accordingly.
+[19.458s] [ext: omni.sensors.nv.materials-2.0.0] startup
+[19.479s] [ext: isaacsim.robot.policy.examples-4.1.11] startup
+[19.499s] [ext: omni.sensors.nv.wpm-3.0.0] startup
+[19.505s] [ext: omni.sensors.nv.lidar-3.0.0] startup
+[19.528s] [ext: isaacsim.util.debug_draw-3.1.0] startup
+[19.544s] [ext: omni.sensors.nv.radar-3.0.0] startup
+[19.555s] [ext: omni.sensors.nv.ids-2.0.0] startup
+[19.558s] [ext: isaacsim.core.cloner-1.4.10] startup
+[19.579s] [ext: isaacsim.sensors.physx-2.3.2] startup
+[19.604s] [ext: isaacsim.sensors.rtx-15.8.4] startup
+[19.638s] [ext: isaacsim.sensors.camera-1.3.6] startup
+[19.690s] [ext: omni.isaac.quadruped-3.0.7] startup
+2026-08-22T04:29:45Z [19,657ms] [Warning] [omni.isaac.quadruped] omni.isaac.quadruped has been deprecated in favor of isaacsim.robot.policy.examples. Please update your code accordingly.
+[19.706s] [ext: omni.isaac.cloner-1.0.7] startup
+2026-08-22T04:29:45Z [19,673ms] [Warning] [omni.isaac.cloner] omni.isaac.cloner has been deprecated in favor of isaacsim.core.cloner. Please update your code accordingly.
+[19.722s] [ext: omni.isaac.range_sensor-4.0.6] startup
+2026-08-22T04:29:45Z [19,689ms] [Warning] [omni.isaac.range_sensor] omni.isaac.range_sensor has been deprecated in favor of isaacsim.sensors.physx. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,689ms] [Warning] [omni.isaac.range_sensor.commands] omni.isaac.range_sensor.commands has been deprecated in favor of isaacsim.sensors.physx.commands. Please update your code accordingly.
+[19.739s] [ext: omni.isaac.sensor-13.0.7] startup
+2026-08-22T04:29:45Z [19,704ms] [Warning] [omni.isaac.sensor] omni.isaac.sensor has been deprecated in favor of isaacsim.sensors.camera, isaacsim.sensors.physics, isaacsim.sensors.physx, and isaacsim.sensors.rtx. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,704ms] [Warning] [omni.isaac.sensor.camera] omni.isaac.sensor.camera has been deprecated in favor of isaacsim.sensors.camera.camera. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,705ms] [Warning] [omni.isaac.sensor.camera_view] omni.isaac.sensor.camera_view has been deprecated in favor of isaacsim.sensors.camera.camera_view. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,705ms] [Warning] [omni.isaac.sensor.commands] omni.isaac.sensor.commands has been deprecated in favor of isaacsim.sensors.physics.commands, isaacsim.sensors.physx.commands, and isaacsim.sensors.rtx.commands. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,706ms] [Warning] [omni.isaac.sensor.contact_sensor] omni.isaac.sensor.contact_sensor has been deprecated in favor of isaacsim.sensors.physics.contact_sensor. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,706ms] [Warning] [omni.isaac.sensor.imu_sensor] omni.isaac.sensor.imu_sensor has been deprecated in favor of isaacsim.sensors.physics.imu_sensor. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,707ms] [Warning] [omni.isaac.sensor.lidar_rtx] omni.isaac.sensor.lidar_rtx has been deprecated in favor of isaacsim.sensors.rtx.lidar_rtx. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,707ms] [Warning] [omni.isaac.sensor.rotating_lidar_physX] omni.isaac.sensor.imu_sensor has been deprecated in favor of isaacsim.sensors.physix.rotating_lidar_physX. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,712ms] [Warning] [omni.isaac.sensor.scripts.samples.contact_sensor] omni.isaac.sensor.scripts.samples.contact_sensor has been deprecated in favor of isaacsim.sensors.physics.scripts.samples.contact_sensor. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,713ms] [Warning] [omni.isaac.sensor.scripts.samples.imu_sensor] omni.isaac.sensor.scripts.samples.imu_sensor has been deprecated in favor of isaacsim.sensors.physics.scripts.samples.imu_sensor. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,713ms] [Warning] [omni.isaac.sensor.scripts.samples.lightbeam_sensor] omni.isaac.sensor.scripts.samples.lightbeam_sensor has been deprecated in favor of isaacsim.sensors.physx.scripts.samples.lightbeam_sensor. Please update your code accordingly.
+[19.763s] [ext: omni.kit.menu.create-2.0.1] startup
+[19.796s] [ext: omni.kit.widget.toolbar-2.0.1] startup
+[19.873s] [ext: omni.kit.manipulator.transform-107.0.0] startup
+[19.937s] [ext: omni.isaac.core-4.0.7] startup
+2026-08-22T04:29:45Z [19,906ms] [Warning] [omni.isaac.core.physics_context.physics_context] omni.isaac.core.physics_context.physics_context has been deprecated in favor of isaacsim.core.api.physics_context.physics_context. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,909ms] [Warning] [omni.isaac.core.simulation_context.simulation_context] omni.isaac.core.simulation_context.simulation_context has been deprecated in favor of isaacsim.core.api.simulation_context.simulation_context. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,912ms] [Warning] [omni.isaac.core.world.world] omni.isaac.core.world.world has been deprecated in favor of isaacsim.core.api.world.world. Please update your code accordingly.
+2026-08-22T04:29:45Z [19,912ms] [Warning] [omni.isaac.core] omni.isaac.core has been deprecated in favor of isaacsim.core.api. Please update your code accordingly.
+[19.962s] [ext: omni.kit.scripting-107.3.2] startup
+[20.017s] [ext: omni.kit.manipulator.tool.snap-1.5.13] startup
+[20.056s] [ext: omni.kit.manipulator.selector-1.1.3] startup
+[20.077s] [ext: isaacsim.app.about-2.0.11] startup
+[20.108s] [ext: isaacsim.replicator.behavior-1.1.16] startup
+[20.128s] [ext: omni.kit.viewport.manipulator.transform-107.0.4] startup
+[20.153s] [ext: omni.isaac.window.about-2.0.7] startup
+2026-08-22T04:29:45Z [20,124ms] [Warning] [omni.isaac.window.about] omni.isaac.window.about has been deprecated in favor of isaacsim.app.about. Please update your code accordingly.
+2026-08-22T04:29:45Z [20,124ms] [Warning] [omni.isaac.window.about.about] omni.isaac.window.about.about has been deprecated in favor of isaacsim.app.about.about. Please update your code accordingly.
+[20.174s] [ext: omni.fabric.commands-1.1.6] startup
+[20.211s] [ext: omni.kit.manipulator.prim.core-107.0.8] startup
+[20.269s] [ext: omni.kit.property.audio-1.0.16] startup
+[20.292s] [ext: omni.kit.property.camera-1.0.10] startup
+[20.309s] [ext: omni.kit.property.geometry-2.0.4] startup
+[20.336s] [ext: omni.hydra.scene_api-0.1.2] startup
+[20.353s] [ext: omni.kit.property.light-1.0.12] startup
+[20.403s] [ext: omni.kit.manipulator.prim.fabric-107.0.4] startup
+[20.437s] [ext: omni.kit.manipulator.prim.usd-107.0.3] startup
+[20.463s] [ext: omni.kit.property.material-1.11.9] startup
+[20.579s] [ext: omni.kit.property.render-1.2.1] startup
+[20.605s] [ext: omni.kit.property.transform-1.5.13] startup
+[20.694s] [ext: isaacsim.gui.property-1.1.3] startup
+[20.730s] [ext: omni.kit.manipulator.camera-106.0.4] startup
+[20.790s] [ext: omni.kit.manipulator.prim-107.0.0] startup
+[20.792s] [ext: omni.isaac.surface_gripper-2.0.6] startup
+2026-08-22T04:29:46Z [20,756ms] [Warning] [omni.isaac.surface_gripper] omni.isaac.surface_gripper has been deprecated in favor of isaacsim.robot.surface_gripper. Please update your code accordingly.
+[20.805s] [ext: omni.kit.manipulator.selection-106.0.1] startup
+[20.825s] [ext: omni.kit.property.bundle-1.4.1] startup
+[20.842s] [ext: omni.kit.property.isaac-1.0.6] startup
+2026-08-22T04:29:46Z [20,810ms] [Warning] [omni.kit.property.isaac] omni.kit.property.isaac has been deprecated in favor of isaacsim.gui.property. Please update your code accordingly.
+2026-08-22T04:29:46Z [20,810ms] [Warning] [omni.kit.property.isaac.widgets] omni.kit.property.isaac.widgets has been deprecated in favor of isaacsim.gui.property.widgets. Please update your code accordingly.
+[20.857s] [ext: omni.isaac.universal_robots-1.0.6] startup
+2026-08-22T04:29:46Z [20,821ms] [Warning] [omni.isaac.universal_robots] omni.isaac.universal_robots has been deprecated in favor of isaacsim.robot.manipulators.examples.universal_robots. Please update your code accordingly.
+2026-08-22T04:29:46Z [20,821ms] [Warning] [omni.isaac.universal_robots.kinematics_solver] omni.isaac.franka has been deprecated in favor of isaacsim.robot.manipulators.examples.universal_robots. Please update your code accordingly.
+2026-08-22T04:29:46Z [20,830ms] [Warning] [omni.isaac.universal_robots.ur10] omni.isaac.franka has been deprecated in favor of isaacsim.robot.manipulators.examples.universal_robots. Please update your code accordingly.
+[20.876s] [ext: omni.isaac.core_nodes-2.0.6] startup
+2026-08-22T04:29:46Z [20,854ms] [Warning] [omni.isaac.core_nodes] omni.isaac.core_nodes has been deprecated in favor of isaacsim.core.nodes. Please update your code accordingly.
+[20.903s] [ext: omni.kit.viewport.menubar.camera-107.0.6] startup
+[20.954s] [ext: omni.kit.viewport.menubar.lighting-107.3.1] startup
+[20.996s] [ext: isaacsim.replicator.writers-1.0.17] startup
+[21.169s] [ext: omni.kit.viewport.menubar.render-107.0.10] startup
+[21.230s] [ext: omni.kit.viewport.menubar.settings-107.0.3] startup
+[21.287s] [ext: omni.kit.window.console-1.1.4] startup
+[21.314s] [ext: isaacsim.replicator.domain_randomization-1.0.16] startup
+[21.336s] [ext: isaacsim.replicator.examples-1.3.6] startup
+[21.355s] [ext: omni.ocio-0.1.1] startup
+[21.364s] [ext: omni.rtx.window.settings-0.6.19] startup
+[21.423s] [ext: omni.kit.window.status_bar-0.1.9] startup
+[21.461s] [ext: omni.kit.window.toolbar-2.0.0] startup
+[21.517s] [ext: omni.replicator.isaac-2.0.8] startup
+2026-08-22T04:29:46Z [21,487ms] [Warning] [omni.replicator.isaac] omni.replicator.isaac has been deprecated in favor of isaacsim.replicator.domain_randomization, isaacsim.replicator.examples, isaacsim.replicator.writers. Please update your code accordingly.
+[21.537s] [ext: omni.replicator.replicator_yaml-2.0.11] startup
+[21.678s] [ext: omni.rtx.settings.core-0.6.5] startup
+[21.732s] [ext: omni.usd.metrics.assembler.ui-107.3.1] startup
+[21.787s] [ext: omni.isaac.utils-2.0.6] startup
+[21.804s] [ext: semantics.schema.editor-2.0.2] startup
+[21.833s] [ext: omni.kit.ui.actions-1.0.5] startup
+[21.851s] [ext: semantics.schema.property-2.0.1] startup
+[21.869s] [ext: omni.isaac.version-2.0.7] startup
+2026-08-22T04:29:47Z [21,835ms] [Warning] [omni.isaac.version] omni.isaac.version has been deprecated in favor of isaacsim.core.version. Please update your code accordingly.
+[21.885s] [ext: omni.isaac.cortex-1.0.5] startup
+[21.888s] [ext: omni.anim.curve.core-1.3.1] startup
+[21.991s] [ext: isaacsim.core.throttling-2.2.2] startup
+[22.011s] [ext: omni.kit.menu.common-2.0.1] startup
+[22.030s] [ext: isaacsim.exp.base-5.1.0] startup
+[22.032s] [ext: isaacsim.exp.base.python-5.1.0] startup
+[22.037s] Simulation App Starting
+2026-08-22T04:29:47Z [22,200ms] [Error] [omni.kit.window.drop_support.drop_support] Cannot setup ExternalDragDrop without a default window
+2026-08-22T04:29:47Z [22,216ms] [Warning] [omni.fabric.plugin] Warning: attribute viewportHandle not found for bucket id 9
+
+[22.365s] app ready
+2026-08-22T04:29:48Z [22,681ms] [Error] [omni.kit.menu.utils.app_menu] Hotkeys cannot be setup without a default window
+Starting kit application with the following args:  ['/isaac-sim/exts/isaacsim.simulation_app/isaacsim/simulation_app/simulation_app.py', '/isaac-sim/apps/isaacsim.exp.base.python.kit', '--/app/tokens/exe-path=/isaac-sim/kit', '--/persistent/app/viewport/displayOptions=3094', '--/rtx/materialDb/syncLoads=True', '--/rtx/hydra/materialSyncLoads=True', '--/omni.kit.plugin/syncUsdLoads=True', '--/app/renderer/resolution/width=1280', '--/app/renderer/resolution/height=720', '--/app/window/width=1440', '--/app/window/height=900', '--/renderer/multiGpu/enabled=True', '--/app/fastShutdown=True', '--/app/installSignalHandlers=0', '--ext-folder', '/isaac-sim/exts', '--ext-folder', '/isaac-sim/apps', '--/physics/cudaDevice=0', '--/plugins/carb.tasking.plugin/threadCount=32', '--/plugins/omni.tbb.globalcontrol/maxThreadCount=32', '--portable']
+Passing the following args to the base kit application:  ['--robot_type', 'g1', '--cmd_vel_topic', '/ferox/g1_01/cmd_vel', '--ros_namespace', '/ferox/g1_01', '--no_keyboard', '--render_dt', '0.02']
+Warp 1.8.2 initialized:
+   CUDA Toolkit 12.8, Driver 13.0
+   Devices:
+     "cpu"      : "x86_64"
+     "cuda:0"   : "NVIDIA GeForce RTX 4090" (24 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /isaac-sim/.cache/warp/1.8.2
+Warp DeprecationWarning: The `warp.sim` module is deprecated and will be removed in v1.10. Please transition to using the forthcoming Newton library instead.
+[PANTHERA-MARK] before RobotRosRunner()
+[PANTHERA-MARK] camera ros_namespace = '/ferox/g1_01'
+[World] SIM_WORLD=hospital -> https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/Environments/Hospital/hospital.usd
+[World] spawn pos=[7.800000190734863, 2.0, 0.800000011920929] yaw=1.570rad (robot=g1)
+[PANTHERA-MARK] RobotRosRunner constructed, before reset
+[PANTHERA-MARK] A: app.update done, calling _world.reset()
+[PANTHERA-MARK] B: world.reset() done
+[PANTHERA-MARK] C: app.update done, calling setup()
+[PANTHERA-MARK] D: setup() done
+[lowlevel-sim] left-hand drive gains: kp[:4]=[5. 5. 5. 5.] kd[:4]=[0.1 0.1 0.1 0.1]
+[lowlevel-sim] hands: ['left', 'right'] (20-entry dex3 wire live)
+[lowlevel-sim] rig yaw overridden to 0.0000 rad (quat w=1.0000) -- C-39 A/B
+[lowlevel-sim] TEST RIG ACTIVE: base pinned to spawn pose (C-30)
+[lowlevel-sim] spawn base_z=0.7975 hold_pose=spawn q_hold[:6]=[-0.10000000149011612, 0.0, 0.0, 0.30000001192092896, -0.20000000298023224, 0.0]
+[lowlevel-sim][trace] set_gains
+[lowlevel-sim][trace] set_effort_modes
+[lowlevel-sim][trace] switch_control_mode(effort)
+[lowlevel-sim][trace] control mode set
+[lowlevel-sim] physics 1000.0 Hz, PD every 2 step(s) -> 500.0 Hz, timeout 85 ms
+[PANTHERA-MARK] low-level bridge attached (G1_CONTROL=lowcmd)
+[lowlevel-sim][GT] t=0.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[PANTHERA-MARK] E: app.update done, SKIPPING setup_ros() entirely
+[PANTHERA-MARK] E1: entered setup_ros() body
+[PANTHERA-MARK] E2: self._cmd_vel_topic = /ferox/g1_01/cmd_vel
+[PANTHERA] executor spinning on dedicated thread
+[PANTHERA] cmd_vel subscriber active on /ferox/g1_01/cmd_vel (rclpy bypass)
+[PANTHERA] reset subscriber active on /twin/reset
+[lowlevel-sim][GT] t=0.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[TWIN] contract /workspace/ferox_isaac/twin/g1_contract.yaml
+[TWIN] namespace /ferox/g1_01  CAMERA_TF=0
+[TWIN] Mid-360 SKIPPED (TWIN_LIDAR=0) -- device only, contract untouched
+[TWIN] camera SKIPPED (TWIN_CAMERA=0) -- C-23, device only, contract untouched
+[lowlevel-sim][GT] t=0.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[TWIN] /tf_static: 6 edges (base_link->dog_imu_link, livox_frame->livox_imu, camera_link->camera_color_frame, camera_color_frame->camera_color_optical_frame, camera_link->camera_depth_frame, camera_depth_frame->camera_depth_optical_frame)
+[TWIN] rendering_dt=0.020000s (50.00 Hz) requested 0.020000s
+[TWIN] lidar cloud publisher SKIPPED (TWIN_LIDAR=0)
+[TWIN] IMU -> /ferox/g1_01/imu/data (frame dog_imu_link, 93.7 Hz, rclpy)
+[TWIN] IMU -> /livox/imu (frame livox_frame, 200.0 Hz, rclpy)
+[TWIN] odom -> /ferox/g1_01/odom
+[TWIN] interface up
+[PANTHERA-MARK] F: setup_ros() done
+[lowlevel-sim][GT] t=0.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[PANTHERA-MARK] G: before runner.run() — entering main loop
+[lowlevel-sim][GT] t=0.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   0.50 mode=hold       pd=499 hold=499 failclosed=0 rtf=0.131 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=499 hand_cmd=0 hand_q0=-0.0312
+[lowlevel-sim][GT] t=0.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=0.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   1.00 mode=hold       pd=999 hold=999 failclosed=0 rtf=0.143 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=999 hand_cmd=0 hand_q0=-0.1088
+[lowlevel-sim][GT] t=1.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   1.50 mode=hold       pd=1499 hold=1499 failclosed=0 rtf=0.145 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=1499 hand_cmd=0 hand_q0=-0.2124
+[lowlevel-sim][GT] t=1.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=1.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   2.00 mode=hold       pd=1999 hold=1999 failclosed=0 rtf=0.148 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=1999 hand_cmd=0 hand_q0=-0.3231
+[lowlevel-sim][GT] t=2.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   2.50 mode=hold       pd=2499 hold=2499 failclosed=0 rtf=0.149 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=2499 hand_cmd=0 hand_q0=-0.4552
+[lowlevel-sim][GT] t=2.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=2.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   3.00 mode=hold       pd=2999 hold=2999 failclosed=0 rtf=0.149 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=2999 hand_cmd=0 hand_q0=-0.5756
+[lowlevel-sim][GT] t=3.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   3.50 mode=hold       pd=3499 hold=3499 failclosed=0 rtf=0.150 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=3499 hand_cmd=0 hand_q0=-0.4895
+[lowlevel-sim][GT] t=3.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=3.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   4.00 mode=hold       pd=3999 hold=3999 failclosed=0 rtf=0.151 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=3999 hand_cmd=0 hand_q0=-0.4355
+[lowlevel-sim][GT] t=4.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   4.50 mode=hold       pd=4499 hold=4499 failclosed=0 rtf=0.151 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=4499 hand_cmd=0 hand_q0=-0.4152
+[lowlevel-sim][GT] t=4.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=4.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   5.00 mode=hold       pd=4999 hold=4999 failclosed=0 rtf=0.152 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=4999 hand_cmd=0 hand_q0=-0.4169
+[lowlevel-sim][GT] t=5.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   5.50 mode=hold       pd=5499 hold=5499 failclosed=0 rtf=0.152 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=5499 hand_cmd=0 hand_q0=-0.4238
+[lowlevel-sim][GT] t=5.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=5.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   6.00 mode=hold       pd=5999 hold=5999 failclosed=0 rtf=0.152 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=5999 hand_cmd=0 hand_q0=-0.3936
+[lowlevel-sim][GT] t=6.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   6.50 mode=hold       pd=6499 hold=6499 failclosed=0 rtf=0.154 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=6499 hand_cmd=0 hand_q0=-0.2397
+[lowlevel-sim][GT] t=6.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=6.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   7.00 mode=hold       pd=6759 hold=6759 failclosed=0 rtf=0.154 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.099 torn=6602 hand_cmd=375 hand_q0=-0.2842
+[lowlevel-sim][GT] t=7.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   7.50 mode=hold       pd=7031 hold=7031 failclosed=0 rtf=0.156 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.297 hip_p_L=-0.101 torn=6667 hand_cmd=778 hand_q0=-0.1899
+[lowlevel-sim][GT] t=7.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=7.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   8.00 mode=hold       pd=7282 hold=7282 failclosed=0 rtf=0.156 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.293 hip_p_L=-0.103 torn=6720 hand_cmd=1223 hand_q0=+0.1334
+[lowlevel-sim][GT] t=8.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   8.50 mode=hold       pd=7539 hold=7539 failclosed=0 rtf=0.157 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.299 hip_p_L=-0.105 torn=6806 hand_cmd=1626 hand_q0=+0.3618
+[lowlevel-sim][GT] t=8.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=8.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   9.00 mode=hold       pd=7825 hold=7825 failclosed=0 rtf=0.157 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.301 hip_p_L=-0.096 torn=6861 hand_cmd=2043 hand_q0=+0.3101
+[lowlevel-sim][GT] t=9.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=   9.50 mode=hold       pd=8075 hold=8075 failclosed=0 rtf=0.158 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.101 torn=6931 hand_cmd=2459 hand_q0=+0.2631
+[lowlevel-sim][GT] t=9.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=9.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  10.00 mode=hold       pd=8325 hold=8325 failclosed=0 rtf=0.158 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=5/29 knee_L=+0.300 hip_p_L=-0.100 torn=7014 hand_cmd=2786 hand_q0=+0.2739
+[lowlevel-sim][GT] t=10.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  10.50 mode=hold       pd=8604 hold=8604 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.301 hip_p_L=-0.101 torn=7046 hand_cmd=3200 hand_q0=+0.4285
+[lowlevel-sim][GT] t=10.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=10.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  11.00 mode=hold       pd=8856 hold=8856 failclosed=0 rtf=0.158 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.103 torn=7117 hand_cmd=3575 hand_q0=+0.4410
+[lowlevel-sim][GT] t=11.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  11.50 mode=hold       pd=9106 hold=9106 failclosed=0 rtf=0.158 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.104 torn=7204 hand_cmd=3959 hand_q0=+0.6360
+[lowlevel-sim][GT] t=11.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=11.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  12.00 mode=hold       pd=9356 hold=9356 failclosed=0 rtf=0.158 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.103 torn=7275 hand_cmd=4345 hand_q0=+0.6726
+[lowlevel-sim][GT] t=12.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  12.50 mode=hold       pd=9614 hold=9614 failclosed=0 rtf=0.158 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=8/29 knee_L=+0.301 hip_p_L=-0.103 torn=7340 hand_cmd=4753 hand_q0=+0.5834
+[lowlevel-sim][GT] t=12.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=12.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  13.00 mode=hold       pd=9864 hold=9864 failclosed=0 rtf=0.158 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=8/29 knee_L=+0.300 hip_p_L=-0.101 torn=7434 hand_cmd=5150 hand_q0=+0.5133
+[lowlevel-sim][GT] t=13.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  13.50 mode=hold       pd=10179 hold=10179 failclosed=0 rtf=0.158 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.101 torn=7450 hand_cmd=5533 hand_q0=+0.5535
+[lowlevel-sim][GT] t=13.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=13.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  14.00 mode=hold       pd=10436 hold=10436 failclosed=0 rtf=0.157 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.101 torn=7492 hand_cmd=5973 hand_q0=+0.5181
+[lowlevel-sim][GT] t=14.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  14.50 mode=hold       pd=10686 hold=10686 failclosed=0 rtf=0.158 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.100 torn=7551 hand_cmd=6425 hand_q0=+0.4732
+[lowlevel-sim][GT] t=14.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=14.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  15.00 mode=hold       pd=10936 hold=10936 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=5/29 knee_L=+0.300 hip_p_L=-0.101 torn=7641 hand_cmd=6798 hand_q0=+0.4544
+[lowlevel-sim][GT] t=15.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  15.50 mode=hold       pd=11189 hold=11189 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.102 torn=7726 hand_cmd=7217 hand_q0=+0.4743
+[lowlevel-sim][GT] t=15.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=15.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  16.00 mode=hold       pd=11439 hold=11439 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=7/29 knee_L=+0.300 hip_p_L=-0.103 torn=7800 hand_cmd=7603 hand_q0=+0.6086
+[lowlevel-sim][GT] t=16.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  16.50 mode=hold       pd=11700 hold=11700 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.100 torn=7850 hand_cmd=8015 hand_q0=+0.4801
+[lowlevel-sim][GT] t=16.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=16.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  17.00 mode=hold       pd=12015 hold=12015 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.101 torn=7864 hand_cmd=8454 hand_q0=+0.4689
+[lowlevel-sim][GT] t=17.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  17.50 mode=hold       pd=12273 hold=12273 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=5/29 knee_L=+0.301 hip_p_L=-0.101 torn=7936 hand_cmd=8817 hand_q0=+0.3465
+[lowlevel-sim][GT] t=17.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=17.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  18.00 mode=hold       pd=12524 hold=12524 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.297 hip_p_L=-0.103 torn=8000 hand_cmd=9193 hand_q0=+0.5093
+[lowlevel-sim][GT] t=18.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  18.50 mode=hold       pd=12776 hold=12776 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=8/29 knee_L=+0.302 hip_p_L=-0.104 torn=8055 hand_cmd=9622 hand_q0=+0.6692
+[lowlevel-sim][GT] t=18.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=18.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  19.00 mode=hold       pd=13027 hold=13027 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.301 hip_p_L=-0.105 torn=8137 hand_cmd=10016 hand_q0=+0.6759
+[lowlevel-sim][GT] t=19.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  19.50 mode=hold       pd=13295 hold=13295 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.303 hip_p_L=-0.107 torn=8149 hand_cmd=10514 hand_q0=+0.6799
+[lowlevel-sim][GT] t=19.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=19.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  20.00 mode=hold       pd=13554 hold=13554 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.301 hip_p_L=-0.097 torn=8223 hand_cmd=10872 hand_q0=+0.1410
+[lowlevel-sim][GT] t=20.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  20.50 mode=hold       pd=13820 hold=13820 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.301 hip_p_L=-0.101 torn=8260 hand_cmd=11278 hand_q0=+0.4178
+[lowlevel-sim][GT] t=20.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=20.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  21.00 mode=hold       pd=14070 hold=14070 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.289 hip_p_L=-0.110 torn=8330 hand_cmd=11655 hand_q0=+0.4971
+[lowlevel-sim][GT] t=21.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  21.50 mode=hold       pd=14320 hold=14320 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=5/29 knee_L=+0.289 hip_p_L=-0.113 torn=8394 hand_cmd=12047 hand_q0=+0.6429
+[lowlevel-sim][GT] t=21.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=21.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  22.00 mode=hold       pd=14570 hold=14570 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.289 hip_p_L=-0.114 torn=8486 hand_cmd=12417 hand_q0=+0.6796
+[lowlevel-sim][GT] t=22.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  22.50 mode=hold       pd=14833 hold=14833 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.100 torn=8532 hand_cmd=12807 hand_q0=+0.6603
+[lowlevel-sim][GT] t=22.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=22.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  23.00 mode=hold       pd=15083 hold=15083 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.300 hip_p_L=-0.101 torn=8577 hand_cmd=13220 hand_q0=+0.6036
+[lowlevel-sim][GT] t=23.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  23.50 mode=hold       pd=15333 hold=15333 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.299 hip_p_L=-0.102 torn=8673 hand_cmd=13600 hand_q0=+0.6412
+[lowlevel-sim][GT] t=23.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=23.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  24.00 mode=hold       pd=15583 hold=15583 failclosed=0 rtf=0.161 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.299 hip_p_L=-0.104 torn=8761 hand_cmd=13988 hand_q0=+0.6802
+[lowlevel-sim][GT] t=24.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  24.50 mode=hold       pd=15833 hold=15833 failclosed=0 rtf=0.161 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.299 hip_p_L=-0.104 torn=8862 hand_cmd=14345 hand_q0=+0.6803
+[lowlevel-sim][GT] t=24.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=24.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  25.00 mode=hold       pd=16083 hold=16083 failclosed=0 rtf=0.161 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.299 hip_p_L=-0.103 torn=8940 hand_cmd=14766 hand_q0=+0.6803
+[lowlevel-sim][GT] t=25.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  25.50 mode=hold       pd=16347 hold=16347 failclosed=0 rtf=0.161 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.299 hip_p_L=-0.104 torn=8995 hand_cmd=15132 hand_q0=+0.6680
+[lowlevel-sim][GT] t=25.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=25.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  26.00 mode=hold       pd=16612 hold=16612 failclosed=0 rtf=0.161 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=5/29 knee_L=+0.300 hip_p_L=-0.102 torn=9080 hand_cmd=15505 hand_q0=+0.6035
+[lowlevel-sim][GT] t=26.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  26.50 mode=hold       pd=16865 hold=16865 failclosed=0 rtf=0.161 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.100 torn=9162 hand_cmd=15918 hand_q0=+0.5681
+[lowlevel-sim][GT] t=26.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=26.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  27.00 mode=hold       pd=17128 hold=17128 failclosed=0 rtf=0.161 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.102 torn=9217 hand_cmd=16305 hand_q0=+0.5753
+[lowlevel-sim][GT] t=27.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  27.50 mode=hold       pd=17405 hold=17405 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=7/29 knee_L=+0.300 hip_p_L=-0.100 torn=9283 hand_cmd=16699 hand_q0=+0.6485
+[lowlevel-sim][GT] t=27.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=27.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  28.00 mode=hold       pd=17655 hold=17655 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.101 torn=9379 hand_cmd=17105 hand_q0=+0.6620
+[lowlevel-sim][GT] t=28.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  28.50 mode=hold       pd=17905 hold=17905 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.101 torn=9450 hand_cmd=17472 hand_q0=+0.6794
+[lowlevel-sim][GT] t=28.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=28.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  29.00 mode=hold       pd=18155 hold=18155 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.102 torn=9529 hand_cmd=17870 hand_q0=+0.6802
+[lowlevel-sim][GT] t=29.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  29.50 mode=hold       pd=18409 hold=18409 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.101 torn=9594 hand_cmd=18225 hand_q0=+0.6803
+[lowlevel-sim][GT] t=29.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=29.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  30.00 mode=hold       pd=18659 hold=18659 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.100 torn=9677 hand_cmd=18628 hand_q0=+0.6743
+[lowlevel-sim][GT] t=30.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  30.50 mode=hold       pd=18911 hold=18911 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.099 torn=9772 hand_cmd=18991 hand_q0=+0.6785
+[lowlevel-sim][GT] t=30.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=30.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  31.00 mode=hold       pd=19181 hold=19181 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.297 hip_p_L=-0.102 torn=9839 hand_cmd=19366 hand_q0=+0.6790
+[lowlevel-sim][GT] t=31.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  31.50 mode=hold       pd=19431 hold=19431 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.299 hip_p_L=-0.106 torn=9939 hand_cmd=19734 hand_q0=+0.6803
+[lowlevel-sim][GT] t=31.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=31.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  32.00 mode=hold       pd=19681 hold=19681 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=4/29 knee_L=+0.299 hip_p_L=-0.105 torn=10019 hand_cmd=20083 hand_q0=+0.6803
+[lowlevel-sim][GT] t=32.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  32.50 mode=hold       pd=19935 hold=19935 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.101 torn=10082 hand_cmd=20442 hand_q0=+0.6502
+[lowlevel-sim][GT] t=32.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=32.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  33.00 mode=hold       pd=20185 hold=20185 failclosed=0 rtf=0.160 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.101 torn=10167 hand_cmd=20777 hand_q0=+0.5728
+[lowlevel-sim][GT] t=33.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  33.50 mode=hold       pd=20437 hold=20437 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.103 torn=10235 hand_cmd=21185 hand_q0=+0.6179
+[lowlevel-sim][GT] t=33.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=33.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  34.00 mode=hold       pd=20689 hold=20689 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=3/29 knee_L=+0.300 hip_p_L=-0.101 torn=10294 hand_cmd=21595 hand_q0=+0.6311
+[lowlevel-sim][GT] t=34.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  34.50 mode=hold       pd=20944 hold=20944 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.100 torn=10358 hand_cmd=21980 hand_q0=+0.5718
+[lowlevel-sim][GT] t=34.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=34.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  35.00 mode=hold       pd=21196 hold=21196 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.103 torn=10451 hand_cmd=22316 hand_q0=+0.6124
+[lowlevel-sim][GT] t=35.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  35.50 mode=hold       pd=21446 hold=21446 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=6/29 knee_L=+0.300 hip_p_L=-0.104 torn=10527 hand_cmd=22692 hand_q0=+0.6479
+[lowlevel-sim][GT] t=35.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=35.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  36.00 mode=hold       pd=21818 hold=21818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.099 torn=10577 hand_cmd=22884 hand_q0=+0.6801
+[lowlevel-sim][GT] t=36.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  36.50 mode=hold       pd=22318 hold=22318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.299 hip_p_L=-0.103 torn=10577 hand_cmd=22884 hand_q0=-0.4971
+[lowlevel-sim][GT] t=36.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=36.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  37.00 mode=hold       pd=22818 hold=22818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.099 torn=10577 hand_cmd=22884 hand_q0=-0.5251
+[lowlevel-sim][GT] t=37.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  37.50 mode=hold       pd=23318 hold=23318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=-0.4581
+[lowlevel-sim][GT] t=37.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=37.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  38.00 mode=hold       pd=23818 hold=23818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=-0.4436
+[lowlevel-sim][GT] t=38.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  38.50 mode=hold       pd=24318 hold=24318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=-0.4441
+[lowlevel-sim][GT] t=38.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=38.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  39.00 mode=hold       pd=24818 hold=24818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=-0.3959
+[lowlevel-sim][GT] t=39.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  39.50 mode=hold       pd=25318 hold=25318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=-0.3124
+[lowlevel-sim][GT] t=39.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=39.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  40.00 mode=hold       pd=25818 hold=25818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=-0.2131
+[lowlevel-sim][GT] t=40.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  40.50 mode=hold       pd=26318 hold=26318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=-0.1027
+[lowlevel-sim][GT] t=40.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=40.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  41.00 mode=hold       pd=26818 hold=26818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.0203
+[lowlevel-sim][GT] t=41.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  41.50 mode=hold       pd=27318 hold=27318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.1572
+[lowlevel-sim][GT] t=41.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=41.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  42.00 mode=hold       pd=27818 hold=27818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.3079
+[lowlevel-sim][GT] t=42.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  42.50 mode=hold       pd=28318 hold=28318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.4718
+[lowlevel-sim][GT] t=42.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=42.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  43.00 mode=hold       pd=28818 hold=28818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6455
+[lowlevel-sim][GT] t=43.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  43.50 mode=hold       pd=29318 hold=29318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6803
+[lowlevel-sim][GT] t=43.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=43.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  44.00 mode=hold       pd=29818 hold=29818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6782
+[lowlevel-sim][GT] t=44.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  44.50 mode=hold       pd=30318 hold=30318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6799
+[lowlevel-sim][GT] t=44.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=44.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  45.00 mode=hold       pd=30818 hold=30818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6774
+[lowlevel-sim][GT] t=45.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  45.50 mode=hold       pd=31318 hold=31318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6799
+[lowlevel-sim][GT] t=45.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=45.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  46.00 mode=hold       pd=31818 hold=31818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6803
+[lowlevel-sim][GT] t=46.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  46.50 mode=hold       pd=32318 hold=32318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6798
+[lowlevel-sim][GT] t=46.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=46.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  47.00 mode=hold       pd=32818 hold=32818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6790
+[lowlevel-sim][GT] t=47.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  47.50 mode=hold       pd=33318 hold=33318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6801
+[lowlevel-sim][GT] t=47.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=47.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  48.00 mode=hold       pd=33818 hold=33818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6742
+[lowlevel-sim][GT] t=48.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  48.50 mode=hold       pd=34318 hold=34318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6700
+[lowlevel-sim][GT] t=48.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=48.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  49.00 mode=hold       pd=34818 hold=34818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6760
+[lowlevel-sim][GT] t=49.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.251 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.301 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.351 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.401 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.451 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  49.50 mode=hold       pd=35318 hold=35318 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6511
+[lowlevel-sim][GT] t=49.501 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.551 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.601 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.651 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.701 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.751 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.801 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.851 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.901 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=49.951 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim] t=  50.00 mode=hold       pd=35818 hold=35818 failclosed=0 rtf=0.159 base_z=+0.798 pitch=+0.000 roll=+0.000 |tau|max= 35.00 sat=2/29 knee_L=+0.300 hip_p_L=-0.100 torn=10577 hand_cmd=22884 hand_q0=+0.6006
+[lowlevel-sim][GT] t=50.001 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=50.051 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=50.101 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=50.151 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
+[lowlevel-sim][GT] t=50.201 quat=[1.0, 0.0, 0.0, 0.0] angvel=[0.0, 0.0, 0.0] linvel=[0.0, 0.0, 0.0] z=0.7975
