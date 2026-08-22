@@ -60,11 +60,18 @@ echo "=== C-39 A/B: asset=$ASSET  hand=$HAND_ARG  dur=${DUR}s ==="
 # (measured: auth climbing 6.5 -> 8.7 -> 10.4 s and repeatedly reset). 5 s is ample
 # evidence that SONIC is live and commanding. Identical on both sides.
 RELEASE_S="${RELEASE_S:-5}"
+# TWIN_LAYER=0 by default, and it must be the SAME on both sides. The twin ROS sensor
+# layer authors IMU prims onto imu_in_pelvis / imu_in_torso -- links that exist only on
+# our asset. The reference MJCF body has no sensor frames at all, so TWIN=1 cannot even
+# load it. Nothing in a balance experiment needs that layer: G1_CONTROL=lowcmd drives
+# the articulation through the low-level bridge, which is independent of it.
+TWIN_LAYER="${TWIN_LAYER:-0}"
+echo "  twin ROS sensor layer: TWIN=$TWIN_LAYER"
 echo "  rig release after ${RELEASE_S}s of authority"
 
 # ---- 1. sim -----------------------------------------------------------------
 docker rm -f "$SIM_CONTAINER" >/dev/null 2>&1 || true
-env -u ROBOT_ID ROBOT=g1 TWIN=1 TWIN_CAMERA=0 TWIN_LIDAR=0 HAND="$HAND_ARG" SIM_WORLD=hospital \
+env -u ROBOT_ID ROBOT=g1 TWIN="$TWIN_LAYER" TWIN_CAMERA=0 TWIN_LIDAR=0 HAND="$HAND_ARG" SIM_WORLD=hospital \
   G1_CONTROL=lowcmd G1_LL_FIX_BASE=until_commanded G1_LL_RIG_RELEASE_S="$RELEASE_S" \
   G1_LL_GT_TRACE=1 G1_LL_REPORT_STEPS=500 G1_USD_OVERRIDE="$OVERRIDE" \
   bash "$DEMO_DIR/scripts/01_start_sim.sh"
