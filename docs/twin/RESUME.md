@@ -160,9 +160,23 @@ captures, and Isaac writes shader cache on every new world.
 
 ### The GPU is not interchangeable — check it before any camera work
 
-> **Camera path verified only on RTX 4090 / driver 580.105; RTX 4080 SUPER 16 GB
-> (this box) segfaults the ROS 2 image writer — C-23 — check `nvidia-smi` before
-> starting camera items.**
+> **~~Camera path verified only on RTX 4090 / driver 580.105~~ — this claim is
+> UNCONFIRMED and the GPU framing is WRONG. See
+> [`evidence/C23/C23_ON_A_4090.md`](evidence/C23/C23_ON_A_4090.md).**
+>
+> On 2026-08-22 the camera was run on an **RTX 4090, 24564 MiB, driver 580.105.08** —
+> the exact driver this note specifies — and it **segfaulted identically**: same first
+> `world.step()` after the render product, same `libomni.syntheticdata` +
+> `libomni.graph.image.core` frames. Controlled on that same box the same day:
+> `TWIN_CAMERA=0` boots across dozens of runs, `TWIN_CAMERA=1` dies.
+>
+> Two things follow, and the second one is the reason this note is rewritten rather
+> than deleted. **C-23 is an Isaac 5.1 image-writer defect, not hardware** — no bigger
+> box fixes it. And the "verified on a 4090" claim cannot be trusted: the box described
+> below is a **48 GB** 4090 while the failing one is **24 GB**, so either that machine
+> differed in something beyond the model name, or *the camera path was never actually
+> exercised on it*. Nobody has evidence of the camera working anywhere. Treat 2026-08-22
+> as the first real test of it, and it failed on the writer.
 
 Five boots out of five, at `run.py:1201`, on the first `world.step(render=True)`
 after a camera render product exists. Ruled out by measurement, not argument:
@@ -184,8 +198,9 @@ waits for a 4090.
 
 ```bash
 nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader
-# want: NVIDIA GeForce RTX 4090, 49140 MiB, 580.105.08
-# 16376 MiB => do not start camera items; C-23 will take the process down
+# The GPU gate still applies to everything else, but it does NOT gate the camera:
+# C-23 reproduces on 4080 (16376 MiB) and 4090 (24564 MiB) alike. Camera items are
+# gated on TWIN_CAMERA_ROUTE=offscreen working, not on the card.
 ```
 
 ---

@@ -89,6 +89,27 @@ class TwinRclpyPublishers:
 
     # ----------------------------------------------------------------- odom
 
+    def add_image(self, key: str, topic: str) -> None:
+        """Image publisher, BEST_EFFORT like every real camera driver.
+
+        RELIABLE on a 1280x720 stream backs the executor up behind a slow subscriber
+        and the sim's frame rate goes with it; the D435i driver this twin mirrors is
+        best-effort for exactly that reason.
+        """
+        from sensor_msgs.msg import Image
+        from rclpy.qos import (QoSProfile, QoSReliabilityPolicy,
+                               QoSHistoryPolicy, QoSDurabilityPolicy)
+        qos = QoSProfile(
+            depth=2, history=QoSHistoryPolicy.KEEP_LAST,
+            reliability=QoSReliabilityPolicy.BEST_EFFORT,
+            durability=QoSDurabilityPolicy.VOLATILE)
+        self._pubs[key] = self._node.create_publisher(Image, topic, qos)
+
+    def publish_image(self, key: str, msg) -> None:
+        pub = self._pubs.get(key)
+        if pub is not None:
+            pub.publish(msg)
+
     def add_odom(self, key: str, topic: str) -> None:
         from nav_msgs.msg import Odometry
         from rclpy.qos import (QoSProfile, QoSReliabilityPolicy,

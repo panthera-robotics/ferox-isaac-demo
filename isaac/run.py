@@ -1861,6 +1861,9 @@ class RobotRosRunner(object):
         import rclpy_pub as twin_rclpy
         self._twin_rclpy = twin_rclpy.TwinRclpyPublishers()
         self._twin_imus = []
+        if getattr(self, "_cam_offscreen", None) is not None:
+            self._twin_rclpy.add_image("cam_color", self._cam_color_topic)
+            self._twin_rclpy.add_image("cam_depth", self._cam_depth_topic)
         for spec, sensor in imus:
             key = spec["frame_id"].replace("/", "_")
             self._twin_rclpy.add_imu(key, spec["name"], reliable=True)
@@ -1871,12 +1874,42 @@ class RobotRosRunner(object):
             print(f"[TWIN] IMU -> {spec['name']} (frame {spec['frame_id']}, "
                   f"{spec['rate_hz']} Hz, rclpy)", flush=True)
 
+        self._cam_offscreen = None
         if camera is not None:
-            twin_pub.setup_camera_color(contract, camera, ns)
-            depth_topic = twin_pub.setup_camera_depth_raw(contract, camera, ns)
-            print(f"[TWIN] camera colour -> {ns}/camera/color/image_raw", flush=True)
-            print(f"[TWIN] raw depth (32FC1, converter seam) -> {ns}/{depth_topic}",
-                  flush=True)
+            # TWIN_CAMERA_ROUTE picks HOW the frames leave the sim.
+            #
+            #   offscreen (default) -- annotators + rclpy, no OmniGraph writer.
+            #   writer              -- the historical ROS2PublishImage path.
+            #
+            # The default is offscreen because the writer path is C-23 and C-23 is not
+            # the GPU: the same segfault, in libomni.syntheticdata + libomni.graph.image,
+            # reproduces on an RTX 4080 AND on this RTX 4090 with driver 580.105.08
+            # (docs/twin/evidence/C23/C23_ON_A_4090.md). Waiting for a bigger box does
+            # not fix it; not going through the writer might.
+            route = os.environ.get("TWIN_CAMERA_ROUTE", "offscreen").strip().lower()
+            if route == "writer":
+                twin_pub.setup_camera_color(contract, camera, ns)
+                depth_topic = twin_pub.setup_camera_depth_raw(contract, camera, ns)
+                print(f"[TWIN] camera colour -> {ns}/camera/color/image_raw "
+                      f"(OmniGraph writer -- C-23 path)", flush=True)
+                print(f"[TWIN] raw depth (32FC1, converter seam) -> {ns}/{depth_topic}",
+                      flush=True)
+            else:
+                from twin import camera_annotator as cam_ann
+                sub = "annotator" if route in ("offscreen", "annotator") else "get_rgba"
+                self._cam_offscreen = cam_ann.AnnotatorCamera(route=sub)
+                self._cam_offscreen.attach(camera)
+                self._cam_ann = cam_ann
+                cspec = twin_pub._topic(contract, "camera/color/image_raw")
+                self._cam_color_frame = cspec["frame_id"]
+                self._cam_period = 1.0 / float(cspec.get("rate_hz", 30) or 30)
+                self._cam_next = 0.0
+                self._cam_color_topic = f"{ns}/camera/color/image_raw"
+                self._cam_depth_topic = f"{ns}/camera/depth/image_rect_raw"
+                print(f"[TWIN] camera OFFSCREEN route '{sub}': "
+                      f"{self._cam_color_topic} (rgb8) + {self._cam_depth_topic} "
+                      f"(16UC1 mm), published from python, NO OmniGraph image writer",
+                      flush=True)
 
         # /clock first: without it every use_sim_time consumer sits at time zero
         # and Nav2 silently never plans.
@@ -1930,6 +1963,24 @@ class RobotRosRunner(object):
         t = getattr(self, "_twin_sim_time", None)
         if t is None:
             return
+        cam = getattr(self, "_cam_offscreen", None)
+        if cam is not None and t >= getattr(self, "_cam_next", 0.0):
+            # Paced off the CONTRACT rate in sim time, exactly like the IMUs above.
+            # get_data() is a host copy and costs real milliseconds; running it every
+            # physics step would publish hundreds of frames a second of a 30 Hz camera
+            # and drag the sim down with it.
+            self._cam_next = t + getattr(self, "_cam_period", 1.0 / 30.0)
+            rgb = cam.rgb()
+            if rgb is not None:
+                self._twin_rclpy.publish_image("cam_color", self._cam_ann.make_image_msg(
+                    rgb, self._cam_color_frame, t, "rgb8"))
+            d = cam.depth_mm()
+            if d is not None:
+                self._twin_rclpy.publish_image("cam_depth", self._cam_ann.make_image_msg(
+                    d, self._cam_color_frame, t, "16UC1"))
+            cam.last_shapes = (None if rgb is None else rgb.shape,
+                               None if d is None else d.shape)
+
         for entry in getattr(self, "_twin_imus", ()):
             if t < entry["next"]:
                 continue
