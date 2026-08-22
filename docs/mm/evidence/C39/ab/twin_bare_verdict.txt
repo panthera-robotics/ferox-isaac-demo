@@ -1,0 +1,5 @@
+# C-39 A/B verdict -- asset: twin_bare
+source: /root/panthera/ferox-isaac-demo/docs/mm/evidence/C39/ab/twin_bare_sim.log
+rig released at: NEVER
+report samples: 141  t 0.50 .. 70.50
+RESULT: INVALID (the rig never released, so the body was never free)

@@ -834,6 +834,22 @@ class LowLevelSimBridge:
                 f"|tau|max={float(np.abs(self._tau_cmd).max()):6.2f} sat={sat}/29 "
                 f"knee_L={float(r[3]):+.3f} hip_p_L={float(r[0]):+.3f} "
                 f"torn={self.n_torn_reads}")
+        # Why the rig has or has not let go. The release needs _cmd_fresh() true
+        # CONTINUOUSLY for G1_LL_RIG_RELEASE_S, and a single false resets the clock --
+        # so "rig released at: NEVER" with SONIC visibly commanding at 230 Hz is
+        # unreadable without these three numbers: is the command fresh at all, has the
+        # authority clock started, and is the rig seeing (and deliberately ignoring)
+        # fresh commands.
+        if self._rig_auto_release:
+            _r = self._last_cmd_rec
+            _age = (-1.0 if _r is None else
+                    (time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+                     - int(_r["stamp_ns"])) / 1e6)
+            _auth = (-1.0 if self._commanded_since_ns is None else
+                     (time.clock_gettime_ns(time.CLOCK_MONOTONIC)
+                      - self._commanded_since_ns) / 1e9)
+            line += (f" cmd_age={_age:.1f}ms auth={_auth:.1f}s "
+                     f"rig_ign={self._rig_ignored_cmds} fix_base={int(self._fix_base)}")
         if sat:
             # WHICH joints are clamped, not just how many. "sat=5/29" was in every
             # report line of this campaign and never once said which five, so a hold
