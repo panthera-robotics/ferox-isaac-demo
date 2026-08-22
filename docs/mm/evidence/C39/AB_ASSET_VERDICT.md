@@ -1,5 +1,13 @@
 # C-39 task 1 — the decisive A/B. **The asset is exonerated. It is the SIMULATOR side.**
 
+> **PROVISIONAL, 2026-08-22 — being re-measured.** Both runs below were taken while a
+> second agent instance existed on this box (`PING.md`). Mohammed's rule is that any A/B
+> taken under those conditions is **void**, so these numbers are not final. They are not
+> withdrawn on suspicion either — the same two runs are being repeated under proven sole
+> occupancy as `bisect/baseline_twin` and `bisect/baseline_ref`, which settles it either
+> way for the cost of twenty minutes. Treat the conclusion as the leading hypothesis
+> until that lands.
+
 2026-08-22. The experiment the brief asked for: import the reference MuJoCo model
 `g1_29dof_old.xml` into Isaac through the stock MJCF importer, unmodified, and run the
 **identical SONIC fork** against it.

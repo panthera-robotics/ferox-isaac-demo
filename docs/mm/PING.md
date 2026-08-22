@@ -130,3 +130,35 @@ re-run in separate trees with separate `SIM_CONTAINER` prefixes and separate bra
 is to keep one instance on this box and give any second one its own tree, its own
 `SIM_CONTAINER` prefix and its own branch — the isolation is three environment
 variables, and without it the 4090 is being spent twice for one answer.
+
+---
+
+# RESOLVED by Mohammed, 2026-08-22
+
+> *"PING resolved: you are sole runner; the other instance is to be killed, not resumed
+> — treat any A/B taken while a second claude process exists as void and note it."*
+
+**Sole occupancy confirmed at 12:38 UTC**: one `claude` process on the box, PID 645327,
+this session. **PID 11670 had already exited on its own** — so there was nothing left to
+kill, and I killed nothing.
+
+## What the void rule costs, applied honestly
+
+I cannot prove when 11670 exited. It was alive at 04:47 with 1 h 07 m elapsed; the A/B
+ran 05:20–05:49 and the first solver-bisect run at 10:38. **None of those can be shown
+to have been taken as sole runner, so all of them are VOID** under the rule, including
+the headline verdict:
+
+| void run | what it said | status |
+|---|---|---|
+| `twin_bare` | FALLS, pitch +88.3° | **re-run as `baseline_twin`** |
+| `ref` | FALLS, pitch +85.7° | **re-run as `baseline_ref`** |
+| solver iters 64,64 | FALLS, pitch +88.4° | **re-run as `solver_iters`** |
+
+The conclusion those runs pointed to — *the reference body falls in our simulator too,
+so the asset is exonerated* — is therefore **provisional until the re-run confirms it**,
+and `AB_ASSET_VERDICT.md` now says so at the top. It is not being withdrawn on suspicion;
+it is being re-measured, which is cheap (two runs) and settles it either way.
+
+`scripts/c39_bisect.sh` now asserts sole occupancy **before every run** and writes a
+`SECOND_INSTANCE` row instead of a result if it ever fails, so this cannot recur silently.

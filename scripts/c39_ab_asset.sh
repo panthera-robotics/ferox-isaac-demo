@@ -79,7 +79,8 @@ docker rm -f "$SIM_CONTAINER" >/dev/null 2>&1 || true
 env -u ROBOT_ID ROBOT=g1 TWIN="$TWIN_LAYER" TWIN_CAMERA=0 TWIN_IMU=0 TWIN_LIDAR=0 HAND="$HAND_ARG" SIM_WORLD=hospital \
   G1_CONTROL=lowcmd G1_LL_FIX_BASE=until_commanded G1_LL_RIG_RELEASE_S="$RELEASE_S" \
   G1_LL_GT_TRACE=1 G1_LL_REPORT_STEPS=500 G1_USD_OVERRIDE="$OVERRIDE" \
-  G1_ART_ROOT="${G1_ART_ROOT:-}" \
+  G1_ART_ROOT="${G1_ART_ROOT:-}" G1_SOLVER_ITERS="${G1_SOLVER_ITERS:-}" \
+  G1_PHYSX_TWEAKS="${G1_PHYSX_TWEAKS:-}" G1_PHYSICS_HZ="${G1_PHYSICS_HZ:-1000}" G1_LL_PD="${G1_LL_PD:-explicit}" \
   bash "$DEMO_DIR/scripts/01_start_sim.sh"
 
 # ---- 2. bridge --------------------------------------------------------------

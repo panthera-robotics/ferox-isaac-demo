@@ -454,6 +454,77 @@ def _is_hand_joint(name: str) -> bool:
     return name.startswith(_HAND_JOINT_PREFIXES)
 
 
+
+def _apply_physx_tweaks(robot_prim_path: str) -> None:
+    """C-39 task 1 "Falls" list: one PhysX property per run, from G1_PHYSX_TWEAKS.
+
+    The A/B established that the REFERENCE body falls in our simulator too
+    (evidence/C39/AB_ASSET_VERDICT.md), so what is left is our simulator's own
+    configuration. This applies exactly one named property per run and PRINTS what it
+    touched and how many prims it hit -- a tweak that silently matches nothing looks
+    identical to a tweak that did not help, and this campaign has already lost runs to
+    that (the friction fix gated behind an env var nobody set; the joint-friction
+    write rejected by a float32 tolerance).
+
+    Format: G1_PHYSX_TWEAKS="self_collision=0,contact_offset=0.002"
+    """
+    spec = os.environ.get("G1_PHYSX_TWEAKS", "").strip()
+    if not spec:
+        return
+    from pxr import PhysxSchema, Usd as _Usd, UsdPhysics as _UsdPhysics
+    from isaacsim.core.utils.prims import get_prim_at_path as _gp
+
+    root = _gp(robot_prim_path)
+    prims = list(_Usd.PrimRange.AllPrims(root))
+    for item in spec.split(","):
+        if not item.strip():
+            continue
+        key, _, val = item.partition("=")
+        key, val = key.strip(), val.strip()
+        n = 0
+        try:
+            if key == "self_collision":
+                for pr in prims:
+                    if pr.HasAPI(PhysxSchema.PhysxArticulationAPI):
+                        PhysxSchema.PhysxArticulationAPI(pr) \
+                            .CreateEnabledSelfCollisionsAttr().Set(val not in ("0", "false"))
+                        n += 1
+            elif key in ("contact_offset", "rest_offset"):
+                attr = ("CreateContactOffsetAttr" if key == "contact_offset"
+                        else "CreateRestOffsetAttr")
+                for pr in prims:
+                    if pr.HasAPI(_UsdPhysics.CollisionAPI):
+                        api = PhysxSchema.PhysxCollisionAPI.Apply(pr)
+                        getattr(api, attr)().Set(float(val))
+                        n += 1
+            elif key == "max_depen_vel":
+                for pr in prims:
+                    if pr.HasAPI(_UsdPhysics.RigidBodyAPI):
+                        PhysxSchema.PhysxRigidBodyAPI.Apply(pr) \
+                            .CreateMaxDepenetrationVelocityAttr().Set(float(val))
+                        n += 1
+            elif key == "friction_combine":
+                # 0 average, 1 min, 2 multiply, 3 max -- PhysX combine modes.
+                modes = {"average": "average", "min": "min",
+                         "multiply": "multiply", "max": "max"}
+                for pr in root.GetStage().Traverse():
+                    if pr.HasAPI(_UsdPhysics.MaterialAPI):
+                        PhysxSchema.PhysxMaterialAPI.Apply(pr) \
+                            .CreateFrictionCombineModeAttr().Set(modes.get(val, val))
+                        n += 1
+            else:
+                logger.error("G1_PHYSX_TWEAKS: unknown key %r -- IGNORED", key)
+                continue
+        except Exception as exc:
+            logger.error("G1_PHYSX_TWEAKS %s=%s FAILED: %s", key, val, exc)
+            continue
+        if n == 0:
+            logger.error("G1_PHYSX_TWEAKS %s=%s matched ZERO prims -- the run is NOT "
+                         "testing what it claims", key, val)
+        else:
+            logger.warning("G1_PHYSX_TWEAKS %s=%s applied to %d prim(s)", key, val, n)
+
+
 def _resolve_usd_path(env_cfg: dict, robot_type: str = ROBOT_GO2) -> str:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -814,6 +885,29 @@ class G1VelocityPolicy(PolicyController):
                 position=position,
                 orientation=orientation,
             )
+
+        _apply_physx_tweaks(prim_path)
+
+        # G1_SOLVER_ITERS="pos,vel" raises the articulation's PhysX solver iteration
+        # counts. First item on C-39 task 1's "Falls" list, and the reason it leads:
+        # the A/B showed the REFERENCE body falls here too (AB_ASSET_VERDICT.md), so the
+        # remaining delta is our simulator's configuration, and iteration count is the
+        # classic one for a 29-DoF chain that a 200 Hz MuJoCo solves and PhysX does not.
+        # Applied to the articulation root prim so it covers whichever asset is loaded.
+        _iters = os.environ.get("G1_SOLVER_ITERS", "").strip()
+        if _iters:
+            from pxr import PhysxSchema, Usd as _Usd
+            _pos, _vel = (int(x) for x in _iters.split(","))
+            _stage = get_prim_at_path(prim_path).GetStage()
+            _n = 0
+            for _p in _Usd.PrimRange.AllPrims(get_prim_at_path(prim_path)):
+                if _p.HasAPI(PhysxSchema.PhysxArticulationAPI):
+                    _a = PhysxSchema.PhysxArticulationAPI(_p)
+                    _a.CreateSolverPositionIterationCountAttr().Set(_pos)
+                    _a.CreateSolverVelocityIterationCountAttr().Set(_vel)
+                    _n += 1
+            logger.warning("G1_SOLVER_ITERS=%s applied to %d articulation prim(s)",
+                           _iters, _n)
 
         self._deploy_cfg = {}
         if deploy_path and os.path.isfile(deploy_path):
