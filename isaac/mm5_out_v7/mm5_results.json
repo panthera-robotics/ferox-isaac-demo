@@ -102,7 +102,7 @@
       "seed": 20260823,
       "object": "soup_can",
       "outcome": "REACH_TIMEOUT",
-      "detail": "93 mm from pre-grasp",
+      "detail": "91 mm from pre-grasp",
       "cheat_attach": false,
       "obj_start": [
         1.7156,
@@ -126,7 +126,7 @@
       "seed": 20260824,
       "object": "soup_can",
       "outcome": "DESCEND_TIMEOUT",
-      "detail": "40 mm from grasp pose",
+      "detail": "39 mm from grasp pose",
       "cheat_attach": false,
       "obj_start": [
         1.8155,
@@ -134,8 +134,8 @@
         0.7978
       ],
       "obj_end": [
-        1.9329,
-        -1.3545,
+        1.9294,
+        -1.3531,
         0.7822
       ],
       "stage_s": {

@@ -226,3 +226,39 @@ No sensor prim, no re-parenting, no per-body wrappers — `PhysxContactReportAPI
 threshold 0 on links we already have, plus one subscription. `counts()` returns `None`
 when unavailable so the caller cannot mistake "unknown" for "zero", which is the
 mistake that cost v5/v6 two versions of collider-chasing.
+
+### Grasp v7 — two real defects fixed, and neither one is what stops the grasp
+
+**Correction to my own claim, recorded before anything is built on it.** I called the
+`obj_pose` USD read "the root cause of the grasp workstream". It is not. It is a real
+defect and it is fixed, but the outcome barely moved:
+
+| | before the fix | after |
+|---|---|---|
+| trial 1 | `REACH_TIMEOUT` 93 mm | `REACH_TIMEOUT` **91 mm** |
+| trial 2 | `DESCEND_TIMEOUT` 40 mm | `DESCEND_TIMEOUT` **39 mm** |
+
+What the fix *did* do is make the measurement honest — trial 2 now stages and reads
+`[1.815, -1.333]` consistently, where before the controller read a pose 138 mm away —
+and it removes a defect that would have corrupted every future number. It is worth
+having. It is not the answer.
+
+**What the numbers actually say.** Palm bottoms out at **z ≈ 0.945** across the whole
+stall, with the can at **z = 0.801**. That is the workspace limit this campaign already
+measured — *"the arm is at the floor of its workspace at table height ... the palm tops
+out around z = 0.95 with the can's centre at 0.80"* — and the remedy already exists in
+the runner: `MM5_SURFACE=counter` stages on the 0.90 m counter, whose own code comment
+says *"the table at 0.75 m is below this arm's workspace"*. Every v7 run so far used the
+default `table`. Testing the counter now.
+
+**Three defects of one family this session**, which is the pattern worth carrying:
+
+| defect | did the write apply? | what lied |
+|---|---|---|
+| `set_masses` without positional `indices` | **no** | a silent no-op that read as a working fix |
+| lowcmd seqlock, three writers, no lock | yes | the *reads* returned `None` — 73% lost |
+| `obj_pose` through USD | **yes** | the *read* never moved |
+
+In all three the code trusted its own intent instead of reading back. The staging
+read-back, the `sat_j` joint names, the `G1_PHYSX_TWEAKS` zero-prim warning and the
+"unavailable ≠ zero contacts" rule are all there to stop the next one.
