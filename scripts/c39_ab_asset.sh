@@ -52,10 +52,20 @@ echo "=== C-39 A/B: asset=$ASSET  hand=$HAND_ARG  dur=${DUR}s ==="
 # velocity guard aborts the controller before the rig ever releases. Both sides spawn
 # from the same world config, so the yaw is identical between them either way -- which
 # is all this A/B needs.
+# RELEASE_S is how long a controller must hold UNBROKEN authority before the rig lets
+# go. The 30 s default exists to cover SONIC's TensorRT engine build; those engines are
+# cached in the trt_policy/trt_planner volumes after the first run, so the wait no
+# longer buys anything -- and it costs: the authority clock resets on a SINGLE stale
+# read, and with lowcmd jitter against an 85 ms watchdog it never accumulated 30 s
+# (measured: auth climbing 6.5 -> 8.7 -> 10.4 s and repeatedly reset). 5 s is ample
+# evidence that SONIC is live and commanding. Identical on both sides.
+RELEASE_S="${RELEASE_S:-5}"
+echo "  rig release after ${RELEASE_S}s of authority"
+
 # ---- 1. sim -----------------------------------------------------------------
 docker rm -f "$SIM_CONTAINER" >/dev/null 2>&1 || true
 env -u ROBOT_ID ROBOT=g1 TWIN=1 TWIN_CAMERA=0 TWIN_LIDAR=0 HAND="$HAND_ARG" SIM_WORLD=hospital \
-  G1_CONTROL=lowcmd G1_LL_FIX_BASE=until_commanded G1_LL_RIG_RELEASE_S=30 \
+  G1_CONTROL=lowcmd G1_LL_FIX_BASE=until_commanded G1_LL_RIG_RELEASE_S="$RELEASE_S" \
   G1_LL_GT_TRACE=1 G1_LL_REPORT_STEPS=500 G1_USD_OVERRIDE="$OVERRIDE" \
   bash "$DEMO_DIR/scripts/01_start_sim.sh"
 
