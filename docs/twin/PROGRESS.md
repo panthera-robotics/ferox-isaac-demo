@@ -1,3 +1,5 @@
+> **The MM campaign log continues in [`../mm/PROGRESS.md`](../mm/PROGRESS.md)** from 2026-08-22 (the 4090 session). This file is complete through 2026-08-21.
+
 # MORNING BLOCK — 2026-08-21 overnight run
 
 ## Tasks

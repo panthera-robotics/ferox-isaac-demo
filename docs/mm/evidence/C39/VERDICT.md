@@ -1,5 +1,14 @@
 # C-39 — the diff, and the verdict row
 
+> **SUPERSEDED IN PART, 2026-08-22 — read `CORRECTION.md` §4 first.** The closing
+> section of this file reads the static-PD fall as pointing "at the SOLVER or the
+> articulation's own constraint behaviour". **That inference is withdrawn.** A
+> fixed-target PD hold at ankle kp 40 (80 Nm/rad across both ankles) cannot stabilise
+> an inverted pendulum whose toppling stiffness is 264 Nm/rad (twin) or 234 Nm/rad
+> (the **reference** model) — so the hold falls in any simulator and discriminates
+> nothing. The per-link mass diff and the foot/contact-API findings below stand
+> unchanged; only the conclusion drawn from the static hold is void.
+
 ## The +4.000 kg is four placeholder sensor masses
 
 The runtime articulation sums to **39.004757 kg** against DT3/MM1b's asserted
@@ -151,3 +160,13 @@ articulation's own constraint behaviour rather than at any parameter yet examine
 joint drive limits and `set_max_efforts` actually taking effect, articulation
 self-collision, or the root/base handling when the rig releases. That is the next
 session's first experiment and it needs the sim, not a diff.
+
+---
+
+## Withdrawn 2026-08-22 — the closing inference
+
+See `CORRECTION.md` §4. "A statically stable pose that will not stand under a stiff
+joint-space hold ... points at the SOLVER" assumed the hold was capable of standing it.
+It was not: `2·kp = 80 Nm/rad` against `m·g·h = 264 Nm/rad`. The hold is an unstable
+equilibrium by a factor of three, in the twin and in the reference alike. The live
+question is SONIC-in-twin vs SONIC-in-MuJoCo, and nothing else.
