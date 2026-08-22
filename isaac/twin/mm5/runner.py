@@ -60,7 +60,7 @@ class MM5Config:
     grasp_offset: tuple = (0.0, 0.0, 0.072)
     # v3 applies the same stand-offs ALONG the computed approach axis rather than
     # always along world -z; on a table the two are the same thing.
-    pregrasp_standoff: float = 0.13
+    pregrasp_standoff: float = 0.23      # grasp_standoff + pregrasp_extra, same source
     # 0.072 came from v2, where the approach was TOP-DOWN and the number meant
     # "palm this far above the lid" -- 0.072 against a 0.101 m can is ~20 mm of
     # clearance over the rim, inside the finger length. Along a SIDE approach the same
@@ -68,7 +68,15 @@ class MM5Config:
     # leaves 39 mm of air between palm and wall: the fingers close on nothing, which
     # is exactly what the counter trials reported (NO_GRIP at 25 mm, object rose
     # -0.018 m). Same stand-off measured against the surface the palm actually faces.
-    grasp_standoff: float = 0.045
+    # MEASURED, not argued: the Dex5's fingers converge 0.1366 m from the palm origin
+    # (v4 measured it, HANDCAL re-measures it every run with MM5_MEASURE_HAND=1), plus
+    # grasp_clearance. The old default was 0.045, which put the descent target ~92 mm
+    # INSIDE the can -- and the observed DESCEND stalls were 80-101 mm, i.e. exactly the
+    # gap between the two numbers. The palm drove into the can, shoved it 0.30-0.37 m,
+    # and never reached a pose that was physically inside the object, so no trial ever
+    # reached closure and grip_contacts stayed -1 for four versions. v4 found this and
+    # only applied it behind the MEASURE_HAND flag; the default kept the wrong number.
+    grasp_standoff: float = 0.1466
     # Orientation weight. v2 used 0.35 so a workspace-limited reach could not have its
     # authority stolen by the rotation term -- and the consequence was that the palm
     # never actually reached the commanded axis, measuring [-0.698,-0.700,0.153] at a
