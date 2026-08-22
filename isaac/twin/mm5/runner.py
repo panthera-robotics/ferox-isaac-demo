@@ -200,6 +200,8 @@ class MM5Config:
     # build they must exist before the sim steps. Empty = no contact route, and the
     # pipeline says so out loud rather than reporting zero contacts.
     contact_sensor_paths: tuple = ()
+    # v7: "report" = PhysX contact-report callback (default), "" = disable.
+    contact_route: str = "report"
     grasp_clearance: float = 0.010   # fingers must pass the widest part before closing
     pregrasp_extra: float = 0.085    # pre-grasp this much further out along the axis
     place_from_workspace: bool = False

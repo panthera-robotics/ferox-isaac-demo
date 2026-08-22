@@ -138,6 +138,7 @@ class MM5Pipeline:
         self.grasp_axis_local = np.array([0.0, 0.0, 1.0])
         self._hand_body_names = set()
         self._cs = None
+        self._creporter = None
         # Legs + torso: every SDK joint that is not the right arm.
         self.body_idx = np.array(
             [names.index(n) for n in SDK_BODY_JOINTS if n in names], np.int32)
@@ -273,6 +274,14 @@ class MM5Pipeline:
         Same net-contact-force route as the foot audit: one tensor read, no per-body
         prim wrappers. Constructing those mid-run invalidates the physics view.
         """
+        # ROUTE C (v7, preferred): the PhysX contact-report callback. No sensor prim
+        # and no re-parenting -- the two things that defeated v6 -- and it answers the
+        # question v5/v6 could not: are the fingers touching the object at all.
+        if self._creporter is not None and self._creporter.available:
+            got = self._creporter.counts()
+            if got is not None:
+                return got
+
         # ROUTE A: ContactSensor prims, the only working route in this build.
         paths = list(getattr(self.cfg, "contact_sensor_paths", ()) or ())
         if paths:
@@ -400,8 +409,58 @@ class MM5Pipeline:
 
     # -------------------------------------------------------------------- stages
 
+    def _attach_contact_reporter(self, object_name):
+        """Attach the v7 contact-report route to THIS trial's object. Once per object.
+
+        Finger link prim paths come from one stage walk against the articulation's own
+        body names -- never from per-body prim wrappers, which invalidate the running
+        physics view.
+        """
+        if getattr(self.cfg, "contact_route", "report") != "report":
+            return
+        obj = self._obj_prim(object_name)
+        if obj is None:
+            self.log(f"[contact] object {object_name} not on stage -- route inactive")
+            return
+        if self._creporter is not None and \
+                getattr(self, "_creporter_obj", None) == object_name:
+            return
+        from .contact_report import ContactReporter
+        # Right-hand links: everything the articulation calls a body whose name matches
+        # the Dex5 right-hand naming, resolved to prim paths through one walk.
+        try:
+            names = list(self.view.body_names)
+        except Exception as exc:
+            self.log(f"[contact] no body_names: {exc!r}")
+            return
+        want = [n for n in names if self._is_right_hand_link(n)]
+        paths = [self._body_path(n) for n in want]
+        paths = [p for p in paths if p]
+        if not paths:
+            self.log(f"[contact] no right-hand link prims resolved from {len(names)} "
+                     f"bodies -- route inactive, contacts stay UNKNOWN (not zero)")
+            return
+        self._creporter = ContactReporter(log=self.log)
+        if self._creporter.attach(self.stage, paths, obj.GetPath().pathString):
+            self._creporter_obj = object_name
+            self._hand_body_names = set(want)
+        else:
+            self._creporter = None
+
+    @staticmethod
+    def _is_right_hand_link(n: str) -> bool:
+        # Dex5 right-hand naming is upstream's and has caught this campaign out before
+        # (base_link00 right, base_link00L left) -- so match the right hand by NOT
+        # ending in the left-hand suffix, and require a hand-ish stem.
+        if n.endswith("L"):
+            return False
+        return n.startswith("Link") or n.startswith("base_link00") \
+            or "thumb" in n.lower() or "index" in n.lower() \
+            or "middle" in n.lower() or "ring" in n.lower() or "pinky" in n.lower()
+
     def start_trial(self, index, seed, object_name, obj_start=None):
         self._axis_cache = None
+        self._attach_contact_reporter(object_name)
         self.trial = Trial(index=index, seed=seed, object_name=object_name,
                            cheat_attach=self.cfg.cheat_attach)
         p = obj_start if obj_start is not None else self.obj_pose(object_name)
