@@ -316,7 +316,29 @@ class MM5Runner:
             self._rigid.set_angular_velocity(np.zeros(3, np.float32))
         except Exception:
             pass
-        return newp
+        # READ IT BACK. A write that silently does not apply is this campaign's most
+        # expensive recurring bug (set_masses needing positional indices; the joint
+        # friction rejected by a float32 tolerance; the friction fix behind an env var
+        # nobody set), and here it is worse than usual: if the can does not move, every
+        # trial reaches for the HOME pose while the log says it is reaching for the
+        # randomised one. That produces a stall distance that does not vary with the
+        # randomisation -- which is exactly the symptom v3 recorded and could not
+        # explain ("the descent stalls at 47-59 mm ... and that number barely moves
+        # although the can is randomised over a +-6 cm box").
+        got = self.pipe.obj_pose(self.cfg.object_name)
+        if got is None:
+            print("[mm5] STAGING UNVERIFIED: object pose unreadable after the write",
+                  flush=True)
+            return newp
+        err = float(np.linalg.norm(np.asarray(got, float)[:2] - newp[:2]))
+        if err > 0.005:
+            print(f"[mm5] ✗ STAGING DID NOT APPLY: asked {np.round(newp,4)}, "
+                  f"object is at {np.round(got,4)} ({err*1000:.0f} mm off). The trial "
+                  f"would reach for a can that is not there.", flush=True)
+        else:
+            print(f"[mm5] staged and verified at {np.round(got,4)} "
+                  f"({err*1000:.1f} mm)", flush=True)
+        return np.asarray(got, np.float32)
 
     def _snap_hand(self):
         """World positions of every link at the OPEN pose, via one tensor read."""
@@ -464,7 +486,13 @@ class MM5Runner:
                       f"{np.round(self.home_obj_xyz,4)} (was {np.round(p,4)})", flush=True)
             # Snapshot the settled standing pose now, before any trial disturbs it.
             self._home_q = np.asarray(self.art.get_joint_positions(), np.float32).copy()
-            print(f"[mm5] home object pose {np.round(p,4)}", flush=True)
+            # Print the STAGED pose, not the pre-staging one. This line printed `p`
+            # -- the object's position before staging moved it -- so the log showed
+            # y=-1.476 while the trials randomised around y=-1.31, and the two numbers
+            # in the same log looked like a bug in the randomiser rather than a
+            # mislabelled print.
+            print(f"[mm5] home object pose (staged) {np.round(self.home_obj_xyz,4)} "
+                  f"(pre-staging {np.round(p,4)})", flush=True)
             if self.cfg.measure_hand:
                 # HANDCAL before anything else: the stand-off the base solve needs is a
                 # property of the HAND, and measuring it costs one close-and-open.
