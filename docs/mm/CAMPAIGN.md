@@ -9,7 +9,7 @@
 > | MM1b | **PARKED** | retrain finished 6000/6000 and is not a walking policy — `PROVENANCE_v2_mm1b_c.md` |
 > | MM2 | PARTIAL | venue built and verified; nav 0/6 (C-26), door does not open |
 > | MM3 | **PASS** | low-level DDS bridge; (a) rewritten as (a1)/(a2) |
-> | MM4 | **PARTIAL — parked** | SONIC x86 built and closed-loop on the twin; will not balance it (C-39) |
+> | MM4 | **RE-SCOPED — omni-hold** | C-39 closed: the *reference* body falls here too, so SONIC is **hardware-only** and the **omni policy is the twin's balancer** (6.159 m walk on film). SONIC x86 built and closed-loop; balancing requirement met by omni-hold |
 > | MM5 | see RESULTS_MM5 | fixed-base variant is the result; mobile parked behind C-39 |
 > | MM6–MM8 | not started | MM6/MM7 need the camera (C-23); MM8 is media |
 > | MM9 | this pass | persistence |
