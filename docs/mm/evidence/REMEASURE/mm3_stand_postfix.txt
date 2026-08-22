@@ -1,0 +1,7 @@
+[mm3-stand] waiting for rt/lowstate...
+[mm3-stand] rt/lowstate up, mode_machine=5
+[mm3-stand] STAND seconds=48.000304981003865 lowcmd_sent=23999 lowcmd_hz=499.9759899337642 lowstate_recv=9923 lowstate_hz=206.52977240356103 hold_samples=9105 roll_abs_max=8.235083448493441e-11 pitch_abs_max=8.22852827542242e-11 roll_rms=8.235083448493441e-11 pitch_rms=8.22852827542242e-11 track_err_mean_rad=0.12162263691425323 track_err_max_rad=1.0084542036056519 track_err_max_joint=25
+[mm3-stand] SILENCE silence_s=3.0266198219978833 lowstate_recv=2352 lowstate_hz=783.071766263097 roll_abs_max=8.235083448493441e-11 pitch_abs_max=8.22852827542242e-11 pose_drift_from_target_mean_rad=0.1223190650343895 pose_drift_from_target_max_rad=0.9707269668579102 joint_speed_final_max=0.0
+[lowlevel-dds] t= 200.0s  lowstate=164057 ( 820.282 Hz)  lowcmd=22077 ( 110.38 Hz)  crc_bad=0 nan_cmd=0 imu2=164057 ( 820.282 Hz)  repeat= 82.0%  sim_stale=939  dex3_state=32811 (164.05 Hz)  dex3_cmd={'left': 0, 'right': 0}
+[lowlevel-dds] t= 205.0s  lowstate=169013 ( 824.451 Hz)  lowcmd=22077 ( 107.69 Hz)  crc_bad=0 nan_cmd=0 imu2=169013 ( 824.451 Hz)  repeat= 82.1%  sim_stale=963  dex3_state=33802 (164.89 Hz)  dex3_cmd={'left': 0, 'right': 0}
+[lowlevel-dds] t= 210.0s  lowstate=173848 ( 827.844 Hz)  lowcmd=22077 ( 105.13 Hz)  crc_bad=0 nan_cmd=0 imu2=173848 ( 827.844 Hz)  repeat= 82.1%  sim_stale=996  dex3_state=34769 (165.57 Hz)  dex3_cmd={'left': 0, 'right': 0}
