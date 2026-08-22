@@ -1,3 +1,87 @@
+# MORNING BLOCK — 2026-08-22 (4090 session)
+
+## Tasks
+
+| # | task | result |
+|---|---|---|
+| 0 | record the physics correction | **DONE** — static-hold fall is not a discriminator; the reference fails the same test |
+| 1 | C-39 decisive A/B | **DONE — ANSWERED.** Asset exonerated; no PhysX property stands SONIC; **SONIC parked** |
+| 2 | full MM4 | **SKIPPED** per the brief (SONIC did not stand) |
+| 3 | grasp v7 | **DONE — 0/10.** Contact route attaches; failure moved reach → descend |
+| 4 | mobile MM5 | **NOT RUN** — needs a working grasp; would have been 0/N with a known cause |
+| 5 | camera backlog | **PARKED — C-23-v2.** Not the GPU, not the writer; five components cleared |
+| 6 | montage | **PARTIAL — the real-motion clip landed**, measured 6.16 m walk. No PiP (C-23) |
+| 7 | this block | **DONE** — `mm-persist-8` |
+
+## The C-39 verdict
+
+**The reference MuJoCo body, imported unmodified, falls in our simulator exactly as ours
+does** — `base_z 0.778 → 0.098`, `pitch +86.3°`, against our own `+88.3°`. The same body
+stands under the same binary in the reference MuJoCo sim. Nine runs, zero void rows:
+
+    baseline_twin  FALLS   baseline_ref  FALLS   solver_iters  FALLS
+    friction_mult  FALLS   contact_off   FALLS   depen_vel     FALLS
+    self_coll      FALLS   dt_200hz      FALLS   implicit_drive FALLS
+
+Every row lands in the same place — base ~0.10 m, pitch ~87°, ~2.5 s after release. A
+parameter that mattered would move that number. **C-39 is not the asset, the wire, the
+hands, SONIC, or any single PhysX setting.** What is left is the Isaac harness against
+MuJoCo *as a whole* — actuator model, contact solver family, MuJoCo's own 200 Hz
+constraint formulation — and that is bigger than a sweep.
+
+**Margin, honestly: there isn't one.** It does not hold and lose it; it goes from
+released stance to face-down in ~2.5 s, in all nine configurations, on both bodies.
+
+## MM4 / MM5 / grasp numbers
+
+* **MM4** — not run beyond C-39; SONIC parked, finetune → Spark.
+* **Grasp v7, N=10 soup can, counter: 0/10.** `DESCEND_TIMEOUT` 9, `REACH_TIMEOUT` 1.
+  **REACH is now solved** — 2.4 s on 9/10, where the table surface timed out at 30 s.
+  The can is displaced 0.30–0.37 m in 8/10: the palm drives *into* it. `grip_contacts`
+  is still `-1` on every row — **no trial reached GRASP, so the contact route is
+  unexercised at closure and no `NO_GRIP` row is evidence about colliders.**
+* **MM5 mobile** — not run. It needs a grasp.
+
+## Media
+
+| clip | what it is |
+|---|---|
+| `mm_omni_walk_{chase,front}_20260822.mp4` | **the real one** — omni policy, **6.159 m measured** vs 6.0 commanded, upright throughout |
+| `mm_filmtool_{chase,front}_20260822.mp4` | pipeline proof only (scripted swing) — **not** a capability demo |
+
+Ghost gate **PASS 0.00095/0.01**. sha256 for all four in `media/README_20260822.md`.
+
+## Top 3 decisions for Mohammed
+
+1. **C-39: fund the harness comparison, or accept the twin cannot host SONIC.** Every
+   cheap hypothesis is dead. The remaining work is comparing our Isaac harness to MuJoCo
+   as a whole (actuator model, contact solver, constraint formulation) — days, not hours.
+   The alternative is to keep the omni policy as the twin's balancer, which **works and is
+   now on film**, and treat SONIC as hardware-only.
+2. **C-23: stop buying GPUs for it.** Reproduced on 4080 and 4090 with five components
+   individually cleared. The untested lead is rclpy executor threads racing the SDG
+   pipeline; the next experiment is one 40-line probe, written up in `C23_v2.md`.
+3. **Grasp: the next fix is the descent geometry, not the gripper.** REACH is solved and
+   the hand now arrives; it drives into the can because the approach axis is computed for
+   a target below the shoulder while the counter puts it level. That is a bounded change.
+
+## Exact next command
+
+```bash
+cd ~/panthera/ferox-isaac-demo && git checkout mohammed/mm-campaign && git pull
+# then, in the sim container, the one probe that moves C-23:
+#   probe E from C23_v2.md + two rclpy spin threads, and step.
+```
+
+## Health warning on older numbers
+
+`RESULTS_MM3.md` / `RESULTS_MM4.md` carry a banner: the lowcmd seqlock dropped **73 %**
+of commands (three writers, no lock), so every torque, PD-tracking and latency figure
+taken before that fix must be re-measured. Convention/CRC work and offline asset
+arithmetic are unaffected.
+
+---
+
 # MM campaign — running log (4090 session, 2026-08-22)
 
 > Newest entries at the bottom. This file is the MM campaign's task-boundary log and the
