@@ -26,7 +26,6 @@
     <General>
       <Interfaces>
         ${CYCLONE_INTERFACE_BLOCK}
-        <NetworkInterface name="lo"/>
       </Interfaces>
       <AllowMulticast>false</AllowMulticast>
     </General>

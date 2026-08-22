@@ -458,6 +458,20 @@ def _resolve_usd_path(env_cfg: dict, robot_type: str = ROBOT_GO2) -> str:
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
     if robot_type == ROBOT_G1:
+        # G1_USD_OVERRIDE points the G1 at an arbitrary USD, ahead of every other rule.
+        # It exists for the C-39 A/B (docs/mm/evidence/C39/): the reference MuJoCo model
+        # imported unmodified through the MJCF importer has to run under the IDENTICAL
+        # fork as the twin, and the only thing that may differ between the two runs is
+        # the body. It is deliberately loud -- an override that picks a different robot
+        # than the operator thinks would invalidate the experiment silently.
+        override = os.environ.get("G1_USD_OVERRIDE", "").strip()
+        if override:
+            if not os.path.isfile(override):
+                raise SystemExit(f"G1_USD_OVERRIDE={override!r} is not a file")
+            logger.warning("G1_USD_OVERRIDE in effect -- NOT the twin asset: %s",
+                           override)
+            return override
+
         # HAND=dex5_1p selects the merged G1+Dex5 asset. It is a SEPARATE asset, not a
         # variant on the bare one, because the hands have to be present at URDF import
         # time to end up in the same PhysX articulation -- see tools/merge_dex5_urdf.py.
@@ -1623,8 +1637,26 @@ class RobotRosRunner(object):
         print(f"[TWIN] namespace {ns}  CAMERA_TF={int(camera_tf)}", flush=True)
 
         # --- devices, as identity children of the authored frames --------------
-        lidar_prim, lidar_derived = twin_sensors.create_lidar(contract, root)
-        print(f"[TWIN] Mid-360 at {lidar_prim.GetPath()} {lidar_derived}", flush=True)
+        # TWIN_LIDAR=0 skips the lidar DEVICE only, the exact mirror of TWIN_CAMERA=0
+        # below: the contract, the TF edges and the frame_ids are untouched and the
+        # audit still checks them; the Mid-360's topics simply do not appear.
+        #
+        # Two reasons it exists. (1) Mohammed turned the lidar off by switch for the
+        # 2026-08-22 session. (2) The C-39 A/B loads the REFERENCE MJCF body, which has
+        # no sensor frames at all -- no mid360_link, no d435_link -- so an RTX lidar has
+        # nothing to mount on and the run dies a world-load later with "frame
+        # 'livox_frame' is not in the stage". Balance experiments need no sensors.
+        #
+        # Default is ON, so every existing gate behaves exactly as before.
+        lidar_prim = None
+        lidar_derived = None
+        want_lidar = os.environ.get("TWIN_LIDAR", "1") != "0"
+        if not want_lidar:
+            print("[TWIN] Mid-360 SKIPPED (TWIN_LIDAR=0) -- device only, "
+                  "contract untouched", flush=True)
+        else:
+            lidar_prim, lidar_derived = twin_sensors.create_lidar(contract, root)
+            print(f"[TWIN] Mid-360 at {lidar_prim.GetPath()} {lidar_derived}", flush=True)
 
         # Which devices exist is a property of the ROBOT and is read off the
         # contract, not branched on robot_type. The G1 carries a D435i and two IMUs;
@@ -1697,7 +1729,10 @@ class RobotRosRunner(object):
         # setup_lidar_cloud prints the topic it selected -- it is the only thing
         # that knows which one the contract chose, and hardcoding "/livox/lidar"
         # here printed the G1's topic during a Go2 run.
-        twin_pub.setup_lidar_cloud(contract, lidar_prim, render_hz=render_hz)
+        if lidar_prim is not None:
+            twin_pub.setup_lidar_cloud(contract, lidar_prim, render_hz=render_hz)
+        else:
+            print("[TWIN] lidar cloud publisher SKIPPED (TWIN_LIDAR=0)", flush=True)
 
         # IMU via rclpy, NOT OmniGraph. ROS2PublishImu builds without error, logs
         # success, and advertises nothing -- baseline defect B-4, still reproducible.

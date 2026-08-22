@@ -32,10 +32,21 @@ mkdir -p "$RENDER_DIR"
 RENDERED="$RENDER_DIR/cyclonedds.xml"
 
 # Interface block: pin if FEROX_DDS_INTERFACE set, else auto-detect.
+# Loopback is ALWAYS listed, because the low-level DDS seam (rt/lowcmd, rt/lowstate)
+# runs host-local. But it may be listed only ONCE: Cyclone rejects a duplicate with
+# "lo: the same interface may not be selected twice" and every ROS node in the
+# container then fails rmw_create_node. That is why the loopback line lives here
+# rather than being hardcoded in the template beside the substitution.
+_LOOPBACK='<NetworkInterface name="lo"/>'
 if [[ -n "${FEROX_DDS_INTERFACE}" ]]; then
   export CYCLONE_INTERFACE_BLOCK="<NetworkInterface name=\"${FEROX_DDS_INTERFACE}\" presence_required=\"true\" />"
+  if [[ "${FEROX_DDS_INTERFACE}" != "lo" ]]; then
+    export CYCLONE_INTERFACE_BLOCK="${CYCLONE_INTERFACE_BLOCK}
+        ${_LOOPBACK}"
+  fi
 else
-  export CYCLONE_INTERFACE_BLOCK="<NetworkInterface autodetermine=\"true\" />"
+  export CYCLONE_INTERFACE_BLOCK="<NetworkInterface autodetermine=\"true\" />
+        ${_LOOPBACK}"
 fi
 
 # Peers block. The list is normally tailnet-derived and exported by

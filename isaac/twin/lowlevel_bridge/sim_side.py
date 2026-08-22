@@ -323,8 +323,12 @@ class LowLevelSimBridge:
         # answers a 90 degree heading error by turning in place. In MuJoCo that command
         # is "keep facing forward" and costs nothing; on the twin it is "turn 90 degrees"
         # issued to a controller that is also trying to stand for the first time.
-        _yaw = os.environ.get("G1_LL_RIG_YAW")
-        if _yaw is not None:
+        # Empty is UNSET, not zero. scripts/01_start_sim.sh passes every knob through
+        # as -e VAR="${VAR:-}", so an unset knob arrives as "" rather than absent --
+        # and `float("")` raises inside the physics callback, which takes Isaac down
+        # 370 s into a boot with the traceback buried in a warning storm.
+        _yaw = os.environ.get("G1_LL_RIG_YAW", "").strip()
+        if _yaw:
             y = float(_yaw)
             self._spawn_quat = np.array(
                 [np.cos(y / 2), 0.0, 0.0, np.sin(y / 2)], dtype=np.float32)

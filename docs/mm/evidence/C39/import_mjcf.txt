@@ -1,0 +1,68 @@
+source MJCF: /tmp/c39_ref/g1_29dof_old.xml
+  hinge joints 29, bodies 30
+
+import config AS RETURNED by MJCFCreateImportConfig (before any change):
+  convex_decomp = False
+  create_body_for_fixed_joint = True
+  create_physics_scene = True
+  default_drive_strength = 100000.0
+  density = 1000.0
+  distance_scale = 1.0
+  fix_base = True
+  import_inertia_tensor = False
+  instanceable_usd_path = './instanceable_meshes.usd'
+  make_default_prim = True
+  make_instanceable = False
+  merge_fixed_joints = False
+  override_com = False
+  override_inertia_tensor = False
+  self_collision = False
+
+DELTAS applied (everything else is the importer's own default):
+  fix_base: True -> False
+  make_default_prim: True -> True
+  create_physics_scene: True -> False
+  import_inertia_tensor: False -> True
+  self_collision: False -> False
+
+imported -> /tmp/c39_ref_usd/g1_29dof_old.usd
+  default prim: g1_29dof
+
+  revolute joints in USD: 29
+  links with mass: 30  total 35.112142 kg
+  OK: mass matches the offline MJCF sum (35.112142) within 0.05
+  OK: all 29 MJCF hinge joints present by name
+
+per-link mass (name, kg):
+  torso_link                            9.598000
+  pelvis                                3.813000
+  left_knee_link                        1.932000
+  right_knee_link                       1.932000
+  left_hip_yaw_link                     1.702000
+  right_hip_yaw_link                    1.702000
+  left_hip_roll_link                    1.520000
+  right_hip_roll_link                   1.520000
+  left_hip_pitch_link                   1.350000
+  right_hip_pitch_link                  1.350000
+  left_shoulder_yaw_link                0.734000
+  right_shoulder_yaw_link               0.734000
+  left_shoulder_pitch_link              0.718000
+  right_shoulder_pitch_link             0.718000
+  left_shoulder_roll_link               0.643000
+  right_shoulder_roll_link              0.643000
+  left_ankle_roll_link                  0.608000
+  right_ankle_roll_link                 0.608000
+  left_elbow_link                       0.600000
+  right_elbow_link                      0.600000
+  left_wrist_pitch_link                 0.484050
+  right_wrist_pitch_link                0.484050
+  left_wrist_yaw_link                   0.254576
+  right_wrist_yaw_link                  0.254576
+  waist_yaw_link                        0.244000
+  left_wrist_roll_link                  0.085445
+  right_wrist_roll_link                 0.085445
+  left_ankle_pitch_link                 0.074000
+  right_ankle_pitch_link                0.074000
+  waist_roll_link                       0.047000
+
+RESULT: PASS (0 failures)
