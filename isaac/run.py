@@ -1708,6 +1708,20 @@ class RobotRosRunner(object):
 
         imu_topics = [t for t in contract.get("topics", [])
                       if t["type"] == "sensor_msgs/msg/Imu"]
+        # TWIN_IMU=0 skips the IMU DEVICES, the third mirror of TWIN_CAMERA=0 and
+        # TWIN_LIDAR=0: contract, TF edges and frame_ids untouched, the topics simply do
+        # not appear. It exists for the C-39 A/B, which loads the REFERENCE MJCF body --
+        # that asset has no sensor frames at all (no imu_in_pelvis, no imu_in_torso), so
+        # the twin layer has nothing to author an IMU onto. The alternative, running the
+        # reference with TWIN=0, is worse: it falls back to the LEGACY sensor path,
+        # which builds a camera and an RTX lidar unconditionally and then segfaults the
+        # render pipeline. Note the low-level bridge does not use these devices at all
+        # -- its IMU comes from the articulation root pose.
+        want_imu = os.environ.get("TWIN_IMU", "1") != "0"
+        if not want_imu:
+            print(f"[TWIN] {len(imu_topics)} IMU device(s) SKIPPED (TWIN_IMU=0) -- "
+                  "device only, contract untouched", flush=True)
+            imu_topics = []
         imus = []
         for t in imu_topics:
             sensor = twin_sensors.create_imu_for(
