@@ -13,9 +13,9 @@
     "seed": 20260822,
     "base_offset": [
       0.1,
-      0.38
+      -0.38
     ],
-    "base_yaw": -1.5708,
+    "base_yaw": 1.5708,
     "pregrasp_offset": [
       0.0,
       0.0,
@@ -76,7 +76,7 @@
     ],
     "randomize_m": 0.06,
     "stage_y": -1.31,
-    "surface": "table",
+    "surface": "counter",
     "counter_xy": [
       -2.6,
       2.25
@@ -102,12 +102,12 @@
       "seed": 20260823,
       "object": "soup_can",
       "outcome": "REACH_TIMEOUT",
-      "detail": "91 mm from pre-grasp",
+      "detail": "4860 mm from pre-grasp",
       "cheat_attach": false,
       "obj_start": [
-        1.7156,
-        -1.349,
-        0.7978
+        -2.6551,
+        2.211,
+        0.9498
       ],
       "obj_end": [
         1.7708,
@@ -126,21 +126,21 @@
       "seed": 20260824,
       "object": "soup_can",
       "outcome": "DESCEND_TIMEOUT",
-      "detail": "39 mm from grasp pose",
+      "detail": "80 mm from grasp pose",
       "cheat_attach": false,
       "obj_start": [
-        1.8155,
-        -1.3335,
-        0.7978
+        -2.5552,
+        2.2265,
+        0.9498
       ],
       "obj_end": [
-        1.9294,
-        -1.3531,
-        0.7822
+        -2.5522,
+        2.3159,
+        0.9327
       ],
       "stage_s": {
         "APPROACH": 6.005,
-        "REACH": 0.76,
+        "REACH": 2.5,
         "DESCEND": 15.005
       },
       "grip_contacts": -1,

@@ -220,8 +220,20 @@ class MM5Pipeline:
             try:
                 pos, _ = rp.get_world_pose()
                 return np.asarray(pos, float)
-            except Exception:
-                pass
+            except Exception as exc:
+                # DO NOT fall back to the USD pose here. It is the authored pose, it
+                # never moves, and returning it silently is precisely the bug this
+                # function was just fixed for: trial 1 staged and verified on the
+                # counter at [-2.655, 2.211] and then reached toward [1.771, -1.476],
+                # the table, 4.86 m away, because get_world_pose() raised while the
+                # physics view was still warming and the fallback answered instead.
+                # None makes the caller fail the trial as HARNESS, which is visible.
+                if not getattr(self, "_objpose_warned", False):
+                    self._objpose_warned = True
+                    self.log(f"[mm5] object physics pose unreadable ({exc!r}) -- "
+                             f"returning None rather than the authored USD pose, "
+                             f"which does not move")
+                return None
         from pxr import UsdGeom, Usd
         p = self._obj_prim(name)
         if p is None:
