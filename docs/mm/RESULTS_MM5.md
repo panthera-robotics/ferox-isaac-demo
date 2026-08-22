@@ -359,3 +359,62 @@ Grasp exceeded its 90-minute box. Per the brief's fallback rule the deliverable 
 table with an honest taxonomy rather than an open-ended chase of the descent servo; the
 next session starts at the descent geometry, with REACH already solved and the contact
 route already attached.
+
+---
+
+# Grasp v7 FINAL — N=20 (10 soup can, 10 cube), counter, contact-report route
+
+**0/20 success. 4/20 reached CLOSURE with a measured contact count — the first time in
+this campaign that any trial has.**
+
+```
+soup_can 10:  DESCEND_TIMEOUT 9 · NO_CONTACT_AT_CLOSURE 1
+cube_5cm 10:  DESCEND_TIMEOUT 7 · NO_CONTACT_AT_CLOSURE 3
+```
+
+## What was actually wrong, and it was a number
+
+`grasp_standoff` defaulted to **0.045 m**. The Dex5's fingers converge **0.1366 m** from
+the palm origin — v4 measured that and said so — so the descent target sat about **92 mm
+inside the can**, and the DESCEND stalls were **80–101 mm**. The palm drove into the
+object, shoved it 0.30–0.37 m, and could never reach a pose that was physically inside
+it. v4 applied its own measurement **only behind `MM5_MEASURE_HAND=1`**; the config
+default kept the wrong number, so every run that did not set that flag reproduced the
+bug — v4, v5, v6, and v7's first pass.
+
+Corrected to the measured value (HANDCAL re-derives it per run):
+
+    [v4] fingers close about 0.1366 m from the palm origin, tip spread 0.0215 m
+    [v4] grasp_standoff 0.0450 -> 0.1466 m (measured centre + 0.010 clearance)
+
+## The first closure in this campaign's history
+
+    t=13.23 GRASP  at grasp pose, 23 mm
+    t=16.23 GRASP  closed: 1 finger links in contact, 0.48 N total
+
+DESCEND went from a 15 s timeout to **1.08 s**. `grip_contacts` left `-1`.
+
+## What this does and does not prove
+
+**Does:** the descent geometry defect was real and is fixed; the PhysX contact-report
+route works *at closure*, not merely at attach; `NO_CONTACT_AT_CLOSURE` is now a
+measurement. **The standing caveat since v5 — "no `NO_GRIP` row is evidence about
+colliders" — is finally lifted:** the fingers demonstrably touch the object and the force
+is reported.
+
+**Does not:** produce a grasp. 0/20 lifted. Of 20 trials, 16 still time out in descent at
+49–160 mm, and the 4 that close do so on **1–2 finger links at ~0.5 N**, under a 2-contact
+gate that is correctly refusing them.
+
+## The two remaining defects, named
+
+1. **Descent is inconsistent, not blocked.** Stalls now spread 49–160 mm across
+   randomised positions where they used to sit at a constant ~92 mm. A constant said
+   "wrong number"; a spread says the reach/IK cannot always achieve the pose. That is the
+   next thing to measure — per-trial IK residual against arm joint limits.
+2. **Closure force is an order of magnitude short.** ~0.5 N on one or two links will not
+   hold a 0.349 kg can. Candidates, in the order they should be tested: finger drive
+   gains during GRASP (currently kp 20 / kd 0.5), `overclose_rad` (0.25), and whether the
+   thumb is opposing at all — the tip spread is 0.0215 m against a 66 mm can.
+
+**No cheat-attach was used in any row. The success metric is unchanged.**

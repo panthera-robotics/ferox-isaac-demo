@@ -1,0 +1,352 @@
+{
+  "trials": 10,
+  "successes": 0,
+  "success_rate": 0.0,
+  "taxonomy": {
+    "NO_CONTACT_AT_CLOSURE": 1,
+    "DESCEND_TIMEOUT": 9
+  },
+  "config": {
+    "robot_root": "/World/G1",
+    "object_name": "soup_can",
+    "trials": 10,
+    "seed": 20260901,
+    "base_offset": [
+      0.1,
+      -0.38
+    ],
+    "base_yaw": 1.5708,
+    "pregrasp_offset": [
+      0.0,
+      0.0,
+      0.13
+    ],
+    "grasp_offset": [
+      0.0,
+      0.0,
+      0.072
+    ],
+    "pregrasp_standoff": 0.23160000000000003,
+    "grasp_standoff": 0.1466,
+    "w_rot": 0.8,
+    "grasp_tol": 0.025,
+    "descend_timeout_s": 15.0,
+    "reach_tol": 0.08,
+    "ik_lambda": 0.08,
+    "ik_max_step": 0.01,
+    "ik_lead_cap": 0.25,
+    "ik_k_null": 0.6,
+    "settle_s": 6.0,
+    "fallen_z": 0.55,
+    "spawn_z": 0.8,
+    "reach_timeout_s": 30.0,
+    "close_s": 2.5,
+    "close_rad": 1.35,
+    "overclose_rad": 0.25,
+    "grip_kp": 20.0,
+    "grip_kd": 0.5,
+    "idle_hand_kp": 5.0,
+    "idle_hand_kd": 0.1,
+    "min_grip_contacts": 2,
+    "lift_h": 0.14,
+    "lift_success_h": 0.05,
+    "lift_timeout_s": 8.0,
+    "carry_vec": [
+      -1.0,
+      0.0,
+      0.0
+    ],
+    "carry_dist": 1.0,
+    "carry_timeout_s": 20.0,
+    "drop_h": 0.02,
+    "place_s": 2.0,
+    "retreat_s": 2.0,
+    "table_h": 0.75,
+    "cheat_attach": false,
+    "fix_base": true,
+    "fix_base_arm_kp": 400.0,
+    "fix_base_arm_kd": 20.0,
+    "fix_base_ik_lead": 0.25,
+    "fix_base_ik_step": 0.01,
+    "skip_carry": true,
+    "place_vec": [
+      -0.22,
+      0.0,
+      0.0
+    ],
+    "randomize_m": 0.06,
+    "stage_y": -1.31,
+    "surface": "counter",
+    "counter_xy": [
+      -2.6,
+      2.25
+    ],
+    "counter_h": 0.9,
+    "measure_hand": true,
+    "contact_sensor_paths": [],
+    "contact_route": "report",
+    "grasp_clearance": 0.01,
+    "pregrasp_extra": 0.085,
+    "place_from_workspace": false,
+    "target_r": 0.315,
+    "lateral_offset": 0.0,
+    "min_forward": 0.2,
+    "max_forward": 0.6,
+    "pelvis_z": 0.8,
+    "right_shoulder_body": "",
+    "out_dir": "/workspace/ferox_isaac/mm5_v7can"
+  },
+  "rows": [
+    {
+      "trial": 1,
+      "seed": 20260902,
+      "object": "soup_can",
+      "outcome": "NO_CONTACT_AT_CLOSURE",
+      "detail": "1 finger links in contact (0.48 N), need 2",
+      "cheat_attach": false,
+      "obj_start": [
+        -2.5492,
+        2.2651,
+        0.9498
+      ],
+      "obj_end": [
+        -2.1786,
+        2.3024,
+        0.9321
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 2.63,
+        "DESCEND": 1.08,
+        "GRASP": 3.005
+      },
+      "grip_contacts": 1,
+      "grip_force_n": 0.484
+    },
+    {
+      "trial": 2,
+      "seed": 20260903,
+      "object": "soup_can",
+      "outcome": "DESCEND_TIMEOUT",
+      "detail": "49 mm from grasp pose",
+      "cheat_attach": false,
+      "obj_start": [
+        -2.6293,
+        2.23,
+        0.9498
+      ],
+      "obj_end": [
+        -2.638,
+        2.233,
+        0.9322
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 1.015,
+        "DESCEND": 15.005
+      },
+      "grip_contacts": -1,
+      "grip_force_n": 0.0
+    },
+    {
+      "trial": 3,
+      "seed": 20260904,
+      "object": "soup_can",
+      "outcome": "DESCEND_TIMEOUT",
+      "detail": "153 mm from grasp pose",
+      "cheat_attach": false,
+      "obj_start": [
+        -2.5573,
+        2.294,
+        0.9498
+      ],
+      "obj_end": [
+        -2.5573,
+        2.294,
+        0.9322
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 4.41,
+        "DESCEND": 15.005
+      },
+      "grip_contacts": -1,
+      "grip_force_n": 0.0
+    },
+    {
+      "trial": 4,
+      "seed": 20260905,
+      "object": "soup_can",
+      "outcome": "DESCEND_TIMEOUT",
+      "detail": "149 mm from grasp pose",
+      "cheat_attach": false,
+      "obj_start": [
+        -2.6066,
+        2.3028,
+        0.9498
+      ],
+      "obj_end": [
+        -2.6019,
+        2.312,
+        0.9322
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 4.485,
+        "DESCEND": 15.005
+      },
+      "grip_contacts": -1,
+      "grip_force_n": 0.0
+    },
+    {
+      "trial": 5,
+      "seed": 20260906,
+      "object": "soup_can",
+      "outcome": "DESCEND_TIMEOUT",
+      "detail": "94 mm from grasp pose",
+      "cheat_attach": false,
+      "obj_start": [
+        -2.5625,
+        2.2439,
+        0.9498
+      ],
+      "obj_end": [
+        -2.3558,
+        2.2546,
+        0.9322
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 0.995,
+        "DESCEND": 15.005
+      },
+      "grip_contacts": -1,
+      "grip_force_n": 0.0
+    },
+    {
+      "trial": 6,
+      "seed": 20260907,
+      "object": "soup_can",
+      "outcome": "DESCEND_TIMEOUT",
+      "detail": "90 mm from grasp pose",
+      "cheat_attach": false,
+      "obj_start": [
+        -2.6356,
+        2.2492,
+        0.9498
+      ],
+      "obj_end": [
+        -2.4121,
+        2.2605,
+        0.9325
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 0.995,
+        "DESCEND": 15.005
+      },
+      "grip_contacts": -1,
+      "grip_force_n": 0.0
+    },
+    {
+      "trial": 7,
+      "seed": 20260908,
+      "object": "soup_can",
+      "outcome": "DESCEND_TIMEOUT",
+      "detail": "112 mm from grasp pose",
+      "cheat_attach": false,
+      "obj_start": [
+        -2.555,
+        2.2678,
+        0.9498
+      ],
+      "obj_end": [
+        -2.1924,
+        2.4151,
+        0.9326
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 1.63,
+        "DESCEND": 15.005
+      },
+      "grip_contacts": -1,
+      "grip_force_n": 0.0
+    },
+    {
+      "trial": 8,
+      "seed": 20260909,
+      "object": "soup_can",
+      "outcome": "DESCEND_TIMEOUT",
+      "detail": "93 mm from grasp pose",
+      "cheat_attach": false,
+      "obj_start": [
+        -2.5401,
+        2.2458,
+        0.9498
+      ],
+      "obj_end": [
+        -2.5379,
+        2.2463,
+        0.9328
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 1.005,
+        "DESCEND": 15.005
+      },
+      "grip_contacts": -1,
+      "grip_force_n": 0.0
+    },
+    {
+      "trial": 9,
+      "seed": 20260910,
+      "object": "soup_can",
+      "outcome": "DESCEND_TIMEOUT",
+      "detail": "63 mm from grasp pose",
+      "cheat_attach": false,
+      "obj_start": [
+        -2.6592,
+        2.2987,
+        0.9498
+      ],
+      "obj_end": [
+        -2.7416,
+        2.2736,
+        0.9326
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 1.335,
+        "DESCEND": 15.005
+      },
+      "grip_contacts": -1,
+      "grip_force_n": 0.0
+    },
+    {
+      "trial": 10,
+      "seed": 20260911,
+      "object": "soup_can",
+      "outcome": "DESCEND_TIMEOUT",
+      "detail": "30 mm from grasp pose",
+      "cheat_attach": false,
+      "obj_start": [
+        -2.5804,
+        2.241,
+        0.9498
+      ],
+      "obj_end": [
+        -2.5804,
+        2.241,
+        0.9326
+      ],
+      "stage_s": {
+        "APPROACH": 6.005,
+        "REACH": 0.99,
+        "DESCEND": 15.005
+      },
+      "grip_contacts": -1,
+      "grip_force_n": 0.0
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+[mm5] t=   0.00 IDLE     finger drives -> kp 5.0 kd 0.1
+[mm5] t=   3.51 IDLE     [contact] contact-report route ACTIVE: 22 prim(s), 21 finger link(s), target /World/Env/objects/soup_can
+[mm5] t=   3.51 APPROACH trial 1 seed=20260902 object=soup_can at [-2.5492  2.2651  0.9498]
+[mm5] t=   9.52 REACH    palm at [-2.199  1.899  0.706], object at [-2.549  2.265  0.951]
+[mm5] t=  10.02 REACH      d=   207 mm  palm=[-2.313  1.989  0.796] armq=[ 0.508 -0.103  0.223  0.066]
+[mm5] t=  12.15 REACH      palm quat=[ 0.8663 -0.0274 -0.1831  0.4639]
+[mm5] t=  12.15 REACH      palm local x->[0.503 0.814 0.292] y->[-0.794  0.568 -0.217] z->[-0.343 -0.122  0.931]
+[mm5] t=  12.15 DESCEND  pre-grasp reached, 80 mm
+[mm5] t=  13.23 GRASP    at grasp pose, 23 mm
+[mm5] t=  13.23 GRASP    finger drives -> kp 20.0 kd 0.5
+[mm5] t=  16.23 GRASP    closed: 1 finger links in contact, 0.48 N total
+[mm5] t=  16.23 DONE     FAIL NO_CONTACT_AT_CLOSURE: 1 finger links in contact (0.48 N), need 2
+[mm5] t=  16.23 DONE     finger drives -> kp 5.0 kd 0.1
+[mm5] t=  16.24 APPROACH trial 2 seed=20260903 object=soup_can at [-2.6293  2.23    0.9498]
+[mm5] t=  22.24 REACH    palm at [-2.279  1.864  0.706], object at [-2.638  2.233  0.932]
+[mm5] t=  22.75 REACH      d=   179 mm  palm=[-2.41   1.965  0.803] armq=[ 0.47  -0.068  0.259  0.067]
+[mm5] t=  23.26 REACH      palm quat=[ 0.7606  0.0527 -0.4479  0.4671]
+[mm5] t=  23.26 REACH      palm local x->[0.162 0.663 0.73 ] y->[-0.758  0.558 -0.338] z->[-0.632 -0.499  0.593]
+[mm5] t=  23.26 DESCEND  pre-grasp reached, 80 mm
+[mm5] t=  38.26 DONE     FAIL DESCEND_TIMEOUT: 49 mm from grasp pose
+[mm5] t=  38.27 APPROACH trial 3 seed=20260904 object=soup_can at [-2.5573  2.294   0.9498]
+[mm5] t=  44.27 REACH    palm at [-2.207  1.928  0.706], object at [-2.557  2.294  0.932]
+[mm5] t=  44.78 REACH      d=   178 mm  palm=[-2.334  2.026  0.802] armq=[ 0.482 -0.08   0.251  0.067]
+[mm5] t=  48.68 REACH      palm quat=[0.8044 0.0416 0.367  0.4653]
+[mm5] t=  48.68 REACH      palm local x->[ 0.298  0.779 -0.552] y->[-0.718  0.563  0.408] z->[0.629 0.275 0.727]
+[mm5] t=  48.68 DESCEND  pre-grasp reached, 80 mm
+[mm5] t=  63.69 DONE     FAIL DESCEND_TIMEOUT: 153 mm from grasp pose
+[mm5] t=  63.69 APPROACH trial 4 seed=20260905 object=soup_can at [-2.6066  2.3028  0.9498]
+[mm5] t=  69.70 REACH    palm at [-2.256  1.937  0.706], object at [-2.607  2.303  0.932]
+[mm5] t=  70.20 REACH      d=   178 mm  palm=[-2.383  2.035  0.802] armq=[ 0.482 -0.08   0.251  0.067]
+[mm5] t=  74.18 REACH      palm quat=[0.7986 0.049  0.3569 0.4822]
+[mm5] t=  74.18 REACH      palm local x->[ 0.28   0.805 -0.523] y->[-0.735  0.53   0.422] z->[0.617 0.266 0.74 ]
+[mm5] t=  74.18 DESCEND  pre-grasp reached, 80 mm
+[mm5] t=  89.19 DONE     FAIL DESCEND_TIMEOUT: 149 mm from grasp pose
+[mm5] t=  89.19 APPROACH trial 5 seed=20260906 object=soup_can at [-2.5625  2.2439  0.9498]
+[mm5] t=  95.20 REACH    palm at [-2.212  1.878  0.706], object at [-2.562  2.244  0.932]
+[mm5] t=  95.70 REACH      d=   178 mm  palm=[-2.339  1.976  0.802] armq=[ 0.482 -0.08   0.251  0.067]
+[mm5] t=  96.19 REACH      palm quat=[ 0.7506  0.0473 -0.4306  0.4989]
+[mm5] t=  96.19 REACH      palm local x->[0.131 0.708 0.694] y->[-0.79   0.498 -0.359] z->[-0.599 -0.501  0.625]
+[mm5] t=  96.19 DESCEND  pre-grasp reached, 80 mm
+[mm5] t= 111.20 DONE     FAIL DESCEND_TIMEOUT: 94 mm from grasp pose
+[mm5] t= 111.20 APPROACH trial 6 seed=20260907 object=soup_can at [-2.6356  2.2492  0.9498]
+[mm5] t= 117.21 REACH    palm at [-2.285  1.884  0.706], object at [-2.636  2.249  0.932]
+[mm5] t= 117.71 REACH      d=   178 mm  palm=[-2.412  1.982  0.802] armq=[ 0.482 -0.08   0.251  0.067]
+[mm5] t= 118.20 REACH      palm quat=[ 0.7928 -0.0194 -0.5015  0.3458]
+[mm5] t= 118.20 REACH      palm local x->[0.258 0.568 0.782] y->[-0.529  0.76  -0.378] z->[-0.809 -0.316  0.496]
+[mm5] t= 118.20 DESCEND  pre-grasp reached, 80 mm
+[mm5] t= 133.21 DONE     FAIL DESCEND_TIMEOUT: 90 mm from grasp pose
+[mm5] t= 133.21 APPROACH trial 7 seed=20260908 object=soup_can at [-2.555   2.2678  0.9498]
+[mm5] t= 139.22 REACH    palm at [-2.205  1.902  0.706], object at [-2.559  2.269  0.932]
+[mm5] t= 139.72 REACH      d=   179 mm  palm=[-2.333  2.002  0.802] armq=[ 0.477 -0.075  0.254  0.067]
+[mm5] t= 140.85 REACH      palm quat=[ 0.7959 -0.0117 -0.3688  0.4799]
+[mm5] t= 140.85 REACH      palm local x->[0.267 0.773 0.576] y->[-0.755  0.539 -0.373] z->[-0.598 -0.335  0.728]
+[mm5] t= 140.85 DESCEND  pre-grasp reached, 80 mm
+[mm5] t= 155.85 DONE     FAIL DESCEND_TIMEOUT: 112 mm from grasp pose
+[mm5] t= 155.86 APPROACH trial 8 seed=20260909 object=soup_can at [-2.5401  2.2458  0.9498]
+[mm5] t= 161.86 REACH    palm at [-2.19   1.88   0.706], object at [-2.54   2.246  0.933]
+[mm5] t= 162.37 REACH      d=   179 mm  palm=[-2.316  1.978  0.802] armq=[ 0.483 -0.08   0.25   0.067]
+[mm5] t= 162.87 REACH      palm quat=[ 0.7417  0.0689 -0.4199  0.5184]
+[mm5] t= 162.87 REACH      palm local x->[0.11  0.711 0.694] y->[-0.827  0.453 -0.333] z->[-0.552 -0.538  0.638]
+[mm5] t= 162.87 DESCEND  pre-grasp reached, 80 mm
+[mm5] t= 177.87 DONE     FAIL DESCEND_TIMEOUT: 93 mm from grasp pose
+[mm5] t= 177.88 APPROACH trial 9 seed=20260910 object=soup_can at [-2.6592  2.2987  0.9498]
+[mm5] t= 183.88 REACH    palm at [-2.309  1.933  0.706], object at [-2.77   2.265  0.934]
+[mm5] t= 184.39 REACH      d=   197 mm  palm=[-2.48   2.029  0.801] armq=[0.478 0.025 0.344 0.069]
+[mm5] t= 185.22 REACH      palm quat=[ 0.7505 -0.0094 -0.2815  0.5979]
+[mm5] t= 185.22 REACH      palm local x->[0.127 0.903 0.411] y->[-0.892  0.285 -0.351] z->[-0.434 -0.323  0.841]
+[mm5] t= 185.22 DESCEND  pre-grasp reached, 80 mm
+[mm5] t= 200.22 DONE     FAIL DESCEND_TIMEOUT: 63 mm from grasp pose
+[mm5] t= 200.23 APPROACH trial 10 seed=20260911 object=soup_can at [-2.5804  2.241   0.9498]
+[mm5] t= 206.23 REACH    palm at [-2.23   1.875  0.706], object at [-2.58   2.241  0.933]
+[mm5] t= 206.74 REACH      d=   179 mm  palm=[-2.357  1.973  0.802] armq=[ 0.483 -0.08   0.25   0.067]
+[mm5] t= 207.22 REACH      palm quat=[ 0.7512  0.0522 -0.4367  0.4922]
+[mm5] t= 207.22 REACH      palm local x->[0.134 0.694 0.708] y->[-0.785  0.51  -0.351] z->[-0.605 -0.508  0.613]
+[mm5] t= 207.22 DESCEND  pre-grasp reached, 80 mm
+[mm5] t= 222.23 DONE     FAIL DESCEND_TIMEOUT: 30 mm from grasp pose
