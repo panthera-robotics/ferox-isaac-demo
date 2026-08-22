@@ -819,14 +819,26 @@ class LowLevelSimBridge:
         # rt/lowstate quietly starts repeating states instead of carrying new ones.
         wall = time.perf_counter() - self._t_wall0
         rtf = self.sim_time / wall if wall > 0 else 0.0
-        print(f"[lowlevel-sim] t={self.sim_time:7.2f} mode={mode:10s} "
-              f"pd={self.n_pd} hold={self.n_hold} failclosed={self.n_failclosed} "
-              f"rtf={rtf:.3f} base_z={float(pos[2]):+.3f} pitch={float(rpy[1]):+.3f} roll={float(rpy[0]):+.3f} "
-              f"|tau|max={float(np.abs(self._tau_cmd).max()):6.2f} sat={sat}/29 "
-              f"knee_L={float(r[3]):+.3f} hip_p_L={float(r[0]):+.3f} "
-              f"torn={self.n_torn_reads} hand_cmd={self.n_hand_cmd} hand_q0={float(np.asarray(self.art.get_joint_positions(), np.float32)[self.hand_sim_idx['left'][0]]):+.4f}"
-              if self.has_hands else
-              f"knee_L={float(r[3]):+.3f} hip_p_L={float(r[0]):+.3f}", flush=True)
+        # Built as ONE string plus an optional hand suffix, deliberately.
+        # This used to be a single conditional expression across implicitly
+        # concatenated f-strings -- and Python concatenates BEFORE it applies the
+        # conditional, so the whole prefix (`[lowlevel-sim] t=`, mode, rtf, base_z,
+        # pitch, roll, tau) belonged to the has_hands branch alone. Every HAND=none run
+        # therefore printed a bare `knee_L=... hip_p_L=...` with no timestamp and, worse,
+        # NO BASE HEIGHT OR PITCH -- the two numbers every C-39 verdict is read from.
+        # A bare-robot run looked silent rather than wrong.
+        line = (f"[lowlevel-sim] t={self.sim_time:7.2f} mode={mode:10s} "
+                f"pd={self.n_pd} hold={self.n_hold} failclosed={self.n_failclosed} "
+                f"rtf={rtf:.3f} base_z={float(pos[2]):+.3f} pitch={float(rpy[1]):+.3f} "
+                f"roll={float(rpy[0]):+.3f} "
+                f"|tau|max={float(np.abs(self._tau_cmd).max()):6.2f} sat={sat}/29 "
+                f"knee_L={float(r[3]):+.3f} hip_p_L={float(r[0]):+.3f} "
+                f"torn={self.n_torn_reads}")
+        if self.has_hands:
+            hq0 = float(np.asarray(self.art.get_joint_positions(),
+                                   np.float32)[self.hand_sim_idx["left"][0]])
+            line += f" hand_cmd={self.n_hand_cmd} hand_q0={hq0:+.4f}"
+        print(line, flush=True)
 
     def activate(self) -> None:
         """Take the articulation from the policy. One-way, and asserted to happen once."""
