@@ -165,3 +165,64 @@ to match.
   instance — bash reads the file incrementally. That produced a phantom
   `line 81: is: command not found` on an untouched comment. Runs are no longer started
   from a script that is about to be edited.
+
+---
+
+## Task 1 — **CLOSED**. The asset is exonerated; no PhysX property stands SONIC; SONIC parked.
+
+Nine runs, sole occupancy asserted before each, **zero `SECOND_INSTANCE` rows**,
+harness `sha256` recorded in `evidence/C39/bisect/sha256.txt`.
+
+| label | property | released | base_z | pitch | verdict |
+|---|---|---|---|---|---|
+| `baseline_twin` | control | 9.88 | +0.107 | +88.3° | FALLS |
+| **`baseline_ref`** | **reference body, unmodified** | 11.58 | +0.098 | **+86.3°** | **FALLS** |
+| `solver_iters` | `64,64` | 9.18 | +0.108 | +88.4° | FALLS |
+| `friction_mult` | `combine=multiply` | 11.98 | +0.107 | +88.3° | FALLS |
+| `contact_off` | `contact 0.002 / rest 0.0` | 11.96 | +0.107 | +88.3° | FALLS |
+| `depen_vel` | `max_depen_vel=1.0` | 15.66 | +0.107 | +88.4° | FALLS |
+| `self_coll` | `self_collision=1` | 11.40 | +0.107 | +88.4° | FALLS |
+| `dt_200hz` | the reference's own rate | 27.57 | +0.067 | −86.6° | FALLS |
+| `implicit_drive` | `G1_LL_PD=implicit` | 11.04 | +0.095 | +85.5° | FALLS |
+
+**The reference MuJoCo body, imported unmodified, falls in our simulator** — and the
+same body stands under the same deploy binary in the reference MuJoCo sim. So C-39 is
+not our asset, not the wire, not the hands and not SONIC. Seven simulator properties
+later it is also not any one of them, and the tell is that every row lands in the *same
+place*: base ~0.10 m, pitch ~87°, ~2.5 s after release. A parameter that mattered would
+move that number.
+
+**SONIC parked** per the brief; finetune becomes a Spark item. What remains is the Isaac
+harness against the MuJoCo one *as a whole* — actuator model, contact solver family,
+MuJoCo's own 200 Hz constraint formulation — which is a larger piece of work than a
+sweep and sits behind the manipulation gates.
+
+### Void-rule accounting (Mohammed's instruction)
+
+The first `twin_bare`/`ref` pair and the first `solver_iters` run were taken while a
+second agent instance existed on this box and are **void**. They were re-run as
+`baseline_twin`/`baseline_ref`/`solver_iters` under proven sole occupancy and **the
+result reproduced**, so `AB_ASSET_VERDICT.md` moved from PROVISIONAL to CONFIRMED rather
+than being withdrawn. `scripts/c39_bisect.sh` now asserts sole occupancy before every
+run and records `SECOND_INSTANCE` instead of a number if it ever fails.
+
+### Re-measurement notice filed
+
+`RESULTS_MM3.md` and `RESULTS_MM4.md` now carry a banner naming the specific figures
+invalidated by the 73% lowcmd drop (`LOWCMD_SEQLOCK.md`): MM3 (c) lowstate rate/parity
+and (a) PD-stand tracking; MM4 policy latency, LowState age, the PD-tracking table, and
+the 499 Hz lowcmd figure — counted at the **bridge**, which received everything, while
+the robot did not. Convention/CRC/field-layout work and offline asset arithmetic are
+explicitly unaffected.
+
+## Task 3 — grasp v7, contact-report route — **the route attaches**
+
+The thing v6 could not do:
+
+    [contact] contact-report route ACTIVE: 22 prim(s), 21 finger link(s),
+              target /World/Env/objects/soup_can
+
+No sensor prim, no re-parenting, no per-body wrappers — `PhysxContactReportAPI` at
+threshold 0 on links we already have, plus one subscription. `counts()` returns `None`
+when unavailable so the caller cannot mistake "unknown" for "zero", which is the
+mistake that cost v5/v6 two versions of collider-chasing.
