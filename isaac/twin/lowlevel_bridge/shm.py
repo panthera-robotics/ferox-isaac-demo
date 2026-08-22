@@ -23,6 +23,8 @@ array.
 
 from __future__ import annotations
 
+import threading
+
 import numpy as np
 
 # 35 is the LowState_/LowCmd_ motor array length; the G1 drives 0..28 and leaves
@@ -114,18 +116,37 @@ class SeqlockChannel:
         else:
             self._shm = shared_memory.SharedMemory(name=name)
         self._rec = np.ndarray((), dtype=dtype, buffer=self._shm.buf)
+        # A seqlock has exactly one writer BY CONSTRUCTION. This channel has three
+        # on the command side -- rt/lowcmd and the two rt/dex3 hand commands -- and
+        # Cyclone delivers them on SEPARATE listener threads, so their seq++ pairs
+        # interleave and the counter is left ODD at rest. Every reader then spins its
+        # retries out and returns None, forever, while the record itself holds
+        # perfectly good data.
+        #
+        # The symptom is brutal to read: `cmd_count=73575 age=6.95ms kp0=99.1` from an
+        # external probe (the write side is fine) against a sim that has never once
+        # completed a read -- `cmd_age=-1.0ms rig_ign=0`, so rt/lowcmd is dropped
+        # entirely, the rig never sees authority, and the robot never leaves the rig.
+        # The lowstate channel has ONE writer and works perfectly, which is what made
+        # this look like anything but the seqlock.
+        self._wlock = threading.Lock()
         if create:
             self._rec[...] = np.zeros((), dtype=dtype)
 
     # ---------------------------------------------------------------- writing
 
     def write(self, **fields) -> None:
-        """Publish one record. Never blocks; readers retry around it."""
-        rec = self._rec
-        rec["seq"] = np.uint64(int(rec["seq"]) + 1)      # -> odd: write in flight
-        for k, v in fields.items():
-            rec[k] = v
-        rec["seq"] = np.uint64(int(rec["seq"]) + 1)      # -> even: record is whole
+        """Publish one record. Readers retry around it; writers serialise.
+
+        The lock is per-process and uncontended for a single-writer channel, so the
+        lowstate side pays nothing for it.
+        """
+        with self._wlock:
+            rec = self._rec
+            rec["seq"] = np.uint64(int(rec["seq"]) + 1)  # -> odd: write in flight
+            for k, v in fields.items():
+                rec[k] = v
+            rec["seq"] = np.uint64(int(rec["seq"]) + 1)  # -> even: record is whole
 
     # ---------------------------------------------------------------- reading
 
