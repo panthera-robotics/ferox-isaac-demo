@@ -1,0 +1,9 @@
+[DEBUG] Program starting...
+[DEBUG] Arguments validated...
+[INFO] Using observation config: policy/sonic_v1_1/observation_config.yaml
+[INFO] Using encoder file: policy/sonic_v1_1/model_encoder.onnx
+[INFO] Using planner file: planner/target_vel/V2/planner_sonic.onnx
+[INFO] Using input type: zmq_manager
+[INFO] Using output type: all
+[DEBUG] Creating G1Deploy object...
+1787373697.455605 [0] g1_deploy_: selected interface "lo" is not multicast-capable: disabling multicast

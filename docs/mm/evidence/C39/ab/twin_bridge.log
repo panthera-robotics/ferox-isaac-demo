@@ -1,0 +1,7 @@
+[lowlevel-dds] domain=0 publish_hz=1041.68 cmd_timeout=100.0 ms
+1787373692.781589 [0]    python3: selected interface "lo" is not multicast-capable: disabling multicast
+[lowlevel-dds] waiting for the sim to write state...
+[lowlevel-dds] t=   5.0s  lowstate=5036 (1007.012 Hz)  lowcmd=0 (   0.00 Hz)  crc_bad=0 nan_cmd=0 imu2=5036 (1007.012 Hz)  repeat= 72.8%  sim_stale=41  dex3_state=1007 (201.36 Hz)  dex3_cmd={'left': 0, 'right': 0}
+[lowlevel-dds] t=  10.0s  lowstate=10147 (1014.665 Hz)  lowcmd=0 (   0.00 Hz)  crc_bad=0 nan_cmd=0 imu2=10147 (1014.665 Hz)  repeat= 75.0%  sim_stale=93  dex3_state=2029 (202.89 Hz)  dex3_cmd={'left': 0, 'right': 0}
+[lowlevel-dds] t=  15.0s  lowstate=15142 (1009.429 Hz)  lowcmd=0 (   0.00 Hz)  crc_bad=0 nan_cmd=0 imu2=15142 (1009.429 Hz)  repeat= 75.8%  sim_stale=131  dex3_state=3028 (201.86 Hz)  dex3_cmd={'left': 0, 'right': 0}
+[lowlevel-dds] t=  20.0s  lowstate=20262 (1013.085 Hz)  lowcmd=0 (   0.00 Hz)  crc_bad=0 nan_cmd=0 imu2=20262 (1013.085 Hz)  repeat= 76.8%  sim_stale=170  dex3_state=4052 (202.60 Hz)  dex3_cmd={'left': 0, 'right': 0}

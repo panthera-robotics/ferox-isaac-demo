@@ -114,3 +114,54 @@ while the twin's hospital spawn sits at **90°**, and that `facing=(1,0,0)` ther
 means "hold heading" in MuJoCo and "turn 90° right now" on the twin. Both sides of this
 A/B run `G1_LL_RIG_YAW=0`, so the two runs differ in **body and nothing else** — which
 is the entire point of the experiment.
+
+### 1e. The twin side does not reach the balance question — and why
+
+Three runs, each one ruling something out:
+
+| run | hands | rig yaw | outcome |
+|---|---|---|---|
+| `twin_dex5_abort` | Dex5 | pinned to 0 | SONIC aborts: `body_dq[24] = 35.367 > 35` → **right_wrist_roll** |
+| `twin_bare` (1st) | none | pinned to 0 | SONIC aborts: `body_dq[17] = 35.9822 > 35` → **left_ankle_roll** |
+| `twin_bare` (2nd) | none | **not pinned** | *running* |
+
+**SONIC never "fails to balance" in any of these — it stops itself.** Its own guard is
+`body_dq[i] > 35` at `g1_deploy_onnx_ref.cpp:2832`, it aborts the entire control system,
+and the rig's auto-release needs sustained authority, so the robot is never free-standing
+and the verdict tool correctly says INVALID rather than FALLS. Full write-up with the
+index mapping (`mujoco_to_isaaclab`, printed index is mujoco order, not SDK) in
+`evidence/C39/SONIC_ABORT.md`.
+
+**The second abort is my own fault and worth writing down.** I set `G1_LL_RIG_YAW=0` to
+remove the spawn-yaw confound the code itself documents. That knob does not do what its
+name suggests: `sim_side.py:310` captures the robot's real spawn pose, and the override
+at `:333` then **replaces the quaternion** — so the rig pins the base to a yaw the robot
+was never spawned at and twists it 90° against its own planted feet. The ankle saturates
+at its 35 Nm limit (`|tau|max=35.00 sat=5/29` through the whole hold) and rings past
+35 rad/s. Removed; both sides now spawn from the same world config, which is all the A/B
+needs. **Never use `G1_LL_RIG_YAW` with a rig-held base** unless the spawn yaw is changed
+to match.
+
+**Two properties of the upstream guard nobody had recorded**, both from its source:
+
+1. It is **one-sided** — `body_dq[i] > 35`, not `|body_dq[i]|`. A joint at −40 rad/s
+   passes. It therefore looks intermittent when it is not.
+2. **`--disable-crc-check` disables it too.** The same flag gates both. Every earlier
+   C-39 run carrying `SONICFLAGS=--disable-crc-check` had **no velocity guard at all**,
+   which is exactly why those runs reached the rig release and these did not. The flag
+   is not the no-op its name implies, and any "SONIC fell" row should be re-read with
+   that in mind.
+
+### 1f. Two more latent repo defects fixed
+
+* **The `HAND=none` report line printed no base height and no pitch.** The whole line was
+  one conditional expression across implicitly concatenated f-strings, and Python
+  concatenates *before* it applies the conditional — so the entire prefix
+  (`[lowlevel-sim] t=`, mode, rtf, `base_z`, `pitch`, `roll`, `|tau|max`) belonged to the
+  `has_hands` branch alone. Every bare-robot run in this campaign printed a bare
+  `knee_L=… hip_p_L=…`, i.e. **the two numbers every C-39 verdict is read from were
+  missing**, and a bare run looked silent rather than wrong.
+* Editing a shell script while `bash` is still executing it corrupts the running
+  instance — bash reads the file incrementally. That produced a phantom
+  `line 81: is: command not found` on an untouched comment. Runs are no longer started
+  from a script that is about to be edited.

@@ -44,12 +44,19 @@ esac
 
 echo "=== C-39 A/B: asset=$ASSET  hand=$HAND_ARG  dur=${DUR}s ==="
 
+# G1_LL_RIG_YAW is deliberately NOT set. It looks like the right way to remove the
+# spawn-yaw confound and it is not: sim_side captures the real spawn pose and then the
+# override REPLACES the quaternion, so the rig pins the base to a yaw the robot was
+# never spawned at and twists it 90 degrees against its own planted feet. Measured
+# consequence: the ankle and wrist saturate and ring past 35 rad/s, and SONIC's own
+# velocity guard aborts the controller before the rig ever releases. Both sides spawn
+# from the same world config, so the yaw is identical between them either way -- which
+# is all this A/B needs.
 # ---- 1. sim -----------------------------------------------------------------
 docker rm -f "$SIM_CONTAINER" >/dev/null 2>&1 || true
 env -u ROBOT_ID ROBOT=g1 TWIN=1 TWIN_CAMERA=0 TWIN_LIDAR=0 HAND="$HAND_ARG" SIM_WORLD=hospital \
   G1_CONTROL=lowcmd G1_LL_FIX_BASE=until_commanded G1_LL_RIG_RELEASE_S=30 \
   G1_LL_GT_TRACE=1 G1_LL_REPORT_STEPS=500 G1_USD_OVERRIDE="$OVERRIDE" \
-  G1_LL_RIG_YAW=0 \
   bash "$DEMO_DIR/scripts/01_start_sim.sh"
 
 # ---- 2. bridge --------------------------------------------------------------
