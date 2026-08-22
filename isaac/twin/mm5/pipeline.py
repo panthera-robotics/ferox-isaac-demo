@@ -499,6 +499,8 @@ class MM5Pipeline:
                      f"bodies -- route inactive, contacts stay UNKNOWN (not zero)")
             return
         self._creporter = ContactReporter(log=self.log)
+        # Physics substep, so counts() can turn PhysX's per-substep impulse into a force.
+        self._creporter.dt = float(getattr(self.cfg, "physics_dt", 1.0 / 200.0))
         if self._creporter.attach(self.stage, paths, obj.GetPath().pathString):
             self._creporter_obj = object_name
             self._hand_body_names = set(want)
@@ -675,6 +677,51 @@ class MM5Pipeline:
                     return
                 n, tot, _ = fc
                 self.trial.grip_contacts = n
+                # THE GRIP DIAGNOSTIC. Three numbers decide whether ~0.5 N is a position
+                # error problem, a gain problem, or a clamp problem, and they have never
+                # been printed together:
+                #   q vs target  -- is overclose actually commanding PAST contact, or did
+                #                   the finger reach its target and stop generating error?
+                #   |tau|        -- is the drive at the URDF effort clamp (ceiling) or
+                #                   far below it (gain/error too small)?
+                #   force        -- what the fingertips actually deliver, in newtons.
+                try:
+                    qh = np.asarray(self.art.get_joint_positions(), np.float32)[self.hand_idx]
+                    tgt = np.asarray(self._hand_target, np.float32)
+                    err = tgt - qh
+                    eff = None
+                    try:
+                        eff = np.asarray(self.view.get_measured_joint_efforts())
+                        eff = eff.reshape(-1, eff.shape[-1])[0][self.hand_idx]
+                    except Exception:
+                        pass
+                    # WHICH joints carry the error. C-13 holds the Dex5's passive
+                    # fingers at zero, and a passive joint has no drive -- so a large
+                    # err[max] on a passive joint is not evidence of grip demand at all.
+                    # WHICH links are touching. 4 contacts that are all on the same
+                    # side of the can push it away; 2 that oppose each other hold it.
+                    # The count alone cannot tell those apart, and "object rose -0.018 m"
+                    # with 47 N of contact is exactly what non-opposing contact looks like.
+                    try:
+                        per = fc[2] if len(fc) > 2 else []
+                        names_sorted = sorted(self._creporter._finger_paths)
+                        hot = [(names_sorted[i].rsplit("/", 1)[-1], round(float(v), 1))
+                               for i, v in enumerate(per) if v > 0.0]
+                        self.log(f"[grip] contact links: {hot}")
+                    except Exception as exc:
+                        self.log(f"[grip] contact-link breakdown failed: {exc!r}")
+                    j_err = int(np.argmax(err))
+                    self.log(f"[grip] worst-err joint idx={j_err} "
+                             f"q={float(qh[j_err]):+.3f} tgt={float(tgt[j_err]):+.3f} "
+                             f"driven_reached={int(np.sum(np.abs(err) < 0.02))}/{len(err)}")
+                    self.log(f"[grip] q[max]={float(qh.max()):+.3f} "
+                             f"target[max]={float(tgt.max()):+.3f} "
+                             f"err[max]={float(err.max()):+.3f} rad "
+                             f"kp={self.cfg.grip_kp} -> demand={float(err.max())*self.cfg.grip_kp:.2f} Nm"
+                             + (f" |tau|max={float(np.abs(eff).max()):.3f} Nm" if eff is not None else "")
+                             + f"  contacts={n} force={tot:.2f} N")
+                except Exception as exc:
+                    self.log(f"[grip] diagnostic failed: {exc!r}")
                 self.trial.grip_force_n = round(tot, 3)
                 self.log(f"closed: {n} finger links in contact, {tot:.2f} N total")
                 # LIFT GATE. Lifting on "the fingers finished moving" is what produced

@@ -35,6 +35,9 @@ class ContactReporter:
         self._finger_paths = set()
         self._target_prefix = ""
         self._hits = {}          # finger path -> accumulated |impulse| this window
+        self._last = {}          # finger path -> LAST substep impulse magnitude (N*s)
+        self._n_reports = 0
+        self.dt = 1.0 / 200.0    # physics substep; set by the caller
         self.available = False
         self._decode = None
 
@@ -106,11 +109,27 @@ class ContactReporter:
                 for i in range(h.contact_data_offset,
                                h.contact_data_offset + h.num_contact_data):
                     d = contact_data[i]
-                    imp += abs(float(d.impulse[0])) + abs(float(d.impulse[1])) \
-                        + abs(float(d.impulse[2]))
+                    # VECTOR magnitude. Summing |x|+|y|+|z| is an L1 norm and overstates
+                    # a diagonal contact by up to sqrt(3).
+                    imp += float((float(d.impulse[0]) ** 2
+                                  + float(d.impulse[1]) ** 2
+                                  + float(d.impulse[2]) ** 2) ** 0.5)
             except Exception:
-                imp = max(imp, 1e-6)      # a pair was reported; count the touch
+                imp = max(imp, 1e-9)      # a pair was reported; count the touch
+            # PhysX reports an IMPULSE in N*s for this substep, not a force. Keeping the
+            # LAST substep's impulse per finger (rather than a running sum over an
+            # unknown number of callbacks) makes `counts()` able to divide by dt and
+            # report an instantaneous force. The previous code summed impulses across
+            # every callback since the last read and printed the total as "N", so the
+            # 0.48 that the first closure reported was never newtons and could not be
+            # compared against the ~3.4 N a 0.349 kg can needs.
+            # PEAK over the window, not the last substep. "Last" made a contact that
+            # happened mid-closure vanish if the final substep was free, which turned a
+            # real touch into contacts=0 -- under-reporting is as bad as the impulse/force
+            # confusion it replaced.
+            self._last[finger] = max(self._last.get(finger, 0.0), imp)
             self._hits[finger] = self._hits.get(finger, 0.0) + imp
+            self._n_reports += 1
 
     def _is_target(self, path):
         if path.startswith(self._target_prefix):
@@ -134,13 +153,20 @@ class ContactReporter:
 
     # ----------------------------------------------------------------- output
     def counts(self, reset=True):
-        """(n_fingers_touching, total_impulse, per_finger) or None if unavailable."""
+        """(n_fingers_touching, total_force_N, per_finger_N) or None if unavailable.
+
+        Force, not impulse: PhysX hands back an impulse in N*s for the substep, so the
+        instantaneous normal force is `impulse / dt`. Reported per finger from that
+        finger's most recent contact substep.
+        """
         if not self.available:
             return None
-        per = dict(self._hits)
+        last = dict(self._last)
         if reset:
             self._hits = {}
-        mags = [per.get(f, 0.0) for f in sorted(self._finger_paths)]
+            self._last = {}
+        dt = max(float(self.dt), 1e-9)
+        mags = [last.get(f, 0.0) / dt for f in sorted(self._finger_paths)]
         return sum(1 for m in mags if m > 0.0), float(sum(mags)), mags
 
     def close(self):

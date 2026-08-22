@@ -210,7 +210,20 @@ class MM5Config:
     contact_sensor_paths: tuple = ()
     # v7: "report" = PhysX contact-report callback (default), "" = disable.
     contact_route: str = "report"
-    grasp_clearance: float = 0.010   # fingers must pass the widest part before closing
+    # NEGATIVE on purpose. stand-off = measured finger convergence + this. With +0.010 the
+    # convergence point lands 10 mm SHORT of the can's centre, so the can sits at the very
+    # edge of the closing envelope: measured 1 finger in contact at 38 N peak while 11 of
+    # 20 joints closed on air. Pulling the palm 15 mm closer puts the convergence point
+    # PAST the centre, so the fingers close BEHIND the widest part and can oppose each
+    # other. Force was never the problem -- 38 N against the ~3.4 N a 0.349 kg can needs.
+    #
+    # -0.030 rather than -0.015 because of WHICH links touch. At -0.015 the contacts are
+    # Link_14R (thumb distal, 6.8 N), Link_24R (2.8 N) and Link_34R (0.5 N) -- all DISTAL.
+    # That is a three-point fingertip pinch on a smooth cylinder: the thumb genuinely
+    # opposes two fingers, and it still slips under lift ("object rose +0.001 m"), because
+    # a tip pinch has almost no contact area and the can rolls out of it. Seating the can
+    # 15 mm deeper brings the middle and proximal links onto it, which is a wrap.
+    grasp_clearance: float = -0.030   # fingers must pass the widest part before closing
     pregrasp_extra: float = 0.085    # pre-grasp this much further out along the axis
     place_from_workspace: bool = False
     target_r: float = 0.315         # can this far from the RIGHT SHOULDER (0.30-0.33)

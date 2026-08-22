@@ -1,0 +1,29 @@
+[mm5] t=   0.00 IDLE     finger drives -> kp 5.0 kd 0.1
+[mm5] t=   3.51 IDLE     [contact] contact-report route ACTIVE: 22 prim(s), 21 finger link(s), target /World/Env/objects/soup_can
+[mm5] t=   3.51 APPROACH trial 1 seed=20260902 object=soup_can at [-2.5492  2.2651  0.9498]
+[mm5] t=   9.52 REACH    palm at [-2.199  1.899  0.706], object at [-2.549  2.265  0.951]
+[mm5] t=  10.02 REACH      d=   211 mm  palm=[-2.323  2.002  0.798] armq=[ 0.457 -0.075  0.238  0.067]
+[mm5] t=  13.31 REACH      palm quat=[ 0.8606 -0.0095  0.0753  0.5036]
+[mm5] t=  13.31 REACH      palm local x->[ 0.481  0.865 -0.139] y->[-0.868  0.493  0.059] z->[0.12  0.092 0.988]
+[mm5] t=  13.31 DESCEND  pre-grasp reached, 80 mm
+[mm5] t=  24.80 GRASP    at grasp pose, 25 mm
+[mm5] t=  24.80 GRASP    finger drives -> kp 20.0 kd 0.5
+[mm5] t=  27.80 GRASP    [grip] contact links: [('Link_14R', 6.8), ('Link_24R', 2.8), ('Link_34R', 0.5)]
+[mm5] t=  27.80 GRASP    [grip] worst-err joint idx=0 q=+0.680 tgt=+1.600 driven_reached=11/20
+[mm5] t=  27.80 GRASP    [grip] q[max]=+1.600 target[max]=+1.600 err[max]=+0.920 rad kp=20.0 -> demand=18.40 Nm |tau|max=0.024 Nm  contacts=3 force=10.14 N
+[mm5] t=  27.80 GRASP    closed: 3 finger links in contact, 10.14 N total
+[mm5] t=  35.81 DONE     FAIL NO_GRIP: hand closed, object rose +0.001 m
+[mm5] t=  35.81 DONE     finger drives -> kp 5.0 kd 0.1
+[mm5] t=  35.81 APPROACH trial 2 seed=20260903 object=soup_can at [-2.6293  2.23    0.9498]
+[mm5] t=  41.82 REACH    palm at [-2.279  1.864  0.706], object at [-2.629  2.23   0.951]
+[mm5] t=  42.32 REACH      d=   211 mm  palm=[-2.403  1.967  0.798] armq=[ 0.457 -0.075  0.238  0.067]
+[mm5] t=  42.89 REACH      palm quat=[ 0.7172  0.0471 -0.4782  0.5046]
+[mm5] t=  42.89 REACH      palm local x->[0.033 0.679 0.734] y->[-0.769  0.486 -0.415] z->[-0.638 -0.55   0.538]
+[mm5] t=  42.89 DESCEND  pre-grasp reached, 80 mm
+[mm5] t=  44.11 GRASP    at grasp pose, 23 mm
+[mm5] t=  44.11 GRASP    finger drives -> kp 20.0 kd 0.5
+[mm5] t=  47.11 GRASP    [grip] contact links: [('Link_14R', 22.7), ('Link_22R', 8.9), ('Link_23R', 3.1), ('Link_33R', 13.0)]
+[mm5] t=  47.11 GRASP    [grip] worst-err joint idx=0 q=+0.680 tgt=+1.600 driven_reached=11/20
+[mm5] t=  47.11 GRASP    [grip] q[max]=+1.600 target[max]=+1.600 err[max]=+0.920 rad kp=20.0 -> demand=18.39 Nm |tau|max=0.000 Nm  contacts=4 force=47.71 N
+[mm5] t=  47.11 GRASP    closed: 4 finger links in contact, 47.71 N total
+[mm5] t=  55.12 DONE     FAIL NO_GRIP: hand closed, object rose -0.018 m
