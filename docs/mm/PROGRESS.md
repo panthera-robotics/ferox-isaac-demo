@@ -1,3 +1,79 @@
+# MORNING BLOCK — 2026-08-22 (session 2: decisions 1-4)
+
+## Real vs pipeline-proof — the distinction that matters most in this file
+
+| thing | real? |
+|---|---|
+| **Omni policy walks 6.159 m** vs 6.0 m commanded, upright throughout | **REAL** — measured from base pose |
+| **C-23 fixed**, camera runs, aligned-depth check green | **REAL** — `fx=908.0`, depth 306/1668/2574 mm, zero-fraction 0.0 |
+| **Grasp reaches closure**, contacts measured | **REAL but partial** — 4/20 closures, **0/20 lifts** |
+| `mm_filmtool_*` clips | **PIPELINE PROOF ONLY** — scripted joint sweep, not a capability |
+| MM5 end-to-end | **NOT RUN** — needs a grasp that holds |
+| PiP camera track | **NOT SHOT** — unblocked now, but not filmed |
+
+## Decisions 1–4, all closed
+
+1. **C-39 parked.** Omni is the twin's balancer; SONIC is hardware-only, finetune → Spark.
+   RESUME + CAMPAIGN updated; MM4's balancing requirement is met by omni-hold.
+2. **C-23 RESOLVED — it was `headless: False`.** Eight probes, one variable each: A–G all
+   survive (camera → bridge → articulation → hospital → the twin's own `create_camera` →
+   rclpy threads → TorchScript on CUDA). Probe H is G with that one boolean flipped and
+   dies on render step #2. `run.py` hardcoded it; this box has no logged-in X session.
+   `TWIN_HEADLESS=1` added. **No GPU was ever needed.**
+3. **Grasp descent fixed; grasp not achieved.** `grasp_standoff` defaulted to 0.045 m
+   against a *measured* 0.1366 m finger convergence — target ~92 mm inside the can, stalls
+   80–101 mm. v4 measured it right and applied it only behind `MM5_MEASURE_HAND=1`.
+4. **MM3/MM4 re-measured.** See `evidence/REMEASURE/`.
+
+## Numbers
+
+**Grasp v7, N=20 (10 can, 10 cube):** `0/20 lifts`. `DESCEND_TIMEOUT 16 · NO_CONTACT_AT_CLOSURE 4`.
+First closure in campaign history: `at grasp pose, 23 mm` → `1 finger link, 0.48 N`.
+DESCEND went from a 15 s timeout to **1.08 s**. Closure forces 0.00–0.48 N against a
+0.349 kg can that needs ~3.4 N — an order of magnitude short.
+
+**Re-measurement (post-seqlock):** `lowcmd_sent 499.976 Hz` (sender), **`lowstate_recv
+206.530 Hz`** (client — a fifth of what is published, never measured before),
+`track_err mean 0.1216 rad / max 1.0085 rad` (right_elbow), fail-closed engages, torn
+reads stop growing. MM4's SONIC-side latency figures stay **flagged, not quoted**.
+
+## Media
+
+| file | one-line honest caption |
+|---|---|
+| `ferox_g1_motion_manip_20260822.mp4` (52 s) | "The twin's omni policy walks 6.16 m; everything else here is a pipeline proof or a scorecard." |
+| `mm_omni_walk_{chase,front}_20260822.mp4` | "Omni locomotion policy walking 6.159 m against 6.0 m commanded, measured from the base pose." |
+| `mm_filmtool_{chase,front}_20260822.mp4` | "Film-tool self-test: a scripted joint sweep. The robot is not walking." |
+| `evidence/C23/aligned_depth_20260822.json` | "First working D435i frame from this twin: rgb and depth aligned at 720×1280." |
+
+## Top 3 decisions for Mohammed
+
+1. **Grasp is one defect from working, and it is force, not geometry.** Descent and
+   contact sensing are fixed; closure delivers ~0.5 N where ~3.4 N is needed. Test in this
+   order: GRASP-phase finger gains (kp 20/kd 0.5), `overclose_rad` (0.25), and whether the
+   thumb opposes at all — tip spread is 21.5 mm against a 66 mm can. **That is the whole
+   remaining gap to MM5.**
+2. **Descent is inconsistent, not blocked** — stalls now spread 49–160 mm where they were
+   a constant 92. A constant meant a wrong number; a spread means the IK cannot always
+   reach the pose. Measure per-trial IK residual against joint limits before tuning.
+3. **Audit the config defaults against the measurements.** Three separate multi-day
+   stalls this campaign came from a measured value that never reached the default:
+   `grasp_standoff` (0.045 vs 0.1366), `obj_pose` (fixed for the palm, not the object),
+   and C-23 (diagnosed from what the crash touched, not what the process differed in).
+
+## Exact next command
+
+```bash
+cd ~/panthera/ferox-isaac-demo && git checkout mohammed/mm-campaign && git pull
+# grasp force, the one gap left to MM5:
+ROBOT=g1 TWIN=1 TWIN_HEADLESS=1 TWIN_CAMERA=0 HAND=dex5_1p SIM_WORLD=panthera_lab \
+  MM5=1 MM5_OBJECT=soup_can MM5_TRIALS=5 MM5_FIX_BASE=1 MM5_SURFACE=counter \
+  MM5_MEASURE_HAND=1 TWIN_HAND_KP=60 MM5_OUT=/workspace/ferox_isaac/mm5_force \
+  bash scripts/01_start_sim.sh
+```
+
+---
+
 # MORNING BLOCK — 2026-08-22 (4090 session)
 
 ## Tasks
