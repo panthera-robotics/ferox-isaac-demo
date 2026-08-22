@@ -1,1 +1,10 @@
 label	env	released	base_z	pitch_deg	verdict
+baseline_twin		9.88	+0.107	+88.3	FALLS
+baseline_ref		11.58	+0.098	+86.3	FALLS
+solver_iters	G1_SOLVER_ITERS=64,64	9.18	+0.108	+88.4	FALLS
+friction_mult	G1_PHYSX_TWEAKS=friction_combine=multiply	11.98	+0.107	+88.3	FALLS
+contact_off	G1_PHYSX_TWEAKS=contact_offset=0.002,rest_offset=0.0	11.963	+0.107	+88.3	FALLS
+depen_vel	G1_PHYSX_TWEAKS=max_depen_vel=1.0	15.664	+0.107	+88.4	FALLS
+self_coll	G1_PHYSX_TWEAKS=self_collision=1	11.4	+0.107	+88.4	FALLS
+dt_200hz	G1_PHYSICS_HZ=200	27.57	+0.067	-86.6	FALLS
+implicit_drive	G1_LL_PD=implicit	11.04	+0.095	+85.5	FALLS
