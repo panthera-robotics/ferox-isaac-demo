@@ -1,5 +1,33 @@
 # RESULTS_MM3 — low-level DDS bridge
 
+> ## ⚠ RE-MEASURE: the lowcmd transport was dropping 73% of commands
+>
+> **2026-08-22.** `SeqlockChannel.write()` had three concurrent writers — `rt/lowcmd`
+> plus both `rt/dex3` hand commands, delivered on separate Cyclone listener threads —
+> and no lock. Interleaved `seq++` pairs left the counter odd at rest, so readers spun
+> out their retries and got `None` over a record holding perfectly good data. Measured
+> on the same channel: **73.2 % of reads lost without the lock, 0 % with it**
+> (`evidence/C39/LOWCMD_SEQLOCK.md`).
+>
+> **Every torque, PD-tracking and latency number in this file was taken over that
+> transport** and must be re-measured before it is quoted again. The `_last_cmd_rec`
+> cache kept the PD path alive at roughly a quarter of its intended refresh rate, so
+> runs *looked* healthy — it is the reason the note about fail-closed "flapping on and
+> off every 50–300 ms through a stand that was being commanded the whole time" is in
+> `sim_side.py`.
+>
+> What is **not** affected: message-content and convention work (CRC parity, field
+> layout, the MuJoCo-lie bisect, `CONVENTION_TABLE.md`), which tested what goes on the
+> wire rather than what the robot did with it; and anything computed offline from the
+> asset (per-link mass, CoM, `m·g·h`).
+>
+> Specifically to re-measure: **MM3** (c) `rt/lowstate` rate/parity timing and (a) the
+> PD stand's tracking, **MM4** policy latency (2.62–3.00 ms), LowState age (3.5–5.2 ms),
+> the PD-tracking table, and the 499 Hz lowcmd figure — that rate was counted at the
+> *bridge*, which received everything; the *robot* did not.
+
+
+
 Host: RTX 4080 SUPER 16 GB / driver 580.105.08 (non-4090 box, C-23 applies)
 Date: 2026-08-19 → 2026-08-20
 Verdict: **PASS** (test (a) rewritten by Mohammed as (a1)/(a2) — see below)
