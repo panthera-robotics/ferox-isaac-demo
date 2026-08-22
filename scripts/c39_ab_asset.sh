@@ -67,6 +67,22 @@ docker run -d --name mm3_bridge --network host --ipc host --user 1234:1234 \
 sleep 5
 
 # ---- 3. SONIC ---------------------------------------------------------------
+# SONICFLAGS defaults to --disable-crc-check, and the reason is NOT the CRC.
+# The same flag gates upstream's joint-velocity guard (`body_dq[i] > 35 &&
+# !disable_crc_check_`, g1_deploy_onnx_ref.cpp:2832), and the twin's own idle hold
+# rings a joint past 35 rad/s while the rig is still holding the base -- measured on
+# the Dex5 robot (right_wrist_roll, 35.367) AND on the bare one (left_ankle_roll,
+# 35.982), with and without a rig yaw override. With the guard live SONIC aborts the
+# whole control system before the rig ever releases, so the run never reaches the
+# balance question at all and the verdict is INVALID rather than informative.
+#
+# Turning it off is what every earlier C-39 run in this campaign did, whether or not
+# that was understood at the time, and it is applied IDENTICALLY to both sides, so the
+# A/B still differs in the body and nothing else. The ringing itself is a real twin
+# defect and is recorded as one -- see evidence/C39/SONIC_ABORT.md -- but it is not
+# what this experiment is asking about.
+SONICFLAGS="${SONICFLAGS:---disable-crc-check}"
+echo "  SONIC flags: $SONICFLAGS"
 # --iface lo is required: SONIC takes its DDS interface as argv[1] and a bridge on
 # any other interface is simply never discovered (RESULTS_MM4 "Reproduce").
 docker rm -f mm4_sonic >/dev/null 2>&1 || true
@@ -79,7 +95,8 @@ docker run -d --name mm4_sonic --network host --gpus all \
     --obs-config policy/sonic_v1_1/observation_config.yaml \
     --encoder-file policy/sonic_v1_1/model_encoder.onnx \
     --planner-file planner/target_vel/V2/planner_sonic.onnx \
-    --input-type zmq_manager --output-type all --zmq-host localhost --zmq-port 5556 >/dev/null
+    --input-type zmq_manager --output-type all --zmq-host localhost --zmq-port 5556 \
+    $SONICFLAGS >/dev/null
 
 # ---- 4. drive (start held the whole run; the stand IS the experiment) --------
 docker rm -f mm4_drive >/dev/null 2>&1 || true

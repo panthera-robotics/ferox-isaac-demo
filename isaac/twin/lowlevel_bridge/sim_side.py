@@ -834,6 +834,16 @@ class LowLevelSimBridge:
                 f"|tau|max={float(np.abs(self._tau_cmd).max()):6.2f} sat={sat}/29 "
                 f"knee_L={float(r[3]):+.3f} hip_p_L={float(r[0]):+.3f} "
                 f"torn={self.n_torn_reads}")
+        if sat:
+            # WHICH joints are clamped, not just how many. "sat=5/29" was in every
+            # report line of this campaign and never once said which five, so a hold
+            # that is quietly fighting its own limits reads the same as a healthy one.
+            # It matters directly: SONIC aborts the whole controller when any joint
+            # crosses 35 rad/s, and a joint pinned at its torque clamp is the one that
+            # rings there.
+            idx = np.nonzero(np.abs(self._tau_cmd) >= URDF_EFFORT_LIMIT - 1e-3)[0]
+            line += " sat_j=" + ",".join(
+                f"{SDK_JOINT_NAMES[i]}:{float(self._tau_cmd[i]):+.1f}" for i in idx[:6])
         if self.has_hands:
             hq0 = float(np.asarray(self.art.get_joint_positions(),
                                    np.float32)[self.hand_sim_idx["left"][0]])
