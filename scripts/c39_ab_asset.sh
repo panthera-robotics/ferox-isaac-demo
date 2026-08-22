@@ -12,6 +12,13 @@
 # Reads the verdict off the bridge's own report line (base_z / pitch), which is the
 # same instrument every earlier C-39 run was judged by.
 set -e
+# ROBOT must be set BEFORE lib/env.sh is sourced. env.sh derives ROBOT_ID from ROBOT
+# and EXPORTS it, and every later `ROBOT=g1 ... 01_start_sim.sh` re-sources env.sh with
+# ROBOT_ID already in the environment, where `${ROBOT_ID:-...}` keeps the inherited
+# value. Sourcing this file with ROBOT unset therefore pins ROBOT_ID=go2_01 for the
+# rest of the run, and the G1 twin dies at world load with "contract namespace
+# /ferox/g1_01 != --ros_namespace /ferox/go2_01".
+export ROBOT=g1
 source "$(dirname "$0")/lib/env.sh"
 
 ASSET="${1:?usage: c39_ab_asset.sh twin|ref [seconds]}"
@@ -33,9 +40,10 @@ echo "=== C-39 A/B: asset=$ASSET  hand=$HAND_ARG  dur=${DUR}s ==="
 
 # ---- 1. sim -----------------------------------------------------------------
 docker rm -f "$SIM_CONTAINER" >/dev/null 2>&1 || true
-ROBOT=g1 TWIN=1 TWIN_CAMERA=0 TWIN_LIDAR=0 HAND="$HAND_ARG" SIM_WORLD=hospital \
+env -u ROBOT_ID ROBOT=g1 TWIN=1 TWIN_CAMERA=0 TWIN_LIDAR=0 HAND="$HAND_ARG" SIM_WORLD=hospital \
   G1_CONTROL=lowcmd G1_LL_FIX_BASE=until_commanded G1_LL_RIG_RELEASE_S=30 \
   G1_LL_GT_TRACE=1 G1_LL_REPORT_STEPS=500 G1_USD_OVERRIDE="$OVERRIDE" \
+  G1_LL_RIG_YAW=0 \
   bash "$DEMO_DIR/scripts/01_start_sim.sh"
 
 # ---- 2. bridge --------------------------------------------------------------

@@ -59,3 +59,58 @@ Written to `evidence/C39/CORRECTION.md` §4; `VERDICT.md` carries a superseded-i
 banner and a withdrawal footer. Its mass diff, foot geometry and contact-API rows stand.
 
 **Live question, and the only one: SONIC-in-twin vs SONIC-in-MuJoCo.**
+
+---
+
+## Task 1 — the C-39 decisive A/B — **IN PROGRESS**
+
+### 1a. Box brought up from nothing
+
+| step | result |
+|---|---|
+| `nvidia-smi` gate | **RTX 4090, 24564 MiB, driver 580.105.08 — PASS** |
+| Isaac Sim 5.1.0 image | pulled, 22.9 GB |
+| `ferox/msgs:humble`, `ferox/nav:humble` | built by `00_bootstrap.sh` |
+| `ferox/twin-lowlevel:humble` | built (context: `unitree_sdk2_python` + `unitree_ros2`'s `cyclonedds_ws/src/unitree`) |
+| `ferox/sonic-deploy:v1.1-x86_64` | built from upstream pin `54d0b10`, HF artifacts `sha256` in `logs/sonic_artifacts.sha256`; `--help` runs |
+| twin sim boot, `G1_CONTROL=lowcmd` | **reaches the main loop**, bridge PD running, GT trace emitting |
+
+### 1b. The reference body is now an Isaac asset — **DONE**
+
+`g1_29dof_old.xml` through the stock MJCF importer, `isaac/assets/g1_ref_mjcf/` (27 MB):
+
+    revolute joints in USD: 29
+    links with mass: 30  total 35.112142 kg
+    OK: mass matches the offline MJCF sum (35.112142) within 0.05
+    OK: all 29 MJCF hinge joints present by name
+
+"Unmodified" is evidenced, not claimed: every field of `MJCFCreateImportConfig` is read
+back into `evidence/C39/import_mjcf.txt` before the import runs, and the report lists
+the five deltas with before/after values — `fix_base` False (the reference is a
+floating-base model), `make_default_prim` True, `create_physics_scene` False (run.py
+owns the world's scene), `import_inertia_tensor` True, `self_collision` False.
+
+The bridge maps its 29 joints **by name** and the MJCF's names are the canonical G1
+set, so the identical fork drives the reference body with no code branch at all. The
+IMU is read off the articulation root pose, which is asset-agnostic; the hand maps are
+already tolerant of a hand-less robot (`HAND=none` has always been a supported variant).
+
+### 1c. Six defects found bringing this up — three mine, three latent in the repo
+
+| # | defect | mine? | fix |
+|---|---|---|---|
+| 1 | repo cloned 0700 (a `umask 077` from PAT staging leaked into that clone), so Isaac's UID 1234 could not read the mount — `cd: /workspace/ferox_isaac: Permission denied` | **mine** | `chmod -R a+rX` on the repos; output dirs chowned to 1234. **No permission change to `/root`** — the bind mount short-circuits the path chain, so only the target dir's mode matters |
+| 2 | `git lfs pull -I <pattern>` silently no-ops on this clone; `libunitree_sdk2.a` stayed a 133-byte pointer and the SONIC link died with "file format not recognized; treating as linker script" | **mine** | `git lfs fetch --include=… && git lfs checkout <dir>` |
+| 3 | the reference **meshes** were also pointers (132 bytes) — the MJCF importer reported "Asset convert failed: Unsupported Format" and then a Fatal on a NULL stage | **mine** | fetched `gear_sonic/data/robots/g1/**` (998 MB) |
+| 4 | the MJCF importer writes a temp USD **next to each STL**, so a read-only staged mesh dir fails conversion with the permission never mentioned | latent | stage `a+rwX`, documented in the script |
+| 5 | `01_start_sim.sh` passes every knob as `-e VAR="${VAR:-}"`, so an unset `G1_LL_RIG_YAW` arrives as `""` and `float("")` **raises inside the physics callback**, taking Isaac down 370 s into a boot with the traceback buried in a warning storm | **latent, repo** | empty now means unset |
+| 6 | `cyclonedds.xml.template` hardcoded a second `<NetworkInterface name="lo"/>`, so `FEROX_DDS_INTERFACE=lo` selected `lo` twice → Cyclone refused every `rmw_create_node` | **latent, repo** | loopback moved into the renderer, added only when it is not already the pinned interface; `tailscale0`/autodetect render byte-identically |
+| 7 | `c39_ab_asset.sh` sourced `lib/env.sh` before setting `ROBOT`, pinning an exported `ROBOT_ID=go2_01` that survived into the child launcher → "contract namespace /ferox/g1_01 != --ros_namespace /ferox/go2_01" | **mine** | `export ROBOT=g1` before the source, `env -u ROBOT_ID` on the child |
+
+### 1d. One confound removed before the A/B runs
+
+`sim_side.py` already records that the reference MuJoCo sim spawns at **identity yaw**
+while the twin's hospital spawn sits at **90°**, and that `facing=(1,0,0)` therefore
+means "hold heading" in MuJoCo and "turn 90° right now" on the twin. Both sides of this
+A/B run `G1_LL_RIG_YAW=0`, so the two runs differ in **body and nothing else** — which
+is the entire point of the experiment.
