@@ -564,6 +564,29 @@ def main() -> int:
             "The PiP track is a 4090 item -- see docs/mm/CAMPAIGN.md status header.")
 
     os.makedirs(args.out, exist_ok=True)
+
+    # IMPORT run.py BEFORE any render product exists.
+    #
+    # --drive policy died in libomni.syntheticdata + libomni.graph.core before its first
+    # print, i.e. inside `import run as twin_run` -- which _policy_drive does AFTER
+    # scene() and Shot() have already created render products and warmed them. Importing
+    # run.py pulls in its omni/isaacsim module tree, and doing that once the SDG pipeline
+    # is live is the same shape as C-23: a render product exists, then something touches
+    # the graph, then the process dies.
+    #
+    # orbit_walk renders 240 frames through the identical camera code and never imports
+    # run.py, which is what points at the import rather than at the cameras.
+    if args.drive == "policy":
+        # run.py lives beside the twin's assets, not next to this script when it is
+        # staged into /tmp/isaacrun (which it must be -- CLAUDE.md: Isaac scripts never
+        # run from bare /tmp).
+        for _p in ("/workspace/ferox_isaac",
+                   os.path.dirname(os.path.dirname(os.path.abspath(__file__)))):
+            if os.path.isfile(os.path.join(_p, "run.py")) and _p not in sys.path:
+                sys.path.insert(0, _p)
+        import run as _twin_run_preload           # noqa: F401
+        print("  pre-imported run.py before any render product existed", flush=True)
+
     world, art = scene(args.asset, own_articulation=(args.drive != "policy"))
     kinds = [k.strip() for k in args.shots.split(",") if k.strip()]
     shots = [Shot(k, world, k) for k in kinds]

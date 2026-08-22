@@ -1,0 +1,32 @@
+    t= 0.00s cmd=(0.0, 0.0, 0.0) pos=(-0.000, 0.000, 0.799) playing=True sim_t=0.020
+    t= 0.50s cmd=(0.0, 0.0, 0.0) pos=(0.011, -0.002, 0.790) playing=True sim_t=0.520
+    t= 1.00s cmd=(0.0, 0.0, 0.0) pos=(0.015, -0.007, 0.790) playing=True sim_t=1.020
+    t= 1.50s cmd=(0.0, 0.0, 0.0) pos=(0.019, -0.010, 0.790) playing=True sim_t=1.525
+    t= 2.00s cmd=(0.5, 0.0, 0.0) pos=(0.019, -0.009, 0.790) playing=True sim_t=2.025
+    t= 2.50s cmd=(0.5, 0.0, 0.0) pos=(0.175, -0.031, 0.757) playing=True sim_t=2.525
+    t= 3.00s cmd=(0.5, 0.0, 0.0) pos=(0.448, -0.011, 0.755) playing=True sim_t=3.025
+    t= 3.50s cmd=(0.5, 0.0, 0.0) pos=(0.714, -0.005, 0.766) playing=True sim_t=3.525
+    t= 4.00s cmd=(0.5, 0.0, 0.0) pos=(0.973, -0.003, 0.763) playing=True sim_t=4.025
+    t= 4.50s cmd=(0.5, 0.0, 0.0) pos=(1.225, -0.005, 0.762) playing=True sim_t=4.525
+    t= 5.00s cmd=(0.5, 0.0, 0.0) pos=(1.476, -0.010, 0.763) playing=True sim_t=5.025
+    t= 5.50s cmd=(0.5, 0.0, 0.0) pos=(1.727, -0.011, 0.764) playing=True sim_t=5.525
+    t= 6.00s cmd=(0.5, 0.0, 0.0) pos=(1.979, -0.004, 0.765) playing=True sim_t=6.025
+    t= 6.50s cmd=(0.5, 0.0, 0.0) pos=(2.229, 0.003, 0.761) playing=True sim_t=6.525
+    t= 7.00s cmd=(0.5, 0.0, 0.0) pos=(2.476, 0.004, 0.763) playing=True sim_t=7.025
+    t= 7.50s cmd=(0.5, 0.0, 0.0) pos=(2.727, 0.008, 0.763) playing=True sim_t=7.525
+    t= 8.00s cmd=(0.5, 0.0, 0.0) pos=(2.977, 0.018, 0.766) playing=True sim_t=8.025
+    t= 8.50s cmd=(0.5, 0.0, 0.0) pos=(3.228, 0.031, 0.761) playing=True sim_t=8.525
+    t= 9.00s cmd=(0.5, 0.0, 0.0) pos=(3.473, 0.041, 0.762) playing=True sim_t=9.020
+    t= 9.50s cmd=(0.5, 0.0, 0.0) pos=(3.723, 0.048, 0.762) playing=True sim_t=9.520
+    t=10.00s cmd=(0.5, 0.0, 0.0) pos=(3.972, 0.063, 0.765) playing=True sim_t=10.020
+    t=10.50s cmd=(0.5, 0.0, 0.0) pos=(4.222, 0.083, 0.764) playing=True sim_t=10.520
+    t=11.00s cmd=(0.5, 0.0, 0.0) pos=(4.469, 0.099, 0.761) playing=True sim_t=11.020
+    t=11.50s cmd=(0.5, 0.0, 0.0) pos=(4.717, 0.113, 0.764) playing=True sim_t=11.520
+    t=12.00s cmd=(0.5, 0.0, 0.0) pos=(4.966, 0.129, 0.764) playing=True sim_t=12.020
+    t=12.50s cmd=(0.5, 0.0, 0.0) pos=(5.217, 0.154, 0.765) playing=True sim_t=12.520
+    t=13.00s cmd=(0.5, 0.0, 0.0) pos=(5.465, 0.179, 0.761) playing=True sim_t=13.020
+    t=13.50s cmd=(0.5, 0.0, 0.0) pos=(5.712, 0.200, 0.763) playing=True sim_t=13.520
+    t=14.00s cmd=(0.0, 0.0, 0.0) pos=(5.962, 0.221, 0.763) playing=True sim_t=14.020
+    t=14.50s cmd=(0.0, 0.0, 0.0) pos=(6.111, 0.239, 0.772) playing=True sim_t=14.520
+    t=15.00s cmd=(0.0, 0.0, 0.0) pos=(6.154, 0.245, 0.790) playing=True sim_t=15.020
+    t=15.50s cmd=(0.0, 0.0, 0.0) pos=(6.159, 0.243, 0.789) playing=True sim_t=15.520
