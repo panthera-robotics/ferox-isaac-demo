@@ -173,6 +173,7 @@ docker exec -d \
   -e TWIN="${TWIN:-0}" \
   -e CAMERA_TF="${CAMERA_TF:-0}" \
   -e TWIN_DUMP_SDG="${TWIN_DUMP_SDG:-0}" \
+  -e TWIN_HEADLESS="${TWIN_HEADLESS:-0}" \
   -e TWIN_CAMERA="${TWIN_CAMERA:-1}" \
   -e TWIN_CAMERA_ROUTE="${TWIN_CAMERA_ROUTE:-offscreen}" \
   -e TWIN_LIDAR="${TWIN_LIDAR:-1}" \

@@ -1,0 +1,29 @@
+{
+  "K": {
+    "fx": 907.9999981795766,
+    "fy": 907.9999889965519,
+    "cx": 640.0,
+    "cy": 360.0,
+    "hfov_deg": 70.3558702178002,
+    "vfov_deg": 43.25425304361386
+  },
+  "rgb_shape": [
+    720,
+    1280,
+    3
+  ],
+  "depth_shape": [
+    720,
+    1280
+  ],
+  "depth_mm": {
+    "min": 306,
+    "median": 1668,
+    "max": 2574,
+    "zero_fraction": 0.0,
+    "finite_fraction": 1.0
+  },
+  "aligned": true,
+  "route": "annotator (no OmniGraph image writer)",
+  "headless": true
+}

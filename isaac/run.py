@@ -29,8 +29,25 @@ from isaacsim import SimulationApp
 if os.environ.get("FEROX_REUSE_KIT_APP", "0") == "1":
     simulation_app = None
 else:
+    # TWIN_HEADLESS=1 runs the app headless. **This is C-23.**
+    #
+    # Isolated 2026-08-22 by probes A-H: camera + render product + ROS 2 bridge +
+    # articulation + hospital + the twin's own create_camera + two rclpy executor
+    # threads + a TorchScript policy on CUDA all survive together under
+    # `headless: True` (probe G). Flip that ONE field to False -- what this line did
+    # unconditionally -- and the process segfaults on the SECOND world.step(render=True)
+    # (probe H), in libomni.syntheticdata + libomni.graph.image, which is C-23's exact
+    # signature on both a 4080 and a 4090.
+    #
+    # headless=False asks Kit for a windowed renderer. On a box with no logged-in X
+    # session GLFW init fails (the log is full of "GLFW initialization failed"), and the
+    # camera render path then dies. The campaign spent five boots, two GPUs and a
+    # "do not work around it, it is the GPU" disposition on this.
+    #
+    # Default stays False so an operator with a real desktop still gets the viewport.
+    _headless = os.environ.get("TWIN_HEADLESS", "0") == "1"
     simulation_app = SimulationApp(
-        {"renderer": "RaytracedLighting", "headless": False}
+        {"renderer": "RaytracedLighting", "headless": _headless}
     )
 
 import argparse
