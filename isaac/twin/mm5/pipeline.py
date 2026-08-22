@@ -176,6 +176,52 @@ class MM5Pipeline:
         return None
 
     def obj_pose(self, name):
+        """World position of an object, from PHYSICS -- the same trap as palm_pose().
+
+        This used ComputeLocalToWorldTransform, and that is exactly the defect the palm
+        docstring above describes: PhysX writes to Fabric and does NOT write back to
+        USD, so the USD route returns the AUTHORED pose and never moves. It was fixed
+        for the palm and left in place for the OBJECT, where it is worse -- the object
+        is the thing the whole pipeline servos toward.
+
+        What it cost: `stage_object()` moves the can to the table's near edge (the far
+        pose is outside this arm's workspace) and randomises it over a +-6 cm box, all
+        in physics. Every reader here saw the authored pose regardless, 138 mm away and
+        166 mm further out than the staged one, so every trial in v2..v6 reached for a
+        can that was not there and stalled short. It also explains the one symptom v3
+        recorded and could not account for: a stall distance that "barely moves although
+        the can is randomised over a +-6 cm box" -- the measurement never moved, so the
+        stall could not.
+
+        One SingleRigidPrim per OBJECT, created once and cached. Never one per body:
+        constructing 79 of those mid-run invalidates the physics view outright.
+        """
+        if not hasattr(self, "_obj_rigids"):
+            self._obj_rigids = {}
+        rp = self._obj_rigids.get(name)
+        if rp is None:
+            prim = self._obj_prim(name)
+            if prim is None:
+                return None
+            try:
+                from isaacsim.core.prims import SingleRigidPrim
+                rp = SingleRigidPrim(prim.GetPath().pathString)
+                try:
+                    rp.initialize()
+                except Exception:
+                    pass
+                self._obj_rigids[name] = rp
+            except Exception as exc:
+                self.log(f"[mm5] object physics handle unavailable ({exc!r}); "
+                         f"falling back to the USD pose, WHICH DOES NOT MOVE")
+                self._obj_rigids[name] = False
+                rp = False
+        if rp is not False:
+            try:
+                pos, _ = rp.get_world_pose()
+                return np.asarray(pos, float)
+            except Exception:
+                pass
         from pxr import UsdGeom, Usd
         p = self._obj_prim(name)
         if p is None:
