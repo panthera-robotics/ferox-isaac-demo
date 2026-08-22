@@ -1,0 +1,16 @@
+{
+  "asset": "/workspace/ferox_isaac/assets/g1_dex5/g1_dex5_1p.usd",
+  "subframes": 16,
+  "shots": [
+    "chase",
+    "front"
+  ],
+  "ghost_max": 0.01,
+  "ghost_score": 0.0012177268669813603,
+  "ghost_pass": true,
+  "frames": 240,
+  "dirs": {
+    "chase": "/tmp/film/orbit2/chase",
+    "front": "/tmp/film/orbit2/front"
+  }
+}

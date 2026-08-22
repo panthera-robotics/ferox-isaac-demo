@@ -223,6 +223,18 @@ def scene(asset, world_usd=None, physics_dt=1.0 / 200.0, render_dt=1.0 / 60.0,
     k.CreateIntensityAttr(2600.0)
     k.CreateAngleAttr(1.0)
     add_reference_to_stage(asset, "/World/G1")
+    # SPAWN HEIGHT. scene() used to drop the reference at the origin, which puts the
+    # G1's legs UNDER the ground plane: the shot renders a robot buried to the pelvis,
+    # arms and head above the floor and nothing below it. The ghost test cannot catch
+    # that -- it measures trails, not whether the subject is intact -- so the first
+    # orbit_walk clip of this session passed the gate at 0.00095 and was unusable.
+    # The policy path already took its z from env.yaml; the scripted path now does too,
+    # with the same default the twin spawns at.
+    from pxr import UsdGeom as _UG
+    _spawn_z = float(os.environ.get("FILM_SPAWN_Z", "0.80"))
+    _xf = _UG.Xformable(world.stage.GetPrimAtPath("/World/G1"))
+    _xf.ClearXformOpOrder()
+    _xf.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, _spawn_z))
     world.reset()
     if not own_articulation:
         # In policy mode the POLICY owns the articulation. Creating a second
