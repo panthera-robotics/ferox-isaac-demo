@@ -1314,8 +1314,21 @@ class RobotRosRunner(object):
 
         # Create robot based on type
         if robot_type == ROBOT_G1:
+            # G1_ART_ROOT names the articulation root prim explicitly, for assets whose
+            # root is not the referenced prim itself. The MJCF-imported reference body
+            # needs it and shows why it is explicit rather than auto-detected: that
+            # asset carries TWO ArticulationRootAPI prims -- `<root>/worldBody` (MuJoCo's
+            # worldbody anchor) and `<root>/pelvis/pelvis` (the actual 30-body chain) --
+            # so anything that guesses can silently pick the empty one. Without it
+            # SingleArticulation resolves nothing and run.py dies on
+            # `list(self.robot.dof_names)` with 'NoneType' object is not iterable.
+            _art_root = os.environ.get("G1_ART_ROOT", "").strip() or None
+            if _art_root:
+                logger.warning("G1_ART_ROOT=%s -- articulation root taken from the "
+                               "environment, not the referenced prim", _art_root)
             self._robot = G1VelocityPolicy(
                 prim_path=robot_root,
+                root_path=_art_root,
                 name="G1",
                 usd_path=usd_path,
                 position=init_pos,

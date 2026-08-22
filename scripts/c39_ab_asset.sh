@@ -36,6 +36,10 @@ case "$ASSET" in
   twin_bare) HAND_ARG=none; OVERRIDE="" ;;
   ref)  HAND_ARG=none
         OVERRIDE=/workspace/ferox_isaac/assets/g1_ref_mjcf/g1_29dof_old.usd
+        # The MJCF import carries TWO articulation roots; this is the 30-body chain.
+        # Named explicitly because the other one (`worldBody`) is an empty anchor and
+        # any auto-detection that picks it fails silently.
+        export G1_ART_ROOT=/World/G1/pelvis/pelvis
         [ -f "$DEMO_DIR/isaac/assets/g1_ref_mjcf/g1_29dof_old.usd" ] || {
           echo "  ✗ reference USD missing; run ./scripts/c39_import_mjcf.sh first"; exit 1; }
         ;;
@@ -74,6 +78,7 @@ docker rm -f "$SIM_CONTAINER" >/dev/null 2>&1 || true
 env -u ROBOT_ID ROBOT=g1 TWIN="$TWIN_LAYER" TWIN_CAMERA=0 TWIN_LIDAR=0 HAND="$HAND_ARG" SIM_WORLD=hospital \
   G1_CONTROL=lowcmd G1_LL_FIX_BASE=until_commanded G1_LL_RIG_RELEASE_S="$RELEASE_S" \
   G1_LL_GT_TRACE=1 G1_LL_REPORT_STEPS=500 G1_USD_OVERRIDE="$OVERRIDE" \
+  G1_ART_ROOT="${G1_ART_ROOT:-}" \
   bash "$DEMO_DIR/scripts/01_start_sim.sh"
 
 # ---- 2. bridge --------------------------------------------------------------

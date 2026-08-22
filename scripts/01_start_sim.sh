@@ -200,6 +200,7 @@ docker exec -d \
   -e TWIN_HAND_KP="${TWIN_HAND_KP:-5.0}" \
   -e TWIN_HAND_KD="${TWIN_HAND_KD:-0.1}" \
   -e G1_USD_OVERRIDE="${G1_USD_OVERRIDE:-}" \
+  -e G1_ART_ROOT="${G1_ART_ROOT:-}" \
   -e G1_CONTROL="${G1_CONTROL:-policy}" \
   -e G1_HANDOFF_S="${G1_HANDOFF_S:-10}" \
   -e G1_HANDOFF_BLEND_S="${G1_HANDOFF_BLEND_S:-1.0}" \
