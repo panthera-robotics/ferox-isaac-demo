@@ -301,3 +301,61 @@ a campaign.
 `grip_contacts = -1` in v5 and v6 means the lift gate never armed and no trial's outcome
 was decided by measured contact. The taxonomy is honest about stage reach and object
 motion; it is silent on whether the fingers touched.
+
+---
+
+# Grasp v7 — contact-report route, counter surface, N=10 soup can
+
+**Verdict: 0/10 = 0.0 %.** Fixed base, real contacts, `cheat_attach` off on every row.
+Balancer: omni policy standing — **SONIC is parked** (C-39, `BISECT_VERDICT.md`), which
+CAMPAIGN §4.4 permits explicitly ("or omni standing if MM4 slips").
+
+```
+10 trials, soup_can, seeds 20260823..20260832, counter (0.90 m)
+success 0/10
+taxonomy: DESCEND_TIMEOUT 9 · REACH_TIMEOUT 1
+```
+
+## What v7 changed, and what each change actually bought
+
+| change | bought |
+|---|---|
+| **PhysX contact-report route** | The v6 blocker is gone: `contact-report route ACTIVE: 22 prim(s), 21 finger link(s)`. No sensor prim, no re-parenting. **Still unexercised** — no trial reached GRASP, so `grip_contacts` is *still* `-1` and this remains unproven at closure |
+| **`obj_pose` reads physics, not USD** | Real defect, fixed. It was returning the authored pose — 138 mm from the truth. **Did not move the outcome** (93→91 mm reach stall) |
+| **staging read-back** | Staging was always applying; the *read* was the liar. Now verified at 0.0 mm |
+| **counter (0.90 m) instead of table (0.75 m)** | **The one change that moved a number.** REACH went from timing out at 30 s to succeeding in **~2.4 s on 9/10** |
+
+## Where the failure now lives, precisely
+
+It has moved from REACH to DESCEND, and the object table says why:
+
+| trial | obj start → obj end | displaced |
+|---|---|---|
+| 3 | [-2.5697, 2.250] → [-2.4061, 2.5827] | **0.37 m** |
+| 6 | [-2.5588, 2.2367] → [-2.4919, 2.6022] | **0.37 m** |
+| 10 | [-2.5979, 2.256] → [-2.5590, 2.5516] | **0.30 m** |
+| 9 | [-2.6406, 2.2672] → unchanged | 0 (never touched it) |
+
+In 8 of 10 the can is **shoved a third of a metre across the counter** and drops ~17 mm
+in z (0.9498 → 0.932) — it is being knocked over. The descent is driving the palm *into*
+the can rather than around it, and then timing out 80–203 mm from the grasp pose.
+
+That is a different failure from every previous version. v2–v6 could not get the arm
+*near* the can; v7 gets there in 2.4 s and then collides with it. The remaining defect is
+in the **descent geometry** — the approach axis and stand-off are computed for a target
+below the shoulder, and on the 0.90 m counter the can sits roughly *level* with it, which
+v3 already identified as needing a per-target axis rather than a top-down one.
+
+## Honest statement of what is NOT known
+
+**Whether the fingers can hold this can is still untested.** No trial has reached GRASP,
+so the contact route has never reported a closure, `grip_contacts` is `-1` on every row,
+and **no `NO_GRIP` row in this campaign is evidence about colliders or grip force.** That
+caveat has been carried since v5 and it still stands.
+
+## Time-box
+
+Grasp exceeded its 90-minute box. Per the brief's fallback rule the deliverable is this
+table with an honest taxonomy rather than an open-ended chase of the descent servo; the
+next session starts at the descent geometry, with REACH already solved and the contact
+route already attached.
