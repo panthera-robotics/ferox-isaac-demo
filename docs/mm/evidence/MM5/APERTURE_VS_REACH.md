@@ -49,3 +49,46 @@ Mohammed's call.
     ROBOT=g1 TWIN=1 TWIN_HEADLESS=1 HAND=dex5_1p SIM_WORLD=panthera_lab MM5=1 \
       MM5_OBJECT=cube_5cm MM5_TRIALS=10 MM5_FIX_BASE=1 MM5_SURFACE=counter \
       MM5_MEASURE_HAND=1 MM5_GRASP_MU=1.2 bash scripts/01_start_sim.sh
+
+---
+
+## Lever (b) tested and it does NOT resolve the conflict
+
+`MM5_TARGET_R` 0.315 → **0.375** (base moved back for elbow room), caging clearance
+`−0.030`, N=10 cube, preflight green:
+
+    IK_INFEASIBLE x5   elbow (3) 2.071 / 2.094 vs 2.044
+                       wrists (5) -1.610 / 1.614 and (6) 1.565 vs 1.564
+    SERVO_SLOW    x1   residual 55 mm
+    TOPPLED       x1   30.4 deg (verified gauge)
+    closures       0
+
+Standing further back does not buy the elbow room the caging pose needs, and it brings the
+**wrists** back to their stops as well — the arm simply runs out of configuration in a
+different way.
+
+## Verdict — the grasp line stops here
+
+**Both authorised levers are exhausted.** (a) wrist-aware IK fixed the wrist limit and made
+pre-grasp reachable and closure repeatable — but only at a stand-off that **pinches**.
+(b) base repositioning does not make the **caging** stand-off reachable.
+
+**At the 0.90 m counter, with this arm and this hand, reach and enclosure cannot be
+satisfied together.** That is a kinematic property of the configuration, not a parameter
+that has been mistuned. Everything downstream of contact — force, friction, contact count,
+thumb opposition, lift vector, lift rate, grip maintenance — is verified working and is
+irrelevant while the hand cannot get around the object.
+
+## Options for Mohammed — none started, all outside the authorised levers
+
+1. **Surface height.** The table (0.75 m) was abandoned as "below this arm's workspace" and
+   the counter (0.90 m) forces the over-flex at caging depth. An **intermediate height**
+   is untested and is the cheapest remaining experiment.
+2. **Object size.** The 66 mm can and 50 mm cube both exceed the 21.5 mm tip spread. A
+   slimmer object would sit between the finger segments at a reachable stand-off.
+3. **Hand.** The Dex5's finger convergence (0.1366 m from the palm) is what sets the
+   caging stand-off. Nothing in software changes that geometry.
+
+**No further grasp sub-hypothesis is opened.** The enclosure logger, the IK classifier and
+the preflight are all in place, so whichever option is chosen can be measured on the first
+run rather than argued.
