@@ -139,6 +139,10 @@ class MM5Config:
     # was introduced to stop a topple that MEASUREMENT LATER SHOWED DOES NOT HAPPEN, and
     # it cost every contact: 0 links at closure. Kept as a knob, off by default.
     thumb_lead: float = 0.0
+    # Radius about the can's vertical axis inside which a finger link counts as "around"
+    # it. The 005 tomato soup can is ~66 mm across, so 45 mm is comfortably inside the
+    # region a caging finger must occupy.
+    enclose_radius_m: float = 0.045
     lift_h: float = 0.14
     # Metres per second the lift target is raised. The trace showed the hand rising 10 cm
     # in 0.5 s and shedding every contact; 0.03 m/s takes ~4.7 s for the full lift_h.

@@ -767,6 +767,31 @@ class MM5Pipeline:
                         self.log(f"[grip] contact links: {hot}")
                     except Exception as exc:
                         self.log(f"[grip] contact-link breakdown failed: {exc!r}")
+                    # ENCLOSURE. The lift trace showed contacts MAINTAINED (1-3 links,
+                    # 35-91 N) with the object rising <= 4 mm: the hand touches the can
+                    # without caging it, so it slides past. The question is geometric and
+                    # has never been asked: at closure, where is every finger link in the
+                    # CAN'S frame, and does anything sit BELOW its centre (i.e. under the
+                    # widest point) so there is something to carry it?
+                    try:
+                        from .dex5_geom import link_transforms
+                        names_l, pos_l, _q_l = link_transforms(self)
+                        oc = np.asarray(self.obj_pose(self.trial.object_name), float)
+                        below = []
+                        for nm, pw in zip(names_l, pos_l):
+                            if not self._is_right_hand_link(nm):
+                                continue
+                            d = np.asarray(pw, float) - oc
+                            r = float(np.hypot(d[0], d[1]))
+                            if r < self.cfg.enclose_radius_m:
+                                below.append((nm, round(float(d[2]) * 1000, 1),
+                                              round(r * 1000, 1)))
+                        under = [b for b in below if b[1] < -5.0]
+                        self.log(f"[enclose] links within {self.cfg.enclose_radius_m*1000:.0f} mm "
+                                 f"of the can axis: {len(below)}; BELOW its centre: "
+                                 f"{len(under)} {under[:4]}")
+                    except Exception as exc:
+                        self.log(f"[enclose] measurement failed: {exc!r}")
                     j_err = int(np.argmax(err))
                     self.log(f"[grip] worst-err joint idx={j_err} "
                              f"q={float(qh[j_err]):+.3f} tgt={float(tgt[j_err]):+.3f} "

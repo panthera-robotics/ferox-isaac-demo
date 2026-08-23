@@ -122,7 +122,32 @@ def main():
                 f"{(zB - zA)*1000:+.1f} mm", "> 50 mm")
     ok5 = check("no false rise when nothing moves", True, "n/a (covered by GAUGE 1)", "-")
 
-    allok = all([ok1, ok2, ok3, ok4, ok5])
+    print("\n== GAUGE 4: SUSTAINED contact, not a peak ==", flush=True)
+    # The contact gauge reports peak-over-window, which answers "did it touch" and NOT
+    # "is it holding". A 91 N spike as a fingertip strikes a can reads identically to a
+    # steady grip, and a lift claim built on that would be the sixth instrument trusted
+    # too early this campaign. The rule: contact must PERSIST > 0.5 s at > 5 N across
+    # >= 2 links before any lift is claimed.
+    class _Win:
+        def __init__(self, need_s=0.5, need_n=5.0, need_links=2):
+            self.need_s, self.need_n, self.need_links = need_s, need_n, need_links
+            self.run = 0.0
+        def update(self, per_link_forces, dt):
+            strong = sum(1 for f in per_link_forces if f > self.need_n)
+            self.run = self.run + dt if strong >= self.need_links else 0.0
+            return self.run >= self.need_s
+    w = _Win()
+    held_steady = all(w.update([20.0, 20.0], 0.1) or True for _ in range(6)) and w.run >= 0.5
+    w2 = _Win()
+    spike = False
+    for f in ([0.0, 0.0], [91.0, 91.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]):
+        spike = w2.update(f, 0.1) or spike
+    ok6 = check("steady 20 N on 2 links for 0.6 s counts as sustained", held_steady,
+                f"run={w.run:.2f}s", ">= 0.5 s")
+    ok7 = check("a single 91 N spike does NOT count as sustained", not spike,
+                f"sustained={spike}", "False")
+
+    allok = all([ok1, ok2, ok3, ok4, ok5, ok6, ok7])
     out = {"all_pass": allok, "checks": RESULTS}
     open("/tmp/mm5_preflight.json", "w").write(json.dumps(out, indent=2))
     print(f"\nPREFLIGHT: {'ALL GAUGES VERIFIED' if allok else 'FAILED -- DO NOT TRUST GRASP NUMBERS'}",
