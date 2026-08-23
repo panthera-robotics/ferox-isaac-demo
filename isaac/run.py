@@ -393,6 +393,21 @@ SIM_WORLDS = {
     # (-2.8, -1.9), which is inside the shelf's footprint. Unlike the built-in worlds this one is a LOCAL
     # path, so it is resolved relative to the isaac/ tree rather than the Nucleus
     # asset root.
+    # Raised-counter VARIANT: identical to panthera_lab but the counter top is at
+    # 1.02 m instead of 0.90 m. Built by tools/build_lab_world.py with COUNTER_H=1.02
+    # RISER_H=0. It exists to test object SIZE against surface HEIGHT with one variable
+    # moving and no new obstacle in the approach corridor.
+    # 0.933 m variant: puts a 30 mm block's CENTRE at 0.952 m -- the same height as the
+    # 66 mm can's centre (0.95 m), which is the only object that ever reached closure.
+    # Chosen from the measured palm ceiling (max 0.946 m, median 0.935), not guessed.
+    "panthera_lab_h093": {
+        "usd": "@LOCAL@/assets/worlds/panthera_lab_h093/panthera_lab.usd",
+        "spawn": {"xy": (-2.6, 0.0), "yaw": 0.0},
+    },
+    "panthera_lab_h102": {
+        "usd": "@LOCAL@/assets/worlds/panthera_lab_h102/panthera_lab.usd",
+        "spawn": {"xy": (-2.6, 0.0), "yaw": 0.0},   # same spawn as panthera_lab
+    },
     "panthera_lab": {
         "usd": "@LOCAL@/assets/worlds/panthera_lab/panthera_lab.usd",
         "spawn": {"xy": (-2.6, 0.0), "yaw": 0.0},
@@ -2115,6 +2130,9 @@ class RobotRosRunner(object):
                     cheat_attach=os.environ.get("MM5_CHEAT_ATTACH", "0") == "1",
                     fix_base=os.environ.get("MM5_FIX_BASE", "0") == "1",
                     surface=os.environ.get("MM5_SURFACE", "table"),
+                    # The raised-counter variant needs the runner to STAGE at the new
+                    # top, or the object is authored 0.12 m inside the slab.
+                    counter_h=float(os.environ.get("MM5_COUNTER_H", "0.90")),
                     measure_hand=os.environ.get("MM5_MEASURE_HAND", "0") == "1",
                     contact_sensor_paths=[p for _, p in
                                           getattr(self, "_hand_contact_sensors", [])],

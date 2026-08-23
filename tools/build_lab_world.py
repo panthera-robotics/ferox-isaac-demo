@@ -65,7 +65,15 @@ DOOR_UNDERCUT = 0.010          # real doors clear the floor; ours did not, and a
                                # 35 kg leaf resting on the slab is a brake
 
 TABLE = dict(sx=1.20, sy=0.80, h=0.75, x=2.20, y=-1.60)
-COUNTER = dict(sx=2.40, sy=0.60, h=0.90, x=-2.60, y=2.40)
+# COUNTER_H / RISER_H are env-overridable so a RAISED-COUNTER variant can be built
+# without editing this file. Raising the counter is the clean way to test surface
+# height: it moves the work surface up while leaving the approach corridor exactly as
+# it was. Stacking a riser ON the counter is NOT equivalent -- a 0.12 m pad puts a
+# vertical face at hand height in the approach path, and the DLS servo has no obstacle
+# term, so it drives the hand into that face (measured: palm stalls at y=2.02, 45-54 mm
+# short of the pad's front face at y=2.07, inside its 0.90-1.02 z band, 9 trials of 10).
+COUNTER = dict(sx=2.40, sy=0.60, h=float(os.environ.get("COUNTER_H", "0.90")),
+               x=-2.60, y=2.40)
 SHELF = dict(sx=1.60, sy=0.40, h=1.80, x=-3.40, y=-1.80)
 
 # RISER -- a 0.12 m authored block standing ON the counter at the staging spot, so its
@@ -78,7 +86,8 @@ SHELF = dict(sx=1.60, sy=0.40, h=1.80, x=-3.40, y=-1.80)
 # ~1.10 m, mid-range, which is where the grasp pose should sit. This changes ONE
 # variable -- height. Same x,y, same base placement, same hand, same object.
 # Authored primitive at a stated size; nothing is rescaled to fit (CLAUDE.md).
-RISER = dict(sx=0.36, sy=0.36, h=0.12, x=-2.60, y=2.25)
+RISER = dict(sx=0.36, sy=0.36, h=float(os.environ.get("RISER_H", "0.12")),
+             x=-2.60, y=2.25)
 
 # An apron of floor OUTSIDE the door, with low side walls. Without it the
 # `door_outside` waypoint stands on nothing: the floor slab ends at y=3.10 and the
@@ -429,10 +438,13 @@ def build(out_dir: str, seed: int) -> str:
     _slab("table", TABLE)
     _slab("counter", COUNTER, thick=0.06, color=(0.70, 0.70, 0.72))
     # Riser sits ON the counter: centre z = counter top + half its height.
-    _box(stage, "/panthera_lab/furniture/riser",
-         (RISER["sx"], RISER["sy"], RISER["h"]),
-         (RISER["x"], RISER["y"], COUNTER["h"] + RISER["h"] / 2),
-         color=(0.55, 0.55, 0.58))
+    # RISER_H=0 omits it entirely (the raised-counter variant needs no pad and must
+    # not carry the pad's obstructing front face).
+    if RISER["h"] > 0.0:
+      _box(stage, "/panthera_lab/furniture/riser",
+           (RISER["sx"], RISER["sy"], RISER["h"]),
+           (RISER["x"], RISER["y"], COUNTER["h"] + RISER["h"] / 2),
+           color=(0.55, 0.55, 0.58))
     # Shelf: three boards, so the lidar sees structure at several heights.
     for i, z in enumerate((0.45, 1.05, SHELF["h"])):
         b = _box(stage, f"/panthera_lab/furniture/shelf_board_{i}",

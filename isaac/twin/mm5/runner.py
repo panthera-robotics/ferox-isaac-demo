@@ -607,8 +607,12 @@ class MM5Runner:
                       else self.cfg.counter_h) + half + 0.002], float)
                 self.cfg.base_offset = (self.cfg.base_offset[0], -abs(self.cfg.base_offset[1]))
                 self.cfg.base_yaw = 1.5708         # face +y, toward the counter
-                print(f"[mm5] staging object on the "
-                      f"{'RISER (1.02 m)' if self.cfg.surface == 'riser' else 'COUNTER (0.90 m)'} at "
+                _sh = (self.cfg.riser_h if self.cfg.surface == "riser"
+                       else self.cfg.counter_h)
+                # Print the height ACTUALLY used. A hardcoded "0.90" here logged a
+                # 1.02 m run as 0.90 m and would have been quoted as evidence.
+                print(f"[mm5] staging object on the {self.cfg.surface.upper()} "
+                      f"({_sh:.3f} m) at "
                       f"{np.round(self.home_obj_xyz,4)} (was {np.round(p,4)}) -- the "
                       f"table at 0.75 m is below this arm's workspace", flush=True)
             else:

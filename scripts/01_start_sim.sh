@@ -195,6 +195,7 @@ docker exec -d \
   -e MM5_FIX_BASE="${MM5_FIX_BASE:-0}" \
   -e MM5_OUT="${MM5_OUT:-/workspace/ferox_isaac/mm5_out}" \
   -e MM5_SURFACE="${MM5_SURFACE:-table}" \
+  -e MM5_COUNTER_H="${MM5_COUNTER_H:-0.90}" \
   -e MM5_PLACE_FROM_WORKSPACE="${MM5_PLACE_FROM_WORKSPACE:-0}" \
   -e MM5_MEASURE_HAND="${MM5_MEASURE_HAND:-0}" \
   -e MM5_GRASP_MU="${MM5_GRASP_MU:-0}" \

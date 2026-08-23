@@ -1,3 +1,60 @@
+# MM campaign — session 15 (2026-08-23) — MANIPULATION PARKED
+
+## Verdict: manipulation is KINEMATICALLY CHARACTERIZED, not mistuned
+
+Full 2-D envelope map: `docs/mm/evidence/MM5/ENVELOPE_VERDICT.md`.
+
+**Two hard numbers.** Dex5 closed fingertip spread **21.5 mm**. Palm vertical ceiling
+**0.946 m max / 0.935 m median** (`pelvis_z` 0.80, fixed base) — measured this session
+from 10 converged REACH equilibria. The ceiling retro-explains the campaign: the 66 mm
+can centres at 0.95 m, *at* the ceiling, and is the only object that ever closed.
+
+**The reachable band and the graspable band do not overlap.**
+
+| object | surface | centre z | reachable | cages | lifts |
+|---|---|---|---|---|---|
+| can 66 mm | 0.90 | 0.950 | yes | no — pinch (0 links within 45 mm of axis, 0 below centre, 43.83 N) | no |
+| cube 50 mm | 0.90 | 0.950 | marginal | no closure | no |
+| block 30 mm | 0.90 | 0.915 | no (67–173 mm, elbow+wrist pinned) | untested | no |
+| block 30 mm | 1.02 | 1.037 | no (flat 95–118 mm, above palm ceiling) | untested | no |
+| block 30 mm | **0.933** | 0.952 | **yes, 5/10 in <1.3 s** | **no — topples it (36.9°)** | no |
+| block 30 mm | riser pad | 1.037 | **VOID** (my pad blocked the approach) | — | — |
+
+Size and height are **coupled**: a smaller object sits lower, and lower is further from
+a shoulder already at its limit — shrinking the object to fit the hand moves it out of
+reach. There is no object size in this scene the hand both reaches and cages.
+
+## Deviations / decisions
+
+1. **Surface-height ruling amended by the user mid-session**, then the height itself was
+   chosen from data rather than the brief: the brief said ~1.0–1.05 m "or wherever the IK
+   classifier says the grasp pose sits mid-range". At 1.02 m the object sat ~100 mm ABOVE
+   the measured 0.946 m palm ceiling (all 10 trials flat at 95–118 mm), so the final cell
+   was run at 0.933 m — putting the block's centre at the can's proven 0.95 m.
+2. **Three apparatus defects caught, all mine, all logged** (ENVELOPE_VERDICT §4):
+   a 45 s descend timeout that hid convergence; a riser pad that put a vertical face in
+   the approach corridor (palm stalled 45–54 mm short of it, 9/10 trials — the DLS servo
+   has no obstacle term); and `MM5_COUNTER_H` missing from the `01_start_sim.sh` `-e`
+   allowlist, which staged the block inside a 1.02 m slab and sent all 10 trials chasing
+   it on the floor at an identical 568 mm. The identical constant is what exposed it.
+3. **New planner finding, independent of grasping:** the DLS IK has no obstacle term and
+   will drive the hand through furniture. Needed before any cluttered scene.
+4. Preflight GREEN on all 4 gauges before every number quoted here.
+
+## Kept instruments
+
+Enclosure logger, IK classifier (`IK_INFEASIBLE` names pinned joints vs `SERVO_SLOW`),
+4-gauge preflight. Fixed a hardcoded "(0.90 m)" in the staging log that reported a 1.02 m
+run as 0.90 m — a misleading log line is how instrument defects start.
+
+## Next
+
+Manipulation is parked. It needs a graspable object (feature ≤21.5 mm at the contact
+band), a pinch-grasp primitive, or a gripper — NOT tuning. Obstacle-aware IK is the one
+open engineering item this session created.
+
+---
+
 # MORNING BLOCK — 2026-08-23 session 2 (grasp closed, real-only reel)
 
 ## Task 1 — **REACHABLE-BUT-PINCHES.** The three-session question is answered.
