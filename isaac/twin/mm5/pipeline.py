@@ -587,6 +587,8 @@ class MM5Pipeline:
                  f"{np.round(self.trial.obj_start, 4)}")
 
     def _enter(self, name):
+        if name == "LIFT":
+            self._lift_last_log = -1.0
         if self.trial is not None and self.stage_name in STAGES:
             self.trial.stage_times[self.stage_name] = self.sim_time - self._t_stage
         self.stage_name = name
@@ -814,10 +816,41 @@ class MM5Pipeline:
             # drags the object out of the fingers. Measured symptom: 3 opposing contacts
             # at 23.9-35.6 N and the can moving +0.001 / -0.017 m -- a grip that holds
             # while the hand travels somewhere the object cannot follow.
+            # RATE-LIMITED LIFT. The transition trace showed the grip collapsing from 6
+            # contacts / 69.8 N to ZERO at t=0.0 s of LIFT, while the hand went on to rise
+            # 12.5 cm perfectly and the object never moved or tipped. The IK is fine; the
+            # hand simply accelerates out of its own grip -- 10 cm in the first 0.5 s,
+            # because the target jumps the full lift_h at once and the servo chases it.
+            # Raising the target gradually keeps the contact forces bounded.
             _, _, gr = self._approach(obj)
-            target = np.asarray(gr, float) + np.array([0.0, 0.0, self.cfg.lift_h])
+            rise = min(float(self.cfg.lift_h),
+                       float(self.cfg.lift_rate_mps) * max(t_in_stage, 0.0))
+            target = np.asarray(gr, float) + np.array([0.0, 0.0, rise])
             err = pose_error(palm, palm_q, target, None)
             self._servo(err)
+            # THE LIFT TRANSITION TRACE. The can is held (3-4 contacts, 24-36 N) and does
+            # not rise, which is the transition losing it rather than capture failing.
+            # Three hypotheses, and this trace is what picks between them:
+            #   (a) contacts DROP the moment the arm moves -> grip not maintained
+            #   (b) the HAND does not rise either -> IK never achieves the target
+            #   (c) hand rises, contacts hold, object does not -> slipping under load
+            # Logged every 0.5 s of stage time so the shape is visible, not just endpoints.
+            # Keep COMMANDING the grip during the lift. GRASP re-issued _set_hand every
+            # step; LIFT did not, so the fingers were left on whatever the last GRASP
+            # write happened to be while the arm moved.
+            self._grip_gains(True)
+            self._set_hand(1.0)
+            if t_in_stage - getattr(self, "_lift_last_log", -1.0) >= 0.5:
+                self._lift_last_log = t_in_stage
+                fcl = self.finger_contacts()
+                nl, totl = (fcl[0], fcl[1]) if fcl else (-1, -1.0)
+                tl = self.obj_tilt_deg(self.trial.object_name)
+                self.log(f"[lift] t={t_in_stage:4.1f}s hand_z={float(palm[2]):.4f} "
+                         f"obj_z={float(obj[2]):.4f} "
+                         f"d_obj={float(obj[2]-self.trial.obj_start[2])*1000:+.0f}mm "
+                         f"contacts={nl} force={totl:.1f}N "
+                         f"tilt={'n/a' if tl is None else round(tl,1)} "
+                         f"err={float(np.linalg.norm(err[:3]))*1000:.0f}mm")
             if obj[2] - self.trial.obj_start[2] > self.cfg.lift_success_h:
                 self._enter("PLACE" if self.cfg.skip_carry else "CARRY")
                 self.log(f"lifted {obj[2]-self.trial.obj_start[2]:.3f} m")

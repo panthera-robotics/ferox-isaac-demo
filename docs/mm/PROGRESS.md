@@ -1,3 +1,88 @@
+# MORNING BLOCK — 2026-08-23 (method reset: verify the gauges, then trace the transition)
+
+## The headline is a method finding, not a robot finding
+
+**Five instrument defects in one session, each of which produced a confident wrong
+number. None were robot defects.** Mohammed called it before I did.
+
+| defect | what it claimed |
+|---|---|
+| contact "force" summed PhysX **impulses** (N·s), L1-normed, printed as newtons | "0.48 N vs 3.4 N needed" — a comparison that could not be made |
+| the fix reported only the **last substep** | real contacts read as `contacts=0` |
+| contact count carried **no identity** | 4 pushing one way looked like 2 opposing |
+| tilt measured against **world +z** on an asset whose local +z is not its cylinder axis | an **untouched** can read 90° → two false `TOPPLED` verdicts, one of which I quoted as confirmation |
+| tilt baseline **re-latched per trial** | `tilt-at-rest` read 0.0 by construction, destroying the check that had caught a can staged at 44.7° |
+
+## 1. PREFLIGHT — permanent, and it earned its keep immediately
+
+`scripts/mm5_preflight.sh` asserts every gauge against a known state. Non-zero exit means
+**do not trust grasp numbers**.
+
+    [PASS] tilt at rest ............ 1.11 deg   (< 2)
+    [PASS] centre drop at rest ..... -0.0 mm    (< 5)
+    [PASS] scripted 30 deg tip ..... 29.86 deg  (25..35)
+    [PASS] scripted +80 mm rise .... +78.7 mm   (> 50)
+    PREFLIGHT: ALL GAUGES VERIFIED
+
+It **failed twice on its first run, for two different reasons** — which is the argument
+for known-answer checks in one line:
+
+1. a **real gauge defect** — tilt via a body axis under-reported a known 30° tip as
+   18.45°; now the frame-independent quaternion angle;
+2. a **defect in the test itself** — the can is a dynamic body, so stepping physics let
+   gravity settle it before the read. I nearly "fixed" a gauge that had just become correct.
+
+## 2. THE LIFT TRANSITION — traced, and it picked a hypothesis
+
+Before (target jumped the full 0.14 m at once):
+
+    GRASP closed: 6 contacts, 69.81 N
+    LIFT t=0.0s hand_z=0.9574 obj_z=0.9508 contacts=0 force=0.0N
+    LIFT t=7.6s hand_z=1.0802 obj_z=0.9508 contacts=0 tilt=0.0
+
+**(a) confirmed** — contacts 6 → 0 *before the hand moved*. **(b) refuted** — the hand
+rose 12.5 cm, IK error 135 → 9 mm. **(c) refuted** — object never moved, never tipped.
+Two causes fixed: the grip was **never re-commanded during LIFT** (GRASP re-issues
+`_set_hand` every step, LIFT did not), and the lift target jumped instantly so the servo
+yanked the hand 10 cm in 0.5 s.
+
+After (rate-limited 0.03 m/s + grip held):
+
+    t=0.5s hand_z=0.9595 contacts=0
+    t=2.0s hand_z=0.9816 contacts=2 force=35.2N tilt=8.5 d_obj=+4mm
+    t=2.5s hand_z=0.9983 contacts=3 force=91.5N d_obj=+1mm
+    t=3.5s hand_z=1.0382 contacts=1 force=47.3N d_obj=+2mm
+
+Contacts are now **maintained through the lift** (1–3 links, 35–91 N) and the hand rises
+smoothly. **`d_obj` never exceeds +4 mm.**
+
+## 3. What that means, and it is a new failure
+
+**The grasp closes without ENCLOSING.** The fingers touch the can; they do not cage it.
+The hand slides up past it, brushing it — which is why force, friction, contact count,
+lift vector and lift rate have each been fixed without producing a lift. Nothing that
+acts on *contact* can lift an object the hand is not *around*.
+
+**0 lifts. No capability is claimed.**
+
+## Ruled out by measurement, so nobody re-runs them
+
+grip force (38–91 N vs 3.4 N needed) · finger gain · URDF effort clamp (`|tau|` 0.006 vs
+0.93) · overclose (joint blocked 0.680/1.600) · thumb not opposing (`Link_14R` carries the
+most) · contact count (1 → 6) · friction (μ 0.5 → 1.2) · lift target geometry · lift rate ·
+grip maintenance during lift · **topple (tilt 0.0–1.7° with a verified gauge)**
+
+## Next session — measure, do not guess
+
+1. `scripts/mm5_preflight.sh` first. If it fails, fix the gauge before anything else.
+2. **Measure the enclosure**: at closure, log every finger link's position in the CAN's
+   frame and the can's radius/height. The question is whether any finger passes *under or
+   around* the can's widest point. `dex5_geom.py` already does this maths for the palm
+   frame; point it at the object.
+3. Only then change geometry — and add a **sustained**-contact gauge, since the current
+   one reports peak-over-window, which is right for "did it touch" and wrong for
+   "is it holding".
+
 # MORNING BLOCK — 2026-08-22 (session 2: decisions 1-4)
 
 ## Real vs pipeline-proof — the distinction that matters most in this file

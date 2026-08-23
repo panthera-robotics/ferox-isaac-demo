@@ -140,8 +140,11 @@ class MM5Config:
     # it cost every contact: 0 links at closure. Kept as a knob, off by default.
     thumb_lead: float = 0.0
     lift_h: float = 0.14
+    # Metres per second the lift target is raised. The trace showed the hand rising 10 cm
+    # in 0.5 s and shedding every contact; 0.03 m/s takes ~4.7 s for the full lift_h.
+    lift_rate_mps: float = 0.03
     lift_success_h: float = 0.05
-    lift_timeout_s: float = 8.0
+    lift_timeout_s: float = 14.0   # rate-limited lift needs ~4.7 s plus settle
     carry_vec: tuple = (-1.0, 0.0, 0.0)    # 1 m along -x, along the table
     carry_dist: float = 1.0
     carry_timeout_s: float = 20.0
