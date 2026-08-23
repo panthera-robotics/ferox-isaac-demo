@@ -1,0 +1,35 @@
+{
+  "all_pass": true,
+  "checks": [
+    {
+      "check": "tilt at rest",
+      "pass": true,
+      "got": "1.11 deg",
+      "want": "< 2 deg"
+    },
+    {
+      "check": "centre drop at rest",
+      "pass": true,
+      "got": "-0.0 mm",
+      "want": "|drop| < 5 mm"
+    },
+    {
+      "check": "tilt after a scripted 30 deg tip",
+      "pass": true,
+      "got": "29.86 deg",
+      "want": "25..35 deg"
+    },
+    {
+      "check": "z rise detected after a scripted +80 mm move",
+      "pass": true,
+      "got": "+78.7 mm",
+      "want": "> 50 mm"
+    },
+    {
+      "check": "no false rise when nothing moves",
+      "pass": true,
+      "got": "n/a (covered by GAUGE 1)",
+      "want": "-"
+    }
+  ]
+}

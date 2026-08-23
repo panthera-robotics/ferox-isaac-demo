@@ -6,13 +6,12 @@
 
 | outcome | count |
 |---|---|
+| `TOPPLED` | 2 |
 | `DESCEND_TIMEOUT` | 2 |
-| `TOPPLED` | 1 |
-| `REACH_TIMEOUT` | 1 |
 
 | trial | seed | outcome | detail | obj start | obj end | stage times (s) |
 |---|---|---|---|---|---|---|
-| 1 | 20260902 | `TOPPLED` | tilt 90.4 deg during closure | [-2.5492, 2.2651, 0.9498] | [-2.5439, 2.2788, 0.9509] | APPROACH=6.005 REACH=3.795 DESCEND=10.75 GRASP=0.005 |
-| 2 | 20260903 | `DESCEND_TIMEOUT` | 38 mm from grasp pose | [-2.6293, 2.23, 0.9498] | [-2.4805, 2.205, 0.9321] | APPROACH=6.005 REACH=1.075 DESCEND=15.005 |
-| 3 | 20260904 | `REACH_TIMEOUT` | 163 mm from pre-grasp | [-2.5573, 2.294, 0.9498] | [-2.5573, 2.294, 0.9321] | APPROACH=6.005 REACH=30.005 |
-| 4 | 20260905 | `DESCEND_TIMEOUT` | 100 mm from grasp pose | [-2.6066, 2.3028, 0.9498] | [-2.6066, 2.3028, 0.9321] | APPROACH=6.005 REACH=4.72 DESCEND=15.005 |
+| 1 | 20260902 | `TOPPLED` | tilt 30.0 deg during closure | [-2.5492, 2.2651, 0.9498] | [-2.5288, 2.3138, 0.9508] | APPROACH=6.005 REACH=3.795 DESCEND=10.75 GRASP=0.625 |
+| 2 | 20260903 | `DESCEND_TIMEOUT` | 37 mm from grasp pose | [-2.6293, 2.23, 0.9498] | [-2.526, 2.2434, 0.9326] | APPROACH=6.005 REACH=1.065 DESCEND=15.005 |
+| 3 | 20260904 | `DESCEND_TIMEOUT` | 39 mm from grasp pose | [-2.5573, 2.294, 0.9498] | [-2.4014, 2.3019, 0.9321] | APPROACH=6.005 REACH=5.285 DESCEND=15.005 |
+| 4 | 20260905 | `TOPPLED` | tilt 30.3 deg during closure | [-2.6066, 2.3028, 0.9498] | [-2.5769, 2.3511, 0.9516] | APPROACH=6.005 REACH=4.895 DESCEND=5.51 GRASP=0.62 |

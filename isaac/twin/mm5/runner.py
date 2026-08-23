@@ -106,6 +106,10 @@ class MM5Config:
     fallen_z: float = 0.55
     spawn_z: float = 0.80                 # pelvis below this = the robot is down
     reach_timeout_s: float = 30.0
+    # SLOW. Fix (b): at 2.5 s the fingers arrive fast enough to flick a free-standing
+    # can over -- measured at 90.4 deg tilt during closure even with the thumb leading as
+    # a back-stop. A slower ramp lets the first contact settle the object against the
+    # thumb instead of sweeping it, and lets the opposing contacts arrive near-together.
     close_s: float = 2.5
     # Closure. The Dex5 finger joints run to ~1.4-1.7 rad, and 0.9 left the hand open
     # around a 66 mm can -- it closed and did not grip (`NO_GRIP`, object rose -0.015 m).
@@ -130,7 +134,11 @@ class MM5Config:
     topple_tilt_deg: float = 30.0
     topple_drop_m: float = 0.010
     # Fraction of the closure ramp the THUMB gets to itself before the fingers move.
-    thumb_lead: float = 0.40
+    # 0.0 = the original simultaneous close, which is the configuration that actually
+    # produced contacts (3-4 links, thumb opposing). thumb_lead 0.40/0.55 with an 8 s ramp
+    # was introduced to stop a topple that MEASUREMENT LATER SHOWED DOES NOT HAPPEN, and
+    # it cost every contact: 0 links at closure. Kept as a knob, off by default.
+    thumb_lead: float = 0.0
     lift_h: float = 0.14
     lift_success_h: float = 0.05
     lift_timeout_s: float = 8.0
@@ -370,7 +378,24 @@ class MM5Runner:
         base = np.array(self.home_obj_xyz, float)
         dx, dy = rng.uniform(-self.cfg.randomize_m, self.cfg.randomize_m, size=2)
         newp = np.array([base[0] + dx, base[1] + dy, base[2]], np.float32)
-        self._rigid.set_world_pose(position=newp)
+        # ORIENTATION TOO -- but the ORIGINAL one, not identity. Measured: a trial staged
+        # at `tilt-at-rest=44.7 deg` because the previous trial knocked the can askew and
+        # reset restored only POSITION. Forcing identity instead is wrong for this asset:
+        # the YCB can's local +z is not its cylinder axis (an untouched can reads 90 deg
+        # against world +z), so identity is not "upright" and cost every contact.
+        # The correct reference is the pose the world builder authored, captured once.
+        if getattr(self, "_home_obj_quat", None) is None:
+            try:
+                _, q0 = self._rigid.get_world_pose()
+                self._home_obj_quat = np.asarray(q0, np.float32).reshape(-1)[:4].copy()
+                print(f"[mm5] object home orientation latched {np.round(self._home_obj_quat,4)}",
+                      flush=True)
+            except Exception:
+                self._home_obj_quat = None
+        if getattr(self, "_home_obj_quat", None) is not None:
+            self._rigid.set_world_pose(position=newp, orientation=self._home_obj_quat)
+        else:
+            self._rigid.set_world_pose(position=newp)
         try:
             self._rigid.set_linear_velocity(np.zeros(3, np.float32))
             self._rigid.set_angular_velocity(np.zeros(3, np.float32))
@@ -396,8 +421,14 @@ class MM5Runner:
                   f"object is at {np.round(got,4)} ({err*1000:.0f} mm off). The trial "
                   f"would reach for a can that is not there.", flush=True)
         else:
+            # TILT AT STAGING, before anything touches it. A tilt metric that reads
+            # ~90 deg on an UNTOUCHED, correctly staged can is measuring the wrong axis
+            # (the object's local +z need not be its cylinder axis), and would report a
+            # topple that never happened. Verify the baseline before trusting the delta.
+            t0 = self.pipe.obj_tilt_deg(self.cfg.object_name)
             print(f"[mm5] staged and verified at {np.round(got,4)} "
-                  f"({err*1000:.1f} mm)", flush=True)
+                  f"({err*1000:.1f} mm), tilt-at-rest="
+                  f"{'n/a' if t0 is None else round(t0,1)} deg", flush=True)
         return np.asarray(got, np.float32)
 
     def _snap_hand(self):

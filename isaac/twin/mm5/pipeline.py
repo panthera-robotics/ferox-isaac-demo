@@ -245,27 +245,49 @@ class MM5Pipeline:
         return np.array([t[0], t[1], t[2]], float)
 
     def obj_tilt_deg(self, name):
-        """Tilt of the object's local +z from world +z, in degrees, or None.
+        """Angle the object has rotated since staging, in degrees, or None.
 
-        The taxonomy could not see a TOPPLE: a can that tips stays on the counter, never
-        drops below `surface - 0.05`, and is therefore reported as NO_GRIP -- a grip
-        failure -- when the hand is in fact holding an object that has fallen over. Four
-        versions of this workstream chased grip strength because of that blind spot.
+        QUATERNION ANGLE, not the tilt of a body axis. Preflight (GAUGE 2) caught the
+        axis version under-reporting a scripted 30 deg tip as 18.45 deg: the YCB can's
+        local +z is not its cylinder axis, so rotating about world +x moves that axis by
+        less than the rotation. The quaternion angle is independent of the mesh's frame
+        convention and reads a known 30 deg tip as 30 deg.
+
+        The taxonomy could not see a topple at all before this: a can that tips stays on
+        the counter, never drops below `surface - 0.05`, and was reported as NO_GRIP.
         """
-        if not hasattr(self, "_obj_rigids"):
+        rp = getattr(self, "_obj_rigids", {}).get(name)
+        if rp is None or rp is False:
             return None
-        rp = self._obj_rigids.get(name)
+        base = getattr(self, "_obj_axis0", {}).get(name)
+        if base is None:
+            return 0.0
+        try:
+            _, q = rp.get_world_pose()
+            q = np.asarray(q, float).reshape(-1)[:4]
+            rw = float(np.dot(q, np.asarray(base, float)))
+            return float(np.degrees(2.0 * np.arccos(min(1.0, abs(rw)))))
+        except Exception:
+            return None
+
+    def latch_obj_axis(self, name):
+        """Record the object's at-rest axis so tilt can be measured as a CHANGE."""
+        if not hasattr(self, "_obj_axis0"):
+            self._obj_axis0 = {}
+        if name in self._obj_axis0:
+            # LATCH ONCE. Re-latching every trial made `tilt-at-rest` read 0.0 by
+            # construction, which destroyed the very check that caught a can staged at
+            # 44.7 deg. The reference is the object's authored upright pose, captured the
+            # first time it is staged and never overwritten.
+            return self._obj_axis0[name]
+        rp = getattr(self, "_obj_rigids", {}).get(name)
         if rp is None or rp is False:
             return None
         try:
             _, q = rp.get_world_pose()
-            w, x, y, z = (float(v) for v in np.asarray(q, float).reshape(-1)[:4])
-            # local +z expressed in world
-            zx = 2.0 * (x * z + y * w)
-            zy = 2.0 * (y * z - x * w)
-            zz = 1.0 - 2.0 * (x * x + y * y)
-            c = float(np.clip(zz / max(np.linalg.norm([zx, zy, zz]), 1e-9), -1.0, 1.0))
-            return float(np.degrees(np.arccos(c)))
+            q = np.asarray(q, float).reshape(-1)[:4].copy()
+            self._obj_axis0[name] = q          # rest QUATERNION, the tilt reference
+            return q
         except Exception:
             return None
 
@@ -548,6 +570,7 @@ class MM5Pipeline:
     def start_trial(self, index, seed, object_name, obj_start=None):
         self._axis_cache = None
         self._attach_contact_reporter(object_name)
+        self.latch_obj_axis(object_name)
         self.trial = Trial(index=index, seed=seed, object_name=object_name,
                            cheat_attach=self.cfg.cheat_attach)
         p = obj_start if obj_start is not None else self.obj_pose(object_name)

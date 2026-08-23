@@ -3,9 +3,8 @@
   "successes": 0,
   "success_rate": 0.0,
   "taxonomy": {
-    "TOPPLED": 1,
-    "DESCEND_TIMEOUT": 2,
-    "REACH_TIMEOUT": 1
+    "TOPPLED": 2,
+    "DESCEND_TIMEOUT": 2
   },
   "config": {
     "robot_root": "/World/G1",
@@ -51,7 +50,7 @@
     "min_grip_contacts": 2,
     "topple_tilt_deg": 30.0,
     "topple_drop_m": 0.01,
-    "thumb_lead": 0.4,
+    "thumb_lead": 0.0,
     "lift_h": 0.14,
     "lift_success_h": 0.05,
     "lift_timeout_s": 8.0,
@@ -106,7 +105,7 @@
       "seed": 20260902,
       "object": "soup_can",
       "outcome": "TOPPLED",
-      "detail": "tilt 90.4 deg during closure",
+      "detail": "tilt 30.0 deg during closure",
       "cheat_attach": false,
       "obj_start": [
         -2.5492,
@@ -114,15 +113,15 @@
         0.9498
       ],
       "obj_end": [
-        -2.5439,
-        2.2788,
-        0.9509
+        -2.5288,
+        2.3138,
+        0.9508
       ],
       "stage_s": {
         "APPROACH": 6.005,
         "REACH": 3.795,
         "DESCEND": 10.75,
-        "GRASP": 0.005
+        "GRASP": 0.625
       },
       "grip_contacts": -1,
       "obj_tilt_deg": null,
@@ -133,7 +132,7 @@
       "seed": 20260903,
       "object": "soup_can",
       "outcome": "DESCEND_TIMEOUT",
-      "detail": "38 mm from grasp pose",
+      "detail": "37 mm from grasp pose",
       "cheat_attach": false,
       "obj_start": [
         -2.6293,
@@ -141,13 +140,13 @@
         0.9498
       ],
       "obj_end": [
-        -2.4805,
-        2.205,
-        0.9321
+        -2.526,
+        2.2434,
+        0.9326
       ],
       "stage_s": {
         "APPROACH": 6.005,
-        "REACH": 1.075,
+        "REACH": 1.065,
         "DESCEND": 15.005
       },
       "grip_contacts": -1,
@@ -158,8 +157,8 @@
       "trial": 3,
       "seed": 20260904,
       "object": "soup_can",
-      "outcome": "REACH_TIMEOUT",
-      "detail": "163 mm from pre-grasp",
+      "outcome": "DESCEND_TIMEOUT",
+      "detail": "39 mm from grasp pose",
       "cheat_attach": false,
       "obj_start": [
         -2.5573,
@@ -167,13 +166,14 @@
         0.9498
       ],
       "obj_end": [
-        -2.5573,
-        2.294,
+        -2.4014,
+        2.3019,
         0.9321
       ],
       "stage_s": {
         "APPROACH": 6.005,
-        "REACH": 30.005
+        "REACH": 5.285,
+        "DESCEND": 15.005
       },
       "grip_contacts": -1,
       "obj_tilt_deg": null,
@@ -183,8 +183,8 @@
       "trial": 4,
       "seed": 20260905,
       "object": "soup_can",
-      "outcome": "DESCEND_TIMEOUT",
-      "detail": "100 mm from grasp pose",
+      "outcome": "TOPPLED",
+      "detail": "tilt 30.3 deg during closure",
       "cheat_attach": false,
       "obj_start": [
         -2.6066,
@@ -192,14 +192,15 @@
         0.9498
       ],
       "obj_end": [
-        -2.6066,
-        2.3028,
-        0.9321
+        -2.5769,
+        2.3511,
+        0.9516
       ],
       "stage_s": {
         "APPROACH": 6.005,
-        "REACH": 4.72,
-        "DESCEND": 15.005
+        "REACH": 4.895,
+        "DESCEND": 5.51,
+        "GRASP": 0.62
       },
       "grip_contacts": -1,
       "obj_tilt_deg": null,
