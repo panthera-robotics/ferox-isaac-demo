@@ -10,6 +10,7 @@ import json
 import os
 from dataclasses import dataclass, asdict
 
+
 import numpy as np
 
 from .pipeline import MM5Pipeline, STAGES
@@ -223,7 +224,7 @@ class MM5Config:
     # opposes two fingers, and it still slips under lift ("object rose +0.001 m"), because
     # a tip pinch has almost no contact area and the can rolls out of it. Seating the can
     # 15 mm deeper brings the middle and proximal links onto it, which is a wrap.
-    grasp_clearance: float = -0.030   # fingers must pass the widest part before closing
+    grasp_clearance: float = -0.015   # fingers must pass the widest part before closing
     pregrasp_extra: float = 0.085    # pre-grasp this much further out along the axis
     place_from_workspace: bool = False
     target_r: float = 0.315         # can this far from the RIGHT SHOULDER (0.30-0.33)
@@ -303,6 +304,38 @@ class MM5Runner:
                     n_obj += 1
                     n_mesh += got
             break
+        # GRASP FRICTION, declared. CAMPAIGN 4.4 permits "friction/finger drives tuned
+        # within declared bounds and written to TWIN_DEVIATIONS", and this is that: the
+        # measured failure is a three-point FINGERTIP contact on a smooth cylinder
+        # (Link_14R 6.8 N opposing Link_24R 2.8 and Link_34R 0.5) which slips under lift
+        # at any normal force -- 38 N peak was measured against the 3.4 N the can needs.
+        # A tip contact has almost no area, so the holding force is friction-limited, not
+        # force-limited. Isaac's default material is 0.5/0.5; MM5_GRASP_MU raises the
+        # OBJECT's material only, it is logged every run, and it is off by default.
+        mu = float(os.environ.get("MM5_GRASP_MU", "0") or 0)
+        if mu > 0:
+            from pxr import UsdShade, PhysxSchema
+            mat_path = "/World/mm5_grasp_material"
+            mat = UsdShade.Material.Define(self.stage, mat_path)
+            pm = UsdPhysics.MaterialAPI.Apply(mat.GetPrim())
+            pm.CreateStaticFrictionAttr().Set(mu)
+            pm.CreateDynamicFrictionAttr().Set(mu * 0.9)
+            pm.CreateRestitutionAttr().Set(0.0)
+            bound = 0
+            for root in ("/World/Env/objects", "/World/panthera_lab/objects"):
+                parent = self.stage.GetPrimAtPath(root)
+                if not (parent and parent.IsValid()):
+                    continue
+                for obj in parent.GetChildren():
+                    for d in Usd.PrimRange(obj):
+                        if d.IsA(UsdGeom.Mesh) and d.HasAPI(UsdPhysics.CollisionAPI):
+                            UsdShade.MaterialBindingAPI.Apply(d).Bind(
+                                mat, bindingStrength=UsdShade.Tokens.weakerThanDescendants,
+                                materialPurpose="physics")
+                            bound += 1
+                break
+            print(f"[mm5] GRASP FRICTION mu={mu} bound to {bound} object meshes "
+                  f"(DECLARED deviation, CAMPAIGN 4.4)", flush=True)
         print(f"[mm5] colliders applied: {n_obj} objects, {n_mesh} meshes "
               f"(convexHull) -- C-41", flush=True)
         return n_obj, n_mesh

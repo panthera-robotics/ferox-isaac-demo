@@ -735,8 +735,19 @@ class MM5Pipeline:
                 self._enter("LIFT")
 
         elif self.stage_name == "LIFT":
-            target = np.array(self.trial.obj_start) + np.array([0, 0, self.cfg.lift_h])
-            err = pose_error(palm, palm_q, target + np.array(self.cfg.pregrasp_offset), None)
+            # LIFT STRAIGHT UP FROM THE GRASP POSE, preserving the approach offset.
+            #
+            # This used `obj_start + [0,0,lift_h] + pregrasp_offset`, and pregrasp_offset
+            # is (0, 0, 0.13) -- a pure-vertical legacy offset from when every grasp was
+            # top-down. At counter height the approach axis is HORIZONTAL, so the palm is
+            # holding the can from ~0.12 m to the side; commanding it to a point 0.27 m
+            # directly ABOVE the can asks it to rise AND swing sideways by 0.12 m, which
+            # drags the object out of the fingers. Measured symptom: 3 opposing contacts
+            # at 23.9-35.6 N and the can moving +0.001 / -0.017 m -- a grip that holds
+            # while the hand travels somewhere the object cannot follow.
+            _, _, gr = self._approach(obj)
+            target = np.asarray(gr, float) + np.array([0.0, 0.0, self.cfg.lift_h])
+            err = pose_error(palm, palm_q, target, None)
             self._servo(err)
             if obj[2] - self.trial.obj_start[2] > self.cfg.lift_success_h:
                 self._enter("PLACE" if self.cfg.skip_carry else "CARRY")
@@ -752,10 +763,13 @@ class MM5Pipeline:
                            f"hand closed, object rose {obj[2]-self.trial.obj_start[2]:+.3f} m")
 
         elif self.stage_name == "CARRY":
-            tgt = (np.array(self.trial.obj_start)
-                   + np.array([0, 0, self.cfg.lift_h])
+            # Same correction as LIFT: carry from the grasp pose, not from a vertical
+            # offset above the object's start.
+            _, _, gr_c = self._approach(obj)
+            tgt = (np.asarray(gr_c, float)
+                   + np.array([0.0, 0.0, self.cfg.lift_h])
                    + np.array(self.cfg.carry_vec))
-            err = pose_error(palm, palm_q, tgt + np.array(self.cfg.pregrasp_offset), None)
+            err = pose_error(palm, palm_q, tgt, None)
             self._servo(err)
             moved = float(np.linalg.norm(obj[:2] - np.array(self.trial.obj_start)[:2]))
             if obj[2] - self.trial.obj_start[2] < self.cfg.drop_h:

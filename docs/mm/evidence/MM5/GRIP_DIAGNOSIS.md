@@ -48,3 +48,53 @@ to the same 1.6 rad while indices 0/1 (`Yaw_11R`, `Roll_12R`) are the thumb's ab
 and rotation axes rather than flexion. **The contact identities refute that**: `Link_14R`
 is the thumb's distal link and it carries the *highest* force of the three. The uniform
 target is still questionable on its own terms, but it is **not** what stops the lift.
+
+---
+
+# Session close, 2026-08-23 — no lift. What is ruled out, and what the last number says.
+
+**0 lifts.** Best configuration reaches 3 opposing contacts at 23.9–35.6 N and the can
+does not rise. Every hypothesis in the brief is now eliminated **by measurement**:
+
+| ruled out | evidence |
+|---|---|
+| grip **force** | 38.05 N peak vs the 3.4 N a 0.349 kg can needs |
+| finger **gain** | demand 18.39 Nm at kp 20; raising it changes nothing |
+| URDF **effort clamp** | `\|tau\|max` 0.006 Nm — the clamp is 0.93, nowhere near it |
+| **overclose** not commanding past contact | joint 0 blocked at 0.680 against a 1.600 target |
+| **thumb not opposing** | `Link_14R` (thumb distal) carries the highest force of the three |
+| **too few contacts** | 1 → 3–4, and the ≥2 gate now passes |
+| **friction** | μ 0.5 → 1.2 raised force to 35.6 N and reached *middle* links; still no lift |
+| **LIFT target geometry** | fixed (was a legacy vertical offset); still no lift |
+
+## What the residual number means
+
+`object rose -0.017 m` with a good grip. A 96 mm can that **topples** drops its centre
+from 48 mm to ~33 mm — **−15 mm**. That matches. The can is not slipping out of the
+fingers; **it is being tipped over as they close**, and then the hand is holding a can
+that is lying down.
+
+That also explains why every lever above failed: more force, more friction and a better
+lift vector all act on an object that has already fallen over before the lift begins.
+
+## The next experiment, precisely
+
+1. **Instrument the object's ORIENTATION, not just its height.** The taxonomy cannot see
+   a topple: it reports `NO_GRIP` because the can stays on the counter and never drops
+   below `surface − 0.05`. Add can tilt to the trial row and a `TOPPLED` outcome. This is
+   a one-line measurement and it is the thing that has been invisible all session.
+2. **Then fix the cause of the topple** — the fingers close asymmetrically, so the first
+   contact pushes the can before the opposing one arrives. Candidates: close the thumb
+   *first* and the fingers into it, or slow the closure ramp so contacts arrive together.
+
+## Bracket, measured, for whoever picks this up
+
+| `grasp_clearance` | result |
+|---|---|
+| `+0.010` | 1 contact, 11/20 joints closing on air |
+| **`−0.015`** | **3–4 opposing contacts, LIFT reached** — the working value |
+| `−0.030` | 0 closures; the arm cannot reach the pose |
+
+`MM5_GRASP_MU` is a **declared** deviation (CAMPAIGN §4.4), off by default, logged every
+run. It is **not** load-bearing for any result: it improved contact quality and changed
+no outcome.
