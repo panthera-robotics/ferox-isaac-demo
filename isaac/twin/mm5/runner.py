@@ -257,7 +257,13 @@ class MM5Config:
     # opposes two fingers, and it still slips under lift ("object rose +0.001 m"), because
     # a tip pinch has almost no contact area and the can rolls out of it. Seating the can
     # 15 mm deeper brings the middle and proximal links onto it, which is a wrap.
-    grasp_clearance: float = -0.015   # fingers must pass the widest part before closing
+    # APERTURE TEST. Enclosure measured 0 finger links within 45 mm of the object axis
+    # and 0 below its centre at -0.015: the object sits at the FINGERTIPS. The Dex5
+    # converges 0.1366 m from the palm with a 21.5 mm tip spread against a 66 mm can, so
+    # caging needs the palm CLOSER, putting the object between the finger segments.
+    # -0.030 was tried before and failed on REACH -- but that was before the wrist-aware
+    # IK null space fixed the descent, so it is worth re-testing now rather than assumed.
+    grasp_clearance: float = -0.030
     pregrasp_extra: float = 0.085    # pre-grasp this much further out along the axis
     place_from_workspace: bool = False
     target_r: float = 0.315         # can this far from the RIGHT SHOULDER (0.30-0.33)
