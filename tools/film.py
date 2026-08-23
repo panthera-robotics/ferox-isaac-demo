@@ -168,6 +168,19 @@ class Shot:
             look_at(self.prim, (x + 4.2, y, robot_z + 0.9), (x, y, robot_z + 0.1))
         elif self.kind == "side":
             look_at(self.prim, (x, y + 4.2, robot_z + 0.9), (x, y, robot_z + 0.1))
+        elif self.kind == "hero":
+            # A real camera MOVE: an eased arc that also dollies in. `self.t` advances
+            # per placement, and the ease (smoothstep) means it accelerates and settles
+            # instead of tracking at constant rate -- a rigid follow is what made the
+            # earlier reel feel like a turntable.
+            self.t = getattr(self, "t", 0.0) + 1.0
+            u = min(1.0, self.t / 360.0)
+            e = u * u * (3.0 - 2.0 * u)
+            ang = -2.2 + 1.5 * e
+            rad = 5.2 - 2.1 * e
+            hgt = robot_z + 1.9 - 0.7 * e
+            look_at(self.prim, (x + rad * np.cos(ang), y + rad * np.sin(ang), hgt),
+                    (x, y, robot_z + 0.25))
         elif self.kind == "top":
             look_at(self.prim, (x, y, robot_z + 6.0), (x, y, robot_z),
                     up=(1.0, 0.0, 0.0))
@@ -217,7 +230,17 @@ def scene(asset, world_usd=None, physics_dt=1.0 / 200.0, render_dt=1.0 / 60.0,
     # forward command.
     world = World(stage_units_in_meters=1.0, physics_dt=physics_dt,
                   rendering_dt=render_dt)
-    world.scene.add_default_ground_plane()
+    # A WORLD, not a void. Earlier reels put the G1 on a bare ground plane with a follow
+    # camera; with no texture, walls or shadows the eye has nothing to measure motion
+    # against, so a genuine 6.159 m walk reads as "sliding". `world_usd` was a parameter
+    # of this function that was never used in its body -- the fix is at source, not in
+    # the edit.
+    if world_usd:
+        add_reference_to_stage(world_usd, "/World/Env")
+        print(f"[film] world: {world_usd}", flush=True)
+    else:
+        world.scene.add_default_ground_plane()
+        print("[film] world: bare ground plane (no --world given)", flush=True)
     UsdLux.DomeLight.Define(world.stage, Sdf.Path("/World/dome")).CreateIntensityAttr(1200.0)
     k = UsdLux.DistantLight.Define(world.stage, Sdf.Path("/World/key"))
     k.CreateIntensityAttr(2600.0)
@@ -530,6 +553,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--asset", default=os.environ.get("FILM_ASSET", ASSET_DEFAULT))
     ap.add_argument("--shots", default="chase,front,side")
+    ap.add_argument("--world", default=os.environ.get("FILM_WORLD", ""),
+                    help="environment USD referenced at /World/Env. Empty = bare ground "
+                         "plane, which is what made the walk read as sliding: with no "
+                         "texture, walls or shadows the eye has nothing to measure "
+                         "motion against.")
     ap.add_argument("--frames", type=int, default=int(os.environ.get("FILM_FRAMES", "300")))
     ap.add_argument("--subframes", type=int, default=int(os.environ.get("FILM_SUBFRAMES", "16")))
     ap.add_argument("--out", default=os.environ.get("FILM_OUT", "/tmp/film/out"))
@@ -587,7 +615,8 @@ def main() -> int:
         import run as _twin_run_preload           # noqa: F401
         print("  pre-imported run.py before any render product existed", flush=True)
 
-    world, art = scene(args.asset, own_articulation=(args.drive != "policy"))
+    world, art = scene(args.asset, world_usd=(args.world or None),
+                       own_articulation=(args.drive != "policy"))
     kinds = [k.strip() for k in args.shots.split(",") if k.strip()]
     shots = [Shot(k, world, k) for k in kinds]
     if art is not None:

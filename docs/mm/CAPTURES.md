@@ -38,3 +38,16 @@ a working-tree video dies with it. Download from the release, verify the sha256.
 **Camera capture:** `docs/mm/media/camera_capture/` holds 6 representative RGB + 6 depth
 frames and `MANIFEST_sha256.txt` covering all 296 captured frames.
 
+
+## Release `mm-persist-13` — media assets (2026-08-23, ALL REAL)
+
+**No cheat-attach and no choreography in this release.** Task 1 closed as
+`reachable-but-pinches` (0 finger links around the object), so the reel is walk + camera
+only and says so on a closing card.
+
+| file | MB | sha256 | honest caption |
+|---|---|---|---|
+| `ferox_g1_real_reel_20260823.mp4` | 25.6 | `49f53eaa9301ada59427812b979cc80249e7677243a77481081417b2b417cdb6` | THE REEL (60 s), ALL REAL. Omni walk in the lit hospital (hero arc + chase) and live D435i colour+depth. No cheat-attach, no choreography; a closing card states manipulation is excluded and why. |
+| `mm_lit_chase_20260823.mp4` | 13.2 | `2175b442b8330649873c8f72af56aa7ec32eecb786770737b082612c3f298330` | REAL. The same walk, chase camera with lag, lit hospital -- textured floor and shadows, so travel reads as travel. |
+| `mm_lit_hero_20260823.mp4` | 8.6 | `9da41bd7e1b4b7db71cfa0b73c2aebf817edc298f7649c70ff8b6e838e1e533d` | REAL. Omni policy walking 6.159 m vs 6.0 commanded, hero camera on an eased arc-and-dolly in the lit hospital. |
+| `mm_lit_pip_20260823.mp4` | 11.0 | `1669abe700af9d4db826bf3bfc94b7f8d2f45c074eeac40e7300248e20fe2ec1` | REAL. Lit-hospital chase with live D435i colour + colourised depth insets (insets captured separately and composited). |
