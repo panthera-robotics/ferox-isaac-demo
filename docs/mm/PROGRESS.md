@@ -1,3 +1,74 @@
+# MORNING BLOCK — 2026-08-23 session 2 (grasp closed, real-only reel)
+
+## Task 1 — **REACHABLE-BUT-PINCHES.** The three-session question is answered.
+
+**(a) worked; (b) was not needed and not run.** Pulling the IK null space toward **wrist
+mid-range** cleared the `right_wrist_pitch`/`right_wrist_yaw` pinning that half of all
+descent timeouts showed. Closure went from rare to repeatable.
+
+**The enclosure test finally ran, and it is decisive:**
+
+    [enclose] links within 45 mm of the object axis: 0;  BELOW its centre: 0
+    closed: 6 finger links in contact, 43.83 N total
+    NO_GRIP: object rose -0.002 m
+
+**Six contacts at 43.8 N and not one link around the object.** The hand **pinches**; it
+does not **cage**. That single fact explains every failed lever: force (38–91 N), friction
+(μ 0.5→1.2), contact count (1→6), thumb opposition, lift vector, lift rate and grip
+maintenance were each genuinely fixed, and **none can lift an object the hand is not
+around**.
+
+**A trap worth carrying:** `ik_wrist_null_gain = 4.0` removes the pinning but creates a
+**null-space equilibrium** — three trials converged to the *identical* arm pose with the
+residual frozen at 59–60 mm. An identical repeated pose is a fixed point; a spread is a
+reach limit. **1.5 is correct.**
+
+## Task 2 — 60 s reel, **everything in it is real**
+
+No cheat-attach, no choreography. A closing card states manipulation is excluded and why.
+
+**One real defect fixed at source:** `film.py`'s `scene()` accepted a `world_usd`
+parameter **and never used it**, so every previous reel was an infinite grid — nothing for
+the eye to measure motion against, which *is* the "sliding" look. Now referenced and
+**logged every run** (`[film] world: …`), because a flag that is accepted and silently
+ignored looks identical to one that works: I filmed 960 frames of grid before a frame
+check caught it. Added a `hero` shot that arcs and dollies with smoothstep easing.
+
+## Media — release `mm-persist-13`
+
+https://github.com/panthera-robotics/ferox-isaac-demo/releases/tag/mm-persist-13
+
+| asset | caption |
+|---|---|
+| `ferox_g1_real_reel_20260823.mp4` (60 s) | "The reel, all real: omni walk in a lit hospital plus live D435i colour+depth. Manipulation is excluded and the film says so." |
+| `mm_lit_hero_20260823.mp4` | "Omni policy walking 6.159 m vs 6.0 commanded, hero camera on an eased arc-and-dolly." |
+| `mm_lit_chase_20260823.mp4` | "The same walk, lagged chase camera, textured floor and shadows so travel reads as travel." |
+| `mm_lit_pip_20260823.mp4` | "Lit-hospital chase with live D435i colour + depth insets (captured separately, composited)." |
+
+sha256 for each is in `docs/mm/CAPTURES.md`.
+
+## Top 3 decisions for Mohammed
+
+1. **Grasp needs an aperture/approach change, and nothing else.** The object must sit
+   *between finger segments*, not at their tips: the Dex5 converges 0.1366 m from the palm
+   with a 21.5 mm tip spread against a 66 mm can. The enclosure logger now measures this
+   directly, so the next attempt is measurable rather than arguable.
+2. **Every instrument is verified and the preflight is mandatory.** Five instrument
+   defects in one session produced five confident wrong numbers. Treat any grasp figure
+   without a green preflight as unverified.
+3. **Two blockers stay closed and neither costs money:** C-39 (omni balances — do not fund
+   the harness comparison) and C-23 (`headless: False` — buy no GPU).
+
+## Exact next command
+
+```bash
+cd ~/panthera/ferox-isaac-demo && git checkout mohammed/mm-campaign && git pull
+ROBOT=g1 TWIN=1 TWIN_HEADLESS=1 HAND=dex5_1p SIM_WORLD=panthera_lab \
+  bash scripts/01_start_sim.sh && bash scripts/mm5_preflight.sh   # gauges FIRST, always
+```
+
+---
+
 # MORNING BLOCK — 2026-08-23 (final: reel shipped, everything survives this box)
 
 ## A fresh instance can resume from GitHub + the release alone — **verified, not asserted**
