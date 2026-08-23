@@ -1,5 +1,19 @@
 # RESUME — you are here
 
+## STATE AT 2026-08-23 (read this first)
+
+| | |
+|---|---|
+| **Balancer** | **omni locomotion policy.** SONIC is **parked** — C-39 closed: the *reference* MuJoCo body, imported unmodified, falls in our simulator exactly as ours does (+86.3° vs +88.3°), and nine PhysX properties change nothing. SONIC is hardware-only; finetune → Spark. **Do not fund the harness comparison.** |
+| **Camera** | **WORKS.** C-23 was **`headless: False`** — `run.py` asked Kit for a windowed renderer on a box with no X session. `TWIN_HEADLESS=1`. **It was never the GPU and never the ROS 2 image writer; buy no hardware for it.** Aligned-depth is green: `fx=908.0`, rgb+depth 720×1280 aligned, 306/1668/2574 mm, zero-fraction 0.0. |
+| **Grasp** | **DESCENT / IK-LIMITED — not grip.** Half the timeouts pin `right_wrist_pitch`/`right_wrist_yaw` at their stops (`IK_INFEASIBLE`), the rest stall 43–70 mm without pinning anything (`SERVO_SLOW`, unchanged at a 45 s window). The commanded **palm orientation** at counter height is not achievable by this wrist. |
+| **Grip — ruled out by measurement** | force (38–91 N vs 3.4 N needed) · gain · effort clamp (`\|tau\|` 0.006 vs 0.93) · overclose · thumb opposition · contact count (1→6) · friction (μ 0.5→1.2) · lift vector · lift rate · grip maintenance through LIFT |
+| **Enclosure** | **UNMEASURED.** Closure is reached too rarely to test caging-vs-pinching. The logger exists and fires at the closure gate. |
+| **Next lever (Mohammed's call, not started)** | re-derive or relax the commanded palm orientation at counter height, **or** reposition the base so the wrist sits mid-range instead of near its stops. |
+| **Instruments** | `scripts/mm5_preflight.sh` is **mandatory before any grasp number**. Five instrument defects in one session produced five confident wrong numbers; none were robot defects. No capability may be claimed on an unverified gauge. |
+| **Media** | real: omni walk **6.159 m measured**, live D435i PiP (colour + depth), lab/hospital renders. **Labelled choreography:** the pick sequence is a scripted placement with a cheat-attach — CAMPAIGN §0.6 — and is never a grasp. |
+
+
 ## Hardware
 | need | machine |
 |---|---|
