@@ -1,0 +1,153 @@
+[mm5] t=   0.00 IDLE     finger drives -> kp 5.0 kd 0.1
+[mm5] t=   3.51 IDLE     [contact] contact-report route ACTIVE: 22 prim(s), 21 finger link(s), target /World/Env/objects/cube_5cm
+[mm5] t=   3.51 APPROACH trial 1 seed=20260932 object=cube_5cm at [-2.5444  2.2162  0.927 ]
+[mm5] t=   9.52 REACH    palm at [-2.194  1.851  0.706], object at [-2.544  2.216  0.925]
+[mm5] t=  10.02 REACH      d=   165 mm  palm=[-2.339  1.969  0.81 ] armq=[ 0.405 -0.046  0.298  0.068]
+[mm5] t=  10.42 REACH      palm quat=[ 0.8095  0.0432 -0.4925  0.3166]
+[mm5] t=  10.42 REACH      palm local x->[0.314 0.47  0.825] y->[-0.555  0.796 -0.242] z->[-0.77  -0.382  0.511]
+[mm5] t=  10.42 DESCEND  pre-grasp reached, 80 mm
+[mm5] t=  55.43 DESCEND  [ik] IK_INFEASIBLE residual=88mm pinned_joints=1 [(3, 2.065, 2.044)] arm_q=[-1.4709999561309814, 0.7080000042915344, 0.0949999988079071, 2.065000057220459, -0.6029999852180481, 1.4910000562667847, 0.19300000369548798]
+[mm5] t=  55.43 DESCEND  [ik] requested=[-2.4779, 2.1144, 0.925] achieved=[-2.4498, 2.0495, 0.8726]
+[mm5] t=  55.43 DONE     FAIL DESCEND_TIMEOUT: 88 mm from grasp pose
+[mm5] t=  55.43 APPROACH trial 2 seed=20260933 object=cube_5cm at [-2.6202  2.2321  0.927 ]
+[mm5] t=  61.44 REACH    palm at [-2.27   1.866  0.706], object at [-2.62   2.232  0.925]
+[mm5] t=  61.94 REACH      d=   165 mm  palm=[-2.415  1.985  0.81 ] armq=[ 0.405 -0.046  0.298  0.068]
+[mm5] t=  62.40 REACH      palm quat=[ 0.7783  0.0373 -0.4307  0.4553]
+[mm5] t=  62.40 REACH      palm local x->[0.214 0.677 0.704] y->[-0.741  0.583 -0.334] z->[-0.636 -0.45   0.626]
+[mm5] t=  62.40 DESCEND  pre-grasp reached, 80 mm
+[mm5] t= 107.41 DESCEND  [ik] SERVO_SLOW residual=44mm pinned_joints=0 [] arm_q=[-0.5519999861717224, 0.06300000101327896, 0.7390000224113464, 0.9190000295639038, -0.5569999814033508, -0.21299999952316284, -0.12399999797344208]
+[mm5] t= 107.41 DESCEND  [ik] requested=[-2.5537, 2.1303, 0.925] achieved=[-2.5377, 2.0955, 0.9468]
+[mm5] t= 107.41 DONE     FAIL DESCEND_TIMEOUT: 44 mm from grasp pose
+[mm5] t= 107.41 APPROACH trial 3 seed=20260934 object=cube_5cm at [-2.5981  2.28    0.927 ]
+[mm5] t= 113.42 REACH    palm at [-2.248  1.914  0.706], object at [-2.598  2.28   0.925]
+[mm5] t= 113.92 REACH      d=   165 mm  palm=[-2.393  2.033  0.81 ] armq=[ 0.405 -0.046  0.298  0.068]
+[mm5] t= 118.42 REACH      d=    92 mm  palm=[-2.548  2.045  0.899] armq=[ 0.35   0.746 -0.027  0.019]
+[mm5] t= 118.92 REACH      d=    95 mm  palm=[-2.559  2.05   0.909] armq=[ 0.227  0.835 -0.229  0.216]
+[mm5] t= 122.35 REACH      palm quat=[ 0.5403 -0.158   0.6306  0.5343]
+[mm5] t= 122.35 REACH      palm local x->[-0.366  0.378 -0.85 ] y->[-0.777  0.379  0.503] z->[0.513 0.845 0.155]
+[mm5] t= 122.35 DESCEND  pre-grasp reached, 80 mm
+[mm5] t= 167.35 DESCEND  [ik] SERVO_SLOW residual=69mm pinned_joints=0 [] arm_q=[-0.6620000004768372, 0.2759999930858612, -1.7269999980926514, 1.7519999742507935, 1.0010000467300415, 1.187999963760376, 0.5479999780654907]
+[mm5] t= 167.35 DESCEND  [ik] requested=[-2.5317, 2.1782, 0.925] achieved=[-2.517, 2.1171, 0.9526]
+[mm5] t= 167.35 DONE     FAIL DESCEND_TIMEOUT: 69 mm from grasp pose
+[mm5] t= 167.36 APPROACH trial 4 seed=20260935 object=cube_5cm at [-2.6095  2.1993  0.927 ]
+[mm5] t= 173.36 REACH    palm at [-2.259  1.834  0.706], object at [-2.61   2.199  0.925]
+[mm5] t= 173.87 REACH      d=   165 mm  palm=[-2.405  1.952  0.81 ] armq=[ 0.405 -0.046  0.298  0.068]
+[mm5] t= 174.02 REACH      palm quat=[ 0.7054  0.0845 -0.6475  0.2757]
+[mm5] t= 174.02 REACH      palm local x->[0.009 0.28  0.96 ] y->[-0.498  0.834 -0.238] z->[-0.867 -0.476  0.147]
+[mm5] t= 174.02 DESCEND  pre-grasp reached, 79 mm
+[mm5] t= 219.03 DESCEND  [ik] SERVO_SLOW residual=45mm pinned_joints=0 [] arm_q=[-0.5559999942779541, 0.06700000166893005, 0.75, 0.9259999990463257, -0.5659999847412109, -0.2070000022649765, -0.1289999932050705]
+[mm5] t= 219.03 DESCEND  [ik] requested=[-2.5431, 2.0975, 0.925] achieved=[-2.5259, 2.0621, 0.9467]
+[mm5] t= 219.03 DONE     FAIL DESCEND_TIMEOUT: 45 mm from grasp pose
+[mm5] t= 219.03 APPROACH trial 5 seed=20260936 object=cube_5cm at [-2.6342  2.26    0.927 ]
+[mm5] t= 225.04 REACH    palm at [-2.284  1.894  0.706], object at [-2.634  2.26   0.925]
+[mm5] t= 225.54 REACH      d=   165 mm  palm=[-2.429  2.012  0.81 ] armq=[ 0.405 -0.046  0.298  0.068]
+[mm5] t= 230.04 REACH      d=    87 mm  palm=[-2.569  2.041  0.868] armq=[ 0.368  0.579  0.231 -0.176]
+[mm5] t= 230.54 REACH      d=    87 mm  palm=[-2.569  2.041  0.869] armq=[ 0.378  0.585  0.232 -0.181]
+[mm5] t= 235.04 REACH      d=    87 mm  palm=[-2.569  2.041  0.869] armq=[ 0.38   0.579  0.242 -0.187]
+[mm5] t= 235.54 REACH      d=    87 mm  palm=[-2.569  2.041  0.869] armq=[ 0.38   0.579  0.242 -0.187]
+[mm5] t= 240.04 REACH      d=    87 mm  palm=[-2.569  2.041  0.869] armq=[ 0.379  0.577  0.242 -0.187]
+[mm5] t= 240.54 REACH      d=    87 mm  palm=[-2.569  2.041  0.869] armq=[ 0.379  0.579  0.242 -0.187]
+[mm5] t= 245.04 REACH      d=    87 mm  palm=[-2.569  2.041  0.869] armq=[ 0.38   0.579  0.242 -0.187]
+[mm5] t= 245.54 REACH      d=    87 mm  palm=[-2.569  2.041  0.869] armq=[ 0.38   0.579  0.242 -0.187]
+[mm5] t= 250.04 REACH      d=    87 mm  palm=[-2.569  2.041  0.869] armq=[ 0.379  0.579  0.242 -0.187]
+[mm5] t= 250.54 REACH      d=    87 mm  palm=[-2.569  2.041  0.869] armq=[ 0.38   0.579  0.242 -0.187]
+[mm5] t= 255.04 DONE     FAIL REACH_TIMEOUT: 87 mm from pre-grasp
+[mm5] t= 255.05 APPROACH trial 6 seed=20260937 object=cube_5cm at [-2.623   2.2975  0.927 ]
+[mm5] t= 261.05 REACH    palm at [-2.273  1.932  0.706], object at [-2.623  2.297  0.925]
+[mm5] t= 261.56 REACH      d=   165 mm  palm=[-2.418  2.05   0.81 ] armq=[ 0.405 -0.047  0.298  0.069]
+[mm5] t= 266.06 REACH      d=    94 mm  palm=[-2.567  2.053  0.901] armq=[ 0.344  0.694  0.012 -0.064]
+[mm5] t= 266.56 REACH      d=   100 mm  palm=[-2.576  2.052  0.901] armq=[ 0.255  0.775 -0.202  0.15 ]
+[mm5] t= 271.06 REACH      d=   100 mm  palm=[-2.527  2.056  0.854] armq=[-0.497  0.06  -1.794  2.088]
+[mm5] t= 271.56 REACH      d=   116 mm  palm=[-2.516  2.056  0.832] armq=[-0.448  0.048 -2.083  2.094]
+[mm5] t= 276.06 REACH      d=   117 mm  palm=[-2.548  2.069  0.83 ] armq=[ 0.533  0.519  0.623 -0.266]
+[mm5] t= 276.56 REACH      d=   102 mm  palm=[-2.551  2.068  0.851] armq=[ 0.626  0.528  0.685 -0.364]
+[mm5] t= 276.76 REACH      palm quat=[ 0.6889 -0.6588  0.0916  0.2881]
+[mm5] t= 276.76 REACH      palm local x->[ 0.817  0.276 -0.506] y->[-0.518 -0.034 -0.855] z->[-0.253  0.961  0.115]
+[mm5] t= 276.76 DESCEND  pre-grasp reached, 80 mm
+[mm5] t= 321.76 DESCEND  [ik] SERVO_SLOW residual=45mm pinned_joints=0 [] arm_q=[-0.5569999814033508, 0.06499999761581421, 0.753000020980835, 0.925000011920929, -0.5699999928474426, -0.20600000023841858, -0.13300000131130219]
+[mm5] t= 321.76 DESCEND  [ik] requested=[-2.5565, 2.1956, 0.925] achieved=[-2.5394, 2.1603, 0.9467]
+[mm5] t= 321.76 DONE     FAIL DESCEND_TIMEOUT: 45 mm from grasp pose
+[mm5] t= 321.77 APPROACH trial 7 seed=20260938 object=cube_5cm at [-2.653   2.1937  0.927 ]
+[mm5] t= 327.77 REACH    palm at [-2.303  1.828  0.706], object at [-2.653  2.194  0.925]
+[mm5] t= 328.28 REACH      d=   165 mm  palm=[-2.448  1.946  0.81 ] armq=[ 0.405 -0.046  0.298  0.068]
+[mm5] t= 328.42 REACH      palm quat=[ 0.7075  0.0934 -0.6488  0.264 ]
+[mm5] t= 328.42 REACH      palm local x->[0.019 0.252 0.967] y->[-0.495  0.843 -0.21 ] z->[-0.869 -0.475  0.141]
+[mm5] t= 328.42 DESCEND  pre-grasp reached, 79 mm
+[mm5] t= 335.33 GRASP    at grasp pose, 25 mm
+[mm5] t= 335.33 GRASP    finger drives -> kp 20.0 kd 0.5
+[mm5] t= 338.33 GRASP    [grip] contact links: [('Link_14R', 1.4), ('Link_24R', 0.2), ('Link_34R', 11.6), ('Link_43R', 15.2), ('Link_44R', 10.0), ('Link_54R', 5.4)]
+[mm5] t= 338.33 GRASP    [enclose] links within 45 mm of the can axis: 0; BELOW its centre: 0 []
+[mm5] t= 338.33 GRASP    [grip] worst-err joint idx=0 q=+0.680 tgt=+1.600 driven_reached=11/20
+[mm5] t= 338.33 GRASP    [grip] q[max]=+1.600 target[max]=+1.600 err[max]=+0.920 rad kp=20.0 -> demand=18.39 Nm |tau|max=0.000 Nm  contacts=6 force=43.83 N
+[mm5] t= 338.33 GRASP    closed: 6 finger links in contact, 43.83 N total
+[mm5] t= 338.33 GRASP    [grip] object tilt 7.4 deg, centre drop +2 mm
+[mm5] t= 338.34 LIFT     [lift] t= 0.0s hand_z=0.9948 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=78mm
+[mm5] t= 338.84 LIFT     [lift] t= 0.5s hand_z=0.9445 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=28mm
+[mm5] t= 339.35 LIFT     [lift] t= 1.0s hand_z=0.9479 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=18mm
+[mm5] t= 339.85 LIFT     [lift] t= 1.5s hand_z=0.9608 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=17mm
+[mm5] t= 340.36 LIFT     [lift] t= 2.0s hand_z=0.9763 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=15mm
+[mm5] t= 340.86 LIFT     [lift] t= 2.5s hand_z=0.9873 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=14mm
+[mm5] t= 341.37 LIFT     [lift] t= 3.0s hand_z=0.9961 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=20mm
+[mm5] t= 341.87 LIFT     [lift] t= 3.5s hand_z=1.0086 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=23mm
+[mm5] t= 342.38 LIFT     [lift] t= 4.0s hand_z=1.0290 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=18mm
+[mm5] t= 342.88 LIFT     [lift] t= 4.5s hand_z=1.0512 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=13mm
+[mm5] t= 343.39 LIFT     [lift] t= 5.1s hand_z=1.0534 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=12mm
+[mm5] t= 343.89 LIFT     [lift] t= 5.6s hand_z=1.0468 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=21mm
+[mm5] t= 344.40 LIFT     [lift] t= 6.1s hand_z=1.0516 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=14mm
+[mm5] t= 344.90 LIFT     [lift] t= 6.6s hand_z=1.0586 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=7mm
+[mm5] t= 345.41 LIFT     [lift] t= 7.1s hand_z=1.0525 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=16mm
+[mm5] t= 345.91 LIFT     [lift] t= 7.6s hand_z=1.0495 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=16mm
+[mm5] t= 346.42 LIFT     [lift] t= 8.1s hand_z=1.0575 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=9mm
+[mm5] t= 346.92 LIFT     [lift] t= 8.6s hand_z=1.0558 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=12mm
+[mm5] t= 347.43 LIFT     [lift] t= 9.1s hand_z=1.0495 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=17mm
+[mm5] t= 347.93 LIFT     [lift] t= 9.6s hand_z=1.0560 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=10mm
+[mm5] t= 348.44 LIFT     [lift] t=10.1s hand_z=1.0574 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=10mm
+[mm5] t= 348.94 LIFT     [lift] t=10.6s hand_z=1.0501 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=17mm
+[mm5] t= 349.45 LIFT     [lift] t=11.1s hand_z=1.0550 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=11mm
+[mm5] t= 349.95 LIFT     [lift] t=11.6s hand_z=1.0581 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=9mm
+[mm5] t= 350.46 LIFT     [lift] t=12.1s hand_z=1.0506 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=17mm
+[mm5] t= 350.96 LIFT     [lift] t=12.6s hand_z=1.0544 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=12mm
+[mm5] t= 351.47 LIFT     [lift] t=13.1s hand_z=1.0584 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=9mm
+[mm5] t= 351.97 LIFT     [lift] t=13.6s hand_z=1.0509 obj_z=0.9250 d_obj=-2mm contacts=0 force=0.0N tilt=7.4 err=17mm
+[mm5] t= 352.34 DONE     FAIL NO_GRIP: hand closed, object rose -0.002 m
+[mm5] t= 352.34 DONE     finger drives -> kp 5.0 kd 0.1
+[mm5] t= 352.34 APPROACH trial 8 seed=20260939 object=cube_5cm at [-2.6166  2.1913  0.927 ]
+[mm5] t= 358.35 REACH    palm at [-2.266  1.826  0.706], object at [-2.617  2.191  0.925]
+[mm5] t= 358.85 REACH      d=   165 mm  palm=[-2.412  1.944  0.81 ] armq=[ 0.405 -0.046  0.298  0.068]
+[mm5] t= 358.99 REACH      palm quat=[ 0.7068  0.0966 -0.6508  0.2598]
+[mm5] t= 358.99 REACH      palm local x->[0.018 0.242 0.97 ] y->[-0.493  0.846 -0.202] z->[-0.87  -0.475  0.134]
+[mm5] t= 358.99 DESCEND  pre-grasp reached, 80 mm
+[mm5] t= 367.89 GRASP    at grasp pose, 25 mm
+[mm5] t= 367.90 GRASP    finger drives -> kp 20.0 kd 0.5
+[mm5] t= 370.90 GRASP    [grip] contact links: [('Link_14R', 2.0)]
+[mm5] t= 370.90 GRASP    [enclose] links within 45 mm of the can axis: 0; BELOW its centre: 0 []
+[mm5] t= 370.90 GRASP    [grip] worst-err joint idx=0 q=+0.680 tgt=+1.600 driven_reached=11/20
+[mm5] t= 370.90 GRASP    [grip] q[max]=+1.600 target[max]=+1.600 err[max]=+0.920 rad kp=20.0 -> demand=18.39 Nm |tau|max=0.000 Nm  contacts=1 force=2.03 N
+[mm5] t= 370.90 GRASP    closed: 1 finger links in contact, 2.03 N total
+[mm5] t= 370.90 GRASP    [grip] object tilt 3.8 deg, centre drop +2 mm
+[mm5] t= 370.90 DONE     FAIL NO_CONTACT_AT_CLOSURE: 1 finger links in contact (2.03 N), need 2
+[mm5] t= 370.90 DONE     finger drives -> kp 5.0 kd 0.1
+[mm5] t= 370.90 APPROACH trial 9 seed=20260940 object=cube_5cm at [-2.6056  2.2374  0.927 ]
+[mm5] t= 376.91 REACH    palm at [-2.255  1.872  0.706], object at [-2.606  2.237  0.925]
+[mm5] t= 377.41 REACH      d=   165 mm  palm=[-2.401  1.99   0.81 ] armq=[ 0.405 -0.046  0.298  0.068]
+[mm5] t= 377.85 REACH      palm quat=[ 0.7064  0.0318 -0.5502  0.4442]
+[mm5] t= 377.85 REACH      palm local x->[-0.     0.593  0.806] y->[-0.663  0.603 -0.444] z->[-0.749 -0.534  0.393]
+[mm5] t= 377.85 DESCEND  pre-grasp reached, 80 mm
+[mm5] t= 422.85 DESCEND  [ik] IK_INFEASIBLE residual=79mm pinned_joints=1 [(5, 1.599, 1.564)] arm_q=[-1.121999979019165, 0.3009999990463257, -0.20600000023841858, 1.5230000019073486, 0.17499999701976776, 1.5989999771118164, 0.0949999988079071]
+[mm5] t= 422.85 DESCEND  [ik] requested=[-2.5391, 2.1356, 0.925] achieved=[-2.5073, 2.0657, 0.9062]
+[mm5] t= 422.85 DONE     FAIL DESCEND_TIMEOUT: 79 mm from grasp pose
+[mm5] t= 422.86 APPROACH trial 10 seed=20260941 object=cube_5cm at [-2.5842  2.1909  0.927 ]
+[mm5] t= 428.86 REACH    palm at [-2.234  1.825  0.706], object at [-2.584  2.191  0.925]
+[mm5] t= 429.37 REACH      d=   165 mm  palm=[-2.379  1.943  0.81 ] armq=[ 0.405 -0.046  0.298  0.068]
+[mm5] t= 429.51 REACH      palm quat=[ 0.7078  0.0968 -0.65    0.2592]
+[mm5] t= 429.51 REACH      palm local x->[0.021 0.241 0.97 ] y->[-0.493  0.847 -0.2  ] z->[-0.87  -0.474  0.136]
+[mm5] t= 429.51 DESCEND  pre-grasp reached, 80 mm
+[mm5] t= 435.88 GRASP    at grasp pose, 24 mm
+[mm5] t= 435.88 GRASP    finger drives -> kp 20.0 kd 0.5
+[mm5] t= 438.88 GRASP    [grip] contact links: [('Link_14R', 1.4)]
+[mm5] t= 438.88 GRASP    [enclose] links within 45 mm of the can axis: 0; BELOW its centre: 0 []
+[mm5] t= 438.88 GRASP    [grip] worst-err joint idx=0 q=+0.680 tgt=+1.600 driven_reached=11/20
+[mm5] t= 438.88 GRASP    [grip] q[max]=+1.600 target[max]=+1.600 err[max]=+0.920 rad kp=20.0 -> demand=18.39 Nm |tau|max=0.000 Nm  contacts=1 force=1.40 N
+[mm5] t= 438.88 GRASP    closed: 1 finger links in contact, 1.40 N total
+[mm5] t= 438.88 GRASP    [grip] object tilt 8.1 deg, centre drop +2 mm
+[mm5] t= 438.88 DONE     FAIL NO_CONTACT_AT_CLOSURE: 1 finger links in contact (1.40 N), need 2

@@ -149,7 +149,12 @@ class MM5Config:
     enclose_radius_m: float = 0.045
     # Extra null-space pull holding the WRISTS mid-range. Task 1 measured
     # right_wrist_pitch/yaw pinned at their stops in half the descent timeouts.
-    ik_wrist_null_gain: float = 4.0
+    # 4.0 removed the wrist pinning (Task 1a worked) but created a NULL-SPACE
+    # EQUILIBRIUM: three trials converged to the same arm pose with the residual stuck
+    # at 59-60 mm, i.e. the wrist-centering pull balancing the task-space pull. The
+    # signature is a repeated identical arm_q, not a spread. 1.5 keeps the wrists off
+    # their stops without out-pulling the reach.
+    ik_wrist_null_gain: float = 1.5
     lift_h: float = 0.14
     # Metres per second the lift target is raised. The trace showed the hand rising 10 cm
     # in 0.5 s and shedding every contact; 0.03 m/s takes ~4.7 s for the full lift_h.
