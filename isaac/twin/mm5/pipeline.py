@@ -89,6 +89,7 @@ class Trial:
     cheat_attach: bool = False
     grip_contacts: int = -1
     obj_tilt_deg: float = None
+    ik_class: str = None
     grip_force_n: float = 0.0
 
     def as_row(self) -> dict:
@@ -100,6 +101,7 @@ class Trial:
                 "stage_s": {k: round(v, 3) for k, v in self.stage_times.items()},
                 "grip_contacts": self.grip_contacts,
                 "obj_tilt_deg": self.obj_tilt_deg,
+                "ik_class": self.ik_class,
                 "grip_force_n": self.grip_force_n}
 
 
@@ -708,6 +710,32 @@ class MM5Pipeline:
             elif obj[2] < self._surface_h() - 0.05:
                 self._fail("KNOCKED_OFF_IN_DESCEND", f"object z={obj[2]:.3f}")
             elif t_in_stage > self.cfg.descend_timeout_s:
+                # TASK 1a: WHICH descent problem is this?
+                #   (i)  IK INFEASIBLE  -- a joint is pinned at its limit, so no amount of
+                #        servo time reaches the pose; the fix is base/staging, not gains.
+                #   (ii) SERVO SLOW     -- every joint is off its stop and the residual is
+                #        still shrinking; the fix is time, rate or gains.
+                # The stall changed from a constant ~92 mm (a wrong number, fixed) to a
+                # spread of 37-171 mm, which is the signature of a reach problem rather
+                # than a parameter. This classifies it instead of inferring it.
+                try:
+                    qa = np.asarray(self.art.get_joint_positions(), np.float32)[self.arm_idx]
+                    lo = ARM_Q_MIN + ARM_MARGIN
+                    hi = ARM_Q_MAX - ARM_MARGIN
+                    at_lo = [(i, round(float(qa[i]), 3), round(float(lo[i]), 3))
+                             for i in range(len(qa)) if qa[i] <= lo[i]]
+                    at_hi = [(i, round(float(qa[i]), 3), round(float(hi[i]), 3))
+                             for i in range(len(qa)) if qa[i] >= hi[i]]
+                    pinned = at_lo + at_hi
+                    kind = "IK_INFEASIBLE" if pinned else "SERVO_SLOW"
+                    self.trial.ik_class = kind
+                    self.log(f"[ik] {kind} residual={d*1000:.0f}mm "
+                             f"pinned_joints={len(pinned)} {pinned[:3]} "
+                             f"arm_q={np.round(qa, 3).tolist()}")
+                    self.log(f"[ik] requested={np.round(np.asarray(target, float), 4).tolist()} "
+                             f"achieved={np.round(np.asarray(palm, float), 4).tolist()}")
+                except Exception as exc:
+                    self.log(f"[ik] classification failed: {exc!r}")
                 self._fail("DESCEND_TIMEOUT", f"{d*1000:.0f} mm from grasp pose")
             else:
                 self._servo(err)

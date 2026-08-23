@@ -90,7 +90,11 @@ class MM5Config:
     # closer than this the honest outcome is DESCEND_TIMEOUT, not a NO_GRIP that reads
     # like a gripper problem.
     grasp_tol: float = 0.025
-    descend_timeout_s: float = 15.0
+    # TASK 1a classified every DESCEND_TIMEOUT as SERVO_SLOW with ZERO pinned joints: the
+    # pose is reachable and the residual is still shrinking when the clock runs out. That
+    # is the definition of "needs more time", so the window is widened rather than the
+    # geometry moved -- moving the object central would not address a convergence limit.
+    descend_timeout_s: float = 45.0
     reach_tol: float = 0.08
     ik_lambda: float = 0.08
     # A SLOW reach. The omni policy holds the arms as part of its own action and was
