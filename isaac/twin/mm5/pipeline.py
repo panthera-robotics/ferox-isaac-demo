@@ -971,8 +971,21 @@ class MM5Pipeline:
             return
         q_now = np.asarray(self.art.get_joint_positions(), float)[self.arm_idx]
         J = self.arm_jacobian()
+        # WRIST-AWARE NULL SPACE (Task 1a). The Task-1 verdict measured half the descent
+        # timeouts pinning right_wrist_pitch/right_wrist_yaw at their stops while the
+        # remaining joints sat mid-range: the solver was spending the arm's redundancy on
+        # an orientation the wrist cannot hold. The null-space target now pulls the WRISTS
+        # (indices 4,5,6) toward the centre of their own travel with extra weight, so the
+        # redundancy is used to keep them reachable instead of driving them into a stop.
+        # Position and the grasp axis are unchanged; only the posture the solver prefers
+        # among equally-good solutions changes.
+        q_nom = ARM_NOMINAL.copy()
+        mid = 0.5 * (ARM_Q_MIN + ARM_Q_MAX)
+        q_nom[4:7] = mid[4:7]
+        k_null = np.full(len(q_nom), float(self.cfg.ik_k_null))
+        k_null[4:7] = float(self.cfg.ik_k_null) * float(self.cfg.ik_wrist_null_gain)
         dq = dls_step(J, err, lam=self.cfg.ik_lambda, max_step=self.cfg.ik_max_step,
-                      q=q_now, q_nominal=ARM_NOMINAL, k_null=self.cfg.ik_k_null)
+                      q=q_now, q_nominal=q_nom, k_null=k_null)
         q = np.asarray(self.art.get_joint_positions(), np.float32)[self.arm_idx]
         q_now = q.astype(float)
         # Integrate from the PREVIOUS TARGET, not from the measured position.
