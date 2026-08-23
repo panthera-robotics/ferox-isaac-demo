@@ -2,7 +2,9 @@
 
 ## Verdict: manipulation is KINEMATICALLY CHARACTERIZED, not mistuned
 
-Full 2-D envelope map: `docs/mm/evidence/MM5/ENVELOPE_VERDICT.md`.
+**Next session starts here: `docs/mm/MANIPULATION_VERDICT.md`** — the answer, the three
+viable next paths, and the standalone collision-aware-planning item.
+Run-by-run evidence: `docs/mm/evidence/MM5/ENVELOPE_VERDICT.md`.
 
 **Two hard numbers.** Dex5 closed fingertip spread **21.5 mm**. Palm vertical ceiling
 **0.946 m max / 0.935 m median** (`pelvis_z` 0.80, fixed base) — measured this session
