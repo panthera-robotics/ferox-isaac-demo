@@ -94,7 +94,11 @@ class MM5Config:
     # pose is reachable and the residual is still shrinking when the clock runs out. That
     # is the definition of "needs more time", so the window is widened rather than the
     # geometry moved -- moving the object central would not address a convergence limit.
-    descend_timeout_s: float = 45.0
+    # 120, not 45. The 30 mm-block run stalled three trials at SERVO_SLOW with
+    # pinned_joints=0 and residual 47-60 mm -- the arm was still converging when MY
+    # timeout fired. An envelope verdict that rests on a timeout is a verdict about
+    # the harness, not the robot, so the decisive run gets time to actually finish.
+    descend_timeout_s: float = 120.0
     reach_tol: float = 0.08
     ik_lambda: float = 0.08
     # A SLOW reach. The omni policy holds the arms as part of its own action and was
@@ -222,6 +226,12 @@ class MM5Config:
     # (z = 0.032) before the arm ever moved. Staged 0.15 m inside the edge instead.
     counter_xy: tuple = (-2.60, 2.25)
     counter_h: float = 0.90
+    # RISER: 0.12 m block on the counter -> top 1.02 m. See build_lab_world.RISER.
+    # The counter height and the object size are COUPLED: the smaller the object, the
+    # lower its centre, and the further DOWN the shoulder has to reach. At 0.90 m the
+    # only object small enough to cage is the one that cannot be reached. The riser
+    # decouples them by changing height and nothing else.
+    riser_h: float = 1.02
 
     # ---------------------------------------------------------------- GRASP V3
     # v1 and v2 both found the base offset by ITERATING: pick a number, run 20 trials,
@@ -263,7 +273,10 @@ class MM5Config:
     # caging needs the palm CLOSER, putting the object between the finger segments.
     # -0.030 was tried before and failed on REACH -- but that was before the wrist-aware
     # IK null space fixed the descent, so it is worth re-testing now rather than assumed.
-    grasp_clearance: float = -0.030
+    # Back to the REACHABLE stand-off. -0.030 is the caging depth and the arm cannot get
+    # there (elbow 2.09 vs 2.044, and the wrists return to their stops when the base is
+    # moved back). The object-envelope test runs at the stand-off that DOES reach.
+    grasp_clearance: float = -0.015
     pregrasp_extra: float = 0.085    # pre-grasp this much further out along the axis
     place_from_workspace: bool = False
     target_r: float = 0.315         # can this far from the RIGHT SHOULDER (0.30-0.33)
@@ -586,14 +599,16 @@ class MM5Runner:
                       flush=True)
                 self.state = "DONE"
                 return
-            if self.cfg.surface == "counter":
+            if self.cfg.surface in ("counter", "riser"):
                 half = float(p[2]) - 0.75          # the can's half-height above the table
                 self.home_obj_xyz = np.array(
                     [self.cfg.counter_xy[0], self.cfg.counter_xy[1],
-                     self.cfg.counter_h + half + 0.002], float)
+                     (self.cfg.riser_h if self.cfg.surface == "riser"
+                      else self.cfg.counter_h) + half + 0.002], float)
                 self.cfg.base_offset = (self.cfg.base_offset[0], -abs(self.cfg.base_offset[1]))
                 self.cfg.base_yaw = 1.5708         # face +y, toward the counter
-                print(f"[mm5] staging object on the COUNTER (0.90 m) at "
+                print(f"[mm5] staging object on the "
+                      f"{'RISER (1.02 m)' if self.cfg.surface == 'riser' else 'COUNTER (0.90 m)'} at "
                       f"{np.round(self.home_obj_xyz,4)} (was {np.round(p,4)}) -- the "
                       f"table at 0.75 m is below this arm's workspace", flush=True)
             else:

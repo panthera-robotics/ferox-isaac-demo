@@ -68,6 +68,18 @@ TABLE = dict(sx=1.20, sy=0.80, h=0.75, x=2.20, y=-1.60)
 COUNTER = dict(sx=2.40, sy=0.60, h=0.90, x=-2.60, y=2.40)
 SHELF = dict(sx=1.60, sy=0.40, h=1.80, x=-3.40, y=-1.80)
 
+# RISER -- a 0.12 m authored block standing ON the counter at the staging spot, so its
+# top is 1.02 m. Reason it exists: the counter at 0.90 m couples object SIZE to
+# REACHABILITY. A 66 mm can centres at 0.95 m and reaches; a 30 mm block centres at
+# 0.915 m, which puts the shoulder->object vector 0.185 m DOWN and eats a third of the
+# 0.315 m radius budget, so the small object -- the only size this hand could cage --
+# is the one it cannot reach (elbow 2.094 vs 2.044, wrist 1.568 vs 1.564).
+# On the riser the same block centres at 1.035 m: vertical -0.065 m off a shoulder at
+# ~1.10 m, mid-range, which is where the grasp pose should sit. This changes ONE
+# variable -- height. Same x,y, same base placement, same hand, same object.
+# Authored primitive at a stated size; nothing is rescaled to fit (CLAUDE.md).
+RISER = dict(sx=0.36, sy=0.36, h=0.12, x=-2.60, y=2.25)
+
 # An apron of floor OUTSIDE the door, with low side walls. Without it the
 # `door_outside` waypoint stands on nothing: the floor slab ends at y=3.10 and the
 # waypoint is at y=3.60, so "walk through the door" would have been a walk off the
@@ -121,6 +133,14 @@ UPRIGHT_HEIGHT_M = {
 # Authored primitives, not references: size is ours to state exactly.
 PRIMS = {
     "cube_5cm":    dict(size=(0.05, 0.05, 0.05), mass=0.100, sf=0.80, df=0.70),
+    # 30 mm block. The Dex5's measured closed-finger TIP SPREAD is 21.5 mm and its
+    # fingers converge 0.1366 m from the palm; the 66 mm can and 50 mm cube both exceed
+    # that spread, so the hand can only ever meet them at the fingertips -- measured as
+    # 0 finger links within 45 mm of the object axis (APERTURE_VS_REACH.md). This object
+    # is the control for that: small enough to sit BETWEEN the finger segments at a
+    # stand-off the arm can actually reach. An authored primitive at a stated size, not
+    # a rescaled asset (CLAUDE.md forbids scaling a mesh to fit).
+    "block_3cm":   dict(size=(0.03, 0.03, 0.03), mass=0.040, sf=0.80, df=0.70),
     "brochure_box": dict(size=(0.21, 0.15, 0.03), mass=0.180, sf=0.60, df=0.50),
 }
 
@@ -408,6 +428,11 @@ def build(out_dir: str, seed: int) -> str:
 
     _slab("table", TABLE)
     _slab("counter", COUNTER, thick=0.06, color=(0.70, 0.70, 0.72))
+    # Riser sits ON the counter: centre z = counter top + half its height.
+    _box(stage, "/panthera_lab/furniture/riser",
+         (RISER["sx"], RISER["sy"], RISER["h"]),
+         (RISER["x"], RISER["y"], COUNTER["h"] + RISER["h"] / 2),
+         color=(0.55, 0.55, 0.58))
     # Shelf: three boards, so the lidar sees structure at several heights.
     for i, z in enumerate((0.45, 1.05, SHELF["h"])):
         b = _box(stage, f"/panthera_lab/furniture/shelf_board_{i}",
@@ -514,6 +539,7 @@ def build(out_dir: str, seed: int) -> str:
     with open(os.path.join(out_dir, "objects.json"), "w") as fh:
         json.dump({"seed": seed, "room_m": [ROOM_X, ROOM_Y, ROOM_Z],
                    "table": TABLE, "counter": COUNTER, "shelf": SHELF,
+                   "riser": dict(RISER, top_z=round(COUNTER["h"] + RISER["h"], 4)),
                    "apron": dict(APRON, y0=hy + WALL_T,
                                  y1=hy + WALL_T + APRON["sy"],
                                  x0=door_cx - APRON["sx"] / 2,
