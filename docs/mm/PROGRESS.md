@@ -1,3 +1,68 @@
+# MORNING BLOCK — 2026-08-23 (final: reel shipped, everything survives this box)
+
+## A fresh instance can resume from GitHub + the release alone — **verified, not asserted**
+
+Clean clone of tag `mm-persist-12` into /tmp, no access to this box's state:
+
+    HEAD 9083220 (correct)                    RESUME.md / CAPTURES.md / PROGRESS.md present
+    TASK1_IK_VERDICT.md, C23_RESOLVED.md, mm5_preflight.sh present
+    test_twin_contract.py    38/38 passed
+    test_isaaclab_cfg.py     10/10 passed, 3 SKIPPED (named, needs ferox-g1-locomotion beside)
+    release assets           8/8 state=uploaded
+    downloaded asset sha256  ad0de00dcc95765e == CAPTURES.md  MATCH
+
+**One real persistence bug was caught doing this**: creating the release via the API
+auto-made the tag on the **default branch**, so `mm-persist-12` pointed at `d03f2e9` —
+old main, none of this session's work. A fresh clone would have got the wrong tree. The
+tag was re-pointed at `9083220` and re-verified.
+
+## Task 1 verdict — descent/IK, not grip
+
+Half the `DESCEND_TIMEOUT`s are `IK_INFEASIBLE` with **`right_wrist_pitch`/`right_wrist_yaw`
+pinned at their stops**; the rest are `SERVO_SLOW`, stalled 43–70 mm with nothing pinned
+and **unchanged at a 45 s window**. The commanded **palm orientation** at counter height is
+not achievable by this wrist. **Lever (b) — moving the object central — was deliberately
+NOT run**: (a) showed the pose is reachable, so (b) addresses a constraint that is not
+binding. **Enclosure is still unmeasured** (closure too rarely reached).
+
+## What is real vs choreographed in the reel
+
+| segment | status |
+|---|---|
+| omni walk, chase + fixed | **REAL** — 6.159 m vs 6.0 m commanded, measured from base pose |
+| D435i PiP (colour + depth) | **REAL** — live camera; insets captured in the hospital world, composited over the walk (two captures, not one shot) |
+| pick sequence | **CHOREOGRAPHY** — scripted trajectory + cheat-attach, CAMPAIGN §0.6, banner burned into every frame |
+| film-tool clips | **PIPELINE PROOF ONLY** — a scripted joint sweep; the robot is not walking |
+
+## Media — release https://github.com/panthera-robotics/ferox-isaac-demo/releases/tag/mm-persist-12
+
+sha256 + an honest one-line caption for all 8 assets are in `docs/mm/CAPTURES.md`.
+Headline: `ferox_g1_mm_reel_20260823.mp4` (74 s, 17.3 MB, `e34f01454d9819fb…`) —
+*"Real omni walk + live D435i camera + a clearly-labelled scripted placement; nothing here
+is a real grasp."*
+
+## Top 3 decisions for Mohammed
+
+1. **Grasp next lever is an orientation question, not a grip one.** Either re-derive/relax
+   the commanded palm orientation at counter height (the approach axis blends horizontal
+   there, which is what loads the wrist), or reposition the base so the wrist sits
+   mid-range. Both are one change; I opened neither, per instruction.
+2. **Preflight is now mandatory and it changed the campaign.** Five instrument defects in
+   one session produced five confident wrong numbers — none robot defects. Treat any grasp
+   figure without a green preflight as unverified.
+3. **Two blockers are closed and neither needs money:** C-39 (omni balances; do not fund
+   the harness comparison) and C-23 (`headless: False`; buy no GPU).
+
+## Exact next command
+
+```bash
+cd ~/panthera/ferox-isaac-demo && git checkout mohammed/mm-campaign && git pull
+ROBOT=g1 TWIN=1 TWIN_HEADLESS=1 HAND=dex5_1p SIM_WORLD=panthera_lab \
+  bash scripts/01_start_sim.sh && bash scripts/mm5_preflight.sh   # gauges FIRST, always
+```
+
+---
+
 # MORNING BLOCK — 2026-08-23 (final: verified instruments, grasp verdict written)
 
 ## The one-line answer
