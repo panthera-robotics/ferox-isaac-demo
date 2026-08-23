@@ -1,3 +1,74 @@
+# MORNING BLOCK — 2026-08-23 (final: verified instruments, grasp verdict written)
+
+## The one-line answer
+
+**Descent, not grip, is the binding constraint — and the instruments, not the robot, were
+the bottleneck for most of this campaign.**
+
+## Grasp — verdict, per the decision rule set before the run
+
+| branch | what happened |
+|---|---|
+| cube lifts → enclosure proven | — |
+| cube closes, no lift → pinch-not-cage | — |
+| **cube never reaches closure → descent is the limit** | **THIS.** 0/8, `DESCEND_TIMEOUT` ×6 (43–153 mm), `REACH_TIMEOUT` ×2 |
+
+The cube was chosen because it cannot topple or roll out of a pinch, so it was the clean
+test of enclosure. **The test never ran — the hand never arrived.** Enclosure is therefore
+**unmeasured, not disproven**, and the can could not answer it either: 2 of 4 can trials
+ended `TOPPLED` (30.0°, 30.3°) *during* the closure ramp, before the gate the enclosure
+logger fires at.
+
+## Eliminated by measurement — do not re-run these
+
+grip force (38–91 N vs 3.4 N needed) · finger gain · URDF effort clamp (`|tau|` 0.006 vs
+0.93) · overclose (joint blocked 0.680/1.600) · thumb opposition (`Link_14R` carries the
+most force) · contact count (1 → 6) · friction (μ 0.5 → 1.2) · lift target geometry ·
+lift rate · **grip maintenance through LIFT** (fixed: contacts now held 1–3 links at
+35–91 N under a 0.03 m/s rate limit)
+
+**Still never true: the object rises. `d_obj ≤ +4 mm` in every trial, all session.**
+
+## Instruments — the finding that outlives the session
+
+**Five instrument defects, all mine, none robot defects.** Each produced a confident wrong
+number; one I quoted to Mohammed as confirmation before catching it.
+
+`scripts/mm5_preflight.sh` is now **mandatory before grasp work** and asserts every gauge
+against a known answer — including, as of today, a **sustained-contact** gauge that
+distinguishes a steady 20 N hold from a 91 N impact spike, because the existing gauge
+reports peak-over-window and would have justified a false lift claim.
+
+## Corrections I made to my own record
+
+* the "0.5 N vs 3.4 N" force premise — **the 0.5 N was never newtons** (summed impulses)
+* `obj_pose` as "the root cause of the grasp workstream" — real defect, **not** the cause
+* the topple, claimed then retracted — **both overstatements**; it is real and
+  intermittent (30.0°/30.3° on some approaches, 0.0° on others)
+* `--drive policy` crashing in the C-23 subsystem — **wrong**, it was a missing
+  `FEROX_REUSE_KIT_APP=1`
+
+## Top 3 for Mohammed
+
+1. **Descent is now a SPREAD (37–171 mm), not a constant.** A constant meant a wrong
+   number and was fixed (`grasp_standoff` 0.045 → 0.1466). A spread means the arm cannot
+   always achieve the pose: measure per-trial IK residual against joint limits, or move
+   the object to a more central part of the workspace and test enclosure there.
+2. **Enclosure is still the open question** and needs closure to be reliable first. The
+   logger is written and fires at the closure gate.
+3. **C-39 and C-23 are both closed** — omni is the balancer (6.159 m on film), and the
+   camera works headless. Neither needs more hardware.
+
+## Exact next command
+
+```bash
+cd ~/panthera/ferox-isaac-demo && git checkout mohammed/mm-campaign && git pull
+ROBOT=g1 TWIN=1 TWIN_HEADLESS=1 HAND=dex5_1p SIM_WORLD=panthera_lab \
+  bash scripts/01_start_sim.sh && bash scripts/mm5_preflight.sh   # gauges FIRST
+```
+
+---
+
 # MORNING BLOCK — 2026-08-23 (method reset: verify the gauges, then trace the transition)
 
 ## The headline is a method finding, not a robot finding
