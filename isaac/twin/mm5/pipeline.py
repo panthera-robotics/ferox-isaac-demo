@@ -88,6 +88,7 @@ class Trial:
     detail: str = ""
     cheat_attach: bool = False
     grip_contacts: int = -1
+    obj_tilt_deg: float = None
     grip_force_n: float = 0.0
 
     def as_row(self) -> dict:
@@ -98,6 +99,7 @@ class Trial:
                 "obj_end": [round(v, 4) for v in self.obj_end],
                 "stage_s": {k: round(v, 3) for k, v in self.stage_times.items()},
                 "grip_contacts": self.grip_contacts,
+                "obj_tilt_deg": self.obj_tilt_deg,
                 "grip_force_n": self.grip_force_n}
 
 
@@ -241,6 +243,31 @@ class MM5Pipeline:
         m = UsdGeom.Xformable(p).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
         t = m.ExtractTranslation()
         return np.array([t[0], t[1], t[2]], float)
+
+    def obj_tilt_deg(self, name):
+        """Tilt of the object's local +z from world +z, in degrees, or None.
+
+        The taxonomy could not see a TOPPLE: a can that tips stays on the counter, never
+        drops below `surface - 0.05`, and is therefore reported as NO_GRIP -- a grip
+        failure -- when the hand is in fact holding an object that has fallen over. Four
+        versions of this workstream chased grip strength because of that blind spot.
+        """
+        if not hasattr(self, "_obj_rigids"):
+            return None
+        rp = self._obj_rigids.get(name)
+        if rp is None or rp is False:
+            return None
+        try:
+            _, q = rp.get_world_pose()
+            w, x, y, z = (float(v) for v in np.asarray(q, float).reshape(-1)[:4])
+            # local +z expressed in world
+            zx = 2.0 * (x * z + y * w)
+            zy = 2.0 * (y * z - x * w)
+            zz = 1.0 - 2.0 * (x * x + y * y)
+            c = float(np.clip(zz / max(np.linalg.norm([zx, zy, zz]), 1e-9), -1.0, 1.0))
+            return float(np.degrees(np.arccos(c)))
+        except Exception:
+            return None
 
     def palm_pose(self):
         """World pose of the right palm, (pos, quat_wxyz), from PHYSICS.
@@ -669,6 +696,11 @@ class MM5Pipeline:
             self._grip_gains(True)
             self._grip_ratio = min(1.0, self._grip_ratio + dt / self.cfg.close_s)
             self._set_hand(self._grip_ratio)
+            if self.trial is not None and self.trial.obj_tilt_deg is None:
+                t0 = self.obj_tilt_deg(self.trial.object_name)
+                if t0 is not None and t0 > self.cfg.topple_tilt_deg:
+                    self._fail("TOPPLED", f"tilt {t0:.1f} deg during closure")
+                    return
             if self._grip_ratio >= 1.0 and t_in_stage > self.cfg.close_s + 0.5:
                 fc = self.finger_contacts()
                 if fc is None:
@@ -727,6 +759,20 @@ class MM5Pipeline:
                 # LIFT GATE. Lifting on "the fingers finished moving" is what produced
                 # six NO_GRIP rows that had already decided their outcome before LIFT
                 # began. A hand that is not touching the object is not holding it.
+                tilt = self.obj_tilt_deg(self.trial.object_name)
+                drop = float(self.trial.obj_start[2] - obj[2])
+                if tilt is not None:
+                    self.trial.obj_tilt_deg = round(tilt, 1)
+                    self.log(f"[grip] object tilt {tilt:.1f} deg, centre drop "
+                             f"{drop*1000:+.0f} mm")
+                if n > 0 and ((tilt is not None and tilt > self.cfg.topple_tilt_deg)
+                              or drop > self.cfg.topple_drop_m):
+                    # A TOPPLE, not a grip failure. Named so it stops being counted as
+                    # one: the fingers are holding an object that fell over as they closed.
+                    self._fail("TOPPLED",
+                               f"tilt {tilt if tilt is None else round(tilt,1)} deg, "
+                               f"centre dropped {drop*1000:.0f} mm with {n} contacts")
+                    return
                 if n < self.cfg.min_grip_contacts:
                     self._fail("NO_CONTACT_AT_CLOSURE",
                                f"{n} finger links in contact ({tot:.2f} N), "
@@ -855,9 +901,19 @@ class MM5Pipeline:
         if not self.has_hand:
             return
         q = np.zeros(len(RIGHT_HAND_JOINTS), np.float32)
+        # THUMB FIRST. Closing all sixteen actuated joints on one ramp means whichever
+        # finger reaches the can first pushes it, and a free-standing can gets swept over
+        # before the opposing side arrives -- measured as tilt, and previously mis-filed
+        # as NO_GRIP. The thumb (indices 0..3) closes over the first `thumb_lead` of the
+        # ramp and becomes a BACK-STOP; the fingers then press the can INTO it rather
+        # than across the counter.
+        lead = float(np.clip(self.cfg.thumb_lead, 0.0, 0.9))
+        r_thumb = float(np.clip(ratio / lead, 0.0, 1.0)) if lead > 0 else ratio
+        r_fing = float(np.clip((ratio - lead) / max(1.0 - lead, 1e-6), 0.0, 1.0))
         for i in range(len(RIGHT_HAND_JOINTS)):
             if i in PASSIVE_HAND_IDX:
                 continue                     # unactuated on the real Dex5-1 (C-13)
+            ratio = r_thumb if i < 4 else r_fing
             # OVERCLOSE. A position drive makes force out of ERROR, so a target set
             # AT the contact pose produces a hand that touches with ~zero force. The
             # target is driven PAST contact by `overclose_rad`; the fingers cannot get

@@ -3,7 +3,7 @@
   "successes": 0,
   "success_rate": 0.0,
   "taxonomy": {
-    "NO_GRIP": 1,
+    "TOPPLED": 1,
     "DESCEND_TIMEOUT": 2,
     "REACH_TIMEOUT": 1
   },
@@ -49,6 +49,9 @@
     "idle_hand_kp": 5.0,
     "idle_hand_kd": 0.1,
     "min_grip_contacts": 2,
+    "topple_tilt_deg": 30.0,
+    "topple_drop_m": 0.01,
+    "thumb_lead": 0.4,
     "lift_h": 0.14,
     "lift_success_h": 0.05,
     "lift_timeout_s": 8.0,
@@ -102,8 +105,8 @@
       "trial": 1,
       "seed": 20260902,
       "object": "soup_can",
-      "outcome": "NO_GRIP",
-      "detail": "hand closed, object rose -0.017 m",
+      "outcome": "TOPPLED",
+      "detail": "tilt 90.4 deg during closure",
       "cheat_attach": false,
       "obj_start": [
         -2.5492,
@@ -111,26 +114,26 @@
         0.9498
       ],
       "obj_end": [
-        -2.4374,
-        2.3847,
-        0.9326
+        -2.5439,
+        2.2788,
+        0.9509
       ],
       "stage_s": {
         "APPROACH": 6.005,
         "REACH": 3.795,
         "DESCEND": 10.75,
-        "GRASP": 3.005,
-        "LIFT": 8.005
+        "GRASP": 0.005
       },
-      "grip_contacts": 3,
-      "grip_force_n": 23.905
+      "grip_contacts": -1,
+      "obj_tilt_deg": null,
+      "grip_force_n": 0.0
     },
     {
       "trial": 2,
       "seed": 20260903,
       "object": "soup_can",
       "outcome": "DESCEND_TIMEOUT",
-      "detail": "75 mm from grasp pose",
+      "detail": "38 mm from grasp pose",
       "cheat_attach": false,
       "obj_start": [
         -2.6293,
@@ -138,16 +141,17 @@
         0.9498
       ],
       "obj_end": [
-        -2.6293,
-        2.23,
-        0.9326
+        -2.4805,
+        2.205,
+        0.9321
       ],
       "stage_s": {
         "APPROACH": 6.005,
-        "REACH": 1.005,
+        "REACH": 1.075,
         "DESCEND": 15.005
       },
       "grip_contacts": -1,
+      "obj_tilt_deg": null,
       "grip_force_n": 0.0
     },
     {
@@ -155,7 +159,7 @@
       "seed": 20260904,
       "object": "soup_can",
       "outcome": "REACH_TIMEOUT",
-      "detail": "110 mm from pre-grasp",
+      "detail": "163 mm from pre-grasp",
       "cheat_attach": false,
       "obj_start": [
         -2.5573,
@@ -165,13 +169,14 @@
       "obj_end": [
         -2.5573,
         2.294,
-        0.9326
+        0.9321
       ],
       "stage_s": {
         "APPROACH": 6.005,
         "REACH": 30.005
       },
       "grip_contacts": -1,
+      "obj_tilt_deg": null,
       "grip_force_n": 0.0
     },
     {
@@ -179,7 +184,7 @@
       "seed": 20260905,
       "object": "soup_can",
       "outcome": "DESCEND_TIMEOUT",
-      "detail": "46 mm from grasp pose",
+      "detail": "100 mm from grasp pose",
       "cheat_attach": false,
       "obj_start": [
         -2.6066,
@@ -187,16 +192,17 @@
         0.9498
       ],
       "obj_end": [
-        -2.5601,
-        2.3416,
-        0.9327
+        -2.6066,
+        2.3028,
+        0.9321
       ],
       "stage_s": {
         "APPROACH": 6.005,
-        "REACH": 4.68,
+        "REACH": 4.72,
         "DESCEND": 15.005
       },
       "grip_contacts": -1,
+      "obj_tilt_deg": null,
       "grip_force_n": 0.0
     }
   ]

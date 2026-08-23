@@ -125,6 +125,12 @@ class MM5Config:
     idle_hand_kp: float = 5.0
     idle_hand_kd: float = 0.1
     min_grip_contacts: int = 2
+    # TOPPLE thresholds. A can that tips stays on the counter and never trips the
+    # knocked-off test, so it was reported as NO_GRIP for four versions.
+    topple_tilt_deg: float = 30.0
+    topple_drop_m: float = 0.010
+    # Fraction of the closure ramp the THUMB gets to itself before the fingers move.
+    thumb_lead: float = 0.40
     lift_h: float = 0.14
     lift_success_h: float = 0.05
     lift_timeout_s: float = 8.0
