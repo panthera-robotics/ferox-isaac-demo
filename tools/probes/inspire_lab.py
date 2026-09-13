@@ -32,7 +32,8 @@ assert type(steps) is int and 4 <= steps <= 200
 assert type(episode_steps) is int and 2 <= episode_steps < steps
 assert type(seed) is int and 0 <= seed <= 2**31 - 1
 scene = SceneConfig.from_dict(settings["scene_config"])
-actual_lab_sha = subprocess.check_output(["git", "-C", "/workspace/IsaacLab", "rev-parse", "HEAD"], text=True).strip()
+actual_lab_sha = subprocess.check_output(["git", "-c", "safe.directory=/workspace/IsaacLab",
+    "-C", "/workspace/IsaacLab", "rev-parse", "HEAD"], text=True).strip()
 assert actual_lab_sha == LAB_SOURCE_SHA, (actual_lab_sha, LAB_SOURCE_SHA)
 
 from isaaclab.app import AppLauncher
