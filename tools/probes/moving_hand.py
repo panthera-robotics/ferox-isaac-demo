@@ -167,7 +167,13 @@ scenes = [p for p in world.stage.Traverse() if p.IsA(UsdPhysics.Scene)]
 assert len(scenes) == 1
 flag = PhysxSchema.PhysxSceneAPI.Apply(scenes[0]).CreateEnableExternalForcesEveryIterationAttr(True)
 assert flag.Get() is True
-UsdLux.DomeLight.Define(world.stage, '/World/Light').CreateIntensityAttr(650.)
+light = UsdLux.DomeLight.Define(world.stage, '/World/Light')
+light.CreateIntensityAttr(350.)
+light.CreateColorAttr(Gf.Vec3f(.45, .52, .65))
+key_light = UsdLux.DistantLight.Define(world.stage, '/World/KeyLight')
+key_light.CreateIntensityAttr(450.)
+key_light.CreateColorAttr(Gf.Vec3f(1., .95, .88))
+UsdGeom.Xformable(key_light).AddRotateXYZOp().Set(Gf.Vec3f(-35., -25., -40.))
 add_reference_to_stage(str(dest), '/World/Hand')
 # One-factor contact velocity convergence diagnostic; preserve position
 # iterations, geometry, time step, limits and drives.
@@ -284,14 +290,14 @@ camera.set_clipping_range(.01, 10.)
 cx = UsdGeom.Xformable(camera.prim)
 cx.ClearXformOpOrder()
 cx.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(
-    Gf.Vec3d(.38, .42, .31), Gf.Vec3d(0., 0., .12), Gf.Vec3d(0., 0., 1.)).GetInverse())
+    Gf.Vec3d(.50, .56, .40), Gf.Vec3d(0., 0., .15), Gf.Vec3d(0., 0., 1.)).GetInverse())
 side_camera = Camera('/World/SideCamera', resolution=(640, 640))
 side_camera.initialize()
 side_camera.set_clipping_range(.01, 10.)
 sx = UsdGeom.Xformable(side_camera.prim)
 sx.ClearXformOpOrder()
 sx.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(
-    Gf.Vec3d(-.35, .25, .23), Gf.Vec3d(0., 0., .12), Gf.Vec3d(0., 0., 1.)).GetInverse())
+    Gf.Vec3d(-.50, .36, .33), Gf.Vec3d(0., 0., .15), Gf.Vec3d(0., 0., 1.)).GetInverse())
 for view_name in ['front', 'side']:
     out.joinpath('frames', view_name).mkdir(parents=True)
 frame_file = out.joinpath('frames.jsonl').open('w', buffering=1)
@@ -551,6 +557,7 @@ metrics = {'source_model': 'Unitree_FTP_donor_exact_E2_equivalence_unverified',
            'wrist_fixture': wrist_fixture,
            'media_capture': {'views': ['front', 'side'], 'physics_steps_per_frame': 20,
                             'physics_dt_s': .005, 'frame_trace_map': 'frames.jsonl',
+                            'render_profile': 'full_hand_two_view_key_fill_v2',
                             'source': 'actual_Isaac_camera_readback_no_generated_imagery'},
            'collision_refinement': collision_refinement,
            'collision_api_relocations': collision_api_relocations,
