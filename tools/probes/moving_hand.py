@@ -31,6 +31,10 @@ assert len(independent) == 6 and len(mimics) == 6
 out = Path('/evidence')
 mode = os.environ.get('PANTHERA_PROBE_MODE', 'default')
 assert mode in {'component-palm-sweeps', 'component-palm-blocked', 'component-palm-wrist'}
+probe_config = json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text()) if os.environ.get('PANTHERA_PROBE_CONFIG') else {}
+assert set(probe_config) <= {'palm_candidate_id'}, 'Unrecognized hand probe configuration'
+palm_candidate_id = probe_config.get('palm_candidate_id', 'ftp_palm_components_v1')
+assert palm_candidate_id in {'ftp_palm_components_v1', 'ftp_palm_yz_slabs_v2'}
 wrist_fixture = None
 import_source = source
 if mode == 'component-palm-wrist':
@@ -144,9 +148,12 @@ for wrapper in wrappers:
         'triangles_transforms_mass_and_collision_pairs_changed': False})
 assert len([p for p in stage.Traverse() if p.HasAPI(UsdPhysics.CollisionAPI) and p.IsA(UsdGeom.Mesh)]) == 30
 from inspire_collision import replace_palm_with_components
+if palm_candidate_id == 'ftp_palm_yz_slabs_v2':
+    enable_extension('omni.pip.compute')
 candidate = replace_palm_with_components(stage,
     '/Rhand/right_base_link/collisions/right_base_link/node_STL_BINARY_/mesh',
-    '/Rhand/right_base_link', contact_offset_m=.0012860533315688372, rest_offset_m=0.)
+    '/Rhand/right_base_link', contact_offset_m=.0012860533315688372, rest_offset_m=0.,
+    candidate_id=palm_candidate_id)
 out.joinpath('collision_candidate.json').write_text(json.dumps(candidate, indent=2, allow_nan=False))
 diagnostic_filtered_pairs = []
 stage.GetRootLayer().Save()
@@ -239,7 +246,8 @@ for path in tensor_articulation.link_paths[0]:
 out.joinpath('backend_shapes.json').write_text(json.dumps(backend_shapes, indent=2, allow_nan=False))
 assert backend_shapes['physics_statistics']['numTriMeshShapes'] == 0, 'Candidate requires moving colliders, no static palm'
 palm_cooked = [r for r in cooked if r['prim'].startswith('/World/Hand/right_base_link/collisions/')]
-assert len(palm_cooked) == 43, 'Every source component must have its own cooking result'
+assert len(palm_cooked) == candidate['expected_authored_palm_collider_count'], 'Every candidate collider must have its own cooking result'
+assert {r['prim'] for r in palm_cooked} == {r['prim'].replace('/Rhand/', '/World/Hand/', 1) for r in candidate['components']}, 'Cooked collider identity set differs from the candidate'
 assert all(r.get('result', '').endswith('RESULT_VALID') and r['hulls'] for r in palm_cooked)
 assert not world.stage.GetPrimAtPath('/World/Hand/right_base_link/collisions/right_base_link/node_STL_BINARY_/mesh').HasAPI(UsdPhysics.CollisionAPI)
 palm_live_count = next(x['max_shapes'] for x in backend_shapes['links'] if x['path'].endswith('/right_base_link'))
