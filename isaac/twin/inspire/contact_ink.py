@@ -123,6 +123,7 @@ class MarkingRule:
     maximum_sample_interval_s: float = 0.020
     ink_width_m: float = 0.0005
     allowed_pen_up_leakage_m: float = 0.0
+    allowed_unintended_bridge_m: float = 0.0
 
     def __post_init__(self):
         if any(not _finite(getattr(self, f.name)) for f in fields(self)):
@@ -132,7 +133,8 @@ class MarkingRule:
                     self.minimum_force_n, self.maximum_force_n, self.spring_travel_m,
                     self.maximum_sample_interval_s, self.ink_width_m)
         if (any(v <= 0 for v in positive) or not 0 < self.minimum_segment_coverage <= 1
-                or self.allowed_pen_up_leakage_m < 0 or self.minimum_force_n >= self.maximum_force_n
+                or self.allowed_pen_up_leakage_m < 0 or self.allowed_unintended_bridge_m < 0
+                or self.minimum_force_n >= self.maximum_force_n
                 or self.maximum_path_p95_m > self.maximum_path_error_m):
             raise InvalidTrace("marking thresholds must define a positive ordered envelope")
 
@@ -221,6 +223,17 @@ def _percentile95(values):
     return sorted(values)[math.ceil(0.95 * len(values)) - 1] if values else None
 
 
+def _outside_segments_length(a, b, intended_segments, tolerance):
+    """Measured connector length outside the allowed intended-segment corridors."""
+    intervals = []
+    for segment in intended_segments:
+        # The first pair parameterizes the measured connector here; clipping is
+        # against the tolerance capsule of each adjoining intended segment.
+        intervals.extend(_capsule_intervals(a, b, segment['a'], segment['b'], tolerance))
+    outside = math.dist(a, b) * (1.0 - _union_length(intervals))
+    return 0.0 if outside < 1e-12 else outside
+
+
 def evaluate(strokes, samples, rule=MarkingRule()):
     """Return a JSON-safe report. Invalid evidence and failed targets remain distinct.
 
@@ -229,6 +242,9 @@ def evaluate(strokes, samples, rule=MarkingRule()):
     no coverage even if its geometry is exactly right. Path error compares measured XY
     with the *synchronized reference fraction of that segment*, never another letter.
     Pen-up contact still deposits ink and is measured as leakage, not suppressed.
+    Contact connecting separate strokes is unintended ink even when both recorded
+    pen_down flags are true. Within one stroke, a connector between consecutive
+    segments must stay within their geometric tolerance corridors.
     """
     strokes, samples = tuple(strokes), tuple(samples)
     if not strokes or any(type(s) is not IntendedStroke for s in strokes):
@@ -252,7 +268,7 @@ def evaluate(strokes, samples, rule=MarkingRule()):
     previous_key = None
     previous_ordered = False
     last_rank, last_fraction = -1, -1.0
-    marked_count, pen_up_count, pen_up_extent = 0, 0, 0.0
+    marked_count, pen_up_count, pen_up_extent, bridge_extent = 0, 0, 0.0, 0.0
     force_values, max_compression = [], 0.0
     stroke_map = {s.stroke_id: s for s in strokes}
     for sample in samples:
@@ -328,6 +344,20 @@ def evaluate(strokes, samples, rule=MarkingRule()):
         if marked:
             marked_count += 1
             if previous_mark and contiguous:
+                if previous.pen_down and sample.pen_down and previous_key != key:
+                    before = previous.nib_position_board_m[:2]
+                    if (previous_key[0] != key[0]
+                            or key[1] != previous_key[1] + 1):
+                        # There is no intended marking interval between separate
+                        # strokes (or skipped/reversed segments). Desired pen_down
+                        # metadata cannot authorize the observed connecting ink.
+                        bridge_extent += math.dist(before, xy)
+                    else:
+                        bridge_extent += _outside_segments_length(
+                            before, xy, (segments[previous_key], segments[key]),
+                            rule.coverage_tolerance_m)
+                # Always retain the measured contact connector in the visible
+                # ink, including one that makes acceptance fail.
                 paths[-1].append(xy)
             else:
                 paths.append([xy])
@@ -365,6 +395,8 @@ def evaluate(strokes, samples, rule=MarkingRule()):
         issues.add("path_error_exceeds_target")
     if pen_up_extent > rule.allowed_pen_up_leakage_m:
         issues.add("pen_up_ink_leakage")
+    if bridge_extent > rule.allowed_unintended_bridge_m:
+        issues.add("unintended_contact_bridge")
     return dict(schema_version=1, artifact_kind="measured_contact_trace_plumbing",
                 physics_grasp_or_standing_certified=False, valid=not invalid,
                 accepted=not invalid and not issues, invalid_reasons=sorted(invalid),
@@ -375,6 +407,7 @@ def evaluate(strokes, samples, rule=MarkingRule()):
                 path_error_quantile="nearest_rank", endpoint_errors_m=endpoint_errors,
                 corner_errors_m=corner_errors, pen_up_marked_samples=pen_up_count,
                 pen_up_leakage_extent_m=pen_up_extent,
+                unintended_contact_bridge_extent_m=bridge_extent,
                 normal_force_min_n=min(force_values) if force_values else None,
                 normal_force_max_n=max(force_values) if force_values else None,
                 spring_compression_max_m=max_compression if samples else None,

@@ -58,6 +58,54 @@ class ContactInkTests(unittest.TestCase):
         self.assertEqual(report['coverage_fraction'], 0.0)
         self.assertEqual(report['ink_paths_board_m'], [])
 
+    def test_continuous_contact_between_separate_strokes_is_visible_unintended_ink(self):
+        strokes = [IntendedStroke('A', ((0.,0.),(.1,0.))),
+                   IntendedStroke('B', ((0.,.1),(.1,.1)))]
+        report = evaluate(strokes, trace(strokes))
+        # Every recorded point is exactly on its requested stroke, but the actual
+        # continuous contact draws a diagonal joining the two strokes.
+        self.assertTrue(report['valid'])
+        self.assertEqual(report['coverage_fraction'], 1.0)
+        self.assertEqual(report['path_error_max_m'], 0.0)
+        self.assertFalse(report['accepted'])
+        self.assertIn('unintended_contact_bridge', report['failure_reasons'])
+        self.assertAlmostEqual(report['unintended_contact_bridge_extent_m'], math.sqrt(.02))
+        self.assertEqual(report['pen_up_marked_samples'], 0)
+        self.assertEqual(report['ink_paths_board_m'][0][20:22], [(0.1,0.0),(0.0,0.1)])
+
+    def test_observed_lift_between_strokes_breaks_ink_and_passes(self):
+        strokes = [IntendedStroke('A', ((0.,0.),(.1,0.))),
+                   IntendedStroke('B', ((0.,.1),(.1,.1)))]
+        samples = trace(strokes)
+        samples.insert(21, replace(samples[20], nib_board_contact=False, pen_down=False,
+                                   normal_force_n=0.0))
+        # This constructs a complete synthetic physics trace with one actual
+        # contact-free sample, rather than dropping a sample from existing data.
+        samples = [replace(s, physics_sequence=i, physics_time_s=i*.005)
+                   for i,s in enumerate(samples)]
+        report = evaluate(strokes, samples)
+        self.assertTrue(report['accepted'])
+        self.assertEqual(report['unintended_contact_bridge_extent_m'], 0.0)
+        self.assertEqual(len(report['ink_paths_board_m']), 2)
+
+    def test_corner_shortcut_is_measured_between_samples_not_hidden_by_reference_labels(self):
+        strokes = [IntendedStroke('L', ((0.,0.),(1.,0.),(1.,1.)))]
+        samples = [s for s in trace(strokes, count=101)
+                   if not (s.segment_index == 0 and s.reference_fraction == 1.0)
+                   and not (s.segment_index == 1 and s.reference_fraction == 0.0)]
+        samples = [replace(s, physics_sequence=i, physics_time_s=i*.005)
+                   for i,s in enumerate(samples)]
+        report = evaluate(strokes, samples)
+        self.assertTrue(report['valid'])
+        self.assertEqual(report['path_error_max_m'], 0.0)
+        self.assertGreater(report['coverage_fraction'], .95)
+        self.assertFalse(report['accepted'])
+        self.assertIn('unintended_contact_bridge', report['failure_reasons'])
+        self.assertAlmostEqual(report['unintended_contact_bridge_extent_m'], .004*math.sqrt(2))
+        ordinary = evaluate(self.strokes, self.samples)
+        self.assertTrue(ordinary['accepted'])
+        self.assertEqual(ordinary['unintended_contact_bridge_extent_m'], 0.0)
+
     def test_unavailable_contacts_are_invalid_not_measured_zero(self):
         samples = [replace(s, nib_board_contact=None, normal_force_n=None) for s in self.samples]
         report = evaluate(self.strokes, samples)
