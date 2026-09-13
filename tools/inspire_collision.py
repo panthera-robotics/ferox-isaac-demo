@@ -16,9 +16,11 @@ import hashlib
 import math
 import operator
 import struct
+import itertools
 
 
 CANDIDATE_ID = "ftp_palm_components_v1"
+SLAB_CANDIDATE_ID = "ftp_palm_yz_slabs_v2"
 SOURCE_COMMIT = "7d6075f7f58588b189b940130e3edab3c839b2df"
 SOURCE_URL = "https://github.com/unitreerobotics/unitree_ros"
 SOURCE_STL_SHA256 = "77930c4a5df7536f95883e3f50b3fc21a12cb34bfc0b03b71ab859d166595b70"
@@ -163,7 +165,8 @@ def _authored_snapshot(prim, prefixes):
 
 def replace_palm_with_components(stage, source_mesh_path, rigid_body_path, *,
                                  contact_offset_m, rest_offset_m=0.0,
-                                 expected_geometry_sha256=PINNED_GEOMETRY_SHA256):
+                                 expected_geometry_sha256=PINNED_GEOMETRY_SHA256,
+                                 candidate_id=CANDIDATE_ID):
     """Replace one pinned palm collider with dynamic, same-body child colliders.
 
     Call before physics initialization, after importer wrapper collision APIs
@@ -178,6 +181,8 @@ def replace_palm_with_components(stage, source_mesh_path, rigid_body_path, *,
     """
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
 
+    if candidate_id not in (CANDIDATE_ID, SLAB_CANDIDATE_ID):
+        raise ValueError("Unknown collision candidate version")
     contact_offset_m, rest_offset_m = float(contact_offset_m), float(rest_offset_m)
     if not (math.isfinite(contact_offset_m) and math.isfinite(rest_offset_m)
             and contact_offset_m > 0 and 0 <= rest_offset_m < contact_offset_m):
@@ -228,7 +233,10 @@ def replace_palm_with_components(stage, source_mesh_path, rigid_body_path, *,
     collision_attrs = [(a.GetName(), a.GetTypeName(), a.Get()) for a in source.GetAttributes()
                        if str(a.GetName()).startswith("physxCollision:") and a.HasAuthoredValueOpinion()]
     simulation_owners = source.GetRelationship("physics:simulationOwner").GetTargets()
-    root_path = source.GetPath().AppendChild(CANDIDATE_ID)
+    # Prepare geometry before changing the stage. v1 stays the default; v2 uses
+    # the measured failing source component and retains its provenance index.
+    slab_plan = build_slab_candidate(partition) if candidate_id == SLAB_CANDIDATE_ID else None
+    root_path = source.GetPath().AppendChild(candidate_id)
     candidate_root = UsdGeom.Xform.Define(stage, root_path)
     candidate_root.CreatePurposeAttr("guide")
     records = []
@@ -277,8 +285,8 @@ def replace_palm_with_components(stage, source_mesh_path, rigid_body_path, *,
         raise RuntimeError("Unexpected physical property or collision-filter mutation")
     if geometry_sha256(*(a.Get() for a in attrs), orientation) != partition.source_geometry_sha256:
         raise RuntimeError("Original source geometry changed during collision replacement")
-    return {
-        "schema_version": 1, "candidate_id": CANDIDATE_ID,
+    manifest = {
+        "schema_version": 1, "candidate_id": candidate_id,
         "status": "provisional_authored_candidate_requires_physics_validation",
         "exact_RH56E2_equivalence": False, "simulation_qualified": False,
         "moving_palm_qualified": False, "grasp_qualified": False, "hardware_authorized": False,
@@ -316,3 +324,232 @@ def replace_palm_with_components(stage, source_mesh_path, rigid_body_path, *,
         "maximum_requested_palm_hulls": len(records) * DECOMPOSITION["maxConvexHulls"],
         "components": records,
     }
+    if slab_plan is not None:
+        apply_slab_candidate(stage, records, slab_plan, manifest, contact_offset_m, rest_offset_m)
+    return manifest
+
+
+def clip_polygon(polygon, axis, plane, keep_greater):
+    """Clip a polygon without moving surviving source points; cuts lie on plane."""
+    result = []
+    if not polygon:
+        return result
+    previous = polygon[-1]
+    sign = 1 if keep_greater else -1
+    previous_distance = (previous[axis] - plane) * sign
+    for current in polygon:
+        distance = (current[axis] - plane) * sign
+        if (distance >= 0) != (previous_distance >= 0):
+            fraction = previous_distance / (previous_distance - distance)
+            point = tuple(previous[i] + fraction * (current[i] - previous[i]) for i in range(3))
+            # Avoid a roundoff gap between neighboring cut planes.
+            point = point[:axis] + (plane,) + point[axis + 1:]
+            result.append(point)
+        if distance >= 0:
+            result.append(current)
+        previous, previous_distance = current, distance
+    return result
+
+
+def closed_convex_hull(points):
+    """A closed, outward-wound hull, including planar cut caps.
+
+    The hull contains all supplied source/cut points. It is a conservative
+    collision approximation, not a reconstructed CAD solid. None means a
+    zero-volume boundary fragment; callers retain adjacent volumetric pieces.
+    """
+    import numpy as np
+    from scipy.spatial import ConvexHull, QhullError
+
+    points = np.asarray(sorted(set(tuple(map(float, p)) for p in points)))
+    if len(points) < 4:
+        return None
+    try:
+        hull = ConvexHull(points)
+    except QhullError:
+        if np.linalg.matrix_rank(points - points[0], tol=1e-12) < 3:
+            return None
+        raise
+    remap = {int(old): new for new, old in enumerate(hull.vertices)}
+    faces = []
+    for face, equation in zip(hull.simplices, hull.equations):
+        a, b, c = map(int, face)
+        if np.dot(np.cross(points[b] - points[a], points[c] - points[a]), equation[:3]) < 0:
+            b, c = c, b
+        faces.append((remap[a], remap[b], remap[c]))
+    return {"points": [tuple(p) for p in points[hull.vertices]], "faces": faces,
+            "volume_m3": float(hull.volume)}
+
+
+def split_hull_vertex_budget(hull, max_vertices=120, cuts=()):
+    """Bisect a convex solid exactly until every piece fits the cooking budget.
+
+    Closed caps are supplied by each child's convex hull. The sum of child
+    volumes is checked against the parent before recursion. 120 input vertices
+    also bounds triangular faces below 255, avoiding opaque PhysX simplification.
+    """
+    if len(hull["points"]) <= max_vertices:
+        return [dict(hull, cuts=list(cuts))]
+    if len(cuts) >= 24:
+        raise ValueError("Convex partition did not converge within 24 cuts")
+    points = hull["points"]
+    bounds = [(min(p[i] for p in points), max(p[i] for p in points)) for i in range(3)]
+    axis = max(range(3), key=lambda i: bounds[i][1] - bounds[i][0])
+    plane = sum(bounds[axis]) / 2
+    polygons = [[points[i] for i in face] for face in hull["faces"]]
+    children = []
+    for side in (False, True):
+        clipped = [p for polygon in polygons for p in clip_polygon(polygon, axis, plane, side)]
+        child = closed_convex_hull(clipped)
+        if child is None:
+            raise ValueError("Unexpected empty half of a nondegenerate convex solid")
+        children.append(child)
+    volume = sum(c["volume_m3"] for c in children)
+    if abs(volume - hull["volume_m3"]) > max(1e-15, hull["volume_m3"] * 1e-8):
+        raise ValueError("Cut caps failed convex-volume conservation")
+    result = []
+    for side, child in zip((False, True), children):
+        result.extend(split_hull_vertex_budget(child, max_vertices,
+            cuts + ({"axis": "XYZ"[axis], "plane_m": plane, "keep_greater": side},)))
+    return result
+
+
+def source_slab_hulls(triangles, axes=(1, 2), width_m=.004):
+    """Conservative closed pieces of source material in two-axis spatial cells.
+
+    The remaining axis is unbounded. Each cell's source-boundary fragments
+    therefore contain the extremal points of the bounded material in that cell;
+    their closed convex hull contains that material, including properly capped
+    cuts. This would need an interior-cell rule for a three-axis voxel grid, so
+    three-axis input is refused. Source visual triangles are never edited.
+    """
+    if len(axes) not in (1, 2) or len(set(axes)) != len(axes) or any(a not in (0, 1, 2) for a in axes):
+        raise ValueError("Use one or two distinct spatial slab axes")
+    if not math.isfinite(width_m) or width_m <= 0:
+        raise ValueError("Slab width must be finite and positive")
+    groups = {}
+    for triangle in triangles:
+        bins = [range(math.floor(min(p[a] for p in triangle) / width_m),
+                      math.floor(max(p[a] for p in triangle) / width_m) + 1) for a in axes]
+        for cell in itertools.product(*bins):
+            polygon = list(triangle)
+            for axis, index in zip(axes, cell):
+                polygon = clip_polygon(polygon, axis, index * width_m, True)
+                polygon = clip_polygon(polygon, axis, (index + 1) * width_m, False)
+                if len(polygon) < 3:
+                    break
+            if len(polygon) >= 3:
+                groups.setdefault(cell, set()).update(polygon)
+    result, zero_volume_cells = [], []
+    for cell, points in sorted(groups.items()):
+        hull = closed_convex_hull(points)
+        if hull is None:
+            zero_volume_cells.append(list(cell))
+            continue
+        for piece in split_hull_vertex_budget(hull):
+            result.append(dict(piece, slab_axes=["XYZ"[a] for a in axes], slab_cell=list(cell),
+                slab_bounds_m=[[index * width_m, (index + 1) * width_m] for index in cell]))
+    return result, zero_volume_cells
+
+
+def build_slab_candidate(partition):
+    """Prepare v2 geometry from the audited 43-component right palm.
+
+    The large shell (23) gets Y/Z cells selected by CPU cavity tests. Component
+    40 retains v1 decomposition because its single hull creates a new cavity
+    overlap. Other components use conservative closed hulls, split as needed to
+    avoid hidden cooking vertex reduction. Added concavity volume is reported.
+    """
+    import numpy as np
+
+    if len(partition.components) != 43 or len(partition.components[23]) != 43156:
+        raise ValueError("v2 requires the reviewed right-palm component topology")
+    plan = []
+    for component, face_ids in enumerate(partition.components):
+        points, indices = partition.component_mesh(component)
+        triangles = np.asarray(points)[np.asarray(indices).reshape(-1, 3)]
+        source_volume = abs(float(np.einsum("ij,ij->", triangles[:, 0],
+            np.cross(triangles[:, 1], triangles[:, 2])) / 6))
+        if component == 40:
+            plan.append({"source_component_index": component, "kind": "retain_v1_decomposition",
+                         "source_signed_surface_volume_m3": source_volume})
+            continue
+        if component == 23:
+            pieces, zero_volume = source_slab_hulls([[tuple(p) for p in t] for t in triangles])
+            kind = "source_shell_yz_slabs"
+        else:
+            pieces = split_hull_vertex_budget(closed_convex_hull(points))
+            zero_volume = []
+            kind = "conservative_component_hull"
+        plan.append({"source_component_index": component, "kind": kind, "pieces": pieces,
+            "source_signed_surface_volume_m3": source_volume,
+            "sum_piece_volume_m3": sum(p["volume_m3"] for p in pieces),
+            "zero_volume_boundary_cells": zero_volume})
+    return plan
+
+
+def apply_slab_candidate(stage, source_records, plan, manifest, contact_offset_m, rest_offset_m):
+    """Author prepared closed hulls on the existing moving palm rigid body."""
+    from pxr import Gf, Sdf, UsdGeom, UsdPhysics
+
+    records, summaries = [], []
+    for item in plan:
+        component = item["source_component_index"]
+        original = source_records[component]
+        parent = stage.GetPrimAtPath(original["prim"])
+        if item["kind"] == "retain_v1_decomposition":
+            records.append(dict(original, source_component_index=component,
+                                approximation="convexDecomposition", expected_hulls=32))
+            summaries.append(item)
+            continue
+        parent.RemoveAPI(UsdPhysics.CollisionAPI)
+        parent.RemoveAPI(UsdPhysics.MeshCollisionAPI)
+        parent.RemoveAppliedSchema("PhysxConvexDecompositionCollisionAPI")
+        parent.RemoveAppliedSchema("PhysxCollisionAPI")
+        for index, piece in enumerate(item["pieces"]):
+            path = parent.GetPath().AppendChild(f"closed_piece_{index:03d}")
+            mesh = UsdGeom.Mesh.Define(stage, path)
+            mesh.CreatePointsAttr([Gf.Vec3f(*p) for p in piece["points"]])
+            mesh.CreateFaceVertexCountsAttr([3] * len(piece["faces"]))
+            mesh.CreateFaceVertexIndicesAttr([v for face in piece["faces"] for v in face])
+            mesh.CreateOrientationAttr("rightHanded")
+            mesh.CreateSubdivisionSchemeAttr("none")
+            prim = mesh.GetPrim()
+            UsdPhysics.CollisionAPI.Apply(prim).CreateCollisionEnabledAttr(True)
+            UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr("convexHull")
+            prim.AddAppliedSchema("PhysxConvexHullCollisionAPI")
+            prim.CreateAttribute("physxConvexHullCollision:hullVertexLimit", Sdf.ValueTypeNames.Int, custom=False).Set(255)
+            prim.CreateAttribute("physxConvexHullCollision:minThickness", Sdf.ValueTypeNames.Float, custom=False).Set(.001)
+            prim.AddAppliedSchema("PhysxCollisionAPI")
+            for attr in parent.GetAttributes():
+                if str(attr.GetName()).startswith("physxCollision:") and attr.HasAuthoredValueOpinion():
+                    prim.CreateAttribute(attr.GetName(), attr.GetTypeName(), custom=False).Set(attr.Get())
+            for name, value in (("contactOffset", contact_offset_m), ("restOffset", rest_offset_m)):
+                prim.CreateAttribute("physxCollision:" + name, Sdf.ValueTypeNames.Float, custom=False).Set(value)
+            owners = parent.GetRelationship("physics:simulationOwner").GetTargets()
+            if owners:
+                UsdPhysics.CollisionAPI(prim).CreateSimulationOwnerRel().SetTargets(owners)
+            # Inherit the original source MaterialBindingAPI and exact transform
+            # through identity children; never introduce an extra rigid body.
+            metadata = {k: v for k, v in piece.items() if k not in ("points", "faces")}
+            records.append(dict(metadata, prim=str(path), source_component_index=component,
+                approximation="convexHull", expected_hulls=1, point_count=len(piece["points"]),
+                triangle_count=len(piece["faces"]), collision_input_geometry_sha256=geometry_sha256(
+                    piece["points"], [3] * len(piece["faces"]), [v for face in piece["faces"] for v in face])))
+        summaries.append({k: v for k, v in item.items() if k != "pieces"} |
+                         {"closed_hull_piece_count": len(item["pieces"])})
+    manifest.update({"schema_version": 2, "source_connected_component_count": 43,
+        "source_components": source_records, "components": records, "component_count": len(records),
+        "expected_authored_palm_collider_count": len(records),
+        "maximum_requested_palm_hulls": sum(r["expected_hulls"] for r in records),
+        "expected_palm_hulls_if_all_cooking_succeeds": sum(r["expected_hulls"] for r in records),
+        "collision_input_triangles_retriangulated": True,
+        "source_visual_triangles_and_dimensions_preserved": True,
+        "collision_solid_policy": "conservative closed hulls contain clipped source material; concave voids may be filled and require measured clearance tests",
+        "slab_axes": ["Y", "Z"], "slab_width_m": .004,
+        "slab_grid_origin_m": 0., "slab_source_component_index": 23,
+        "convex_decomposition_retained_for_source_components": [40],
+        "convex_input_max_vertices": 120, "convex_cooking_vertex_limit": 255,
+        "convex_min_thickness_m": .001, "component_geometry_summary": summaries,
+        "preset_rationale": "The measured component23 cavity error was2.54mm. CPU tests against recorded thumb2 hulls found zero overlap for4mm Y/Z cells;2mm one-axis slabs and4mm X/Y or X/Z cells still overlapped. Closed caps come from convex hulls of clipped source boundaries. Convex pieces are bisected with volume conservation until at most120 vertices. Component40 retains v1 decomposition because its single hull introduces new cavity overlap. Other source components use conservative hulls; their added volume is explicit, not exact CAD fidelity.",
+        "exact_RH56E2_equivalence": False, "moving_palm_qualified": False, "simulation_qualified": False})

@@ -5,12 +5,20 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from inspire_collision import (CANDIDATE_ID, DECOMPOSITION, geometry_sha256,
-                               partition_triangles, replace_palm_with_components)
+                               partition_triangles, replace_palm_with_components,
+                               clip_polygon, closed_convex_hull, split_hull_vertex_budget,
+                               source_slab_hulls)
 
 try:
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
 except ImportError:
     Usd = None
+
+try:
+    import numpy as np
+    from scipy.spatial import ConvexHull
+except ImportError:
+    np = None
 
 
 class TopologyTests(unittest.TestCase):
@@ -52,6 +60,68 @@ class TopologyTests(unittest.TestCase):
                 partition_triangles(points, counts, indices)
         with self.assertRaises(ValueError):
             partition_triangles([(float("nan"), 0, 0)] + points[1:], [3], [0, 1, 2])
+
+    def test_plane_clip_preserves_source_side_and_closes_at_exact_plane(self):
+        polygon = [(0., 0., 0.), (2., 0., 0.), (0., 2., 0.)]
+        clipped = clip_polygon(polygon, 0, 1., True)
+        self.assertIn((2., 0., 0.), clipped)
+        self.assertIn((1., 0., 0.), clipped)
+        self.assertIn((1., 1., 0.), clipped)
+        self.assertTrue(all(p[0] >= 1. for p in clipped))
+
+
+@unittest.skipIf(np is None, "SciPy unavailable; use existing Isaac Sim Python for geometry tests")
+class SlabGeometryTests(unittest.TestCase):
+    @staticmethod
+    def box(bounds):
+        return closed_convex_hull([(x, y, z) for x in bounds[0] for y in bounds[1] for z in bounds[2]])
+
+    def test_closed_caps_and_recursive_cuts_conserve_convex_material(self):
+        # A finely sampled convex sphere needs multiple bounded-vertex pieces.
+        points = []
+        for i in range(1, 16):
+            latitude = np.pi * i / 16
+            for j in range(32):
+                longitude = 2 * np.pi * j / 32
+                points.append((.01 * np.sin(latitude) * np.cos(longitude),
+                               .01 * np.sin(latitude) * np.sin(longitude), .01 * np.cos(latitude)))
+        points += [(0., 0., -.01), (0., 0., .01)]
+        hull = closed_convex_hull(points)
+        pieces = split_hull_vertex_budget(hull, max_vertices=60)
+        self.assertGreater(len(pieces), 1)
+        self.assertTrue(all(len(p["points"]) <= 60 for p in pieces))
+        self.assertAlmostEqual(sum(p["volume_m3"] for p in pieces), hull["volume_m3"], places=12)
+        for piece in pieces:
+            faces = np.asarray(piece["points"])[np.asarray(piece["faces"])]
+            signed = np.einsum("ij,ij->", faces[:, 0], np.cross(faces[:, 1], faces[:, 2])) / 6
+            self.assertGreater(signed, 0)
+            self.assertAlmostEqual(signed, piece["volume_m3"], places=12)
+            edges = {}
+            for a, b, c in piece["faces"]:
+                for edge in ((a, b), (b, c), (c, a)):
+                    key = tuple(sorted(edge))
+                    edges[key] = edges.get(key, 0) + 1
+            self.assertTrue(all(count == 2 for count in edges.values()))
+
+    def test_yz_cells_preserve_u_solid_and_leave_its_cavity_open(self):
+        boxes = [self.box(((0., .004), (0., .004), (0., .016))),
+                 self.box(((0., .004), (.012, .016), (0., .016))),
+                 self.box(((0., .004), (.004, .012), (0., .004)))]
+        triangles = [[box["points"][i] for i in face] for box in boxes for face in box["faces"]]
+        pieces, _ = source_slab_hulls(triangles, axes=(1, 2), width_m=.004)
+        # Spatial convexification may conservatively add corner volume. It must
+        # cover the source solid while retaining this central open cavity.
+        self.assertGreaterEqual(sum(p["volume_m3"] for p in pieces),
+                                sum(b["volume_m3"] for b in boxes) - 1e-12)
+        cavity = np.array([.002, .008, .010])
+        equations = [ConvexHull(p["points"]).equations for p in pieces]
+        self.assertFalse(any(np.all(e[:, :3] @ cavity + e[:, 3] <= 1e-10) for e in equations))
+        # Every original surface vertex and each triangle centroid is covered.
+        for triangle in triangles:
+            for point in list(triangle) + [np.mean(triangle, axis=0)]:
+                self.assertTrue(any(np.all(e[:, :3] @ point + e[:, 3] <= 1e-10) for e in equations))
+        with self.assertRaises(ValueError):
+            source_slab_hulls(triangles, axes=(0, 1, 2))
 
 
 @unittest.skipIf(Usd is None, "USD bindings unavailable; run with existing Isaac Sim Python for USD tests")
