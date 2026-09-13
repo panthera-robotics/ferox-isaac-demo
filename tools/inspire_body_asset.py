@@ -114,8 +114,11 @@ def import_body(source, output_dir, *, fixed_base, palm_builder):
             assert ancestor
             instance_roots.add(str(ancestor.GetPath()))
     for p in sorted(instance_roots):stage.GetPrimAtPath(p).SetInstanceable(False)
+    analytic=[{'prim':str(p.GetPath()),'type':p.GetTypeName()} for p in stage.Traverse()
+        if p.HasAPI(UsdPhysics.CollisionAPI) and p.GetTypeName() in {'Sphere','Cylinder','Capsule','Cube','Cone'}]
+    assert len(analytic)==12, 'Pinned donor has eight source foot spheres and four shoulder cylinders'
     relocations=[]
-    for wrapper in [p for p in stage.Traverse() if p.HasAPI(UsdPhysics.CollisionAPI) and not p.IsA(UsdGeom.Mesh)]:
+    for wrapper in [p for p in stage.Traverse() if p.HasAPI(UsdPhysics.CollisionAPI) and p.IsA(UsdGeom.Xform)]:
         meshes=[p for p in Usd.PrimRange(wrapper) if p.IsA(UsdGeom.Mesh)]
         assert len(meshes)==1
         mesh=meshes[0]; enabled=UsdPhysics.CollisionAPI(wrapper).GetCollisionEnabledAttr().Get()
@@ -131,6 +134,8 @@ def import_body(source, output_dir, *, fixed_base, palm_builder):
         assert len(meshes)==1
         candidates[side]=palm_builder(stage,str(meshes[0].GetPath()),palm,side)
     facts.update(fixed_base=fixed_base,root_prim=prefix,collision_candidates=candidates,collision_api_relocations=relocations,
+        source_analytic_colliders_preserved=analytic,
+        imported_inertia_validation='source tensors requested via import_inertia_tensor; numerical live tensor comparison not yet evaluated',
         hand_joint_names=list(hand_joints),hand_independent_names=list(hand_independent),body_joint_names=[n for n in joints if n not in hand_joints],
         mimic_map={n:{'parent':j.find('mimic').get('joint'),'multiplier':float(j.find('mimic').get('multiplier',1)),
             'offset':float(j.find('mimic').get('offset',0))} for n,j in hand_joints.items() if j.find('mimic') is not None},
