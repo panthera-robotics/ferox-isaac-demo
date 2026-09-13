@@ -21,12 +21,24 @@ import itertools
 
 CANDIDATE_ID = "ftp_palm_components_v1"
 SLAB_CANDIDATE_ID = "ftp_palm_yz_slabs_v2"
+LEFT_SLAB_CANDIDATE_ID = "ftp_left_palm_yz_slabs_v1"
 SOURCE_COMMIT = "7d6075f7f58588b189b940130e3edab3c839b2df"
 SOURCE_URL = "https://github.com/unitreerobotics/unitree_ros"
 SOURCE_STL_SHA256 = "77930c4a5df7536f95883e3f50b3fc21a12cb34bfc0b03b71ab859d166595b70"
 # Fingerprint of the pinned import's ordered points/counts/indices, not a cooked
 # mesh or an assertion of equivalence to the installed RH56E2 hardware.
 PINNED_GEOMETRY_SHA256 = "7b61ca7ab2534e03f0a61202331e0733dc0673f48c55a7cc28685606ab3d691d"
+PINNED_LEFT_GEOMETRY_SHA256 = "5a81cc75b60c00341c9a4ae1cc38880a6815bae89aba6e3c02e98f7cde9639a3"
+LEFT_SOURCE_STL_SHA256 = "20eb4092a92fc26a14863f5dda257a1db618e6f6d617ea6736a95a819ae10f3f"
+# Left is independently fingerprinted: it has 20 source components and different
+# internal geometry. Its dimensions reflect across X, but it is not a byte- or
+# surface-equivalent mirrored right mesh. Never substitute the right asset.
+RIGHT_PROFILE = {"side": "right", "component_count": 43, "shell_component": 23,
+                 "shell_faces": 43156, "retained_component": 40,
+                 "geometry_sha256": PINNED_GEOMETRY_SHA256, "stl_sha256": SOURCE_STL_SHA256}
+LEFT_PROFILE = {"side": "left", "component_count": 20, "shell_component": 1,
+                "shell_faces": 43198, "retained_component": 7,
+                "geometry_sha256": PINNED_LEFT_GEOMETRY_SHA256, "stl_sha256": LEFT_SOURCE_STL_SHA256}
 DECOMPOSITION = {
     "maxConvexHulls": 32,
     "hullVertexLimit": 64,
@@ -165,7 +177,7 @@ def _authored_snapshot(prim, prefixes):
 
 def replace_palm_with_components(stage, source_mesh_path, rigid_body_path, *,
                                  contact_offset_m, rest_offset_m=0.0,
-                                 expected_geometry_sha256=PINNED_GEOMETRY_SHA256,
+                                 expected_geometry_sha256=None,
                                  candidate_id=CANDIDATE_ID):
     """Replace one pinned palm collider with dynamic, same-body child colliders.
 
@@ -181,8 +193,11 @@ def replace_palm_with_components(stage, source_mesh_path, rigid_body_path, *,
     """
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
 
-    if candidate_id not in (CANDIDATE_ID, SLAB_CANDIDATE_ID):
+    if candidate_id not in (CANDIDATE_ID, SLAB_CANDIDATE_ID, LEFT_SLAB_CANDIDATE_ID):
         raise ValueError("Unknown collision candidate version")
+    profile = LEFT_PROFILE if candidate_id == LEFT_SLAB_CANDIDATE_ID else RIGHT_PROFILE
+    if expected_geometry_sha256 is None:
+        expected_geometry_sha256 = profile["geometry_sha256"]
     contact_offset_m, rest_offset_m = float(contact_offset_m), float(rest_offset_m)
     if not (math.isfinite(contact_offset_m) and math.isfinite(rest_offset_m)
             and contact_offset_m > 0 and 0 <= rest_offset_m < contact_offset_m):
@@ -235,7 +250,7 @@ def replace_palm_with_components(stage, source_mesh_path, rigid_body_path, *,
     simulation_owners = source.GetRelationship("physics:simulationOwner").GetTargets()
     # Prepare geometry before changing the stage. v1 stays the default; v2 uses
     # the measured failing source component and retains its provenance index.
-    slab_plan = build_slab_candidate(partition) if candidate_id == SLAB_CANDIDATE_ID else None
+    slab_plan = build_slab_candidate(partition, profile) if candidate_id != CANDIDATE_ID else None
     root_path = source.GetPath().AppendChild(candidate_id)
     candidate_root = UsdGeom.Xform.Define(stage, root_path)
     candidate_root.CreatePurposeAttr("guide")
@@ -291,8 +306,8 @@ def replace_palm_with_components(stage, source_mesh_path, rigid_body_path, *,
         "exact_RH56E2_equivalence": False, "simulation_qualified": False,
         "moving_palm_qualified": False, "grasp_qualified": False, "hardware_authorized": False,
         "source_url": SOURCE_URL, "source_commit": SOURCE_COMMIT, "source_license": "BSD-3-Clause",
-        "pinned_source_stl_sha256": SOURCE_STL_SHA256,
-        "source_geometry_matches_pinned_donor": partition.source_geometry_sha256 == PINNED_GEOMETRY_SHA256,
+        "pinned_source_stl_sha256": profile["stl_sha256"], "source_side": profile["side"],
+        "source_geometry_matches_pinned_donor": partition.source_geometry_sha256 == profile["geometry_sha256"],
         "source_geometry_sha256": partition.source_geometry_sha256,
         "source_prim": str(source.GetPath()), "rigid_body_prim": str(body.GetPath()),
         "candidate_root_prim": str(root_path), "source_orientation": orientation,
@@ -325,7 +340,7 @@ def replace_palm_with_components(stage, source_mesh_path, rigid_body_path, *,
         "components": records,
     }
     if slab_plan is not None:
-        apply_slab_candidate(stage, records, slab_plan, manifest, contact_offset_m, rest_offset_m)
+        apply_slab_candidate(stage, records, slab_plan, manifest, contact_offset_m, rest_offset_m, profile)
     return manifest
 
 
@@ -452,8 +467,8 @@ def source_slab_hulls(triangles, axes=(1, 2), width_m=.004):
     return result, zero_volume_cells
 
 
-def build_slab_candidate(partition):
-    """Prepare v2 geometry from the audited 43-component right palm.
+def build_slab_candidate(partition, profile=None):
+    """Prepare slab geometry from an independently pinned palm source.
 
     The large shell (23) gets Y/Z cells selected by CPU cavity tests. Component
     40 retains v1 decomposition because its single hull creates a new cavity
@@ -462,19 +477,21 @@ def build_slab_candidate(partition):
     """
     import numpy as np
 
-    if len(partition.components) != 43 or len(partition.components[23]) != 43156:
-        raise ValueError("v2 requires the reviewed right-palm component topology")
+    profile = RIGHT_PROFILE if profile is None else profile
+    if (len(partition.components) != profile["component_count"] or
+            len(partition.components[profile["shell_component"]]) != profile["shell_faces"]):
+        raise ValueError("Slab candidate requires the reviewed " + profile["side"] + "-palm topology")
     plan = []
     for component, face_ids in enumerate(partition.components):
         points, indices = partition.component_mesh(component)
         triangles = np.asarray(points)[np.asarray(indices).reshape(-1, 3)]
         source_volume = abs(float(np.einsum("ij,ij->", triangles[:, 0],
             np.cross(triangles[:, 1], triangles[:, 2])) / 6))
-        if component == 40:
+        if component == profile["retained_component"]:
             plan.append({"source_component_index": component, "kind": "retain_v1_decomposition",
                          "source_signed_surface_volume_m3": source_volume})
             continue
-        if component == 23:
+        if component == profile["shell_component"]:
             pieces, zero_volume = source_slab_hulls([[tuple(p) for p in t] for t in triangles])
             kind = "source_shell_yz_slabs"
         else:
@@ -488,7 +505,7 @@ def build_slab_candidate(partition):
     return plan
 
 
-def apply_slab_candidate(stage, source_records, plan, manifest, contact_offset_m, rest_offset_m):
+def apply_slab_candidate(stage, source_records, plan, manifest, contact_offset_m, rest_offset_m, profile):
     """Author prepared closed hulls on the existing moving palm rigid body."""
     from pxr import Gf, Sdf, UsdGeom, UsdPhysics
 
@@ -538,7 +555,7 @@ def apply_slab_candidate(stage, source_records, plan, manifest, contact_offset_m
                     piece["points"], [3] * len(piece["faces"]), [v for face in piece["faces"] for v in face])))
         summaries.append({k: v for k, v in item.items() if k != "pieces"} |
                          {"closed_hull_piece_count": len(item["pieces"])})
-    manifest.update({"schema_version": 2, "source_connected_component_count": 43,
+    manifest.update({"schema_version": 2, "source_connected_component_count": profile["component_count"],
         "source_components": source_records, "components": records, "component_count": len(records),
         "expected_authored_palm_collider_count": len(records),
         "maximum_requested_palm_hulls": sum(r["expected_hulls"] for r in records),
@@ -547,9 +564,17 @@ def apply_slab_candidate(stage, source_records, plan, manifest, contact_offset_m
         "source_visual_triangles_and_dimensions_preserved": True,
         "collision_solid_policy": "conservative closed hulls contain clipped source material; concave voids may be filled and require measured clearance tests",
         "slab_axes": ["Y", "Z"], "slab_width_m": .004,
-        "slab_grid_origin_m": 0., "slab_source_component_index": 23,
-        "convex_decomposition_retained_for_source_components": [40],
+        "slab_grid_origin_m": 0., "slab_source_component_index": profile["shell_component"],
+        "convex_decomposition_retained_for_source_components": [profile["retained_component"]],
         "convex_input_max_vertices": 120, "convex_cooking_vertex_limit": 255,
         "convex_min_thickness_m": .001, "component_geometry_summary": summaries,
         "preset_rationale": "The measured component23 cavity error was2.54mm. CPU tests against recorded thumb2 hulls found zero overlap for4mm Y/Z cells;2mm one-axis slabs and4mm X/Y or X/Z cells still overlapped. Closed caps come from convex hulls of clipped source boundaries. Convex pieces are bisected with volume conservation until at most120 vertices. Component40 retains v1 decomposition because its single hull introduces new cavity overlap. Other source components use conservative hulls; their added volume is explicit, not exact CAD fidelity.",
         "exact_RH56E2_equivalence": False, "moving_palm_qualified": False, "simulation_qualified": False})
+    if profile["side"] == "left":
+        manifest["preset_rationale"] = (
+            "Apply the right-v2 geometric method to independently fingerprinted left source geometry: "
+            "20 source components, shell1 cut into4mm Y/Z cells, component7 retains32-hull decomposition. "
+            "The left source has different internal geometry and is not substituted with a mirrored right mesh. "
+            "Closed convex caps and bounded-vertex cuts retain source material conservatively. "
+            "Right-side results do not qualify the left; require independent left cooking, cavity and dynamics checks.")
+        manifest["mirrored_right_geometry_substituted"] = False

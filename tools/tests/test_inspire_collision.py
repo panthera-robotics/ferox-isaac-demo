@@ -7,7 +7,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from inspire_collision import (CANDIDATE_ID, DECOMPOSITION, geometry_sha256,
                                partition_triangles, replace_palm_with_components,
                                clip_polygon, closed_convex_hull, split_hull_vertex_budget,
-                               source_slab_hulls)
+                               source_slab_hulls, LEFT_SLAB_CANDIDATE_ID,
+                               PINNED_LEFT_GEOMETRY_SHA256, PINNED_GEOMETRY_SHA256)
 
 try:
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
@@ -214,6 +215,11 @@ class UsdReplacementTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "fingerprint"):
             replace_palm_with_components(self.stage, str(self.mesh.GetPath()), str(self.body.GetPath()),
                                          contact_offset_m=.001)
+        self.assertEqual(self.stage.GetRootLayer().ExportToString(), before)
+        self.assertNotEqual(PINNED_LEFT_GEOMETRY_SHA256, PINNED_GEOMETRY_SHA256)
+        with self.assertRaisesRegex(ValueError, "fingerprint"):
+            replace_palm_with_components(self.stage, str(self.mesh.GetPath()), str(self.body.GetPath()),
+                contact_offset_m=.001, candidate_id=LEFT_SLAB_CANDIDATE_ID)
         self.assertEqual(self.stage.GetRootLayer().ExportToString(), before)
         self.replace()
         with self.assertRaises(ValueError):
