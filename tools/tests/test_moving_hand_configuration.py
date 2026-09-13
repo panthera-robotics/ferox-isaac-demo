@@ -18,7 +18,7 @@ class HandSourceSelectionTests(unittest.TestCase):
         result = configure({}, "component-palm-sweeps")
         self.assertEqual(result, {"hand_side": "right", "palm_candidate_id": "ftp_palm_components_v1",
             "solver_velocity_iterations": 8, "source_filename": "FTP_right_hand_bench.urdf",
-            "imported_root": "/Rhand", "usd_filename": "ftp_right_bench.usd"})
+            "imported_root": "/Rhand", "usd_filename": "ftp_right_bench.usd", "thumb_candidate_id": None})
         for iterations in (8, 16, 32):
             for mode in ("component-palm-sweeps", "component-palm-blocked", "component-palm-wrist"):
                 value = configure({"palm_candidate_id": "ftp_palm_yz_slabs_v2", "solver_velocity_iterations": iterations}, mode)
@@ -32,11 +32,14 @@ class HandSourceSelectionTests(unittest.TestCase):
         self.assertEqual(result["palm_candidate_id"], "ftp_left_palm_yz_slabs_v1")
         self.assertEqual(result["usd_filename"], "ftp_left_bench.usd")
         self.assertEqual(result["solver_velocity_iterations"], 8)
+        result = configure({"hand_side": "left", "thumb_candidate_id": "ftp_left_thumb2_yz_slabs_v1"}, "component-palm-sweeps")
+        self.assertEqual(result["thumb_candidate_id"], "ftp_left_thumb2_yz_slabs_v1")
 
     def test_wrong_side_candidates_and_unsupported_fixture_fail_before_import(self):
         for config, mode in [({"hand_side": "left"}, "component-palm-wrist"),
             ({"hand_side": "left", "palm_candidate_id": "ftp_palm_yz_slabs_v2"}, "component-palm-sweeps"),
             ({"palm_candidate_id": "ftp_left_palm_yz_slabs_v1"}, "component-palm-sweeps"),
+            ({"thumb_candidate_id": "ftp_left_thumb2_yz_slabs_v1"}, "component-palm-sweeps"),
             ({"hand_side": "mirrored"}, "component-palm-sweeps"),
             ({"solver_velocity_iterations": True}, "component-palm-sweeps"),
             ({"solver_velocity_iterations": 64}, "component-palm-sweeps"),

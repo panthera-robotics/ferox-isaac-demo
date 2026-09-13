@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 
 def hand_probe_configuration(config, mode):
     """Resolve explicit source chirality before any source audit or simulator import."""
-    if not isinstance(config, dict) or set(config) - {'hand_side', 'palm_candidate_id', 'solver_velocity_iterations'}:
+    if not isinstance(config, dict) or set(config) - {'hand_side', 'palm_candidate_id', 'solver_velocity_iterations', 'thumb_candidate_id'}:
         raise ValueError('Unrecognized hand probe configuration')
     side = config.get('hand_side', 'right')
     if type(side) is not str or side not in {'left', 'right'}:
@@ -28,10 +28,14 @@ def hand_probe_configuration(config, mode):
     candidate = config.get('palm_candidate_id', 'ftp_palm_components_v1' if side == 'right' else 'ftp_left_palm_yz_slabs_v1')
     if type(candidate) is not str or candidate not in allowed:
         raise ValueError('Palm candidate does not match the explicit source side')
+    thumb = config.get('thumb_candidate_id')
+    if thumb is not None and (side != 'left' or thumb != 'ftp_left_thumb2_yz_slabs_v1'):
+        raise ValueError('Thumb candidate requires its independently pinned left source')
     iterations = config.get('solver_velocity_iterations', 8)
     if type(iterations) is not int or iterations not in {8, 16, 32}:
         raise ValueError('Unsupported diagnostic velocity iteration count')
     return {'hand_side': side, 'palm_candidate_id': candidate, 'solver_velocity_iterations': iterations,
+        'thumb_candidate_id': thumb,
         'source_filename': f'FTP_{side}_hand_bench.urdf',
         'imported_root': '/Rhand' if side == 'right' else '/Lhand',
         'usd_filename': f'ftp_{side}_bench.usd'}
@@ -185,6 +189,13 @@ candidate = replace_palm_with_components(stage,
     f'{imported_root}/{base_link}', contact_offset_m=.0012860533315688372, rest_offset_m=0.,
     candidate_id=palm_candidate_id)
 out.joinpath('collision_candidate.json').write_text(json.dumps(candidate, indent=2, allow_nan=False))
+thumb_candidate = None
+if selection['thumb_candidate_id']:
+    from inspire_collision import replace_left_thumb_with_slabs
+    thumb_candidate = replace_left_thumb_with_slabs(stage,
+        imported_root + '/left_thumb_2/collisions/left_thumb_2/node_STL_BINARY_/mesh',
+        imported_root + '/left_thumb_2')
+    out.joinpath('thumb_collision_candidate.json').write_text(json.dumps(thumb_candidate, indent=2, allow_nan=False))
 diagnostic_filtered_pairs = []
 stage.GetRootLayer().Save()
 world = World(stage_units_in_meters=1., physics_dt=.005, rendering_dt=.02)
@@ -292,6 +303,17 @@ candidate['runtime_verification'] = {'component_cooking_results': len(palm_cooke
     'all_cooking_results_valid': True, 'live_palm_shapes': palm_live_count,
     'whole_palm_collider_present': False, 'static_triangle_shapes': 0}
 out.joinpath('collision_candidate.json').write_text(json.dumps(candidate, indent=2, allow_nan=False))
+if thumb_candidate is not None:
+    thumb_cooked = [r for r in cooked if r['prim'].startswith('/World/Hand/left_thumb_2/collisions/')]
+    assert len(thumb_cooked) == thumb_candidate['expected_authored_collider_count']
+    assert {r['prim'] for r in thumb_cooked} == {r['prim'].replace(imported_root + '/', '/World/Hand/', 1) for r in thumb_candidate['components']}
+    assert all(r.get('result', '').endswith('RESULT_VALID') and r['hulls'] for r in thumb_cooked)
+    assert not world.stage.GetPrimAtPath('/World/Hand/left_thumb_2/collisions/left_thumb_2/node_STL_BINARY_/mesh').HasAPI(UsdPhysics.CollisionAPI)
+    thumb_live = next(x['max_shapes'] for x in backend_shapes['links'] if x['path'].endswith('/left_thumb_2'))
+    assert thumb_live == sum(len(r['hulls']) for r in thumb_cooked) == thumb_candidate['expected_live_hulls']
+    thumb_candidate['runtime_verification'] = {'all_cooking_results_valid': True,
+        'cooking_collider_count': len(thumb_cooked), 'live_shape_count': thumb_live, 'source_whole_collider_present': False}
+    out.joinpath('thumb_collision_candidate.json').write_text(json.dumps(thumb_candidate, indent=2, allow_nan=False))
 runtime_names = list(hand.dof_names)
 assert len(runtime_names) == len(set(runtime_names)), 'Duplicate articulation coordinates'
 assert set(runtime_names) == set(limits) | {a['name'] for a in fixture_axes}, f'Importer reduced coordinates unexpectedly: {runtime_names}'
@@ -581,6 +603,7 @@ metrics = {'source_model': 'Unitree_FTP_donor_exact_E2_equivalence_unverified',
            'fixed_base': True, 'tool_attached': False, 'controller': 'six_independent_position_drives',
            'diagnostic_mode': mode, 'gravity': str(world.get_physics_context().get_gravity()),
            'collision_candidate': candidate, 'mechanism_track': 'provisional_engineering_candidate',
+           'thumb_collision_candidate': thumb_candidate,
            'qualification_track': 'exact_RH56E2_fidelity_pending',
            'support_constraints': ['fixed_virtual_six_axis_fixture_anchor' if wrist_fixture else 'fixed_wrist_bench_root'],
            'wrist_motion_qualification': ('PASS' if all(checks.values()) else 'FAIL') if wrist_fixture else 'NOT_RUN',
@@ -612,6 +635,8 @@ metrics = {'source_model': 'Unitree_FTP_donor_exact_E2_equivalence_unverified',
 out.joinpath('metrics.json').write_text(json.dumps(metrics, indent=2))
 artifacts = ['metrics.json', 'initial_state.json', 'state.jsonl', 'hand.png', 'hand_sweeps.gif', selection['usd_filename'], 'cooked_colliders.json', 'backend_shapes.json']
 artifacts += ['collision_candidate.json', 'frames.jsonl']
+if thumb_candidate is not None:
+    artifacts.append('thumb_collision_candidate.json')
 artifacts += [str(p.relative_to(out)) for p in sorted(out.joinpath('frames').rglob('*.png'))]
 artifacts += [str(p.relative_to(out)) for p in sorted(out.joinpath('configuration').rglob('*.usd'))]
 if contacts:

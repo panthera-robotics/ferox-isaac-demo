@@ -22,6 +22,9 @@ import itertools
 CANDIDATE_ID = "ftp_palm_components_v1"
 SLAB_CANDIDATE_ID = "ftp_palm_yz_slabs_v2"
 LEFT_SLAB_CANDIDATE_ID = "ftp_left_palm_yz_slabs_v1"
+LEFT_THUMB_CANDIDATE_ID = "ftp_left_thumb2_yz_slabs_v1"
+LEFT_THUMB_GEOMETRY_SHA256 = "e9993d36cb9c3bdd0eef3a930f2aba50325cd18f0842255f670e1a80f7e22673"
+LEFT_THUMB_STL_SHA256 = "9b92a6db621b47b906ae876e8d76466e9e2d401e59b2ceeb4e8cf9133d943ce1"
 SOURCE_COMMIT = "7d6075f7f58588b189b940130e3edab3c839b2df"
 SOURCE_URL = "https://github.com/unitreerobotics/unitree_ros"
 SOURCE_STL_SHA256 = "77930c4a5df7536f95883e3f50b3fc21a12cb34bfc0b03b71ab859d166595b70"
@@ -578,3 +581,125 @@ def apply_slab_candidate(stage, source_records, plan, manifest, contact_offset_m
             "Closed convex caps and bounded-vertex cuts retain source material conservatively. "
             "Right-side results do not qualify the left; require independent left cooking, cavity and dynamics checks.")
         manifest["mirrored_right_geometry_substituted"] = False
+
+
+def replace_left_thumb_with_slabs(stage, source_mesh_path, rigid_body_path, *,
+                                  contact_offset_m=.0004905000096186996, rest_offset_m=0.,
+                                  expected_geometry_sha256=LEFT_THUMB_GEOMETRY_SHA256):
+    """Replace only the independently pinned left thumb2's collision shape.
+
+    The default 16-hull cooking exceeded the source convex envelope and
+    intersected real palm material at zero pose. Re-clip the source surface,
+    rather than splitting already inflated cooked hulls. This candidate retains
+    source material conservatively; neither cavity fidelity nor motion is proven
+    by construction. The explicit hash override is for reviewed CPU fixtures.
+    """
+    import numpy as np
+    from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
+
+    if not (math.isfinite(contact_offset_m) and math.isfinite(rest_offset_m)
+            and contact_offset_m > rest_offset_m >= 0):
+        raise ValueError("Require finite positive contact offset above nonnegative rest offset")
+    if UsdGeom.GetStageMetersPerUnit(stage) != 1.:
+        raise ValueError("Thumb candidate requires meters")
+    source, body = stage.GetPrimAtPath(source_mesh_path), stage.GetPrimAtPath(rigid_body_path)
+    if (not source or not source.IsA(UsdGeom.Mesh) or source.IsInstanceProxy()
+            or source.GetChildren() or not body or body.GetName() != "left_thumb_2"
+            or not body.HasAPI(UsdPhysics.RigidBodyAPI)):
+        raise ValueError("Expected an editable leaf source mesh on left_thumb_2")
+    owner = source.GetParent()
+    while owner and not owner.HasAPI(UsdPhysics.RigidBodyAPI):
+        if owner.HasAPI(UsdPhysics.CollisionAPI):
+            raise ValueError("Relocate wrapper collision APIs first")
+        owner = owner.GetParent()
+    if (owner != body or not source.HasAPI(UsdPhysics.CollisionAPI)
+            or not UsdPhysics.CollisionAPI(source).GetCollisionEnabledAttr().Get()
+            or UsdPhysics.MeshCollisionAPI(source).GetApproximationAttr().Get() != "convexDecomposition"
+            or source.HasAPI(UsdPhysics.FilteredPairsAPI)):
+        raise ValueError("Unexpected collision ownership or local filters")
+    mesh = UsdGeom.Mesh(source)
+    attrs = (mesh.GetPointsAttr(), mesh.GetFaceVertexCountsAttr(), mesh.GetFaceVertexIndicesAttr())
+    orientation = str(mesh.GetOrientationAttr().Get())
+    if any(a.GetNumTimeSamples() for a in attrs) or mesh.GetHoleIndicesAttr().Get():
+        raise ValueError("Static, complete source geometry required")
+    partition = partition_triangles(*(a.Get() for a in attrs), orientation=orientation)
+    if partition.source_geometry_sha256 != expected_geometry_sha256:
+        raise ValueError("Left thumb geometry differs from the reviewed source pin")
+    if len(partition.components) != 1 or partition.boundary_edge_count or partition.nonmanifold_edge_count:
+        raise ValueError("Expected one closed manifold thumb source component")
+    if partition.source_geometry_sha256 == LEFT_THUMB_GEOMETRY_SHA256 and len(partition.faces) != 11526:
+        raise ValueError("Pinned thumb source triangle count differs")
+    triangles = [[partition.points[v] for v in f] for f in partition.faces]
+    pieces, zero_cells = source_slab_hulls(triangles, axes=(1, 2), width_m=.002)
+    if not pieces:
+        raise ValueError("Source clipping produced no solid pieces")
+    mass_prefixes = ("physics:mass", "physics:centerOfMass", "physics:diagonalInertia", "physics:principalAxes", "physics:density")
+    masses_before = _authored_snapshot(body, mass_prefixes)
+    filters_before = {str(p.GetPath()): tuple(map(str, p.GetRelationship("physics:filteredPairs").GetTargets()))
+                      for p in stage.Traverse() if p.HasAPI(UsdPhysics.FilteredPairsAPI)}
+    matrix = UsdGeom.Xformable(source).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+    copied = [(a.GetName(), a.GetTypeName(), a.Get()) for a in source.GetAttributes()
+              if str(a.GetName()).startswith("physxCollision:") and a.HasAuthoredValueOpinion()]
+    owners = source.GetRelationship("physics:simulationOwner").GetTargets()
+    root_path = source.GetPath().AppendChild(LEFT_THUMB_CANDIDATE_ID)
+    UsdGeom.Xform.Define(stage, root_path).CreatePurposeAttr("guide")
+    records = []
+    for index, piece in enumerate(pieces):
+        child = UsdGeom.Mesh.Define(stage, root_path.AppendChild(f"closed_piece_{index:03d}"))
+        child.CreatePointsAttr([Gf.Vec3f(*p) for p in piece["points"]])
+        child.CreateFaceVertexCountsAttr([3] * len(piece["faces"]))
+        indices = [v for f in piece["faces"] for v in f]
+        child.CreateFaceVertexIndicesAttr(indices)
+        child.CreateOrientationAttr("rightHanded")
+        child.CreateSubdivisionSchemeAttr("none")
+        prim = child.GetPrim()
+        UsdPhysics.CollisionAPI.Apply(prim).CreateCollisionEnabledAttr(True)
+        UsdPhysics.MeshCollisionAPI.Apply(prim).CreateApproximationAttr("convexHull")
+        prim.AddAppliedSchema("PhysxConvexHullCollisionAPI")
+        prim.CreateAttribute("physxConvexHullCollision:hullVertexLimit", Sdf.ValueTypeNames.Int, custom=False).Set(255)
+        prim.CreateAttribute("physxConvexHullCollision:minThickness", Sdf.ValueTypeNames.Float, custom=False).Set(.001)
+        prim.AddAppliedSchema("PhysxCollisionAPI")
+        for name, kind, value in copied:
+            prim.CreateAttribute(name, kind, custom=False).Set(value)
+        for name, value in (("contactOffset", contact_offset_m), ("restOffset", rest_offset_m)):
+            prim.CreateAttribute("physxCollision:" + name, Sdf.ValueTypeNames.Float, custom=False).Set(value)
+        if owners:
+            UsdPhysics.CollisionAPI(prim).CreateSimulationOwnerRel().SetTargets(owners)
+        if UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()) != matrix:
+            raise RuntimeError("Thumb piece transform differs from source")
+        records.append({k: v for k, v in piece.items() if k not in ("points", "faces")} |
+            {"prim": str(prim.GetPath()), "expected_hulls": 1, "point_count": len(piece["points"]),
+             "triangle_count": len(piece["faces"]), "collision_input_geometry_sha256": geometry_sha256(
+                 child.GetPointsAttr().Get(), child.GetFaceVertexCountsAttr().Get(), child.GetFaceVertexIndicesAttr().Get())})
+    source.RemoveAPI(UsdPhysics.CollisionAPI)
+    source.RemoveAPI(UsdPhysics.MeshCollisionAPI)
+    source.RemoveAppliedSchema("PhysxConvexDecompositionCollisionAPI")
+    source.RemoveAppliedSchema("PhysxCollisionAPI")
+    filters_after = {str(p.GetPath()): tuple(map(str, p.GetRelationship("physics:filteredPairs").GetTargets()))
+                     for p in stage.Traverse() if p.HasAPI(UsdPhysics.FilteredPairsAPI)}
+    if _authored_snapshot(body, mass_prefixes) != masses_before or filters_after != filters_before:
+        raise RuntimeError("Unexpected mass, inertia or filter mutation")
+    if geometry_sha256(*(a.Get() for a in attrs), orientation) != partition.source_geometry_sha256:
+        raise RuntimeError("Original thumb geometry changed")
+    tri = np.asarray(triangles)
+    source_volume = abs(float(np.einsum("ij,ij->", tri[:, 0], np.cross(tri[:, 1], tri[:, 2])) / 6))
+    return {"schema_version": 1, "candidate_id": LEFT_THUMB_CANDIDATE_ID, "source_side": "left",
+        "source_url": SOURCE_URL, "source_commit": SOURCE_COMMIT, "source_license": "BSD-3-Clause",
+        "pinned_source_stl_sha256": LEFT_THUMB_STL_SHA256, "source_geometry_sha256": partition.source_geometry_sha256,
+        "source_geometry_matches_pinned_donor": partition.source_geometry_sha256 == LEFT_THUMB_GEOMETRY_SHA256,
+        "source_prim": str(source.GetPath()), "rigid_body_prim": str(body.GetPath()),
+        "source_local_to_world_row_matrix": [list(row) for row in matrix], "source_orientation": orientation,
+        "source_triangle_count": len(partition.faces), "source_connected_component_count": 1,
+        "source_signed_surface_volume_m3": source_volume, "sum_closed_piece_volume_m3": sum(p["volume_m3"] for p in pieces),
+        "slab_axes": ["Y", "Z"], "slab_width_m": .002, "slab_grid_origin_m": 0.,
+        "zero_volume_boundary_cells": zero_cells, "convex_input_max_vertices": 120,
+        "convex_cooking_vertex_limit": 255, "convex_min_thickness_m": .001,
+        "contact_offset_m": contact_offset_m, "rest_offset_m": rest_offset_m,
+        "contact_offset_policy": "unchanged explicit left-thumb2 whole-collider control readback",
+        "components": records, "expected_authored_collider_count": len(records), "expected_live_hulls": len(records),
+        "source_collision_apis_removed": True, "source_visual_triangles_and_dimensions_preserved": True,
+        "collision_input_triangles_retriangulated": True, "articulation_mass_or_inertia_changed": False,
+        "collision_pairs_filtered": False, "source_transform_changed": False,
+        "collision_solid_policy": "closed convex caps conservatively contain source material in Y/Z cells; voids may be filled",
+        "rationale": "Left01 default thumb2 cooking exceeded the full source convex envelope by up to1.602mm and intersected source palm.2mm Y/Z source clips had zero intersections against recorded q0 palm hulls, with less added volume than one-axis or other two-axis candidates. Actual cooking and pose-domain validation remain required.",
+        "simulation_qualified": False, "exact_RH56E2_equivalence": False, "grasp_qualified": False, "hardware_authorized": False}

@@ -8,7 +8,8 @@ from inspire_collision import (CANDIDATE_ID, DECOMPOSITION, geometry_sha256,
                                partition_triangles, replace_palm_with_components,
                                clip_polygon, closed_convex_hull, split_hull_vertex_budget,
                                source_slab_hulls, LEFT_SLAB_CANDIDATE_ID,
-                               PINNED_LEFT_GEOMETRY_SHA256, PINNED_GEOMETRY_SHA256)
+                               PINNED_LEFT_GEOMETRY_SHA256, PINNED_GEOMETRY_SHA256,
+                               replace_left_thumb_with_slabs, LEFT_THUMB_CANDIDATE_ID)
 
 try:
     from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics, UsdShade
@@ -234,6 +235,56 @@ class UsdReplacementTests(unittest.TestCase):
             replace_palm_with_components(self.stage, str(self.mesh.GetPath()), "/Hand/other",
                 contact_offset_m=.001, expected_geometry_sha256=self.source_hash)
         self.assertTrue(self.mesh.GetPrim().HasAPI(UsdPhysics.CollisionAPI))
+
+
+@unittest.skipIf(Usd is None or np is None, "Existing USD/SciPy runtime required")
+class ThumbReplacementTests(unittest.TestCase):
+    def test_preserves_source_material_frame_and_body_while_replacing_collider(self):
+        stage = Usd.Stage.CreateInMemory()
+        UsdGeom.SetStageMetersPerUnit(stage, 1.)
+        body = UsdGeom.Xform.Define(stage, "/Hand/left_thumb_2")
+        body.AddTranslateOp().Set(Gf.Vec3d(.1, .2, .3))
+        body.AddRotateXYZOp().Set(Gf.Vec3f(10, 20, 30))
+        UsdPhysics.RigidBodyAPI.Apply(body.GetPrim())
+        mass = UsdPhysics.MassAPI.Apply(body.GetPrim())
+        mass.CreateMassAttr(.02)
+        mass.CreateDiagonalInertiaAttr(Gf.Vec3f(.0001, .0002, .0003))
+        UsdPhysics.FilteredPairsAPI.Apply(body.GetPrim()).CreateFilteredPairsRel().AddTarget("/Hand/adjacent")
+        hull = SlabGeometryTests.box(((0., .006), (0., .006), (0., .004)))
+        mesh = UsdGeom.Mesh.Define(stage, "/Hand/left_thumb_2/source")
+        mesh.AddTranslateOp().Set(Gf.Vec3d(.005, 0., 0.))
+        mesh.CreatePointsAttr(hull["points"])
+        mesh.CreateFaceVertexCountsAttr([3] * len(hull["faces"]))
+        mesh.CreateFaceVertexIndicesAttr([v for f in hull["faces"] for v in f])
+        UsdPhysics.CollisionAPI.Apply(mesh.GetPrim())
+        UsdPhysics.MeshCollisionAPI.Apply(mesh.GetPrim()).CreateApproximationAttr("convexDecomposition")
+        material = UsdShade.Material.Define(stage, "/Material")
+        UsdShade.MaterialBindingAPI.Apply(mesh.GetPrim()).Bind(material, materialPurpose="physics")
+        before = stage.GetRootLayer().ExportToString()
+        with self.assertRaisesRegex(ValueError, "source pin"):
+            replace_left_thumb_with_slabs(stage, str(mesh.GetPath()), str(body.GetPath()))
+        self.assertEqual(before, stage.GetRootLayer().ExportToString())
+        original_points = mesh.GetPointsAttr().Get()
+        source_hash = geometry_sha256(original_points, mesh.GetFaceVertexCountsAttr().Get(), mesh.GetFaceVertexIndicesAttr().Get())
+        manifest = replace_left_thumb_with_slabs(stage, str(mesh.GetPath()), str(body.GetPath()), expected_geometry_sha256=source_hash)
+        self.assertEqual(manifest["candidate_id"], LEFT_THUMB_CANDIDATE_ID)
+        self.assertFalse(manifest["source_geometry_matches_pinned_donor"])
+        self.assertFalse(manifest["simulation_qualified"])
+        self.assertFalse(mesh.GetPrim().HasAPI(UsdPhysics.CollisionAPI))
+        self.assertEqual(original_points, mesh.GetPointsAttr().Get())
+        self.assertAlmostEqual(mass.GetMassAttr().Get(), .02)
+        self.assertEqual(len([p for p in stage.Traverse() if p.HasAPI(UsdPhysics.RigidBodyAPI)]), 1)
+        self.assertEqual(UsdPhysics.FilteredPairsAPI(body.GetPrim()).GetFilteredPairsRel().GetTargets(), [Sdf.Path("/Hand/adjacent")])
+        self.assertAlmostEqual(manifest["source_signed_surface_volume_m3"], manifest["sum_closed_piece_volume_m3"], places=14)
+        for record in manifest["components"]:
+            prim = stage.GetPrimAtPath(record["prim"])
+            self.assertEqual(UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default()), mesh.ComputeLocalToWorldTransform(Usd.TimeCode.Default()))
+            binding, _ = UsdShade.MaterialBindingAPI(prim).ComputeBoundMaterial("physics")
+            self.assertEqual(str(binding.GetPath()), "/Material")
+            self.assertLessEqual(record["point_count"], 120)
+            self.assertEqual(UsdPhysics.MeshCollisionAPI(prim).GetApproximationAttr().Get(), "convexHull")
+        with self.assertRaises(ValueError):
+            replace_left_thumb_with_slabs(stage, str(mesh.GetPath()), str(body.GetPath()), expected_geometry_sha256=source_hash)
 
 
 if __name__ == "__main__":
