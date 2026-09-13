@@ -8,7 +8,8 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from assembled_balance import BalanceConfig, FEET, GATES, evaluate, ground_contacts, initial_height, source_foot_spheres
+from assembled_balance import (BalanceConfig, FEET, GATES, SourceEquilibriumPD, evaluate, ground_contacts,
+                               initial_height, material_self_penetrations, source_adjacency, source_foot_spheres)
 
 
 class BalanceEvidenceTests(unittest.TestCase):
@@ -102,8 +103,86 @@ class BalanceEvidenceTests(unittest.TestCase):
     def test_config_cannot_relax_gates_or_change_private_mount(self):
         self.assertEqual(BalanceConfig.from_dict({}).policy_path, '/policy')
         for value in ({'duration_s': 1.}, {'policy_path': '/tmp/model'}, {'ground_static_friction': float('inf')},
-                      {'ground_dynamic_friction': 1.5}, {'ground_static_friction': True}):
+                      {'ground_dynamic_friction': 1.5}, {'ground_static_friction': True},
+                      {'controller_mode': 'source_contact_equilibrium_pd'}, {'controller_mode': 'invented'},
+                      {'source_contact_equilibrium': {}}):
             with self.assertRaises(ValueError): BalanceConfig.from_dict(value)
+
+    def controller(self, reference=None):
+        reference = reference or {'source_sha256': 'a'*64, 'hardware_authorized': False,
+            'source_named29_home_rad': dict.fromkeys(self.names[:29], 0.),
+            'named29_contact_equilibrium_effort_nm': dict.fromkeys(self.names[:29], .5),
+            'equilibrium_base_wrench_residual': [0.] * 6,
+            'minimum_norm_positive_normal_contact_forces': [{'equilibrium_vertical_force_n': 1.}] * 8}
+        return SourceEquilibriumPD(reference, self.names[:29], [0.]*29, [10.]*29, [2.]*29, [3.]*29,
+                                   source_sha256='a'*64)
+
+    def test_equilibrium_names_pd_and_unchanged_cap_are_exact(self):
+        c = self.controller()
+        q, dq = [0.]*53, [0.]*53; q[0] = -.4; dq[1] = .25
+        result = c.compute(self.names, q, dq)
+        self.assertEqual(result['body_effort_unclipped_nm'][:2], [4.5, 0.])
+        self.assertEqual(result['body_effort_nm'][:2], [3., 0.])
+        self.assertEqual(result['body_effort_saturated_names'], ['joint_0'])
+        reversed_result = c.compute(list(reversed(self.names)), list(reversed(q)), list(reversed(dq)))
+        self.assertEqual(result, reversed_result)
+        with self.assertRaises(ValueError): c.compute(self.names[:-1], q[:-1], dq[:-1])
+        q[52] = float('nan')
+        with self.assertRaises(ValueError): c.compute(self.names, q, dq)
+
+    def test_equilibrium_source_pose_feasibility_and_caps_cannot_be_relabelled(self):
+        reference = self.controller().reference
+        mutations = [lambda r: r.update(source_sha256='b'*64),
+                     lambda r: r['source_named29_home_rad'].update(joint_0=.1),
+                     lambda r: r['named29_contact_equilibrium_effort_nm'].pop('joint_0'),
+                     lambda r: r['named29_contact_equilibrium_effort_nm'].update(joint_0=3.01),
+                     lambda r: r['equilibrium_base_wrench_residual'].__setitem__(0, .01),
+                     lambda r: r['minimum_norm_positive_normal_contact_forces'][0].update(equilibrium_vertical_force_n=-1.)]
+        for mutate in mutations:
+            changed = copy.deepcopy(reference); mutate(changed)
+            with self.assertRaises(ValueError): self.controller(changed)
+
+    def test_equilibrium_full_evidence_needs_torque_and_true_feedback_not_policy480(self):
+        controller = self.controller()
+        initial = dict(self.initial, runtime_names=self.names, q_rad=[0.]*53, dq_rad_s=[0.]*53)
+        rows = []
+        for i, original in enumerate(self.rows):
+            row = {k: v for k, v in original.items() if k not in ('policy_observation', 'policy_action')}
+            row.update(controller.compute(self.names, row['q_rad'], row['dq_rad_s']))
+            row.update(controller_mode='source_contact_equilibrium_pd', body_effort_writes_this_step=1,
+                body_implicit_position_writes_this_step=0, body_command_owner='source_equilibrium_effort_single_writer',
+                body_feedback_source_sequence=i-1, body_feedback_physics_s=row['physics_s']-.005,
+                applied_generalized_actuation_effort_nm=row['body_effort_nm'] + [0.]*24)
+            rows.append(row)
+        def check(values):
+            return evaluate(values, initial, self.limits, {}, supporting_constraints=[], integrity_checks={},
+                controller_mode='source_contact_equilibrium_pd', controller_reference=controller.receipt())
+        self.assertEqual(check(rows)['status'], 'PASS')
+        for key, value in [('body_effort_nm', 4.), ('body_feedback_q_rad', .1),
+                           ('applied_generalized_actuation_effort_nm', 4.)]:
+            changed = copy.deepcopy(rows); changed[10][key][0] = value
+            self.assertEqual(check(changed)['status'], 'FAIL')
+        changed = copy.deepcopy(rows); changed[10]['body_effort_writes_this_step'] = 2
+        self.assertFalse(check(changed)['checks']['single_zero_command_body_owner'])
+
+    def test_loaded_nonadjacent_self_penetration_uses_pair_load_and_source_adjacency(self):
+        contact = {'actor0': '/World/G1/palm', 'actor1': '/World/G1/thumb2',
+                   'impulse_ns': [0., 0., .003], 'separation_m': -.0011}
+        self.assertEqual(material_self_penetrations([contact], set()), [])
+        self.assertEqual(len(material_self_penetrations([contact, contact], set())), 1)
+        self.assertEqual(material_self_penetrations([contact, contact], {('palm', 'thumb2')}), [])
+        self.assertEqual(material_self_penetrations([dict(contact, impulse_ns=[0., 0., 0.])]*10, set()), [])
+        self.assertEqual(material_self_penetrations([dict(contact, separation_m=-.0009)]*10, set()), [])
+        rows = self.rows.copy(); rows[500] = copy.deepcopy(rows[500])
+        rows[500]['contacts'].extend([dict(contact, sequence=500, physics_s=rows[500]['physics_s'])]*2)
+        self.assertFalse(self.result(rows)['checks']['no_material_loaded_nonadjacent_self_penetration'])
+
+    def test_source_adjacency_is_direct_and_does_not_exempt_grandchildren(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)/'source.urdf'
+            path.write_text('<robot><joint><parent link="palm"/><child link="thumb1"/></joint>'
+                            '<joint><parent link="thumb1"/><child link="thumb2"/></joint></robot>')
+            self.assertEqual(source_adjacency(path), {('palm', 'thumb1'), ('thumb1', 'thumb2')})
 
     def test_source_sphere_clearance_uses_radius_and_fk(self):
         try:

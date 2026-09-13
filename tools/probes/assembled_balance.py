@@ -18,8 +18,9 @@ def main():
     assert sorted(p.name for p in Path('/sys/class/net').iterdir()) == ['lo']
     assert os.environ.get('PANTHERA_PROBE_MODE') == 'assembled-zero-command'
     sys.path[:0] = ['/workspace/ferox_tools', '/workspace/sim-source', '/workspace/ferox_isaac']
-    from assembled_balance import (BalanceConfig, GATES, FEET, GROUND, evaluate,
-                                   source_foot_spheres, initial_height, roll_pitch, finite_tree, safe_json)
+    from assembled_balance import (BalanceConfig, GATES, FEET, GROUND, evaluate, SourceEquilibriumPD,
+                                   source_foot_spheres, source_adjacency, material_self_penetrations,
+                                   initial_height, roll_pitch, finite_tree, safe_json)
     cfg = BalanceConfig.from_dict(json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text())
                                   if os.environ.get('PANTHERA_PROBE_CONFIG') else {})
     sys.path.insert(0, cfg.locomotion_path)
@@ -39,11 +40,15 @@ def main():
         (out / name).write_text(json.dumps(safe_json(value), indent=2, allow_nan=False) + '\n')
     def receipt(metrics):
         metrics.update(scope=scope, media_labels=media, gates=GATES, phase=phase)
+        metrics['controller_mode'] = cfg.controller_mode
+        for stream in streams:
+            if not stream.closed: stream.flush()
         write('metrics.json', metrics)
         artifacts = [str(p.relative_to(out)) for p in out.rglob('*') if p.is_file() and p.name not in
                      ['run.json', 'probe.json', 'console.log', 'executed_probe.py', 'executed_launcher.py', 'uncommitted.patch']]
         write('probe.json', {'status': metrics['status'], 'scope': 'provisional_free_standing_zero_command_diagnostic',
-                             'metrics': 'metrics.json', 'artifacts': artifacts})
+                             'metrics': 'metrics.json', 'artifacts': artifacts,
+                             'artifact_sha256': {name: hashlib.sha256((out / name).read_bytes()).hexdigest() for name in artifacts}})
     write('balance_config.json', {'config': asdict(cfg), 'gates': GATES, 'scope': scope,
                                   'gates_authored_before_physics': True})
     try:
@@ -56,6 +61,14 @@ def main():
         contract = PolicyContract.load(cfg.policy_path)
         assert contract.observation_width == 480 and len(contract.policy_names) == 29
         default = dict(zip(contract.policy_names, contract.default_position))
+        equilibrium_mode = cfg.controller_mode == 'source_contact_equilibrium_pd'
+        adjacent_pairs = source_adjacency(source)
+        write('source_self_contact_gate.json', {'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+            'direct_source_adjacency_pairs': [list(p) for p in sorted(adjacent_pairs)],
+            'maximum_penetration_m': GATES['maximum_loaded_nonadjacent_self_penetration_m'],
+            'minimum_penetrating_pair_impulse_ns': GATES['material_self_penetration_pair_impulse_ns'],
+            'interpretation': '1 N equivalent pair load over 5 ms at points deeper than 1 mm; no filtering or geometry changes',
+            'authored_before_physics': True})
         kinematics = UrdfKinematics(source); zero_fk = kinematics.transforms({}); posed_fk = kinematics.transforms(default)
         spheres = source_foot_spheres(source); height = initial_height(spheres, posed_fk)
         assert .65 < height < 1.2
@@ -108,7 +121,9 @@ def main():
                 state.CreatePositionAttr(math.degrees(initial_q[name])); state.CreateVelocityAttr(0.)
                 if name in default:
                     i = contract.policy_names.index(name); drive = UsdPhysics.DriveAPI.Apply(prim, 'angular')
-                    drive.CreateTypeAttr('force'); drive.CreateStiffnessAttr(contract.stiffness[i]); drive.CreateDampingAttr(contract.damping[i])
+                    drive.CreateTypeAttr('force')
+                    drive.CreateStiffnessAttr(0. if equilibrium_mode else contract.stiffness[i])
+                    drive.CreateDampingAttr(0. if equilibrium_mode else contract.damping[i])
                     drive.CreateMaxForceAttr(facts['joint_limits'][name]['effort']); drive.CreateTargetPositionAttr(math.degrees(default[name]))
         stage.GetRootLayer().Save()
         write('initialization_frame_corrections.json', {n: t.tolist() for n, t in corrections.items()})
@@ -167,8 +182,25 @@ def main():
         robot = SingleArticulation('/World/G1', name='provisional_free_standing_g1')
         world.reset(); robot.initialize()
         names = list(robot.dof_names); assert len(names) == 53 and set(names) == set(facts['joint_limits'])
-        policy = named_policy_class(G1VelocityPolicy)(robot=robot, policy_dir=cfg.policy_path, source_urdf=source, physics_dt=.005)
+        # In the deterministic mode the adapter configures named gains/caps only.
+        # A sentinel prevents loading the actor, and forward is never invoked.
+        policy = named_policy_class(G1VelocityPolicy)(robot=robot, policy_dir=cfg.policy_path, source_urdf=source, physics_dt=.005,
+            body_actuation_mode='external_effort' if equilibrium_mode else 'implicit_position',
+            policy=object() if equilibrium_mode else None)
         policy_receipt = policy.initialize(initialize_articulation=False)
+        body_names = list(contract.policy_names); hand_names = list(facts['hand_independent_names'])
+        equilibrium = None; controller_reference = None
+        if equilibrium_mode:
+            equilibrium = SourceEquilibriumPD(cfg.source_contact_equilibrium, body_names, contract.default_position,
+                contract.stiffness, contract.damping, [facts['joint_limits'][n]['effort'] for n in body_names],
+                source_sha256=hashlib.sha256(source.read_bytes()).hexdigest())
+            assert abs(cfg.source_contact_equilibrium['source_mass_kg'] - facts['source_physical_mass_kg']) < 1e-8
+            controller_reference = equilibrium.receipt()
+            policy_receipt.update(controller_reference)
+            assert all(policy_receipt['live_stiffness_by_name'][n] == policy_receipt['live_damping_by_name'][n] == 0.
+                       for n in body_names)
+        policy_receipt['learned_actor_loaded'] = not equilibrium_mode
+        policy_receipt['learned_actor_inference_executed'] = False
         policy_receipt['additional_source_sha256'] = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in (Path(adapter_module.__file__), Path(cfg.policy_path) / 'exported/policy.pt', Path(__file__))}
         write('controller_receipt.json', policy_receipt)
@@ -215,12 +247,19 @@ def main():
             'left_thumb_shape_count_matches': shapes['left_thumb']['live_shape_count'] == shapes['left_thumb']['expected_shape_count'],
             'no_static_triangle_shapes': shapes['statistics']['numTriMeshShapes'] == 0,
             'initial_pose_matches_source_fk': finite_tree(initial) and initial_error < .01,
-            'policy_named_mapping_and_live_gains_caps_verified': policy_receipt['observation_width'] == 480 and policy_receipt['action_width'] == 29,
+            'named_mapping_and_live_gains_caps_verified': policy_receipt['action_width'] == 29 and len(policy_receipt['runtime_joint_names']) == 53,
+            'initialization_no_material_loaded_nonadjacent_self_penetration': not material_self_penetrations(contacts, adjacent_pairs),
             'contact_instrumentation_valid': not contact_faults}
+        if equilibrium_mode:
+            integrity['body29_implicit_drives_zero_verified'] = all(
+                policy_receipt['live_stiffness_by_name'][n] == policy_receipt['live_damping_by_name'][n] == 0. for n in body_names)
+            integrity['source_equilibrium_reference_verified'] = equilibrium is not None
+        else:
+            integrity['policy_observation_contract_width_480'] = policy_receipt['observation_width'] == 480
         write('initialization_gates.json', integrity)
         if not all(integrity.values()): raise ValueError('Initialization failed immutable admission gates')
-        body_names = list(contract.policy_names); hand_names = list(facts['hand_independent_names'])
         indices = np.asarray([names.index(n) for n in body_names + hand_names], dtype=np.int32)
+        body_indices, hand_indices = indices[:29], indices[29:]
         kp = np.asarray([policy_receipt['live_stiffness_by_name'][n] for n in names])
         kd = np.asarray([policy_receipt['live_damping_by_name'][n] for n in names])
         caps = np.asarray([policy_receipt['live_drive_effort_caps_by_name'][n] for n in names])
@@ -232,27 +271,48 @@ def main():
             cameras[label] = camera; (out / 'frames' / label).mkdir(parents=True)
         for _ in range(8): world.render()
         assert float(world.current_time) == initial['physics_s']
-        phase = 'zero_command_free_standing'
+        phase = 'source_equilibrium_free_standing' if equilibrium_mode else 'zero_command_free_standing'
         observation_sequence = None; observation_physics_s = None
         for sequence in range(GATES['required_steps']):
             step_contacts.clear()
-            inference = policy._policy_counter % policy._decimation == 0
-            if inference:
-                observation_sequence = sequence - 1
-                observation_physics_s = float(world.current_time)
-            targets = policy.forward(.005, [0., 0., 0.])
-            assert set(targets) == set(body_names)
-            command = np.asarray([targets[n] for n in body_names] + [0.] * len(hand_names), dtype=np.float32)
-            # The only runtime actuator writer. No state or base pose setters.
-            robot.apply_action(ArticulationAction(joint_positions=command, joint_indices=indices))
+            if equilibrium_mode:
+                feedback = read_state()
+                control = equilibrium.compute(names, feedback['q_rad'], feedback['dq_rad_s'])
+                targets = default
+                command = np.asarray([default[n] for n in body_names] + [0.] * len(hand_names), dtype=np.float32)
+                # Exactly one capped body29 effort write. The disjoint hand12
+                # position write retains the existing implicit root mechanism.
+                applied = np.asarray(control['body_effort_nm'], dtype=np.float32)
+                robot.apply_action(ArticulationAction(joint_efforts=applied, joint_indices=body_indices))
+                robot.apply_action(ArticulationAction(joint_positions=np.zeros(12, dtype=np.float32), joint_indices=hand_indices))
+                live_efforts = np.asarray(robot._articulation_view._physics_view.get_dof_actuation_forces()).reshape(-1)
+                expected_efforts = np.zeros(53, dtype=np.float32); expected_efforts[body_indices] = applied
+                assert live_efforts.shape == (53,) and np.array_equal(live_efforts, expected_efforts)
+                control['body_effort_nm'] = applied.tolist()
+                controller_row = dict(control, controller_mode=cfg.controller_mode,
+                    applied_generalized_actuation_effort_nm=live_efforts.tolist(),
+                    body_feedback_source_sequence=sequence-1, body_feedback_physics_s=feedback['physics_s'],
+                    body_effort_writes_this_step=1, body_implicit_position_writes_this_step=0,
+                    body_command_owner='source_equilibrium_effort_single_writer', learned_policy_inference=False)
+            else:
+                inference = policy._policy_counter % policy._decimation == 0
+                if inference:
+                    observation_sequence = sequence - 1
+                    observation_physics_s = float(world.current_time)
+                targets = policy.forward(.005, [0., 0., 0.])
+                assert set(targets) == set(body_names)
+                command = np.asarray([targets[n] for n in body_names] + [0.] * len(hand_names), dtype=np.float32)
+                robot.apply_action(ArticulationAction(joint_positions=command, joint_indices=indices))
+                controller_row = dict(controller_mode=cfg.controller_mode, body_command_owner='named_policy_single_writer',
+                    policy_inference_this_step=inference, policy_observation=policy.last_observation.tolist(),
+                    policy_observation_source_sequence=observation_sequence, policy_observation_physics_s=observation_physics_s,
+                    policy_action=policy.action.tolist())
             world.step(render=False)
             row = read_state(); last = row
-            row.update(sequence=sequence, phase=phase, command_velocity=[0., 0., 0.], body_command_owner='named_policy_single_writer',
+            row.update(sequence=sequence, phase=phase, command_velocity=[0., 0., 0.],
                 body_command_names=body_names, body_command_rad=[float(targets[n]) for n in body_names],
                 hand_command_names=hand_names, hand_command_rad=[0.] * len(hand_names),
-                policy_inference_this_step=inference, policy_observation=policy.last_observation.tolist(),
-                policy_observation_source_sequence=observation_sequence, policy_observation_physics_s=observation_physics_s,
-                policy_action=policy.action.tolist(), contacts=list(step_contacts))
+                contacts=list(step_contacts), **controller_row)
             if not finite_tree(row):
                 write('nonfinite_state.json', row); abort = {'sequence': sequence, 'reason': 'nonfinite_state'}; break
             q = np.asarray(row['q_rad']); dq = np.asarray(row['dq_rad_s'])
@@ -261,13 +321,16 @@ def main():
             row['drive_estimate_names'] = body_names + hand_names
             row['drive_estimate_near_cap_names'] = [n for n, e, cap in zip(body_names + hand_names, estimate, caps[indices]) if abs(e) >= .99 * cap]
             row['drive_estimate_scope'] = 'Unclipped PD estimate; measured generalized efforts also include constraint reactions'
+            if equilibrium_mode:
+                row['drive_estimate_scope'] = 'Implicit hand12 estimate only; body29 gains are zero, actual explicit body torque is exported separately'
             rows.append(row); state_file.write(json.dumps(row, allow_nan=False) + '\n')
             pelvis = row['link_poses_world_xyzw']['pelvis']; roll, pitch = roll_pitch(pelvis)
             violated = {n: float(q[i]) for i, n in enumerate(names) if q[i] < facts['joint_limits'][n]['lower'] - .1 or q[i] > facts['joint_limits'][n]['upper'] + .1}
             overspeed = {n: float(dq[i]) for i, n in enumerate(names) if abs(dq[i]) > 2 * facts['joint_limits'][n]['velocity']}
-            if pelvis[2] < .65 or max(abs(roll), abs(pitch)) > .35 or violated or overspeed or contact_faults:
+            material_self = material_self_penetrations(row['contacts'], adjacent_pairs)
+            if pelvis[2] < .65 or max(abs(roll), abs(pitch)) > .35 or violated or overspeed or contact_faults or material_self:
                 abort = {'sequence': sequence, 'reason': 'fall_or_source_envelope_abort', 'joint_limit_violations': violated,
-                         'overspeed': overspeed, 'contact_faults': contact_faults}
+                         'overspeed': overspeed, 'contact_faults': contact_faults, 'material_self_penetrations': material_self}
                 break
             if (sequence + 1) % 20 == 0:
                 before = float(world.current_time); world.render(); assert float(world.current_time) == before
@@ -278,14 +341,19 @@ def main():
                 frame_file.write(json.dumps({'frame': frame, 'sequence': sequence, 'physics_s': before, 'phase': phase,
                     'captured_after_same_step_render': True, 'views': files}) + '\n')
         integrity['contact_instrumentation_valid'] = not contact_faults
+        policy_receipt['learned_actor_inference_executed'] = any(r.get('policy_inference_this_step', False) for r in rows)
+        policy_receipt['body_effort_write_count'] = sum(r.get('body_effort_writes_this_step', 0) for r in rows)
+        policy_receipt['body_effort_saturated_steps'] = sum(bool(r.get('body_effort_saturated_names')) for r in rows)
+        write('controller_receipt.json', policy_receipt)
         result = evaluate(rows, initial, facts['joint_limits'], facts['mimic_map'], supporting_constraints=supporting_constraints,
-                          integrity_checks=integrity, abort=abort)
+                          integrity_checks=integrity, abort=abort, controller_mode=cfg.controller_mode,
+                          controller_reference=controller_reference, adjacent_pairs=adjacent_pairs)
         result.update(initial_pelvis_height_m=initial['link_poses_world_xyzw']['pelvis'][2],
             source_mass_kg=facts['source_physical_mass_kg'], physics_dt=.005, actual_contact_points=len(contacts),
             drive_estimate_near_cap_steps=sum(bool(r['drive_estimate_near_cap_names']) for r in rows),
             controller_receipt='controller_receipt.json', source_property_audit='live_inertia_audit.json')
-        receipt(result)
         world.stage.GetRootLayer().Export(str(out / 'scene_final.usda'))
+        receipt(result)
     except BaseException as exc:
         write('failure.json', {'exception': repr(exc), 'traceback': traceback.format_exc(), 'phase': phase, 'steps': len(rows),
                                'last_observation': last, 'initialization_gates': integrity, 'contact_faults': contact_faults})
