@@ -78,6 +78,16 @@ def import_body(source, output_dir, *, fixed_base, palm_builder):
     assert all(abs(masses[n]-m)<1e-5 for n,m in facts['physical_link_mass_kg'].items())
     facts['imported_physical_mass_kg']=sum(masses.values())
     facts['imported_link_mass_kg']=masses
+    from urdf_kinematics import UrdfKinematics
+    from rigid_inertia import source_properties
+    source_zero=UrdfKinematics(prepared).transforms({})
+    source_to_imported={}
+    for name in masses:
+        prim=stage.GetPrimAtPath(prefix+'/'+name);assert prim
+        row=UsdGeom.Xformable(prim).ComputeLocalToWorldTransform(Usd.TimeCode.Default())
+        imported=np.array([[float(row[i][j]) for j in range(4)] for i in range(4)]).T
+        source_to_imported[name]=np.linalg.inv(imported)@source_zero[name]
+    facts['expected_source_rigid_properties_in_imported_frame']=source_properties(prepared,source_to_imported)
     for frame in facts['coordinate_frames']:
         parent=stage.GetPrimAtPath(prefix+'/'+frame['parent']); assert parent
         f=UsdGeom.Xform.Define(stage,str(parent.GetPath())+'/'+frame['name'])
@@ -135,7 +145,7 @@ def import_body(source, output_dir, *, fixed_base, palm_builder):
         candidates[side]=palm_builder(stage,str(meshes[0].GetPath()),palm,side)
     facts.update(fixed_base=fixed_base,root_prim=prefix,collision_candidates=candidates,collision_api_relocations=relocations,
         source_analytic_colliders_preserved=analytic,
-        imported_inertia_validation='source tensors requested via import_inertia_tensor; numerical live tensor comparison not yet evaluated',
+        imported_inertia_validation='source tensors requested and expected frame-converted properties saved; live comparison requires physics initialization',
         hand_joint_names=list(hand_joints),hand_independent_names=list(hand_independent),body_joint_names=[n for n in joints if n not in hand_joints],
         mimic_map={n:{'parent':j.find('mimic').get('joint'),'multiplier':float(j.find('mimic').get('multiplier',1)),
             'offset':float(j.find('mimic').get('offset',0))} for n,j in hand_joints.items() if j.find('mimic') is not None},

@@ -28,6 +28,7 @@ enable_extension('omni.pip.compute')
 from inspire_body_asset import import_body
 from inspire_collision import replace_palm_with_components
 from urdf_kinematics import UrdfKinematics
+from rigid_inertia import audit_live_properties
 source=Path('/source-assets/g1_29dof_rev_1_0_with_inspire_hand_FTP.urdf')
 def palm_builder(stage,mesh,body,side):
     return replace_palm_with_components(stage,mesh,body,contact_offset_m=.0012860533315688372,rest_offset_m=0.,
@@ -73,6 +74,8 @@ def on_contact(headers,data):
 subscription=get_physx_simulation_interface().subscribe_contact_report_events(on_contact)
 robot=SingleArticulation('/World/G1',name='provisional_assembled_g1')
 world.reset();robot.initialize()
+inertia_audit=audit_live_properties(SimulationManager.get_physics_sim_view(),'/World/G1',facts['expected_source_rigid_properties_in_imported_frame'])
+(out/'live_inertia_audit.json').write_text(json.dumps(inertia_audit,indent=2,allow_nan=False))
 names=list(robot.dof_names);assert set(names)==set(facts['joint_limits']) and len(names)==53
 body_ids=np.asarray([names.index(n) for n in body_names],dtype=np.int32)
 hand_names=facts['hand_independent_names'];hand_ids=np.asarray([names.index(n) for n in hand_names],dtype=np.int32)
@@ -108,13 +111,18 @@ def transform(pose):
                [2*(x*z-y*w),2*(y*z+x*w),1-2*(x*x+y*y)]]
     r[:3,3]=pose[:3];return r
 phase='fixed_home_hold'
+aborted=None
 for tick in range(steps):
     robot.apply_action(ArticulationAction(joint_positions=q0[body_ids],joint_indices=body_ids))
     robot.apply_action(ArticulationAction(joint_positions=np.zeros(12,dtype=np.float32),joint_indices=hand_ids))
     world.step(render=False)
     if (tick+1)%4==0:world.render()
     q=np.ravel(robot.get_joint_positions());dq=np.ravel(robot.get_joint_velocities());effort=np.ravel(robot.get_measured_joint_efforts())
-    assert np.isfinite(q).all() and np.isfinite(dq).all() and np.isfinite(effort).all()
+    if not (np.isfinite(q).all() and np.isfinite(dq).all() and np.isfinite(effort).all()):
+        # Keep rejected values without invalid JSON or feeding NaN into FK.
+        aborted={'sequence':tick,'reason':'nonfinite_physics_state','q_rad':[repr(float(v)) for v in q],
+            'dq_rad_s':[repr(float(v)) for v in dq],'measured_effort_nm':[repr(float(v)) for v in effort]}
+        break
     poses={n:np.asarray(v.get_transforms())[0].tolist() for n,v in views.items()}
     pelvis=transform(poses['pelvis']);source_fk=kinematics.transforms(dict(zip(names,map(float,q))),pelvis)
     errors={}
@@ -128,6 +136,13 @@ for tick in range(steps):
        'body_command_owners':{'all29':'fixed_home_position_fixture'},'hand_command_names':hand_names,'hand_command_rad':[0.]*12,
        'link_poses_world_xyzw':poses,'source_fk_error':errors,'coupling_error_rad':coupling}
     trace.append(r);state_file.write(json.dumps(r,allow_nan=False)+'\n')
+    # Diagnostic stop envelope is separate from (and looser than) acceptance.
+    # Stop at the first clear explosion, retaining this finite failed sample.
+    violated={n:float(q[i]) for i,n in enumerate(names) if q[i]<facts['joint_limits'][n]['lower']-.1 or q[i]>facts['joint_limits'][n]['upper']+.1}
+    overspeed={n:float(dq[i]) for i,n in enumerate(names) if abs(dq[i])>2*facts['joint_limits'][n]['velocity']}
+    if violated or overspeed:
+        aborted={'sequence':tick,'reason':'source_envelope_abort','joint_limit_violations_rad':violated,'joint_velocity_violations_rad_s':overspeed}
+        break
     if (tick+1)%20==0:
         frame=(tick+1)//20-1;files={}
         for label,camera in cameras.items():
@@ -136,26 +151,28 @@ for tick in range(steps):
         frame_file.write(json.dumps({'frame':frame,'sequence':tick,'physics_s':world.current_time,'phase':phase,
             'captured_after_same_step_render':True,'views':files})+'\n')
 state_file.close();contact_file.close();frame_file.close()
-max_position=max(e['translation_m'] for r in trace for e in r['source_fk_error'].values())
-max_rotation=max(e['rotation_rad'] for r in trace for e in r['source_fk_error'].values())
-max_coupling=max(abs(e) for r in trace for e in r['coupling_error_rad'].values())
-limits=max(max(lim['lower']-r['q_rad'][names.index(n)],r['q_rad'][names.index(n)]-lim['upper'],0.) for n,lim in facts['joint_limits'].items() for r in trace)
+max_position=max((e['translation_m'] for r in trace for e in r['source_fk_error'].values()),default=0.)
+max_rotation=max((e['rotation_rad'] for r in trace for e in r['source_fk_error'].values()),default=0.)
+max_coupling=max((abs(e) for r in trace for e in r['coupling_error_rad'].values()),default=0.)
+limits=max((max(lim['lower']-r['q_rad'][names.index(n)],r['q_rad'][names.index(n)]-lim['upper'],0.) for n,lim in facts['joint_limits'].items() for r in trace),default=0.)
 checks={'exact53_named_coordinates':len(names)==53,'physical_mass_preserved':abs(facts['source_physical_mass_kg']-facts['imported_physical_mass_kg'])<1e-4,
     'fixed_pelvis_matches_declared_pose':bool(all(np.linalg.norm(np.asarray(r['link_poses_world_xyzw']['pelvis'][:3])-[0,0,1])<1e-4 for r in trace)),
     'source_fk_translation_below_0_2mm':max_position<=.0002,'source_fk_rotation_below_0_2deg':max_rotation<=np.deg2rad(.2),
     'hand_coupling_below_0_03rad':max_coupling<.03,'joint_limits_below_0_03rad':limits<.03,
-    'exact_steps':len(trace)==steps,'physics_dt':bool(np.allclose(np.diff([r['physics_s'] for r in trace]),.005,atol=1e-8)),
+    'exact_steps':len(trace)==steps,'numerical_abort_absent':aborted is None,'source_mass_com_inertia_preserved':all(inertia_audit['checks'].values()),
+    'physics_dt':len(trace)>1 and bool(np.allclose(np.diff([r['physics_s'] for r in trace]),.005,atol=1e-8)),
     'no_static_hand_triangles':shapes['statistics']['numTriMeshShapes']==0,'bilateral_live_palm_shape_counts':all(v['live_shape_count']==v['expected_shape_count'] for v in shapes['palms'].values())}
 metrics={'checks':checks,'steps':len(trace),'physics_dt':.005,'runtime_names':names,'source_model':'Unitree_FTP_G1_provisional_donor',
     'source_mass_kg':facts['source_physical_mass_kg'],'profile_sha256':hashlib.sha256(profile_path.read_bytes()).hexdigest(),
     'fixed_base':True,'support_constraints':['pelvis_fixed_to_world_1m_above_origin'],'ground_present':False,
-    'measured_initial_pelvis_pose_world_xyzw':trace[0]['link_poses_world_xyzw']['pelvis'],
+    'measured_initial_pelvis_pose_world_xyzw':trace[0]['link_poses_world_xyzw']['pelvis'] if trace else None,
+    'abort':aborted,'source_property_audit':'live_inertia_audit.json',
     'exact_asset_qualified':False,'tool_attached':False,'grasp_qualification':'NOT_RUN','writing_qualification':'NOT_RUN','standing_qualification':'NOT_RUN',
     'max_source_fk_position_error_m':max_position,'max_source_fk_rotation_error_rad':max_rotation,
     'coupling_error_max_rad':max_coupling,'joint_limit_violation_rad':limits,'actual_contact_points':len(contacts),
     'media_labels':{'fixture':'FIXED PELVIS - gravity loaded assembled-body check','embodiment':'PROVISIONAL G1 + bilateral FTP hands','qualification':'Physical frame/mechanism check only; no grasp, writing or standing qualification'},
     'controller':'one_named29_position_owner_plus12_hand_root_drives','body_gains_source':profile['gain_provenance'],
-    'body_target_error_max_rad':float(max(abs(r['q_rad'][names.index(n)]-profile['body_home_rad'][n]) for r in trace for n in body_names))}
+    'body_target_error_max_rad':float(max((abs(r['q_rad'][names.index(n)]-profile['body_home_rad'][n]) for r in trace for n in body_names),default=0.))}
 (out/'metrics.json').write_text(json.dumps(metrics,indent=2,allow_nan=False))
 world.stage.GetRootLayer().Export(str(out/'assembled_scene.usda'))
 artifacts=[str(p.relative_to(out)) for p in out.rglob('*') if p.is_file() and p.name not in ['run.json','probe.json','console.log','executed_probe.py','executed_launcher.py','uncommitted.patch']]
