@@ -170,6 +170,7 @@ def main():
         marker_rig=SingleArticulation('/World/Marker',name='free_passive_marker')
         world.stage.GetRootLayer().Export(str(out/'scene_before_reset.usda'))
         world.reset();hand.initialize();marker_rig.initialize()
+        assert list(marker_rig.dof_names)==[marker['slider_joint_name']],'Free marker must have only its passive compression coordinate'
         names=list(hand.dof_names);assert set(names)==set(limits)|{a['name'] for a in fixture['axes']}
         ids=np.array([names.index(n) for n in independent],dtype=np.int32)
         fixture_ids=np.array([names.index(a['name']) for a in fixture['axes']],dtype=np.int32)
@@ -263,6 +264,10 @@ def main():
         checks={'complete_steps':len(rows)==total_steps,'initial_preload_realized':initial_error<.01,
                 'initial_object_no_deep_penetration':deepest>=-.0005,'retention_window':retention['accepted'],
                 'front_and_side_recorded':bool(frames),'no_early_abort':aborted is None}
+        wrist_excursions=[max((r['wrist_q'][i] for r in retained),default=0.)-min((r['wrist_q'][i] for r in retained),default=0.) for i in range(6)]
+        if mode=='preloaded-retention-60s':
+            checks['all_six_wrist_axes_physically_moved']=all(span>=(.008 if i<3 else math.radians(8.)) for i,span in enumerate(wrist_excursions))
+            checks['wrist_tracks_bounded_reference']=bool(retained) and all(abs(r['wrist_q'][i]-r['wrist_command'][i])<(.010 if i<3 else .050) for r in retained for i in range(6))
         if empty_control:
             settled=rows[-100:]
             checks={'complete_steps':len(rows)==total_steps,'initial_preload_realized':initial_error<.01,
@@ -281,6 +286,7 @@ def main():
                  'nonzero_self_contact_points':len(self_contacts),'self_contact_summary':'self_contact_summary.json',
                  'maximum_retention_tip_drift_m':max((r['tip_drift_m'] for r in retained),default=None),
                  'maximum_retention_axis_drift_deg':max((r['axis_drift_deg'] for r in retained),default=None),'abort_reason':aborted,
+                 'measured_wrist_excursions_m_then_rad':wrist_excursions,
                  'backend':'CPU_PhysX_with_GPU_rendering','media_labels':{'fixture':'Dynamically driven six-axis supported wrist; freely dynamic marker',
                  'embodiment':'PROVISIONAL FTP RIGHT HAND - exact E2 unverified',
                  'qualification':'Empty-hand preload control; no grasp test' if empty_control else 'Preloaded supported-hand retention only; pickup, writing and standing unqualified'}}
