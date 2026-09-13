@@ -186,7 +186,7 @@ def main():
         if any(cfg['body_home_rad'][n] != v for n, v in task_profile.fixed_waist_rad.items()):
             raise ValueError('body home differs from approved fixed waist')
         from isaacsim import SimulationApp
-        app = SimulationApp({'headless': True, 'renderer': 'RaytracedLighting'})
+        app = SimulationApp({'headless': True, 'renderer': 'RaytracedLighting', 'fast_shutdown': False})
         import numpy as np
         from PIL import Image
         from pxr import Gf, PhysxSchema, PhysicsSchemaTools, Usd, UsdGeom, UsdLux, UsdPhysics
@@ -250,7 +250,12 @@ def main():
                 drive.CreateTypeAttr('force'); drive.CreateStiffnessAttr(0.); drive.CreateDampingAttr(0.)
                 drive.CreateMaxForceAttr(limits[p.GetName()]['effort'])
         stage.GetRootLayer().Save()
-        world = World(stage_units_in_meters=1., physics_dt=.005, rendering_dt=.02)
+        # The pinned SimulationManager integrates during warm-up before it
+        # exposes articulation handles. Use a declared microstep for those
+        # uncontrolled initialization integrations, then restore the evaluated
+        # 5ms timestep. No state teleport or temporary holding drive is used.
+        initialization_dt = 1e-6
+        world = World(stage_units_in_meters=1., physics_dt=initialization_dt, rendering_dt=.02)
         scene = next(p for p in world.stage.Traverse() if p.IsA(UsdPhysics.Scene))
         scene_api = PhysxSchema.PhysxSceneAPI.Apply(scene)
         scene_api.CreateEnableGPUDynamicsAttr(False)
@@ -289,6 +294,15 @@ def main():
         subscription = get_physx_simulation_interface().subscribe_contact_report_events(on_contact)
         robot = SingleArticulation('/World/G1', name='assembled_writer_fixture')
         world.reset(); robot.initialize()
+        world.set_simulation_dt(physics_dt=.005, rendering_dt=.02)
+        if not math.isclose(world.get_physics_dt(), .005, rel_tol=0, abs_tol=1e-12):
+            raise ValueError('controlled physics timestep differs from declared5ms')
+        metrics['initialization'] = {'warmup_physics_dt_s':initialization_dt,
+            'controlled_physics_dt_s':float(world.get_physics_dt()),
+            'runtime_physics_step_count_after_warmup':int(SimulationManager.get_num_physics_steps()),
+            'world_time_after_warmup_s':float(world.current_time),
+            'source':'pinned Isaac5.1 SimulationManager performs gravity integration before articulation handles exist',
+            'post_reset_state_writes':False, 'temporary_body_holding_drives':False}
         names = list(robot.dof_names)
         if len(names) != 53 or set(names) != set(limits):
             raise ValueError('actual runtime named53 map differs from donor')
@@ -313,6 +327,8 @@ def main():
         initial_q = np.ravel(robot.get_joint_positions())
         (out/'initial_joint_state.json').write_text(json.dumps({'names':names,
             'authored_pre_reset_q_rad':q0.astype(float).tolist(), 'actual_q_rad':initial_q.astype(float).tolist(),
+            'actual_dq_rad_s':np.ravel(robot.get_joint_velocities()).astype(float).tolist(),
+            'initialization':metrics['initialization'],
             'maximum_initial_error_rad':float(np.max(np.abs(initial_q-q0)))}, indent=2))
         if np.max(np.abs(initial_q-q0)) > .001:
             raise ValueError('pre-reset joint-state preload differs from actual initial state')

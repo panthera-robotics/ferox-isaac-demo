@@ -122,6 +122,10 @@ def main():
     from pxr import PhysxSchema, UsdPhysics
     from isaacsim.core.utils.extensions import enable_extension
     enable_extension("omni.pip.compute")
+    if capture_cameras:
+        # The pinned Lab experience enables rendering but does not load the
+        # standalone Isaac Camera extension's Python namespace by default.
+        enable_extension("isaacsim.sensors.camera")
     from inspire_body_asset import import_body
     from inspire_collision import replace_palm_with_components, replace_left_thumb_with_slabs
     from rigid_inertia import audit_live_properties
