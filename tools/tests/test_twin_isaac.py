@@ -192,7 +192,10 @@ def _articulation():
         from isaacsim.core.utils.stage import add_reference_to_stage
         from isaacsim.core.prims import Articulation
         world = World(stage_units_in_meters=1.0)
-        world.scene.add_default_ground_plane()
+        # Local analytic ground keeps this asset regression independent of the
+        # remote environment library and permits network-isolated execution.
+        from isaacsim.core.api.objects import GroundPlane
+        world.scene.add(GroundPlane("/World/GroundPlane"))
         add_reference_to_stage(HAND_STUB, "/World/g1_dex5")
         world.reset()
         art = Articulation("/World/g1_dex5")
@@ -434,7 +437,7 @@ def main():
     check("camera optical->USD rotation is exactly Rx(180)",
           test_camera_optical_to_usd_rotation_is_exactly_rx180)
 
-    out = open("/tmp/twin_isaac_tests.txt", "w")
+    out = open(os.environ.get("TWIN_TEST_REPORT", "/tmp/twin_isaac_tests.txt"), "w")
     failed = 0
     for name, status, detail in RESULTS:
         line = f"  {status}  {name}" + (f"  -- {detail}" if detail else "")
@@ -444,6 +447,14 @@ def main():
     summary = f"\n{len(RESULTS) - failed}/{len(RESULTS)} passed"
     out.write(summary + "\n")
     out.close()
+    print(summary, flush=True)
+    # Persist before Kit shutdown, which can exit the process before the return.
+    if os.environ.get("TWIN_TEST_RECEIPT"):
+        import json
+        with open(os.environ["TWIN_TEST_RECEIPT"], "w") as receipt:
+            json.dump({"status": "FAIL" if failed else "PASS", "passed": len(RESULTS) - failed,
+                       "failed": failed, "checks": RESULTS,
+                       "artifacts": [os.path.basename(os.environ.get("TWIN_TEST_REPORT", "/tmp/twin_isaac_tests.txt"))]}, receipt, indent=2)
     app.close()
     return 1 if failed else 0
 
