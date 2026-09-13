@@ -201,4 +201,10 @@ def write_failed_grasp_receipt(out,*,error,traceback_text,mode,scope,phase,steps
            'state.jsonl','contacts.jsonl','frames.jsonl','self_contact_summary.json']
     artifacts=[n for n in names if (out/n).is_file() and (out/n).stat().st_size]
     artifacts += [str(p.relative_to(out)) for p in sorted((out/'frames').rglob('*.png'))]
-    write('probe.json',{'status':'FAIL','scope':'provisional_supported_preloaded_hand_only','artifacts':artifacts})
+    if mode=='rack-lift-hold-one':
+        metrics=json.loads((out/'metrics.json').read_text())
+        metrics.update(single_rack_lift_hold_diagnostic_pass=False,three_repeat_acquisition_qualified=False,controlled_release_tested=False)
+        write('metrics.json',metrics)
+        artifacts += [n for n in ['rack_config.json','rack_scene.json'] if (out/n).is_file()]
+    write('probe.json',{'status':'FAIL','scope':'provisional_supported_hand_single_physical_rack_lift_hold'
+                       if mode=='rack-lift-hold-one' else 'provisional_supported_preloaded_hand_only','artifacts':artifacts})
