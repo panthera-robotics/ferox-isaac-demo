@@ -3,10 +3,13 @@ from copy import deepcopy
 import math
 from pathlib import Path
 import sys
+import json
+import tempfile
 import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from inspire_grasp import GraspConfig,drift,relative_measurement,retention_result,wrist_target
+from inspire_grasp import (GraspConfig,drift,relative_measurement,retention_result,wrist_target,
+                           diagnostic_json,capture_readbacks,initialization_report,write_failed_grasp_receipt)
 
 
 class RetentionTests(unittest.TestCase):
@@ -66,6 +69,50 @@ class RetentionTests(unittest.TestCase):
         self.assertAlmostEqual(drift(reference,r)['tip_drift_m'],.004)
         angle=math.radians(4);r=deepcopy(reference);r['holder_axis_palm']=[math.cos(angle),math.sin(angle),0]
         self.assertAlmostEqual(drift(reference,r)['axis_drift_deg'],4.)
+
+
+class FailureEvidenceTests(unittest.TestCase):
+    def poses(self):return {n:[0.,0.,0.,0.,0.,0.,1.] for n in ['palm','holder','nib']}
+
+    def test_initialization_gate_stays_strict_at_point_zero_one(self):
+        self.assertTrue(initialization_report({'finger':1.},['finger'],[1.009],[0.],self.poses(),[])['admitted'])
+        self.assertFalse(initialization_report({'finger':1.},['finger'],[1.01],[0.],self.poses(),[])['admitted'])
+
+    def test_nonfinite_joint_and_pose_readback_cannot_admit(self):
+        for field in ['q','dq','pose']:
+            q=[1.];dq=[0.];poses=self.poses()
+            if field=='q':q=[float('nan')]
+            if field=='dq':dq=[float('inf')]
+            if field=='pose':poses['holder'][2]=float('nan')
+            self.assertFalse(initialization_report({'finger':1.},['finger'],q,dq,poses,[])['admitted'])
+
+    def test_initial_collision_is_reported_without_relaxing_joint_gate(self):
+        contact={'actor0':'/World/Hand/base','actor1':'/World/Hand/thumb','impulse_ns':[1.,0.,0.],'separation_m':-.015}
+        report=initialization_report({'finger':1.},['finger'],[1.],[0.],self.poses(),[contact])
+        self.assertFalse(report['admitted']);self.assertTrue(report['checks']['initial_preload_realized'])
+        self.assertFalse(report['checks']['initial_no_deep_self_penetration'])
+
+    def test_one_failed_getter_preserves_other_readbacks(self):
+        def broken():raise RuntimeError('physics view lost')
+        state=capture_readbacks({'q':lambda:[.2],'dq':broken,'poses':self.poses})
+        self.assertEqual(state['q'],[.2]);self.assertIn('read_error',state['dq']);self.assertEqual(state['poses'],self.poses())
+
+    def test_nan_failure_receipt_keeps_candidate_gates_state_and_all_qualification_false(self):
+        with tempfile.TemporaryDirectory() as folder:
+            out=Path(folder);out.joinpath('collision_candidate.json').write_text('{"candidate_id":"provisional"}')
+            observation={'q':[float('nan')],'dq':[.3],'poses_xyzw':self.poses()}
+            gates=initialization_report({'finger':1.},['finger'],observation['q'],observation['dq'],observation['poses_xyzw'],[])
+            write_failed_grasp_receipt(out,error='initial rejected',traceback_text='trace',mode='preloaded-free-control',scope={},
+                                      phase='initialization',steps=0,observation=observation,gates=gates)
+            state=json.loads(out.joinpath('last_runtime_state.json').read_text());self.assertEqual(state['q'][0],{'invalid_numeric':'NaN'})
+            self.assertEqual(state['dq'],[.3]);self.assertIn('$.q[0]',state['invalid_numeric_paths'])
+            metrics=json.loads(out.joinpath('metrics.json').read_text());self.assertFalse(metrics['empty_hand_preload_control_pass'])
+            self.assertFalse(metrics['checks']['execution_completed']);self.assertEqual(metrics['steps'],0)
+            receipt=json.loads(out.joinpath('probe.json').read_text());self.assertEqual(receipt['status'],'FAIL')
+            self.assertIn('collision_candidate.json',receipt['artifacts']);self.assertIn('metrics.json',receipt['artifacts'])
+            write_failed_grasp_receipt(out,error='cleanup failed',traceback_text='',mode='preloaded-free-control',scope={},
+                                      phase='cleanup',steps=0,observation=observation,gates=gates)
+            self.assertEqual(json.loads(out.joinpath('failure.json').read_text())['previous_failure']['error'],'initial rejected')
 
 
 if __name__=='__main__':unittest.main()

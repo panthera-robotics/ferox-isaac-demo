@@ -8,6 +8,7 @@ from dataclasses import asdict,dataclass,fields
 import hashlib
 import json
 import math
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -128,3 +129,76 @@ def retention_result(rows,*,expected_seconds,dt_s,fixture_support_active=False,a
             checks['continuous_samples']=False
     return {'accepted':all(checks.values()),'checks':checks,'measured_samples':len(rows),'required_seconds':expected_seconds,
             'rack_acquisition_qualified':False,'exact_E2_qualified':False,'standing_qualified':False}
+
+
+def diagnostic_json(value):
+    """Preserve invalid numeric observations explicitly in strict JSON; never zero-fill."""
+    invalid=[]
+    def convert(item,path):
+        if isinstance(item,dict):return {str(k):convert(v,path+'.'+str(k)) for k,v in item.items()}
+        if isinstance(item,(list,tuple)):return [convert(v,path+f'[{i}]') for i,v in enumerate(item)]
+        if isinstance(item,float) and not math.isfinite(item):
+            invalid.append(path)
+            return {'invalid_numeric':'NaN' if math.isnan(item) else '+Infinity' if item>0 else '-Infinity'}
+        if item is None or isinstance(item,(str,bool,int,float)):return item
+        if hasattr(item,'tolist'):return convert(item.tolist(),path)
+        raise TypeError('Unsupported diagnostic value at '+path+': '+type(item).__name__)
+    return convert(value,'$'),invalid
+
+
+def capture_readbacks(readers):
+    """A failed getter cannot discard the other available physical observations."""
+    result={}
+    for name,getter in readers.items():
+        try:result[name]=getter()
+        except Exception as error:result[name]={'read_error':type(error).__name__+': '+str(error)}
+    return result
+
+
+def initialization_report(expected,names,q,dq,poses,contacts):
+    """Evaluate the unchanged 0.01 rad preload gate before admitting command motion."""
+    def finite_vector(v,size):
+        return isinstance(v,(list,tuple)) and len(v)==size and all(type(x) in (int,float) and math.isfinite(x) for x in v)
+    named=isinstance(names,(list,tuple)) and all(isinstance(n,str) for n in names) and len(set(names))==len(names) and set(expected)<=set(names)
+    numeric=named and finite_vector(q,len(names)) and finite_vector(dq,len(names))
+    error=max(abs(q[names.index(n)]-target) for n,target in expected.items()) if numeric else None
+    pose_ok=isinstance(poses,dict) and set(poses)=={'palm','holder','nib'}
+    if pose_ok:pose_ok=all(finite_vector(p,7) and math.isclose(sum(x*x for x in p[3:]),1.,abs_tol=1e-4) for p in poses.values())
+    _,bad=diagnostic_json(contacts)
+    self_depth=0.;object_depth=0.
+    for contact in contacts:
+        if bad:break
+        actors=[contact['actor0'],contact['actor1']]
+        if any(a.startswith('/World/Marker/') for a in actors):object_depth=min(object_depth,contact['separation_m'])
+        if all(a.startswith('/World/Hand/') for a in actors) and math.sqrt(sum(v*v for v in contact['impulse_ns']))>1e-10:
+            self_depth=min(self_depth,contact['separation_m'])
+    checks={'named_finite_joint_state':bool(numeric),'finite_measured_body_poses':bool(pose_ok),
+            'finite_contact_observations':not bad,'initial_preload_realized':error is not None and error<.01,
+            'initial_no_deep_self_penetration':not bad and self_depth>=-.0005,
+            'initial_object_no_deep_penetration':not bad and object_depth>=-.0005}
+    return {'admitted':all(checks.values()),'checks':checks,'initial_joint_error_rad':error,
+            'preload_error_limit_rad':.01,'initial_self_min_separation_m':self_depth,
+            'initial_object_min_separation_m':object_depth,'initial_contact_points':len(contacts)}
+
+
+def write_failed_grasp_receipt(out,*,error,traceback_text,mode,scope,phase,steps,observation,gates):
+    """Persist a complete FAIL receipt even when the rejected observation contains NaN."""
+    out=Path(out)
+    def write(name,data):
+        safe,bad=diagnostic_json(data)
+        if isinstance(safe,dict):safe['invalid_numeric_paths']=bad
+        tmp=out/(name+'.tmp');tmp.write_text(json.dumps(safe,indent=2,allow_nan=False)+'\n');tmp.replace(out/name)
+    previous=json.loads((out/'failure.json').read_text()) if (out/'failure.json').is_file() else None
+    write('last_runtime_state.json',observation)
+    write('failure.json',{'error':error,'traceback':traceback_text,'phase':phase,'scope':scope,'previous_failure':previous})
+    write('metrics.json',{'schema_version':1,'checks':{'execution_completed':False,**gates.get('checks',{})},
+          'steps':steps,'mode':mode,'scope':scope,'abort_phase':phase,'abort_reason':error,'initialization':gates,
+          'supported_preloaded_retention_60s_qualified':False,'static_preloaded_diagnostic_pass':False,
+          'empty_hand_preload_control_pass':False,'pickup_qualification':'NOT_RUN','writing_qualification':'NOT_RUN',
+          'standing_qualification':'NOT_RUN','candidate_qualification':'posture_limited; failed initialization is not a grasp result'})
+    names=['grasp_config.json','failure.json','metrics.json','last_runtime_state.json','preload_geometry.json','marker_scene.json',
+           'collision_candidate.json','scene_before_reset.usda','initial_state.json','initialization_gates.json',
+           'state.jsonl','contacts.jsonl','frames.jsonl','self_contact_summary.json']
+    artifacts=[n for n in names if (out/n).is_file() and (out/n).stat().st_size]
+    artifacts += [str(p.relative_to(out)) for p in sorted((out/'frames').rglob('*.png'))]
+    write('probe.json',{'status':'FAIL','scope':'provisional_supported_preloaded_hand_only','artifacts':artifacts})
