@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import time
 import uuid
@@ -61,7 +62,11 @@ def main():
     parser.add_argument("--workspace-lock", type=Path, required=True,
                         help="Private cross-repository lock; live revisions are read back before execution")
     parser.add_argument("--probe-mode", choices=["default", "zero-gravity", "refined-palm", "zero-gravity-refined-palm",
-                        "mesh-colliders", "zero-gravity-mesh-colliders"], default="default",
+                        "mesh-colliders", "zero-gravity-mesh-colliders",
+                        "refined-palm-mesh-colliders", "zero-gravity-refined-palm-mesh-colliders",
+                        "zero-gravity-clearance-control", "static-palm-bench", "zero-gravity-static-palm-bench",
+                        "blocked-index-static-palm-bench", "tgs-forces-blocked-index-static-palm-bench",
+                        "tgs-forces-velocity8-blocked-index-static-palm-bench"], default="default",
                         help="Explicit diagnostic variant; zero gravity is never a physical qualification")
     args = parser.parse_args()
     if not 10 <= args.seconds <= 900:
@@ -70,6 +75,8 @@ def main():
     script = (repo / args.script).resolve()
     if not script.is_relative_to(repo) or not script.is_file() or script.suffix != ".py":
         parser.error("Probe must be an existing Python file inside this repository")
+    if args.probe_mode != 'default' and script.name != 'inspire_hand.py':
+        parser.error("Diagnostic variants are specific to the Inspire hand probe")
     lock = open("/tmp/panthera-isolated-isaac.lock", "a")
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     lock_path = args.workspace_lock.resolve()
@@ -88,7 +95,7 @@ def main():
     if identity.get("hardware_authorized") is not False:
         parser.error("Identity contract must explicitly deny hardware authority")
     budget = workspace["gpu_budget"]
-    elapsed = 0.
+    elapsed = float(budget.get('unmanifested_diagnostic_reserve_seconds', 0.))
     for run in (lock_path.parent / "evidence").glob("*/run.json"):
         prior = json.loads(run.read_text())
         if "end_unix" not in prior:
@@ -104,6 +111,9 @@ def main():
         parser.error("Workspace directory must be private (mode 0700)")
     output.mkdir(parents=True, exist_ok=False, mode=0o777)
     output.chmod(0o777)  # Image UID 1234 writes artifacts; parent should be private.
+    shutil.copyfile(script, output / 'executed_probe.py')
+    shutil.copyfile(Path(__file__), output / 'executed_launcher.py')
+    (output / 'uncommitted.patch').write_text(command('git', '-C', str(repo), 'diff', '--binary', 'HEAD') + '\n')
     image = json.loads(command("docker", "image", "inspect", args.image))[0]
     name = "panthera_sim_" + uuid.uuid4().hex[:12]
     mounts = [(repo / "isaac", "/workspace/ferox_isaac", "ro"),
@@ -152,6 +162,8 @@ def main():
                 "gpu": command("nvidia-smi", "--query-gpu=name,uuid,driver_version,memory.total", "--format=csv,noheader"),
                 "command": create, "status": "STARTING"}
     manifest["input_sha256"] = input_hashes(input_roots)
+    manifest['source_snapshot_sha256'] = {name: hashlib.sha256((output / name).read_bytes()).hexdigest()
+        for name in ['executed_probe.py', 'executed_launcher.py', 'uncommitted.patch']}
     manifest.update(workspace_repositories=repositories,
                     workspace_lock_sha256=hashlib.sha256(lock_path.read_bytes()).hexdigest(),
                     identity_contract_sha256=hashlib.sha256(identity_path.read_bytes()).hexdigest(),
