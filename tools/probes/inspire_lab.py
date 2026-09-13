@@ -48,6 +48,7 @@ from isaacsim.core.utils.extensions import enable_extension
 enable_extension("omni.pip.compute")
 from inspire_body_asset import import_body
 from inspire_collision import replace_palm_with_components
+from rigid_inertia import audit_live_properties
 from isaac.twin.isaaclab.inspire_env import create_env
 
 out = Path("/evidence")
@@ -77,6 +78,9 @@ for key, expected in [("stiffness_nm_rad", spec.stiffness), ("damping_nm_s_rad",
     assert np.allclose(readbacks[key], [expected] * num_envs, rtol=1e-6, atol=1e-6), key
 expected_mass = [facts["physical_link_mass_kg"][n] for n in env.robot.body_names]
 assert np.allclose(readbacks["mass_kg"], [expected_mass] * num_envs, atol=1e-5, rtol=1e-6)
+inertia_audits = [audit_live_properties(env.sim.physics_sim_view, f"/World/envs/env_{i}/Robot",
+    facts["expected_source_rigid_properties_in_imported_frame"]) for i in range(num_envs)]
+(out / "live_inertia_audit.json").write_text(json.dumps(inertia_audits, indent=2, allow_nan=False))
 marker_live = env.marker.root_physx_view
 readbacks["marker_spring"] = {
     "stiffness_n_m": marker_live.get_dof_stiffnesses().cpu().tolist(),
@@ -132,6 +136,7 @@ statistics = get_physxunittests_interface().get_physics_stats()
 physics_scene = next(p for p in env.sim.stage.Traverse() if p.IsA(UsdPhysics.Scene))
 physics_api = PhysxSchema.PhysxSceneAPI(physics_scene)
 checks = {"named53_measured_41_independent": True, "source_mass_gains_effort_preserved": True,
+    "source_mass_com_inertia_preserved": all(all(a["checks"].values()) for a in inertia_audits),
     "bilateral_live_palm_shapes": True, "exact_transition_count": writer.count == num_envs * steps,
     "scalar_export_runtime_reward_done_parity": not parity_errors, "automatic_resets_observed_each_env": all(resets),
     "finite_actual_states": invalid_state_records == 0, "valid_contact_measurements": invalid_contact_records == 0,
