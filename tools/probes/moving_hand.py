@@ -32,9 +32,11 @@ out = Path('/evidence')
 mode = os.environ.get('PANTHERA_PROBE_MODE', 'default')
 assert mode in {'component-palm-sweeps', 'component-palm-blocked', 'component-palm-wrist'}
 probe_config = json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text()) if os.environ.get('PANTHERA_PROBE_CONFIG') else {}
-assert set(probe_config) <= {'palm_candidate_id'}, 'Unrecognized hand probe configuration'
+assert set(probe_config) <= {'palm_candidate_id', 'solver_velocity_iterations'}, 'Unrecognized hand probe configuration'
 palm_candidate_id = probe_config.get('palm_candidate_id', 'ftp_palm_components_v1')
 assert palm_candidate_id in {'ftp_palm_components_v1', 'ftp_palm_yz_slabs_v2'}
+solver_velocity_iterations = probe_config.get('solver_velocity_iterations', 8)
+assert type(solver_velocity_iterations) is int and solver_velocity_iterations in {8, 16}
 wrist_fixture = None
 import_source = source
 if mode == 'component-palm-wrist':
@@ -179,7 +181,7 @@ add_reference_to_stage(str(dest), '/World/Hand')
 # iterations, geometry, time step, limits and drives.
 roots = [p for p in world.stage.Traverse() if p.HasAPI(PhysxSchema.PhysxArticulationAPI)]
 assert len(roots) == 1
-PhysxSchema.PhysxArticulationAPI(roots[0]).CreateSolverVelocityIterationCountAttr(8)
+PhysxSchema.PhysxArticulationAPI(roots[0]).CreateSolverVelocityIterationCountAttr(solver_velocity_iterations)
 collision_fixture = None
 # Retain PhysX's cooking representation at the authored zero pose. This is a
 # cooking-service result, not a live actor-shape query. It allows collision
