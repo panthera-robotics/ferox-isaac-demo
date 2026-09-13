@@ -36,7 +36,7 @@ assert set(probe_config) <= {'palm_candidate_id', 'solver_velocity_iterations'},
 palm_candidate_id = probe_config.get('palm_candidate_id', 'ftp_palm_components_v1')
 assert palm_candidate_id in {'ftp_palm_components_v1', 'ftp_palm_yz_slabs_v2'}
 solver_velocity_iterations = probe_config.get('solver_velocity_iterations', 8)
-assert type(solver_velocity_iterations) is int and solver_velocity_iterations in {8, 16}
+assert type(solver_velocity_iterations) is int and solver_velocity_iterations in {8, 16, 32}
 wrist_fixture = None
 import_source = source
 if mode == 'component-palm-wrist':
