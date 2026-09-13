@@ -60,7 +60,8 @@ def main():
     parser.add_argument("--source-assets", type=Path, help="Optional local donor assets, mounted read-only")
     parser.add_argument("--workspace-lock", type=Path, required=True,
                         help="Private cross-repository lock; live revisions are read back before execution")
-    parser.add_argument("--probe-mode", choices=["default", "zero-gravity"], default="default",
+    parser.add_argument("--probe-mode", choices=["default", "zero-gravity", "refined-palm", "zero-gravity-refined-palm",
+                        "mesh-colliders", "zero-gravity-mesh-colliders"], default="default",
                         help="Explicit diagnostic variant; zero gravity is never a physical qualification")
     args = parser.parse_args()
     if not 10 <= args.seconds <= 900:

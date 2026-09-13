@@ -28,6 +28,9 @@ limits = {j.get('name'): [float(j.find('limit').get(k)) for k in ('lower', 'uppe
           for j in root.findall('joint') if j.get('type') == 'revolute'}
 assert len(independent) == 6 and len(mimics) == 6
 out = Path('/evidence')
+mode = os.environ.get('PANTHERA_PROBE_MODE', 'default')
+assert mode in {'default', 'zero-gravity', 'refined-palm', 'zero-gravity-refined-palm',
+                'mesh-colliders', 'zero-gravity-mesh-colliders'}
 from isaacsim import SimulationApp
 app = SimulationApp({'headless': True, 'renderer': 'RaytracedLighting'})
 import numpy as np
@@ -90,11 +93,63 @@ for name, prim in usd_joints.items():
         drive.CreateStiffnessAttr(1.)
         drive.CreateDampingAttr(.05)
         drive.CreateTargetPositionAttr(0.)
+collision_refinement = []
+collision_api_relocations = []
+if mode in {'mesh-colliders', 'zero-gravity-mesh-colliders'}:
+    instance_roots = set()
+    for prim in stage.Traverse(Usd.TraverseInstanceProxies()):
+        if prim.HasAPI(UsdPhysics.CollisionAPI) and prim.IsInstanceProxy():
+            ancestor = prim.GetParent()
+            while ancestor and not ancestor.IsInstance():
+                ancestor = ancestor.GetParent()
+            assert ancestor, f'No editable instance root for {prim.GetPath()}'
+            instance_roots.add(str(ancestor.GetPath()))
+    for path in sorted(instance_roots):
+        stage.GetPrimAtPath(path).SetInstanceable(False)
+    wrappers = [p for p in stage.Traverse() if p.HasAPI(UsdPhysics.CollisionAPI)
+                and not p.IsA(UsdGeom.Mesh)]
+    assert len(wrappers) == 30, 'Pinned donor collision wrapper topology changed'
+    for wrapper in wrappers:
+        meshes = [p for p in Usd.PrimRange(wrapper) if p.IsA(UsdGeom.Mesh)]
+        assert len(meshes) == 1, f'Ambiguous collision geometry at {wrapper.GetPath()}'
+        mesh = meshes[0]
+        enabled = UsdPhysics.CollisionAPI(wrapper).GetCollisionEnabledAttr().Get()
+        approximation = UsdPhysics.MeshCollisionAPI(wrapper).GetApproximationAttr().Get()
+        assert approximation == 'convexDecomposition'
+        UsdPhysics.CollisionAPI.Apply(mesh).CreateCollisionEnabledAttr(enabled)
+        UsdPhysics.MeshCollisionAPI.Apply(mesh).CreateApproximationAttr(approximation)
+        wrapper.RemoveAPI(UsdPhysics.CollisionAPI)
+        wrapper.RemoveAPI(UsdPhysics.MeshCollisionAPI)
+        collision_api_relocations.append({'from': str(wrapper.GetPath()), 'to': str(mesh.GetPath()),
+            'collision_enabled': enabled, 'approximation': approximation,
+            'triangles_transforms_mass_and_collision_pairs_changed': False})
+    assert len([p for p in stage.Traverse() if p.HasAPI(UsdPhysics.CollisionAPI) and p.IsA(UsdGeom.Mesh)]) == 30
+if mode in {'refined-palm', 'zero-gravity-refined-palm'}:
+    # The source palm has 43 disconnected components; the default 32-hull
+    # decomposition may bridge its thumb cavity. Test a declared finer collision
+    # approximation, preserving source triangles, mass and every collision pair.
+    collision_root = stage.GetPrimAtPath('/Rhand/right_base_link/collisions')
+    assert collision_root.IsInstance(), 'Expected pinned donor collision instance'
+    collision_root.SetInstanceable(False)
+    for prim in Usd.PrimRange(collision_root):
+        if prim.HasAPI(UsdPhysics.CollisionAPI):
+            assert prim.GetPath().pathString.endswith('/right_base_link/node_STL_BINARY_')
+            assert UsdPhysics.MeshCollisionAPI(prim).GetApproximationAttr().Get() == 'convexDecomposition'
+            api = PhysxSchema.PhysxConvexDecompositionCollisionAPI.Apply(prim)
+            api.CreateMaxConvexHullsAttr().Set(128)
+            api.CreateErrorPercentageAttr().Set(1.)
+            api.CreateVoxelResolutionAttr().Set(1000000)
+            api.CreateShrinkWrapAttr().Set(True)
+            collision_refinement.append({'prim': str(prim.GetPath()), 'preset': 'palm_cavity_v1',
+                'maxConvexHulls': api.GetMaxConvexHullsAttr().Get(),
+                'errorPercentage': api.GetErrorPercentageAttr().Get(),
+                'voxelResolution': api.GetVoxelResolutionAttr().Get(),
+                'shrinkWrap': api.GetShrinkWrapAttr().Get(),
+                'collision_pairs_filtered': False, 'source_triangles_changed': False})
+    assert len(collision_refinement) == 1, 'Pinned palm collider not found'
 stage.GetRootLayer().Save()
 world = World(stage_units_in_meters=1., physics_dt=.005, rendering_dt=.02)
-mode = os.environ.get('PANTHERA_PROBE_MODE', 'default')
-assert mode in {'default', 'zero-gravity'}
-if mode == 'zero-gravity':
+if mode.startswith('zero-gravity'):
     world.get_physics_context().set_gravity(0.)
 UsdLux.DomeLight.Define(world.stage, '/World/Light').CreateIntensityAttr(1400.)
 add_reference_to_stage(str(dest), '/World/Hand')
@@ -209,6 +264,8 @@ metrics = {'source_model': 'Unitree_FTP_donor_exact_E2_equivalence_unverified',
            'manufacturer_nominal_E2_T1_hand_kg': .79, 'mass_rescaled': False,
            'fixed_base': True, 'tool_attached': False, 'controller': 'six_independent_position_drives',
            'diagnostic_mode': mode, 'gravity': str(world.get_physics_context().get_gravity()),
+           'collision_refinement': collision_refinement,
+           'collision_api_relocations': collision_api_relocations,
            'physics_configuration': physics_configuration, 'randomized': False,
            'gains': {'kp': 1., 'kd': .05, 'provenance': 'declared_diagnostic_not_hardware_calibrated'},
            'runtime_names': names, 'independent_names': independent, 'mimic_map': mimics,
