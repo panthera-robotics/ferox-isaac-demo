@@ -3,6 +3,7 @@ import importlib.util
 import math
 from pathlib import Path
 import unittest
+import tempfile
 
 spec = importlib.util.spec_from_file_location('assembled_writer_probe', Path(__file__).parents[1]/'probes/assembled_writer.py')
 probe = importlib.util.module_from_spec(spec)
@@ -10,6 +11,25 @@ spec.loader.exec_module(probe)
 
 
 class PhysicalWriterGuards(unittest.TestCase):
+    def test_immutable_template_remains_unchanged_while_runtime_is_writable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source=Path(directory)/'input';source.mkdir();(source/'poses').mkdir()
+            profile=source/'profile.json';profile.write_text('{"run_id":"template"}')
+            pose=source/'poses/home.yaml';pose.write_text('fixture: true')
+            for p in [profile,pose]:p.chmod(0o444)
+            for p in [source,source/'poses']:p.chmod(0o555)
+            try:
+                destination=Path(directory)/'runtime';probe.copy_writable_template(source,destination)
+                self.assertEqual((destination/'profile.json').read_bytes(),profile.read_bytes())
+                self.assertEqual((destination/'profile.json').stat().st_mode&0o777,0o644)
+                self.assertEqual((destination/'poses').stat().st_mode&0o777,0o755)
+                (destination/'profile.json').write_text('{"run_id":"admitted"}')
+                (destination/'recording').mkdir()
+                self.assertEqual(profile.read_text(),'{"run_id":"template"}')
+                self.assertEqual(profile.stat().st_mode&0o777,0o444)
+            finally:
+                for p in [source,source/'poses']:p.chmod(0o755)
+
     def fixture(self):
         names = ['joint_%02d' % i for i in range(53)]
         limits = {n: {'lower': -1., 'upper': 1., 'velocity': 10.} for n in names}

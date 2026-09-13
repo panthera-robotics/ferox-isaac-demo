@@ -116,6 +116,15 @@ def frame_error(expected, actual):
             'rotation_rad': float(np.arccos(np.clip((np.trace(delta)-1)/2, -1, 1)))}
 
 
+def copy_writable_template(source,destination):
+    """Copy immutable input bytes into a newly owned runtime directory."""
+    source,destination=Path(source),Path(destination)
+    if any(p.is_symlink() for p in source.rglob('*')):raise ValueError('Template symlinks are not admitted')
+    shutil.copytree(source,destination)
+    for path in [destination,*destination.rglob('*')]:
+        path.chmod(0o755 if path.is_dir() else 0o644)
+
+
 def main():
     if os.environ.get('PANTHERA_SIM_AUTHORIZED') != '1' or sorted(p.name for p in Path('/sys/class/net').iterdir()) != ['lo']:
         raise RuntimeError('isolated simulator authorization required')
@@ -148,7 +157,7 @@ def main():
         configure_environment()
         template_profile = Path(cfg['private_profile_path'])
         runtime = out/'writer-runtime'
-        shutil.copytree(template_profile.parent, runtime)
+        copy_writable_template(template_profile.parent, runtime)
         profile_data = json.loads(template_profile.read_text())
         template_root = template_profile.parent.resolve()
         # The mounted template describes files in its own directory. Rewrite
