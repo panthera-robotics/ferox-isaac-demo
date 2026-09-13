@@ -50,7 +50,7 @@ def prepare_source(source, output):
         'exact_RH56E2_equivalence_verified': False}
 
 
-def import_body(source, output_dir, *, fixed_base, palm_builder):
+def import_body(source, output_dir, *, fixed_base, palm_builder, left_thumb_builder=None):
     """Called after SimulationApp startup; palm_builder owns candidate generation."""
     import numpy as np
     import omni.kit.commands
@@ -143,7 +143,14 @@ def import_body(source, output_dir, *, fixed_base, palm_builder):
         meshes=[p for p in Usd.PrimRange(stage.GetPrimAtPath(palm)) if p.IsA(UsdGeom.Mesh) and p.HasAPI(UsdPhysics.CollisionAPI)]
         assert len(meshes)==1
         candidates[side]=palm_builder(stage,str(meshes[0].GetPath()),palm,side)
+    thumbs={}
+    if left_thumb_builder is not None:
+        body=prefix+'/left_thumb_2'
+        meshes=[p for p in Usd.PrimRange(stage.GetPrimAtPath(body)) if p.IsA(UsdGeom.Mesh) and p.HasAPI(UsdPhysics.CollisionAPI)]
+        assert len(meshes)==1
+        thumbs['left']=left_thumb_builder(stage,str(meshes[0].GetPath()),body)
     facts.update(fixed_base=fixed_base,root_prim=prefix,collision_candidates=candidates,collision_api_relocations=relocations,
+        thumb_collision_candidates=thumbs,
         source_analytic_colliders_preserved=analytic,
         imported_inertia_validation='source tensors requested and expected frame-converted properties saved; live comparison requires physics initialization',
         hand_joint_names=list(hand_joints),hand_independent_names=list(hand_independent),body_joint_names=[n for n in joints if n not in hand_joints],

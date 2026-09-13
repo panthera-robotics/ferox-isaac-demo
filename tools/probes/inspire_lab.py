@@ -47,7 +47,7 @@ from pxr import PhysxSchema, UsdPhysics
 from isaacsim.core.utils.extensions import enable_extension
 enable_extension("omni.pip.compute")
 from inspire_body_asset import import_body
-from inspire_collision import replace_palm_with_components
+from inspire_collision import replace_palm_with_components, replace_left_thumb_with_slabs
 from rigid_inertia import audit_live_properties
 from isaac.twin.isaaclab.inspire_env import create_env
 
@@ -58,7 +58,8 @@ def palm_builder(stage, mesh, body, side):
         contact_offset_m=.0012860533315688372, rest_offset_m=0.,
         candidate_id="ftp_palm_yz_slabs_v2" if side == "right" else "ftp_left_palm_yz_slabs_v1")
 
-asset, facts = import_body(source, out, fixed_base=True, palm_builder=palm_builder)
+asset, facts = import_body(source, out, fixed_base=True, palm_builder=palm_builder,
+                           left_thumb_builder=replace_left_thumb_with_slabs)
 spec = InspireLabSpec.from_manifests(facts, profile, settings["scene_config"], episode_steps=episode_steps)
 omni.usd.get_context().new_stage()
 env = create_env(spec, asset, num_envs=num_envs, seed=seed)
@@ -99,6 +100,13 @@ for environment in range(num_envs):
         readbacks["palms"].append({"path": path, "live_shapes": rigid.max_shapes,
             "contact_offsets_m": rigid.get_contact_offsets().cpu().tolist(),
             "rest_offsets_m": rigid.get_rest_offsets().cpu().tolist()})
+readbacks["left_thumb"] = []
+for environment in range(num_envs):
+    path = f"/World/envs/env_{environment}/Robot/left_thumb_2"
+    rigid = env.sim.physics_sim_view.create_rigid_body_view(path)
+    expected = facts["thumb_collision_candidates"]["left"]["expected_live_hulls"]
+    assert rigid.count == 1 and rigid.max_shapes == expected
+    readbacks["left_thumb"].append({"path": path, "live_shapes": rigid.max_shapes, "expected_shapes": expected})
 (out / "lab_runtime_contract.json").write_text(json.dumps(readbacks, indent=2, allow_nan=False))
 
 writer = TransitionWriter(out / "transitions.jsonl")

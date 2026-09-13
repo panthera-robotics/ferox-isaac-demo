@@ -26,14 +26,14 @@ from isaacsim.core.simulation_manager import SimulationManager
 from isaacsim.sensors.camera import Camera
 enable_extension('omni.pip.compute')
 from inspire_body_asset import import_body
-from inspire_collision import replace_palm_with_components
+from inspire_collision import replace_palm_with_components,replace_left_thumb_with_slabs
 from urdf_kinematics import UrdfKinematics
 from rigid_inertia import audit_live_properties
 source=Path('/source-assets/g1_29dof_rev_1_0_with_inspire_hand_FTP.urdf')
 def palm_builder(stage,mesh,body,side):
     return replace_palm_with_components(stage,mesh,body,contact_offset_m=.0012860533315688372,rest_offset_m=0.,
         candidate_id='ftp_palm_yz_slabs_v2' if side=='right' else 'ftp_left_palm_yz_slabs_v1')
-asset,facts=import_body(source,out,fixed_base=True,palm_builder=palm_builder)
+asset,facts=import_body(source,out,fixed_base=True,palm_builder=palm_builder,left_thumb_builder=replace_left_thumb_with_slabs)
 body_names=list(profile['body_home_rad']);assert set(body_names)==set(facts['body_joint_names']) and len(body_names)==29
 for key in ['kp_nm_rad','kd_nm_s_rad']:
     assert set(profile[key])==set(body_names)
@@ -96,6 +96,9 @@ for side in ['right','left']:
         'contact_offsets_m':np.asarray(v.get_contact_offsets()).tolist(),'rest_offsets_m':np.asarray(v.get_rest_offsets()).tolist()}
     assert v.max_shapes==expected, (side,v.max_shapes,expected)
 assert shapes['statistics']['numTriMeshShapes']==0
+thumb_view=SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/G1/left_thumb_2')
+shapes['left_thumb']={'live_shape_count':thumb_view.max_shapes,'expected_shape_count':facts['thumb_collision_candidates']['left']['expected_live_hulls']}
+assert thumb_view.count==1 and shapes['left_thumb']['live_shape_count']==shapes['left_thumb']['expected_shape_count']
 (out/'backend_shapes.json').write_text(json.dumps(shapes,indent=2,allow_nan=False))
 cameras={}
 for label,position,target in [('front',(2.2,-2.3,1.8),(.1,0,1.05)),('side',(-.3,2.9,1.65),(.1,0,1.05))]:
