@@ -44,6 +44,7 @@ class InspireLabSpec:
     scene_config: dict
     asset_source_sha256: str
     candidate_ids: tuple
+    asset_manifest_sha256: str = ''
     physics_dt: float = .005
     decimation: int = 4
     episode_steps: int = 100
@@ -105,9 +106,11 @@ class InspireLabSpec:
         by_name = dict(zip(names, reset))
         if any(abs(by_name[c] - m * by_name[p] - o) > 1e-8 for c, p, m, o in entries):
             raise ValueError("Reset state violates source mimic coupling")
+        candidates=tuple((side, asset["collision_candidates"][side]["candidate_id"]) for side in ("left", "right"))
+        candidates+=tuple((side+"_thumb2", candidate["candidate_id"]) for side,candidate in sorted(asset.get("thumb_collision_candidates",{}).items()))
         return cls(names, body, roots, tuple(entries), tuple(limits), tuple(reset), tuple(kp), tuple(kd),
             tuple(drive), tuple(source_effort), bool(asset["fixed_base"]), asdict(scene), asset["source_sha256"],
-            tuple((side, asset["collision_candidates"][side]["candidate_id"]) for side in ("left", "right")),
+            candidates, asset_manifest_sha256=hashlib.sha256(json.dumps(asset,sort_keys=True,separators=(",",":"),allow_nan=False).encode()).hexdigest(),
             episode_steps=episode_steps)
 
     @property

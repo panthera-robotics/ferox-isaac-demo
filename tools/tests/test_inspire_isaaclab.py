@@ -36,6 +36,17 @@ class NamedLabTests(unittest.TestCase):
         self.spec = InspireLabSpec.from_manifests(self.asset, self.profile, self.scene, episode_steps=12)
         self.root = [0., 0., 1., 1., 0., 0., 0.] + [0.] * 6
 
+    def test_cooked_candidate_and_inertia_metadata_change_export_identity(self):
+        asset=deepcopy(self.asset)
+        asset['thumb_collision_candidates']={'left':{'candidate_id':'source_thumb_v1'}}
+        revised=InspireLabSpec.from_manifests(asset,self.profile,self.scene,episode_steps=12)
+        self.assertNotEqual(revised.sha256,self.spec.sha256)
+        self.assertIn(('left_thumb2','source_thumb_v1'),revised.candidate_ids)
+        asset['source_inertial_frame_correction']={'version':'source_preserving_v1'}
+        corrected=InspireLabSpec.from_manifests(asset,self.profile,self.scene,episode_steps=12)
+        self.assertNotEqual(corrected.asset_manifest_sha256,revised.asset_manifest_sha256)
+        self.assertEqual(corrected.action_names,revised.action_names)
+
     def test_shuffled_runtime_binds_41_independent_targets_and_53_measurements(self):
         runtime = list(reversed(self.spec.measurement_names))
         binding = self.spec.bind(runtime)
