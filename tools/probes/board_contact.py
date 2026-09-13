@@ -120,7 +120,7 @@ def main():
             data=np.asarray(view.get_transforms()).reshape(1,7)[0]
             assert np.isfinite(data).all()
             return tuple(map(float,data[:3])),(float(data[6]),*map(float,data[3:6]))
-        kp,kd=rig.get_gains();kp=np.asarray(kp).ravel();kd=np.asarray(kd).ravel()
+        kp,kd=rig.get_articulation_controller().get_gains();kp=np.asarray(kp).ravel();kd=np.asarray(kd).ravel()
         assert np.isclose(kp[slider_id],config.holder.stiffness_n_m) and np.isclose(kd[slider_id],config.holder.damping_n_s_m)
         for i in carriage_ids:
             assert np.isclose(kp[i],config.carriage_stiffness_n_m) and np.isclose(kd[i],config.carriage_damping_n_s_m)
