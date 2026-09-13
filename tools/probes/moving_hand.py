@@ -12,13 +12,48 @@ from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
 
+
+def hand_probe_configuration(config, mode):
+    """Resolve explicit source chirality before any source audit or simulator import."""
+    if not isinstance(config, dict) or set(config) - {'hand_side', 'palm_candidate_id', 'solver_velocity_iterations'}:
+        raise ValueError('Unrecognized hand probe configuration')
+    side = config.get('hand_side', 'right')
+    if type(side) is not str or side not in {'left', 'right'}:
+        raise ValueError('hand_side must be left or right')
+    if mode not in {'component-palm-sweeps', 'component-palm-blocked', 'component-palm-wrist'}:
+        raise ValueError('Unknown hand probe mode')
+    if side == 'left' and mode == 'component-palm-wrist':
+        raise ValueError('The virtual wrist fixture currently has a right-only source contract')
+    allowed = {'ftp_palm_components_v1', 'ftp_palm_yz_slabs_v2'} if side == 'right' else {'ftp_left_palm_yz_slabs_v1'}
+    candidate = config.get('palm_candidate_id', 'ftp_palm_components_v1' if side == 'right' else 'ftp_left_palm_yz_slabs_v1')
+    if type(candidate) is not str or candidate not in allowed:
+        raise ValueError('Palm candidate does not match the explicit source side')
+    iterations = config.get('solver_velocity_iterations', 8)
+    if type(iterations) is not int or iterations not in {8, 16, 32}:
+        raise ValueError('Unsupported diagnostic velocity iteration count')
+    return {'hand_side': side, 'palm_candidate_id': candidate, 'solver_velocity_iterations': iterations,
+        'source_filename': f'FTP_{side}_hand_bench.urdf',
+        'imported_root': '/Rhand' if side == 'right' else '/Lhand',
+        'usd_filename': f'ftp_{side}_bench.usd'}
+
+
 assert os.environ.get('PANTHERA_SIM_AUTHORIZED') == '1'
 assert sorted(p.name for p in Path('/sys/class/net').iterdir()) == ['lo']
 sys.path.insert(0, '/workspace/ferox_tools')
 from inspire_asset import audit_urdf
-source = Path('/source-assets/FTP_right_hand_bench.urdf')
+mode = os.environ.get('PANTHERA_PROBE_MODE', 'default')
+probe_config = json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text()) if os.environ.get('PANTHERA_PROBE_CONFIG') else {}
+selection = hand_probe_configuration(probe_config, mode)
+hand_side = selection['hand_side']
+hand_prefix = hand_side + '_'
+imported_root = selection['imported_root']
+base_link = hand_prefix + 'base_link'
+palm_candidate_id = selection['palm_candidate_id']
+solver_velocity_iterations = selection['solver_velocity_iterations']
+source = Path('/source-assets') / selection['source_filename']
 facts = audit_urdf(source)
 root = ET.parse(source).getroot()
+assert root.get('name') == imported_root.lstrip('/'), 'Source root differs from declared hand side'
 independent = [j.get('name') for j in root.findall('joint')
                if j.get('type') == 'revolute' and j.find('mimic') is None]
 mimics = {j.get('name'): {'parent': j.find('mimic').get('joint'),
@@ -28,15 +63,8 @@ mimics = {j.get('name'): {'parent': j.find('mimic').get('joint'),
 limits = {j.get('name'): [float(j.find('limit').get(k)) for k in ('lower', 'upper')]
           for j in root.findall('joint') if j.get('type') == 'revolute'}
 assert len(independent) == 6 and len(mimics) == 6
+assert all(n.startswith(hand_prefix) for n in limits), 'Source joint names differ from declared hand side'
 out = Path('/evidence')
-mode = os.environ.get('PANTHERA_PROBE_MODE', 'default')
-assert mode in {'component-palm-sweeps', 'component-palm-blocked', 'component-palm-wrist'}
-probe_config = json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text()) if os.environ.get('PANTHERA_PROBE_CONFIG') else {}
-assert set(probe_config) <= {'palm_candidate_id', 'solver_velocity_iterations'}, 'Unrecognized hand probe configuration'
-palm_candidate_id = probe_config.get('palm_candidate_id', 'ftp_palm_components_v1')
-assert palm_candidate_id in {'ftp_palm_components_v1', 'ftp_palm_yz_slabs_v2'}
-solver_velocity_iterations = probe_config.get('solver_velocity_iterations', 8)
-assert type(solver_velocity_iterations) is int and solver_velocity_iterations in {8, 16, 32}
 wrist_fixture = None
 import_source = source
 if mode == 'component-palm-wrist':
@@ -72,7 +100,7 @@ cfg.convex_decomp = True
 cfg.self_collision = True
 cfg.parse_mimic = True
 cfg.default_drive_type = UrdfJointTargetType.JOINT_DRIVE_NONE
-dest = out / 'ftp_right_bench.usd'
+dest = out / selection['usd_filename']
 ok, path = omni.kit.commands.execute('URDFParseAndImportFile', urdf_path=str(import_source),
                                     import_config=cfg, dest_path=str(dest))
 assert ok and dest.is_file(), 'URDF import failed'
@@ -150,11 +178,11 @@ for wrapper in wrappers:
         'triangles_transforms_mass_and_collision_pairs_changed': False})
 assert len([p for p in stage.Traverse() if p.HasAPI(UsdPhysics.CollisionAPI) and p.IsA(UsdGeom.Mesh)]) == 30
 from inspire_collision import replace_palm_with_components
-if palm_candidate_id == 'ftp_palm_yz_slabs_v2':
+if palm_candidate_id in {'ftp_palm_yz_slabs_v2', 'ftp_left_palm_yz_slabs_v1'}:
     enable_extension('omni.pip.compute')
 candidate = replace_palm_with_components(stage,
-    '/Rhand/right_base_link/collisions/right_base_link/node_STL_BINARY_/mesh',
-    '/Rhand/right_base_link', contact_offset_m=.0012860533315688372, rest_offset_m=0.,
+    f'{imported_root}/{base_link}/collisions/{base_link}/node_STL_BINARY_/mesh',
+    f'{imported_root}/{base_link}', contact_offset_m=.0012860533315688372, rest_offset_m=0.,
     candidate_id=palm_candidate_id)
 out.joinpath('collision_candidate.json').write_text(json.dumps(candidate, indent=2, allow_nan=False))
 diagnostic_filtered_pairs = []
@@ -189,7 +217,7 @@ collision_fixture = None
 cooked = []
 for prim in world.stage.Traverse(Usd.TraverseInstanceProxies()):
     selected = any(str(prim.GetPath()).startswith('/World/Hand/' + link + '/collisions/')
-                   for link in ['right_base_link', 'right_thumb_1', 'right_thumb_2', 'right_thumb_force_sensor_1'])
+                   for link in [hand_prefix + name for name in ['base_link', 'thumb_1', 'thumb_2', 'thumb_force_sensor_1']])
     if (not selected or not prim.HasAPI(UsdPhysics.CollisionAPI)
             or UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Get() is False):
         continue
@@ -234,7 +262,7 @@ def on_contact(headers, data):
                              'separation_m': float(d.separation), 'source': 'simulated_proxy'})
             contact_file.write(json.dumps(contacts[-1], allow_nan=False) + '\n')
 subscription = get_physx_simulation_interface().subscribe_contact_report_events(on_contact)
-hand = SingleArticulation('/World/Hand', name='ftp_right_hand')
+hand = SingleArticulation('/World/Hand', name=f'ftp_{hand_side}_hand')
 physics_configuration = {str(p.GetPath()): {a.GetName(): str(a.Get()) for a in p.GetAttributes()
     if a.GetName().startswith(('physics:', 'physx'))} for p in world.stage.Traverse()
     if p.IsA(UsdPhysics.Scene) or p.HasAPI(PhysxSchema.PhysxArticulationAPI)}
@@ -253,12 +281,12 @@ for path in tensor_articulation.link_paths[0]:
         'rest_offsets_m': np.asarray(view.get_rest_offsets()).tolist() if view.max_shapes else []})
 out.joinpath('backend_shapes.json').write_text(json.dumps(backend_shapes, indent=2, allow_nan=False))
 assert backend_shapes['physics_statistics']['numTriMeshShapes'] == 0, 'Candidate requires moving colliders, no static palm'
-palm_cooked = [r for r in cooked if r['prim'].startswith('/World/Hand/right_base_link/collisions/')]
+palm_cooked = [r for r in cooked if r['prim'].startswith(f'/World/Hand/{base_link}/collisions/')]
 assert len(palm_cooked) == candidate['expected_authored_palm_collider_count'], 'Every candidate collider must have its own cooking result'
-assert {r['prim'] for r in palm_cooked} == {r['prim'].replace('/Rhand/', '/World/Hand/', 1) for r in candidate['components']}, 'Cooked collider identity set differs from the candidate'
+assert {r['prim'] for r in palm_cooked} == {r['prim'].replace(imported_root + '/', '/World/Hand/', 1) for r in candidate['components']}, 'Cooked collider identity set differs from the candidate'
 assert all(r.get('result', '').endswith('RESULT_VALID') and r['hulls'] for r in palm_cooked)
-assert not world.stage.GetPrimAtPath('/World/Hand/right_base_link/collisions/right_base_link/node_STL_BINARY_/mesh').HasAPI(UsdPhysics.CollisionAPI)
-palm_live_count = next(x['max_shapes'] for x in backend_shapes['links'] if x['path'].endswith('/right_base_link'))
+assert not world.stage.GetPrimAtPath(f'/World/Hand/{base_link}/collisions/{base_link}/node_STL_BINARY_/mesh').HasAPI(UsdPhysics.CollisionAPI)
+palm_live_count = next(x['max_shapes'] for x in backend_shapes['links'] if x['path'].endswith('/' + base_link))
 assert palm_live_count == sum(len(r['hulls']) for r in palm_cooked), 'Runtime palm shapes differ from component cooking'
 candidate['runtime_verification'] = {'component_cooking_results': len(palm_cooked),
     'all_cooking_results_valid': True, 'live_palm_shapes': palm_live_count,
@@ -285,7 +313,7 @@ out.joinpath('initial_state.json').write_text(json.dumps({
     'dq_rad_s': np.asarray(hand.get_joint_velocities()).ravel()[hand_ids].tolist(),
     'all_runtime_names': runtime_names, 'fixture_axes': fixture_axes,
     'kp_readback': np.asarray(got_kp).ravel().tolist(), 'kd_readback': np.asarray(got_kd).ravel().tolist(),
-    'gravity': str(world.get_physics_context().get_gravity()), 'mode': mode}, indent=2))
+    'gravity': str(world.get_physics_context().get_gravity()), 'mode': mode, 'hand_side': hand_side}, indent=2))
 camera = Camera('/World/Camera', resolution=(640, 640))
 camera.initialize()
 camera.set_clipping_range(.01, 10.)
@@ -305,7 +333,7 @@ for view_name in ['front', 'side']:
 frame_file = out.joinpath('frames.jsonl').open('w', buffering=1)
 phase = 'initial'
 fixture_target = np.zeros(len(fixture_ids), dtype=np.float32)
-palm_view = SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/Hand/right_base_link')
+palm_view = SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/Hand/' + base_link)
 assert palm_view.count == 1
 def step(target, count):
     for _ in range(count):
@@ -371,7 +399,7 @@ for tick in range(100):
 step(target, 60)
 blocked_index = None
 if 'blocked' in mode or wrist_fixture:
-    index_name = 'right_index_1_joint'
+    index_name = hand_prefix + 'index_1_joint'
     axis = independent.index(index_name)
     goal = zero.copy()
     goal[axis] += .4 * (limits[index_name][1] - limits[index_name][0])
@@ -391,7 +419,7 @@ if 'blocked' in mode or wrist_fixture:
     index_id = names.index(index_name)
     free_window = trace[-60:]
     free_q = float(np.mean([r['q_rad'][index_id] for r in free_window]))
-    tip = SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/Hand/right_index_force_sensor_3')
+    tip = SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/Hand/' + hand_prefix + 'index_force_sensor_3')
     assert tip.count == 1
     # Place the later obstacle using the measured closed finger pose, then open
     # before spawning it. This prevents an initially intersecting fixture from
@@ -426,7 +454,7 @@ if 'blocked' in mode or wrist_fixture:
     active_contacts = [r for r in block_contacts if r['phase'].startswith('blocked_index')]
     nonzero = [r for r in active_contacts if np.linalg.norm(r['impulse_ns']) > 1e-10]
     hold_contact_sequences = {r['sequence'] for r in nonzero if r['phase'] == 'blocked_index_hold'}
-    unexpected = [r for r in nonzero if not any('/right_index' in r[k] for k in ['actor0', 'actor1'])]
+    unexpected = [r for r in nonzero if not any('/' + hand_prefix + 'index' in r[k] for k in ['actor0', 'actor1'])]
     free_targets = [r['command_rad'] for r in trace if r['phase'].startswith('free_index')]
     blocked_targets = [r['command_rad'] for r in trace if r['phase'].startswith('blocked_index')]
     blocked_checks = {'same_command_trajectory': free_targets == blocked_targets,
@@ -442,7 +470,7 @@ if 'blocked' in mode or wrist_fixture:
     blocked_index = {'scope': 'fixed_palm_bench_external_obstruction_only', 'checks': blocked_checks,
         'free_index_rad': free_q, 'blocked_index_rad': blocked_q,
         'position_difference_rad': free_q - blocked_q, 'block_center_world_m': obstacle_position.tolist(),
-        'placement_source_body': '/World/Hand/right_index_force_sensor_3',
+        'placement_source_body': '/World/Hand/' + hand_prefix + 'index_force_sensor_3',
         'measured_body_pose_xyzw': measured_tip_pose.tolist(), 'free_start': free_start, 'blocked_start': blocked_start,
         'final_window_samples': 60, 'hold_contact_sequences': len(hold_contact_sequences),
         'block_size_m': [.016, .016, .016], 'block_physics_settings': obstacle_settings,
@@ -454,7 +482,7 @@ if 'blocked' in mode or wrist_fixture:
     world.stage.GetRootLayer().Export(str(out / 'blocked_bench_scene.usda'))
     saved_scene = Usd.Stage.Open(str(out / 'blocked_bench_scene.usda'))
     saved_scene.GetPrimAtPath('/World/Hand').GetReferences().ClearReferences()
-    saved_scene.GetPrimAtPath('/World/Hand').GetReferences().AddReference('ftp_right_bench.usd')
+    saved_scene.GetPrimAtPath('/World/Hand').GetReferences().AddReference(selection['usd_filename'])
     saved_scene.GetRootLayer().Save()
 wrist_result = None
 if wrist_fixture:
@@ -544,7 +572,8 @@ if blocked_index is not None:
 if wrist_result is not None:
     checks.update({'wrist_' + k: v for k, v in wrist_result['checks'].items()})
 metrics = {'source_model': 'Unitree_FTP_donor_exact_E2_equivalence_unverified',
-           'target_model': 'RH56E2-2R-T1', 'exact_asset_qualified': False,
+           'target_model': 'RH56E2-2R-T1' if hand_side == 'right' else 'RH56E2-2L-T1',
+           'hand_side': hand_side, 'exact_asset_qualified': False,
            'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
            'source_mass_kg': want_mass, 'imported_hand_mass_kg': mass-fixture_mass,
            'fixture_added_mass_kg': fixture_mass, 'imported_mass_kg': mass,
@@ -581,7 +610,7 @@ metrics = {'source_model': 'Unitree_FTP_donor_exact_E2_equivalence_unverified',
            'initialization_contact_points': sum(r['phase'] == 'initialization' for r in contacts),
            'grasp_qualification': 'NOT_RUN', 'writing_qualification': 'NOT_RUN'}
 out.joinpath('metrics.json').write_text(json.dumps(metrics, indent=2))
-artifacts = ['metrics.json', 'initial_state.json', 'state.jsonl', 'hand.png', 'hand_sweeps.gif', 'ftp_right_bench.usd', 'cooked_colliders.json', 'backend_shapes.json']
+artifacts = ['metrics.json', 'initial_state.json', 'state.jsonl', 'hand.png', 'hand_sweeps.gif', selection['usd_filename'], 'cooked_colliders.json', 'backend_shapes.json']
 artifacts += ['collision_candidate.json', 'frames.jsonl']
 artifacts += [str(p.relative_to(out)) for p in sorted(out.joinpath('frames').rglob('*.png'))]
 artifacts += [str(p.relative_to(out)) for p in sorted(out.joinpath('configuration').rglob('*.usd'))]
