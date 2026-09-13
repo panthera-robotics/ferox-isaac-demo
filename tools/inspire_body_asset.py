@@ -79,7 +79,7 @@ def import_body(source, output_dir, *, fixed_base, palm_builder, left_thumb_buil
     facts['imported_physical_mass_kg']=sum(masses.values())
     facts['imported_link_mass_kg']=masses
     from urdf_kinematics import UrdfKinematics
-    from rigid_inertia import source_properties
+    from rigid_inertia import source_properties,author_source_properties
     source_zero=UrdfKinematics(prepared).transforms({})
     source_to_imported={}
     for name in masses:
@@ -88,6 +88,7 @@ def import_body(source, output_dir, *, fixed_base, palm_builder, left_thumb_buil
         imported=np.array([[float(row[i][j]) for j in range(4)] for i in range(4)]).T
         source_to_imported[name]=np.linalg.inv(imported)@source_zero[name]
     facts['expected_source_rigid_properties_in_imported_frame']=source_properties(prepared,source_to_imported)
+    facts['source_inertial_frame_correction']=author_source_properties(stage,prefix,facts['expected_source_rigid_properties_in_imported_frame'])
     for frame in facts['coordinate_frames']:
         parent=stage.GetPrimAtPath(prefix+'/'+frame['parent']); assert parent
         f=UsdGeom.Xform.Define(stage,str(parent.GetPath())+'/'+frame['name'])

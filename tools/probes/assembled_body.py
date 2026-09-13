@@ -101,7 +101,7 @@ shapes['left_thumb']={'live_shape_count':thumb_view.max_shapes,'expected_shape_c
 assert thumb_view.count==1 and shapes['left_thumb']['live_shape_count']==shapes['left_thumb']['expected_shape_count']
 (out/'backend_shapes.json').write_text(json.dumps(shapes,indent=2,allow_nan=False))
 cameras={}
-for label,position,target in [('front',(2.2,-2.3,1.8),(.1,0,1.05)),('side',(-.3,2.9,1.65),(.1,0,1.05))]:
+for label,position,target in [('front',(2.7,-2.8,1.8),(0,0,1.0)),('side',(-.3,3.6,1.65),(0,0,1.0))]:
     camera=Camera('/World/'+label+'Camera',resolution=(640,640));camera.initialize();camera.set_clipping_range(.01,10.)
     x=UsdGeom.Xformable(camera.prim);x.ClearXformOpOrder();x.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*position),Gf.Vec3d(*target),Gf.Vec3d(0,0,1)).GetInverse())
     cameras[label]=camera;(out/'frames'/label).mkdir(parents=True)
@@ -160,7 +160,7 @@ max_coupling=max((abs(e) for r in trace for e in r['coupling_error_rad'].values(
 limits=max((max(lim['lower']-r['q_rad'][names.index(n)],r['q_rad'][names.index(n)]-lim['upper'],0.) for n,lim in facts['joint_limits'].items() for r in trace),default=0.)
 checks={'exact53_named_coordinates':len(names)==53,'physical_mass_preserved':abs(facts['source_physical_mass_kg']-facts['imported_physical_mass_kg'])<1e-4,
     'fixed_pelvis_matches_declared_pose':bool(all(np.linalg.norm(np.asarray(r['link_poses_world_xyzw']['pelvis'][:3])-[0,0,1])<1e-4 for r in trace)),
-    'source_fk_translation_below_0_2mm':max_position<=.0002,'source_fk_rotation_below_0_2deg':max_rotation<=np.deg2rad(.2),
+    'source_fk_translation_below_0_2mm':max_position<=.0002,'source_fk_rotation_below_0_2deg':bool(max_rotation<=np.deg2rad(.2)),
     'hand_coupling_below_0_03rad':max_coupling<.03,'joint_limits_below_0_03rad':limits<.03,
     'exact_steps':len(trace)==steps,'numerical_abort_absent':aborted is None,'source_mass_com_inertia_preserved':all(inertia_audit['checks'].values()),
     'physics_dt':len(trace)>1 and bool(np.allclose(np.diff([r['physics_s'] for r in trace]),.005,atol=1e-8)),

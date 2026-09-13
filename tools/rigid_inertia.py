@@ -68,3 +68,33 @@ def audit_live_properties(sim_view, root_path, expected):
             'com_runtime_link_m':np.asarray(view.get_coms())[0,:3].tolist(),
             'inertia_at_com_runtime_link_kg_m2':np.asarray(view.get_inertias())[0].reshape(3,3,order='F').tolist()}
     return compare_properties(expected,measured)
+
+
+def author_source_properties(stage,root_path,expected):
+    """Repair importer frame-rounding without fitting or rescaling source inertia.
+
+    Some imported body axes differ slightly from source axes while MassAPI COM
+    coordinates are copied verbatim. Transform the source properties into the
+    actual imported frame. Preserve this explicit correction in the asset receipt.
+    """
+    from pxr import Gf,UsdPhysics
+    changes={}
+    for name,properties in expected.items():
+        prim=stage.GetPrimAtPath(root_path+'/'+name)
+        if not prim or not prim.HasAPI(UsdPhysics.MassAPI):raise ValueError('Missing source mass API '+name)
+        api=UsdPhysics.MassAPI(prim)
+        prior={a.GetName():str(a.Get()) for a in prim.GetAttributes() if a.GetName() in
+            {'physics:mass','physics:centerOfMass','physics:diagonalInertia','physics:principalAxes'}}
+        tensor=np.asarray(properties['inertia_at_com_runtime_link_kg_m2'],dtype=float)
+        values,vectors=np.linalg.eigh(tensor)
+        if values.min()<=0:raise ValueError('Invalid source tensor')
+        if np.linalg.det(vectors)<0:vectors[:,0]*=-1
+        quaternion=Gf.Matrix3d(*vectors.T.flatten().tolist()).ExtractRotation().GetQuat()
+        api.GetMassAttr().Set(float(properties['mass_kg']))
+        api.GetCenterOfMassAttr().Set(Gf.Vec3f(*properties['com_runtime_link_m']))
+        api.GetDiagonalInertiaAttr().Set(Gf.Vec3f(*map(float,values)))
+        api.GetPrincipalAxesAttr().Set(Gf.Quatf(quaternion))
+        changes[name]={'importer_authored_before':prior,'source_properties_in_imported_frame':properties}
+    return {'reason':'preserve_source_world_COM_and_inertia_after_importer_body_frame_reorientation',
+        'source_mass_scaled':False,'measured_hardware_calibration':False,'source_geometry_or_mount_changed':False,
+        'links':changes}
