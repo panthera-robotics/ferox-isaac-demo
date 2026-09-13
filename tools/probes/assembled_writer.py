@@ -367,6 +367,13 @@ def main():
             camera_x.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*position),Gf.Vec3d(.1,0,1.05),Gf.Vec3d(0,0,1)).GetInverse())
             (out/'frames'/label).mkdir(parents=True)
             cameras[label]=camera
+        # Allocate the annotators before starting the independently timed ROS
+        # writer. Render warm-up must not advance the measured physics clock.
+        camera_warmup_time = float(world.current_time)
+        for _ in range(8):
+            world.render()
+        if float(world.current_time) != camera_warmup_time:
+            raise ValueError('camera initialization advanced physics unexpectedly')
         frame_file = (out/'frames.jsonl').open('w', buffering=1); files.append(frame_file)
         state_file = (out/'state.jsonl').open('w', buffering=1); files.append(state_file)
         bridge = WriterProcessBridge(private_profile_path, out/'writer_bridge',
@@ -403,7 +410,8 @@ def main():
             # Raw readback is retained before any aborting physical guard.
             record = {'sequence': sample_number, 'physics_s': sim_time, 'source_monotonic_s': observed_wall,
                 'runtime_names': names, 'q_rad': q, 'dq_rad_s': dq, 'measured_generalized_effort_nm': effort,
-                'link_poses_world_xyzw': poses, 'workflow': workflow}
+                'link_poses_world_xyzw': poses, 'workflow': workflow,
+                'phase':workflow['stage'] if workflow is not None else 'initial_measured_state'}
             state_file.write(json.dumps(record, allow_nan=True)+'\n')
             metrics['steps'] += 1
             if collision_faults:
@@ -471,7 +479,7 @@ def main():
                     Image.fromarray(pixels.astype(np.uint8)).save(out/filename)
                     frame_views[label]=filename
                 frame_file.write(json.dumps({'frame':frame, 'sequence':sample_number, 'physics_s':sim_time,
-                    'phase':workflow['stage'], 'captured_after_same_step_render':True, 'views':frame_views})+'\n')
+                    'phase':record['phase'], 'captured_after_same_step_render':True, 'views':frame_views})+'\n')
             metrics.update(max_source_fk_position_error_m=maximum_error, max_source_fk_rotation_error_rad=maximum_rotation,
                 coupling_error_max_rad=maximum_coupling, fixed_waist_l1_error_max_rad=maximum_waist,
                 actual_contact_points=contact_count, workflow=workflow)
