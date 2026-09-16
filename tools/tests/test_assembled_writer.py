@@ -120,3 +120,9 @@ class ActuationBackendConfigTests(unittest.TestCase):
         for bad in (.05, 6., float('nan'), '1'):
             with self.assertRaises(ValueError):
                 probe.validate_config(self.config(maximum_wall_age_s=bad))
+
+    def test_idle_hand_hold_gains_are_declared_and_bounded_by_source_effort(self):
+        probe.validate_config(self.config(hand_hold_kp_nm_rad=5., hand_hold_kd_nm_s_rad=.5))
+        for key, bad in (('hand_hold_kp_nm_rad', 11.), ('hand_hold_kp_nm_rad', 0.), ('hand_hold_kd_nm_s_rad', 2.), ('hand_hold_kd_nm_s_rad', float('nan'))):
+            with self.assertRaises(ValueError):
+                probe.validate_config(self.config(**{key: bad}))

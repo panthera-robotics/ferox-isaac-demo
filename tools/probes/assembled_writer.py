@@ -30,8 +30,14 @@ def validate_config(config):
         'planner_frames_sha256', 'body_home_rad', 'kp_nm_rad', 'kd_nm_s_rad',
         'tau_ff_nm', 'gain_provenance', 'feedforward_provenance', 'workflow_mode',
         'letter_height_m', 'maximum_steps', 'maximum_wall_s'}
-    if not isinstance(config, dict) or not required <= set(config) <= required | {'actuation_backend', 'maximum_wall_age_s'}:
+    optional = {'actuation_backend', 'maximum_wall_age_s', 'hand_hold_kp_nm_rad', 'hand_hold_kd_nm_s_rad'}
+    if not isinstance(config, dict) or not required <= set(config) <= required | optional:
         raise ValueError('explicit assembled writer config fields required')
+    # Idle-hand hold gains of the fixture (open hand, no grasp). Bounded by the
+    # source 10 Nm finger effort; the Inspire fingers are non-backdrivable
+    # position actuators, so a floppy 1 Nm/rad idle hand under-represents them.
+    finite(config.get('hand_hold_kp_nm_rad', 1.), 'hand_hold_kp_nm_rad', .1, 10.)
+    finite(config.get('hand_hold_kd_nm_s_rad', .05), 'hand_hold_kd_nm_s_rad', .01, 1.)
     # Declared wall-clock arrival tolerance for a non-real-time simulator; the
     # physics-sample staleness bound (valid_for_s <= 0.1 s of simulated time) is unchanged.
     finite(config.get('maximum_wall_age_s', .1), 'maximum_wall_age_s', .1, 5.)
@@ -326,7 +332,9 @@ def main():
         hand_names = facts['hand_independent_names']
         hand_ids = np.array([names.index(n) for n in hand_names], dtype=np.int32)
         kp, kd = np.zeros(53, dtype=np.float32), np.zeros(53, dtype=np.float32)
-        kp[hand_ids], kd[hand_ids] = 1., .05
+        kp[hand_ids], kd[hand_ids] = float(cfg.get('hand_hold_kp_nm_rad', 1.)), float(cfg.get('hand_hold_kd_nm_s_rad', .05))
+        metrics['hand_hold_gains'] = {'kp_nm_rad': float(kp[hand_ids][0]), 'kd_nm_s_rad': float(kd[hand_ids][0]),
+            'scope': 'declared idle open-hand fixture hold; not a grasp or exact-hand actuator model'}
         if implicit_backend:
             # Declared body gains live inside the capped implicit drives (same
             # radian tensor path as the hands); no explicit body effort follows.
