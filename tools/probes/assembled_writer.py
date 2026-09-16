@@ -400,7 +400,7 @@ def main():
             metrics.update(tool_attached=False, physical_tool_present=True, board_present=True,
                 physical_virtual_tip_meaning='physical free marker held by contact; nib/board contact measured',
                 support_constraints=['pelvis_fixed_to_world_1m_above_origin', 'declared_preload_support_%.2fs' % support_seconds])
-        warmup_depenetration = {}; warmup_depenetration_cap = .05
+        warmup_depenetration = {}; warmup_depenetration_cap = .01
         for p in world.stage.Traverse():
             if p.HasAPI(PhysxSchema.PhysxArticulationAPI):
                 api = PhysxSchema.PhysxArticulationAPI(p)
