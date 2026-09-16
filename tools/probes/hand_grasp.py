@@ -273,7 +273,9 @@ def main():
         for _ in range(8):world.render()
         duration=5. if rack_mode else 60. if mode=='preloaded-retention-60s' else 4.
         total_steps=CYCLE_STEPS if cycle_mode else 2000 if rack_mode else round((2.+duration)/.005)
-        opening_names=[n for n in independent if 'thumb_1' not in n]   # four fingers and thumb bend open on release
+        opening_names=[n for n in independent if 'thumb_1' not in n]   # four fingers and thumb bend open by release_opening_rad
+        # Declared release also abducts the thumb fully (yaw -> 0, lateral) so the thumb metacarpal block
+        # cannot remain under the racked marker during withdrawal (cycles-v4-01: thumb_2 snag, 46 mm lift).
         reference=None;previous=float(world.current_time);aborted=None
         for sequence in range(total_steps):
             elapsed=sequence*.005
@@ -288,7 +290,8 @@ def main():
                 fraction=min(1.,elapsed/.5);fraction=fraction*fraction*(3-2*fraction)
                 wrist=wrist_target(max(0.,elapsed-2.)) if elapsed>=2. and mode.endswith('60s') else [0.]*6
                 retention_window=elapsed>=2.;opening=0.
-            command=[initial_q[n]+fraction*(target_q[n]-initial_q[n])-(opening*rack_cfg.release_opening_rad if (cycle_mode and n in opening_names) else 0.) for n in independent]
+            command=[initial_q[n]*(1.-opening)+fraction*(target_q[n]-initial_q[n]) if (cycle_mode and 'thumb_1' in n) else
+                     initial_q[n]+fraction*(target_q[n]-initial_q[n])-(opening*rack_cfg.release_opening_rad if (cycle_mode and n in opening_names) else 0.) for n in independent]
             command=[min(limits[n][1],max(limits[n][0],v)) for n,v in zip(independent,command)]
             if support_active and elapsed>=support_seconds:
                 world.stage.RemovePrim(support_path)

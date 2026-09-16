@@ -21,7 +21,8 @@ class RackConfig:
     initial_wrist_z_m: float = -.04
     lifted_wrist_z_m: float = .04
     # Declared release opening (rad) applied to the four fingers and thumb bend beyond the preload
-    # pose during place/release/withdraw/re-approach of the three-cycle acquisition sequence.
+    # pose during place/release/withdraw/re-approach of the three-cycle acquisition sequence;
+    # the thumb yaw abducts fully (to 0 rad) at full opening.
     release_opening_rad: float = .3
 
     def __post_init__(self):
