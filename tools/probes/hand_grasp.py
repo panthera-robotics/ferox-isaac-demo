@@ -293,6 +293,11 @@ def main():
             # Thumb yaw keeps its preload value (full abduction collides with the rack cheek, cycles-v4-02);
             # the declared release retreats the palm 40 mm along -y instead before lifting.
             command=[initial_q[n]+fraction*(target_q[n]-initial_q[n])-(opening*rack_cfg.release_opening_rad if (cycle_mode and n in opening_names) else 0.) for n in independent]
+            if cycle_mode:
+                # Declared thumb release pose blended in with the opening fraction (yaw/bend), if configured.
+                for name,value in (('right_thumb_1_joint',rack_cfg.release_thumb_yaw_rad),('right_thumb_2_joint',rack_cfg.release_thumb_bend_rad)):
+                    if value is not None:
+                        i=independent.index(name);command[i]=(1.-opening)*command[i]+opening*value
             command=[min(limits[n][1],max(limits[n][0],v)) for n,v in zip(independent,command)]
             if support_active and elapsed>=support_seconds:
                 world.stage.RemovePrim(support_path)

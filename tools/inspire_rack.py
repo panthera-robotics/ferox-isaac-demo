@@ -24,11 +24,16 @@ class RackConfig:
     # pose during place/release/withdraw/re-approach of the three-cycle acquisition sequence;
     # the thumb yaw abducts fully (to 0 rad) at full opening.
     release_opening_rad: float = .3
+    # Declared thumb release pose (rad) reached at full opening; None keeps the preload thumb pose.
+    # cycles-v4-05: the preload thumb (yaw 0.38, bend 0.32) hooks the barrel during the -y retreat;
+    # source-geometry search (thumb_release_search.py) clears the barrel path with yaw ~0.78-1.02, bend 0.
+    release_thumb_yaw_rad: float = None
+    release_thumb_bend_rad: float = None
 
     def __post_init__(self):
         if type(self.schema_version) is not int or self.schema_version!=1:raise ValueError('Unknown rack schema')
         for f in fields(self):
-            if f.name in {'schema_version','saddle_axis_offsets_m'}:continue
+            if f.name in {'schema_version','saddle_axis_offsets_m','release_thumb_yaw_rad','release_thumb_bend_rad'}:continue
             value=getattr(self,f.name)
             if type(value) not in (int,float) or not math.isfinite(value):raise ValueError('Invalid rack scalar')
         offsets=self.saddle_axis_offsets_m
@@ -41,6 +46,9 @@ class RackConfig:
         if not 0<=self.initial_surface_gap_m<=.001:raise ValueError('Invalid rack clearance')
         if self.initial_wrist_z_m!=-.04 or self.lifted_wrist_z_m!=.04:raise ValueError('Fixed80mm diagnostic lift inside original50mm fixture bounds')
         if not .1<=self.release_opening_rad<=.6:raise ValueError('Release opening must be a declared 0.1..0.6 rad')
+        for name,hi in (('release_thumb_yaw_rad',1.1641),('release_thumb_bend_rad',.5864)):
+            value=getattr(self,name)
+            if value is not None and (type(value) not in (int,float) or not math.isfinite(value) or not 0<=value<=hi):raise ValueError(name+' must be within the source thumb limit')
 
     @classmethod
     def from_dict(cls,data):
