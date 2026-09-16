@@ -88,14 +88,49 @@ class LabMediaTests(unittest.TestCase):
         for value in [[],[[0.,float('nan'),0.]],[[0.,0.]],[[0.,0.,0.]]*9]:
             with self.assertRaises(ValueError):probe.camera_plan(value)
 
+    def test_camera_receipt_parses_pinned_fabric_reference_without_inventing_frames(self):
+        # Pinned Isaac Sim5.1 stores rendering_frame as the Fabric time annotator dict; 0 before any acquisition.
+        fabric=probe.camera_receipt({'rendering_frame':{'referenceTimeNumerator':3,'referenceTimeDenominator':60},'rendering_time':.05})
+        self.assertEqual(fabric['render_reference'],{'schema':'fabric_reference_time_v1','numerator':3,'denominator':60})
+        self.assertFalse(fabric['render_to_physics_clock_mapping_available'])
+        self.assertEqual(fabric['raw_camera_metadata']['rendering_time'],.05)
+        legacy=probe.camera_receipt({'rendering_frame':7,'rendering_time':float('nan')})
+        self.assertEqual(legacy['render_reference']['schema'],'legacy_integer_render_frame')
+        self.assertEqual(legacy['raw_camera_metadata']['rendering_time'],{'invalid_numeric':'nan'})
+        for broken in [{'rendering_frame':{'referenceTimeNumerator':-1,'referenceTimeDenominator':60}},
+                       {'rendering_frame':{'referenceTimeNumerator':1,'referenceTimeDenominator':0}},
+                       {'rendering_frame':{'referenceTimeNumerator':1.5,'referenceTimeDenominator':60}},
+                       {'rendering_frame':-1},{'rendering_frame':'7'},{'rendering_frame':None},{}]:
+            with self.assertRaises(ValueError):probe.camera_receipt(broken)
+
     def test_camera_receipts_reject_stale_mismatched_or_wrong_time_images(self):
-        before={'front':10,'side':10}
-        after={k:{'rendering_frame':11,'rendering_time':.1} for k in before}
+        def fabric(n,d=60):return probe.camera_receipt({'rendering_frame':{'referenceTimeNumerator':n,'referenceTimeDenominator':d},'rendering_time':.1})
+        before={'front':fabric(10),'side':fabric(10)}
+        after={k:fabric(11) for k in before}
         probe.validate_camera_receipts(before,after,.1)
-        for field,value in [('rendering_frame',10),('rendering_frame',12),('rendering_time',.08),('rendering_time',float('nan'))]:
-            broken=deepcopy(after);broken['side'][field]=value
-            with self.assertRaises(ValueError):probe.validate_camera_receipts(before,broken,.1)
+        probe.validate_camera_receipts(before,{k:fabric(22,120) for k in before},.1)  # exact rational comparison
+        for label,broken_side in [('stale',fabric(10)),('older',fabric(9)),('pair mismatch',fabric(12)),
+                                  ('equal rational',fabric(20,120)),
+                                  ('schema change',probe.camera_receipt({'rendering_frame':11,'rendering_time':.1}))]:
+            broken=deepcopy(after);broken['side']=broken_side
+            with self.assertRaises(ValueError,msg=label):probe.validate_camera_receipts(before,broken,.1)
+        with self.assertRaises(ValueError):probe.validate_camera_receipts(before,after,float('nan'))
         with self.assertRaises(ValueError):probe.validate_camera_receipts(before,{'front':after['front']},.1)
+        with self.assertRaises(ValueError):probe.validate_camera_receipts({'front':10,'side':10},after,.1)
+
+    def test_freeze_receipt_requires_synchronous_renderer_and_unchanged_state(self):
+        sync={'/omni/replicator/asyncRendering':False,'/app/renderer/waitIdle':True,'/app/hydraEngine/waitIdle':True}
+        state={'robot_q':[[0.,1.]],'marker_root':[[0.,0.,.5]]}
+        receipt=probe.freeze_receipt(state,deepcopy(state),.25,.25,sync)
+        self.assertTrue(receipt['physics_clock_unchanged'] and receipt['measured_state_unchanged'])
+        self.assertEqual(receipt['physics_steps_between_state_and_image'],0)
+        self.assertFalse(receipt['render_to_physics_clock_mapping_available'])
+        with self.assertRaises(ValueError):probe.freeze_receipt(state,deepcopy(state),.25,.255,sync)
+        moved=deepcopy(state);moved['robot_q'][0][1]=1.0001
+        with self.assertRaises(ValueError):probe.freeze_receipt(state,moved,.25,.25,sync)
+        for key,value in [('/omni/replicator/asyncRendering',True),('/app/renderer/waitIdle',False),('/app/hydraEngine/waitIdle',None)]:
+            with self.assertRaises(ValueError):probe.freeze_receipt(state,deepcopy(state),.25,.25,{**sync,key:value})
+        with self.assertRaises(ValueError):probe.freeze_receipt(state,deepcopy(state),float('nan'),float('nan'),sync)
 
 
 if __name__=='__main__':unittest.main()

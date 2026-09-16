@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import traceback
+from fractions import Fraction
 
 def camera_schedule(capture, steps, control_dt_s):
     """Optional10Hz evidence, at most40 paired frames per admitted run."""
@@ -73,18 +75,81 @@ def render_state_record(*,step,physics_s,observation,environments,transitions,re
         'not_the_pre_reset_transition_image':any(reset_flags)}
 
 
+def serializable_raw(value):
+    """Keep raw metadata, including invalid values, without illegal JSON numbers."""
+    if hasattr(value,'tolist'):value=value.tolist()
+    if isinstance(value,dict):return {str(k):serializable_raw(v) for k,v in value.items()}
+    if isinstance(value,(tuple,list)):return [serializable_raw(v) for v in value]
+    if isinstance(value,float) and not math.isfinite(value):return {'invalid_numeric':repr(value)}
+    if value is None or type(value) in (str,int,float,bool):return value
+    return {'unsupported_type':type(value).__name__,'representation':repr(value)}
+
+
+def camera_receipt(stamp):
+    """Parse camera versions without inventing an integer frame or physics time."""
+    raw={k:serializable_raw(stamp.get(k)) for k in ('rendering_frame','rendering_time')}
+    frame=raw['rendering_frame']
+    if isinstance(frame,dict) and {'referenceTimeNumerator','referenceTimeDenominator'}<=set(frame):
+        n,d=frame['referenceTimeNumerator'],frame['referenceTimeDenominator']
+        if type(n) is not int or type(d) is not int or n<0 or d<=0:raise ValueError('Invalid exact Fabric render reference')
+        reference={'schema':'fabric_reference_time_v1','numerator':n,'denominator':d}
+    elif type(frame) is int and frame>=0:
+        reference={'schema':'legacy_integer_render_frame','numerator':frame,'denominator':1}
+    else:raise ValueError('Unknown camera render-reference schema: '+repr(frame))
+    return {'raw_camera_metadata':raw,'render_reference':reference,
+            'render_to_physics_clock_mapping_available':False,
+            'reported_rendering_time_scope':'raw Camera core-node interpolation result; unverified/unmapped in pinned Isaac Lab'}
+
+
 def validate_camera_receipts(before,after,physics_s):
     if set(before)!={'front','side'} or set(after)!={'front','side'}:raise ValueError('Paired camera receipt missing')
+    references=[]
     for label,value in after.items():
-        if type(value['rendering_frame']) is not int or value['rendering_frame']<=before[label]:
+        if not all(isinstance(r,dict) and isinstance(r.get('render_reference'),dict) for r in (before[label],value)):
+            raise ValueError('Camera receipt is not a parsed render-reference receipt')
+        previous=before[label]['render_reference'];current=value['render_reference']
+        if previous['schema']!=current['schema']:raise ValueError('Render-reference schema changed during capture')
+        old=Fraction(previous['numerator'],previous['denominator']);new=Fraction(current['numerator'],current['denominator'])
+        if new<=old:
             raise ValueError('Camera did not acquire a new frame after explicit render')
-        timestamp=value['rendering_time']
-        if type(timestamp) not in (int,float) or not math.isfinite(timestamp) or not math.isclose(timestamp,physics_s,abs_tol=1e-7,rel_tol=0):
-            raise ValueError('Camera timestamp differs from measured physics state')
-    if after['front']['rendering_frame']!=after['side']['rendering_frame']:raise ValueError('Camera pair refers to different render frames')
+        references.append((current['schema'],new))
+    if references[0]!=references[1]:raise ValueError('Camera pair refers to different exact render references')
+    if not math.isfinite(physics_s):raise ValueError('Nonfinite associated physics clock')
 
 
-def main():
+def freeze_receipt(before,after,time_before,time_after,sync_settings):
+    expected={'/omni/replicator/asyncRendering':False,'/app/renderer/waitIdle':True,'/app/hydraEngine/waitIdle':True}
+    if any(type(sync_settings.get(k)) is not bool or sync_settings[k]!=v for k,v in expected.items()):
+        raise ValueError('Pinned synchronous renderer settings are required')
+    if not math.isfinite(time_before) or time_after!=time_before:raise ValueError('Physics advanced during camera capture')
+    def digest(state):return hashlib.sha256(json.dumps(state,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+    initial,final=digest(before),digest(after)
+    if initial!=final:raise ValueError('Actual physics state changed during held render capture')
+    return {'physics_s':time_after,'physics_clock_unchanged':True,'measured_state_unchanged':True,
+        'state_before_sha256':initial,'state_after_sha256':final,'synchronous_renderer_settings':sync_settings,
+        'explicit_render_calls_with_physics_held':2,'physics_steps_between_state_and_image':0,
+        'render_to_physics_clock_mapping_available':False,
+        'association':'equal measured states before/after two synchronous wait-idle renders; fresh paired Fabric references',
+        'lag_scope':'No physics progression during capture. Render reference is not a physics timestamp; no independent hardware exposure latency claim.'}
+
+
+def write_failure(out,error,resources):
+    out=Path(out)
+    def write(name,value):
+        temporary=out/(name+'.tmp');temporary.write_text(json.dumps(serializable_raw(value),indent=2,allow_nan=False)+'\n');temporary.replace(out/name)
+    previous=json.loads((out/'failure.json').read_text()) if (out/'failure.json').is_file() else None
+    write('failure.json',{'error':error,'traceback':resources.get('traceback'),'steps_completed':resources.get('steps_completed',0),
+        'last_capture':resources.get('last_capture'),'previous_failure':previous})
+    metrics=json.loads((out/'metrics.json').read_text()) if (out/'metrics.json').is_file() else {'checks':{}}
+    metrics.update(steps=resources.get('steps_completed',0),status='FAIL',error=error,
+        grasp_qualified=False,writing_qualified=False,standing_qualified=False,exact_asset_qualified=False)
+    metrics['checks']['probe_execution_completed']=False;write('metrics.json',metrics)
+    artifacts=[str(p.relative_to(out)) for p in out.rglob('*') if p.is_file() and p.name not in
+        {'run.json','probe.json','console.log','executed_probe.py','executed_launcher.py','uncommitted.patch'}]
+    write('probe.json',{'status':'FAIL','scope':'Isaac_Lab_source_specific_debug_only','metrics':'metrics.json','artifacts':artifacts})
+
+
+def run_lab(resources):
     assert os.environ.get("PANTHERA_SIM_AUTHORIZED") == "1"
     assert sorted(p.name for p in Path("/sys/class/net").iterdir()) == ["lo"]
     assert os.environ.get("PANTHERA_PROBE_MODE") == "inspire-lab-debug"
@@ -115,6 +180,7 @@ def main():
     from isaaclab.app import AppLauncher
     launcher = AppLauncher({"headless": True, "device": "cpu", "enable_cameras": capture_cameras})
     app = launcher.app
+    resources['app']=app
     import numpy as np
     import torch
     import omni.usd
@@ -143,6 +209,7 @@ def main():
     spec = InspireLabSpec.from_manifests(facts, profile, settings["scene_config"], episode_steps=episode_steps)
     omni.usd.get_context().new_stage()
     env = create_env(spec, asset, num_envs=num_envs, seed=seed)
+    resources['env']=env
     observation, extras = env.reset(seed=seed)
     assert observation["policy"].shape == (num_envs, 119)
     assert env.robot.num_joints == 53 and env.single_action_space.shape == (41,)
@@ -191,6 +258,10 @@ def main():
 
     cameras={};frame_records=[];render_records=[];frame_file=None;render_file=None
     if capture_cameras:
+        import carb.settings
+        sync_settings={k:carb.settings.get_settings().get(k) for k in
+            ('/omni/replicator/asyncRendering','/app/renderer/waitIdle','/app/hydraEngine/waitIdle')}
+        freeze_receipt({}, {}, float(env.sim.current_time), float(env.sim.current_time), sync_settings)
         from PIL import Image
         from pxr import Gf,UsdGeom
         from isaacsim.sensors.camera import Camera
@@ -205,13 +276,23 @@ def main():
             xf.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*view['position_world_m']),
                 Gf.Vec3d(*view['target_world_m']),Gf.Vec3d(0.,0.,1.)).GetInverse())
             cameras[label]=camera;(out/'frames'/label).mkdir(parents=True)
+            resources['cameras'].append(camera)
         before=float(env.sim.current_time)
         for _ in range(8):env.sim.render()
         assert float(env.sim.current_time)==before
         frame_file=(out/'frames.jsonl').open('w',buffering=1)
         render_file=(out/'render_state.jsonl').open('w',buffering=1)
+        resources['streams'].extend([frame_file,render_file])
+        import inspect
+        implementation=Path(inspect.getsourcefile(Camera))
+        (out/'camera_runtime_contract.json').write_text(json.dumps({'schema':'isaac51_fabric_reference_held_state_capture_v1',
+            'camera_source_path':str(implementation),'camera_source_sha256':hashlib.sha256(implementation.read_bytes()).hexdigest(),
+            'synchronous_renderer_settings':sync_settings,'physics_clock_mapping_available':False,
+            'mapping_reason':'Pinned Lab disables default simulation callbacks; Camera core-node interpolation can report no adjacent samples.',
+            'capture_method':'Two explicit synchronous renders with frozen measured state and unchanged physics clock; paired fresh exact render references'},indent=2))
 
     writer = TransitionWriter(out / "transitions.jsonl")
+    resources['streams'].append(writer.stream)
     resets = [0] * num_envs
     failures, parity_errors = [], []
     invalid_state_records = 0
@@ -226,6 +307,7 @@ def main():
             action[index] = min(hi, max(lo, .01 * (1. - math.cos(2. * math.pi * step / 20.))))
         action_tensor = torch.tensor(action, dtype=torch.float32, device=env.device).repeat(num_envs, 1)
         observation, reward, terminated, truncated, extras = env.step(action_tensor)
+        resources['steps_completed']=step+1
         assert observation["policy"].shape == (num_envs, 119)
         assert len(env.last_transition_records) == num_envs
         for i, record in enumerate(env.last_transition_records):
@@ -243,9 +325,25 @@ def main():
             writer.append(record)
         if step in capture_steps:
             before=float(env.sim.current_time)
-            before_frame={label:int(camera.get_current_frame()['rendering_frame']) for label,camera in cameras.items()}
-            # Refresh reset articulation poses and fabric without a physics step.
-            env.sim.forward();env.sim.render()
+            resources['last_capture']={'sequence':step,'physics_s':before,
+                'raw_before':{label:{k:serializable_raw(camera.get_current_frame().get(k)) for k in ('rendering_frame','rendering_time')} for label,camera in cameras.items()}}
+            before_frame={label:camera_receipt(camera.get_current_frame()) for label,camera in cameras.items()}
+            # Refresh reset articulation kinematics, then hold all physical
+            # measurements while the synchronous renderer drains two frames.
+            env.sim.forward()
+            def physical_snapshot():
+                return {'robot_q':env.robot.data.joint_pos.detach().cpu().tolist(),
+                    'robot_dq':env.robot.data.joint_vel.detach().cpu().tolist(),
+                    'robot_root':env.robot.data.root_state_w.detach().cpu().tolist(),
+                    'robot_body_poses':env.robot.data.body_link_pose_w.detach().cpu().tolist(),
+                    'marker_q':env.marker.data.joint_pos.detach().cpu().tolist(),
+                    'marker_dq':env.marker.data.joint_vel.detach().cpu().tolist(),
+                    'marker_root':env.marker.data.root_state_w.detach().cpu().tolist(),
+                    'marker_body_poses':env.marker.data.body_link_pose_w.detach().cpu().tolist(),
+                    'episode_ids':env.episode_ids.detach().cpu().tolist(),'episode_steps':env.episode_length_buf.detach().cpu().tolist()}
+            frozen=physical_snapshot()
+            for _ in range(2):env.sim.render()
+            synchronization=freeze_receipt(frozen,physical_snapshot(),before,float(env.sim.current_time),sync_settings)
             assert float(env.sim.current_time)==before
             q=env.robot.data.joint_pos[:,ids].detach().cpu().tolist()
             dq=env.robot.data.joint_vel[:,ids].detach().cpu().tolist()
@@ -267,7 +365,8 @@ def main():
             for label,camera in cameras.items():
                 pixels=camera.get_rgba();assert pixels is not None and pixels.shape==(640,960,4)
                 stamp=camera.get_current_frame()
-                camera_receipts[label]={'rendering_frame':int(stamp['rendering_frame']),'rendering_time':float(stamp['rendering_time'])}
+                resources['last_capture'].setdefault('raw_after',{})[label]={k:serializable_raw(stamp.get(k)) for k in ('rendering_frame','rendering_time')}
+                camera_receipts[label]=camera_receipt(stamp)
                 name=f'frames/{label}/{frame:06d}.png';Image.fromarray(pixels.astype(np.uint8)).save(out/name);files[label]=name
             assert float(env.sim.current_time)==before
             validate_camera_receipts(before_frame,camera_receipts,before)
@@ -277,6 +376,7 @@ def main():
                 'render_episode_ids':[e['episode_id'] for e in environments],
                 'render_episode_steps':[e['episode_step'] for e in environments],
                 'camera_receipts':camera_receipts,
+                'capture_synchronization':synchronization,
                 'source_transitions':rendered['source_transitions']}
             render_records.append(rendered);frame_records.append(record)
             render_file.write(json.dumps(rendered,allow_nan=False)+'\n');frame_file.write(json.dumps(record,allow_nan=False)+'\n')
@@ -312,6 +412,7 @@ def main():
     metrics.update(capture_cameras=capture_cameras,paired_frame_count=len(frame_records),
         media_state_file='render_state.jsonl' if capture_cameras else None,
         media_state_mapping='frames.state_record_index indexes render_state.jsonl; sequence is original control step',
+        camera_timestamp_scope='Raw Fabric reference retained; numeric mapping to physics time unavailable. Association uses frozen-state synchronous capture.',
         media_labels={'fixture':'FIXED PELVIS Isaac Lab clones; free dynamic markers and physical boards',
             'embodiment':f'{num_envs} PROVISIONAL G1 + bilateral FTP hands; seed{seed}',
             'qualification':'Lab plumbing/reset milestone only; no manipulation, grasp or standing qualification'})
@@ -321,9 +422,34 @@ def main():
         {"run.json", "probe.json", "console.log", "executed_probe.py", "executed_launcher.py", "uncommitted.patch"}]
     (out / "probe.json").write_text(json.dumps({"status": "PASS" if all(checks.values()) else "FAIL",
         "scope": "Isaac_Lab_source_specific_debug_only", "metrics": "metrics.json", "artifacts": artifacts}))
-    env.close()
-    app.close()
+    return 0 if all(checks.values()) else 1
+
+
+def main():
+    resources={'app':None,'env':None,'cameras':[],'streams':[],'steps_completed':0}
+    status=1
+    try:status=run_lab(resources)
+    except BaseException as exc:
+        resources['traceback']=traceback.format_exc()
+        write_failure('/evidence',repr(exc),resources)
+        print(resources['traceback'],flush=True)
+    finally:
+        errors=[]
+        for camera in resources['cameras']:
+            for method in ('pause','destroy'):
+                try:getattr(camera,method)()
+                except BaseException as exc:errors.append('camera.'+method+': '+repr(exc))
+        for stream in resources['streams']:
+            try:stream.close()
+            except BaseException as exc:errors.append('stream.close: '+repr(exc))
+        for key in ('env','app'):
+            if resources[key] is not None:
+                try:resources[key].close()
+                except BaseException as exc:errors.append(key+'.close: '+repr(exc))
+        if errors:
+            write_failure('/evidence','Cleanup failed: '+'; '.join(errors),resources);status=1
+    return status
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
