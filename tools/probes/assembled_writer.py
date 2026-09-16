@@ -30,8 +30,11 @@ def validate_config(config):
         'planner_frames_sha256', 'body_home_rad', 'kp_nm_rad', 'kd_nm_s_rad',
         'tau_ff_nm', 'gain_provenance', 'feedforward_provenance', 'workflow_mode',
         'letter_height_m', 'maximum_steps', 'maximum_wall_s'}
-    if not isinstance(config, dict) or not required <= set(config) <= required | {'actuation_backend'}:
+    if not isinstance(config, dict) or not required <= set(config) <= required | {'actuation_backend', 'maximum_wall_age_s'}:
         raise ValueError('explicit assembled writer config fields required')
+    # Declared wall-clock arrival tolerance for a non-real-time simulator; the
+    # physics-sample staleness bound (valid_for_s <= 0.1 s of simulated time) is unchanged.
+    finite(config.get('maximum_wall_age_s', .1), 'maximum_wall_age_s', .1, 5.)
     if config.get('actuation_backend', 'explicit_pd') not in ('explicit_pd', 'implicit_biased_drive_v1'):
         raise ValueError('unknown versioned body actuation backend')
     if type(config['schema_version']) is not int or config['schema_version'] != 1 or config['hardware_authorized'] is not False:
@@ -411,15 +414,20 @@ def main():
             dependency_path=cfg['private_dependency_path'], approved_fixture=True,
             letter_height_m=cfg['letter_height_m'], state_provenance='physx_measured_joint_effort')
         bounds = {n: JointBound(limits[n]['lower'], limits[n]['upper'], limits[n]['velocity'], 200., 5., limits[n]['effort']) for n in body_names}
+        wall_age = float(cfg.get('maximum_wall_age_s', .1))
+        metrics['freshness'] = {'physics_sample_ttl_s': .1, 'declared_maximum_wall_age_s': wall_age,
+            'scope': 'wall bound covers packet arrival in a non-real-time simulator; physics staleness bound unchanged'}
         if implicit_backend:
             arbiter = NamedBodyDriveArbiter(body_indices=indices, bounds=bounds,
                 simulator_id=task_profile.simulator_id, run_id=task_profile.run_id, mode='hybrid',
                 controller_id='fixed_pelvis_home_fixture', simulation_authorized=True,
-                explicit_efforts_disabled=True, source_caps_verified=True)
+                explicit_efforts_disabled=True, source_caps_verified=True, maximum_wall_age_s=wall_age)
         else:
             arbiter = NamedBodyArbiter(body_indices=indices, bounds=bounds,
                 simulator_id=task_profile.simulator_id, run_id=task_profile.run_id, mode='hybrid',
-                controller_id='fixed_pelvis_home_fixture', simulation_authorized=True, implicit_drives_disabled=True)
+                controller_id='fixed_pelvis_home_fixture', simulation_authorized=True, implicit_drives_disabled=True,
+                maximum_wall_age_s=wall_age)
+        step_wall_seconds = []; previous_observed_wall = None
         explicit_body_effort_observed = 0
         base = {n: {'q': cfg['body_home_rad'][n], 'dq': 0., 'kp': cfg['kp_nm_rad'][n],
                     'kd': cfg['kd_nm_s_rad'][n], 'tau': cfg['tau_ff_nm'][n]} for n in body_names}
@@ -445,6 +453,9 @@ def main():
             effort = np.ravel(robot.get_measured_joint_efforts()).astype(float).tolist()
             poses = {n: np.asarray(v.get_transforms())[0].astype(float).tolist() for n, v in views.items()}
             observed_wall = time.monotonic(); sim_time = float(world.current_time)
+            if previous_observed_wall is not None:
+                step_wall_seconds.append(observed_wall - previous_observed_wall)
+            previous_observed_wall = observed_wall
             # Raw readback is retained before any aborting physical guard.
             record = {'sequence': sample_number, 'physics_s': sim_time, 'source_monotonic_s': observed_wall,
                 'runtime_names': names, 'q_rad': q, 'dq_rad_s': dq, 'measured_generalized_effort_nm': effort,
@@ -565,6 +576,11 @@ def main():
         else:
             raise TimeoutError('admitted maximum steps ended before actual workflow completion')
         metrics['workflow'] = workflow
+        if step_wall_seconds:
+            ordered = sorted(step_wall_seconds)
+            metrics['real_time'] = {'steps': len(ordered), 'physics_dt_s': .005,
+                'wall_per_step_s_median': ordered[len(ordered)//2], 'wall_per_step_s_p95': ordered[min(len(ordered)-1, int(.95*len(ordered)))],
+                'wall_per_step_s_max': ordered[-1], 'real_time_factor_median': .005/ordered[len(ordered)//2]}
         final_gains = robot.get_articulation_controller().get_gains()
         final_caps = np.ravel(robot._articulation_view.get_max_efforts()).astype(float)
         metrics['actuation_receipt'] = {'backend': metrics['actuation_backend'], 'gain_writes': gain_writes,

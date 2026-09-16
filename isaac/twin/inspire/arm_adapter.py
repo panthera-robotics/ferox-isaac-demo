@@ -91,7 +91,7 @@ class NamedBodyArbiter:
     def __init__(self, *, body_indices: Mapping[str, int], bounds: Mapping[str, JointBound],
                  simulator_id: str, run_id: str, mode: str, controller_id: str,
                  simulation_authorized: bool, implicit_drives_disabled: bool,
-                 target='isaacsim', maximum_age_s=0.10,
+                 target='isaacsim', maximum_age_s=0.10, maximum_wall_age_s=None,
                  actuation_backend='explicit_pd'):
         if simulation_authorized is not True or target != 'isaacsim':
             raise ValueError('independent simulation authorization required')
@@ -122,6 +122,11 @@ class NamedBodyArbiter:
         self._names = tuple(sorted(body_indices, key=body_indices.__getitem__))
         self._mode, self._controller_id = mode, controller_id
         self.maximum_age_s = _number(maximum_age_s, 'maximum_age_s', 0.001, 0.10)
+        # Packet arrival (wall clock) and physics-sample staleness are separate.
+        # A declared non-real-time simulator may tolerate older wall arrival, but
+        # never a reference evaluated for an older physics sample than the TTL.
+        self.maximum_wall_age_s = self.maximum_age_s if maximum_wall_age_s is None else _number(
+            maximum_wall_age_s, 'maximum_wall_age_s', self.maximum_age_s, 5.0)
         self.fault_reason = None
         self._physics = None
         self._upper = None
@@ -179,7 +184,7 @@ class NamedBodyArbiter:
                 raise ValueError('physics sequence must be a nonnegative integer')
             sim_t = _number(sim_time_s, 'physics sim_time_s', 0.0)
             source_t = _number(source_monotonic_s, 'physics source_monotonic_s', 0.0)
-            _number(now - source_t, 'physics sample age', 0.0, self.maximum_age_s)
+            _number(now - source_t, 'physics sample age', 0.0, self.maximum_wall_age_s)
             if self._physics is not None:
                 old = self._physics
                 if sequence <= old['sequence'] or sim_t <= old['sim_t']:
@@ -201,10 +206,10 @@ class NamedBodyArbiter:
             if self._physics is None:
                 raise ValueError('no admitted physics sample')
             _number(now - self._physics['source_t'], 'physics sample age', 0.0,
-                    self.maximum_age_s)
+                    self.maximum_wall_age_s)
             if self._upper is not None:
                 _number(now - self._upper['source_monotonic_time_s'], 'task age', 0.0,
-                        self._upper['valid_for_s'])
+                        max(self._upper['valid_for_s'], self.maximum_wall_age_s))
                 _number(self._physics['sim_t'] - self._upper['sim_time_s'],
                         'task physics age', 0.0, self._upper['valid_for_s'])
             return True
@@ -232,7 +237,7 @@ class NamedBodyArbiter:
             sim_t = _number(message['sim_time_s'], 'task sim_time_s', 0.0)
             source_t = _number(message['source_monotonic_time_s'], 'task monotonic time', 0.0)
             ttl = _number(message['valid_for_s'], 'valid_for_s', 0.001, self.maximum_age_s)
-            _number(now_monotonic_s - source_t, 'task age', 0.0, ttl)
+            _number(now_monotonic_s - source_t, 'task age', 0.0, max(ttl, self.maximum_wall_age_s))
             _number(self._physics['sim_t'] - sim_t, 'task physics age', 0.0, ttl)
             if self._upper is not None:
                 if seq <= self._upper['sequence'] or sim_t <= self._upper['sim_time_s']:
@@ -301,4 +306,5 @@ class NamedBodyArbiter:
             body_indices=self._indices, bounds=self._bounds,
             simulator_id=self.simulator_id, run_id=run_id, mode=mode,
             controller_id=controller_id, simulation_authorized=simulation_authorized,
-            implicit_drives_disabled=True, maximum_age_s=self.maximum_age_s)
+            implicit_drives_disabled=True, maximum_age_s=self.maximum_age_s,
+            maximum_wall_age_s=self.maximum_wall_age_s)

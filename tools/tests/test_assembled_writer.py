@@ -114,3 +114,9 @@ class ActuationBackendConfigTests(unittest.TestCase):
                 probe.validate_config(self.config(actuation_backend=bad))
         with self.assertRaises(ValueError):
             probe.validate_config(self.config(unknown_key=1))
+
+    def test_wall_age_tolerance_is_declared_and_bounded(self):
+        probe.validate_config(self.config(maximum_wall_age_s=1.0))
+        for bad in (.05, 6., float('nan'), '1'):
+            with self.assertRaises(ValueError):
+                probe.validate_config(self.config(maximum_wall_age_s=bad))

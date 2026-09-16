@@ -84,4 +84,5 @@ class NamedBodyDriveArbiter(NamedBodyArbiter):
         return NamedBodyDriveArbiter(body_indices=self._indices,bounds=self._bounds,
             simulator_id=self.simulator_id,run_id=run_id,mode=mode,controller_id=controller_id,
             simulation_authorized=simulation_authorized,explicit_efforts_disabled=True,source_caps_verified=True,
-            maximum_feedforward_bias_rad=self.maximum_feedforward_bias_rad,maximum_age_s=self.maximum_age_s)
+            maximum_feedforward_bias_rad=self.maximum_feedforward_bias_rad,maximum_age_s=self.maximum_age_s,
+            maximum_wall_age_s=self.maximum_wall_age_s)

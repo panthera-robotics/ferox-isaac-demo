@@ -197,6 +197,34 @@ class FreshnessTests(unittest.TestCase):
                     a.accept_upper_reference(task(source_monotonic_time_s=source_t),
                                               now_monotonic_s=10.0)
 
+    def test_declared_wall_tolerance_admits_slow_arrival_but_never_stale_physics(self):
+        # Non-real-time simulator: 0.8 s wall old, but for the current physics sample.
+        with self.assertRaises(ValueError):
+            arbiter(maximum_wall_age_s=0.05)   # cannot be tighter than the physics TTL bound
+        with self.assertRaises(ValueError):
+            arbiter(maximum_wall_age_s=6.0)
+        a = arbiter(maximum_wall_age_s=1.0)
+        a.observe_physics(sequence=1, sim_time_s=1.0, source_monotonic_s=9.2,
+                          position={n: 0.0 for n in NAMES}, velocity={n: 0.0 for n in NAMES},
+                          now_monotonic_s=10.0)
+        a.accept_upper_reference(task(source_monotonic_time_s=9.3), now_monotonic_s=10.0)
+        self.assertTrue(a.check_freshness(10.2))
+        b = arbiter(maximum_wall_age_s=1.0)
+        sample(b)
+        with self.assertRaisesRegex(SimulationAdmissionError, 'physics age'):
+            b.accept_upper_reference(task(sim_time_s=0.8, source_monotonic_time_s=9.9), now_monotonic_s=10.0)
+        c = arbiter(maximum_wall_age_s=1.0)
+        sample(c)
+        with self.assertRaisesRegex(SimulationAdmissionError, 'task age'):
+            c.accept_upper_reference(task(source_monotonic_time_s=8.9), now_monotonic_s=10.0)
+        d = arbiter()   # default keeps the strict 0.1 s wall bound
+        sample(d)
+        with self.assertRaisesRegex(SimulationAdmissionError, 'task age'):
+            d.accept_upper_reference(task(source_monotonic_time_s=9.8), now_monotonic_s=10.0)
+        e = arbiter(maximum_wall_age_s=1.0).reset_for_run(run_id='episode_002', mode='hybrid',
+                                                          controller_id='balance_surrogate', simulation_authorized=True)
+        self.assertEqual(e.maximum_wall_age_s, 1.0)
+
     def test_physics_pause_reset_duplicate_and_clock_rewind_are_latched(self):
         for seq, sim_t, source_t, now in ((1, 1.02, 10.02, 10.02),
                                         (2, 1.0, 10.02, 10.02),
