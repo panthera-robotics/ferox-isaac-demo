@@ -331,8 +331,13 @@ def build_scene(stage, config=SceneConfig(), *, board_path='/World/Whiteboard', 
     articulation=PhysxSchema.PhysxArticulationAPI.Apply(root)
     articulation.CreateEnabledSelfCollisionsAttr(True);articulation.CreateSolverPositionIterationCountAttr(32)
     articulation.CreateSolverVelocityIterationCountAttr(8)
+    # A cleanly released marker at rest on a rack would otherwise be put to sleep by PhysX and stop
+    # reporting its resting contacts (cycles-v4-08); keep it awake so support is always observable.
+    articulation.CreateSleepThresholdAttr(0.)
+    for path in (holder_path,nib_path):
+        PhysxSchema.PhysxRigidBodyAPI.Apply(stage.GetPrimAtPath(path)).CreateSleepThresholdAttr(0.)
     return {'schema_version':1,'config':asdict(config),'config_sha256':config.sha256,'scope':config.scope,
-            'articulation_path':marker_path,'holder_body':holder_path,'nib_body':nib_path,
+            'articulation_path':marker_path,'holder_body':holder_path,'nib_body':nib_path,'sleep_disabled_for_contact_observability':True,
             'tip_collider':nib_path+'/Tip','board_collider':panel,'carriage_joint_names':carriage_joints,
             'slider_joint_name':'NibCompression','holder_axis_toward_board_local':(0.,0.,-1.),
             'slider_positive_compression_axis_local':(0.,0.,1.),'spring_target_position_m':h.spring_target_m,
