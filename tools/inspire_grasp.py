@@ -19,6 +19,9 @@ class GraspConfig:
     # local holder +Z -> palm +X; nib extends toward palm -X.
     holder_orientation_palm_qwxyz: tuple = (math.sqrt(.5),0.,math.sqrt(.5),0.)
     four_finger_initial_rad: float = 1.1563156754590562
+    # Optional per-finger initial angles (index, middle, ring, little): the RH56 has
+    # four independent finger actuators; None keeps the single shared value.
+    finger_initial_rad: tuple = None
     thumb_yaw_initial_rad: float = 1.0900916230524766
     thumb_flexion_initial_rad: float = .4752747391137899
     finger_closing_increment_rad: float = .12
@@ -46,8 +49,13 @@ class GraspConfig:
             if any(type(v) not in (int,float) or not math.isfinite(v) for v in value):raise ValueError('Invalid pose number')
             object.__setattr__(self,name,tuple(value))
         if not math.isclose(sum(v*v for v in self.holder_orientation_palm_qwxyz),1.,abs_tol=1e-8):raise ValueError('Nonunit quaternion')
+        if self.finger_initial_rad is not None:
+            v=self.finger_initial_rad
+            if not isinstance(v,(tuple,list)) or len(v)!=4 or any(type(x) not in (int,float) or not math.isfinite(x) or not 0<=x<=1.4381 for x in v):
+                raise ValueError('finger_initial_rad needs four finite angles within the source limit')
+            object.__setattr__(self,'finger_initial_rad',tuple(float(x) for x in v))
         for f in fields(self):
-            if f.name in {'schema_version','palm_candidate_id','holder_center_palm_m','holder_orientation_palm_qwxyz'}:continue
+            if f.name in {'schema_version','palm_candidate_id','holder_center_palm_m','holder_orientation_palm_qwxyz','finger_initial_rad'}:continue
             if f.name in {'solver_position_iterations','solver_velocity_iterations'}:
                 if type(getattr(self,f.name)) is not int or not 1<=getattr(self,f.name)<=255:raise ValueError('Solver iterations must be integers in 1..255')
                 continue
@@ -70,7 +78,9 @@ class GraspConfig:
         return hashlib.sha256(json.dumps(asdict(self),sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 
     def initial_targets(self):
-        result={'right_'+f+'_1_joint':self.four_finger_initial_rad for f in ['index','middle','ring','little']}
+        fingers=['index','middle','ring','little']
+        values=self.finger_initial_rad if self.finger_initial_rad is not None else (self.four_finger_initial_rad,)*4
+        result={'right_'+f+'_1_joint':q for f,q in zip(fingers,values)}
         result.update(right_thumb_1_joint=self.thumb_yaw_initial_rad,right_thumb_2_joint=self.thumb_flexion_initial_rad)
         return result
 

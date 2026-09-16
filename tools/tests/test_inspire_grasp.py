@@ -145,3 +145,15 @@ class PreloadSupportConfigTests(unittest.TestCase):
         for bad in (0, 256, 8.0, '8'):
             with self.assertRaises(ValueError):
                 GraspConfig.from_dict({'solver_velocity_iterations': bad})
+
+    def test_per_finger_initial_angles_are_optional_bounded_and_ordered(self):
+        from inspire_grasp import GraspConfig
+        base = GraspConfig()
+        self.assertEqual(len(set(base.initial_targets()[k] for k in base.initial_targets() if 'thumb' not in k)), 1)
+        per = GraspConfig.from_dict({'finger_initial_rad': [1.30, 1.25, 1.22, 1.20]})
+        t = per.initial_targets()
+        self.assertEqual([t['right_index_1_joint'], t['right_middle_1_joint'], t['right_ring_1_joint'], t['right_little_1_joint']], [1.30, 1.25, 1.22, 1.20])
+        self.assertNotEqual(per.sha256, base.sha256)
+        for bad in ([1.3, 1.2], [1.5, 1.2, 1.2, 1.2], [1.2, float('nan'), 1.2, 1.2], 'x'):
+            with self.assertRaises(ValueError):
+                GraspConfig.from_dict({'finger_initial_rad': bad})
