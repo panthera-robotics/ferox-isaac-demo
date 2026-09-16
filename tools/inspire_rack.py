@@ -155,10 +155,11 @@ def acquisition_result(rows,*,dt_s=.005):
 # --- Three-cycle acquisition sequence (approach, close, lift, hold, place, release, withdraw, re-approach) ---
 CYCLE_PHASES=[('cycle_settle',.5),('cycle_close',1.),('cycle_grip_settle',1.),('cycle_lift',2.),('cycle_clearance_settle',.5),
               ('cycle_hold',5.),('cycle_lower',2.),('cycle_place_settle',.5),('cycle_release',1.),('cycle_release_settle',.5),
-              ('cycle_withdraw',2.),('cycle_withdrawn_settle',.5),('cycle_approach',2.)]
-CYCLE_SECONDS=sum(d for _,d in CYCLE_PHASES)   # 18.5 s
+              ('cycle_retreat',1.),('cycle_withdraw',2.),('cycle_withdrawn_settle',.5),('cycle_approach',2.),('cycle_advance',1.)]
+CYCLE_SECONDS=sum(d for _,d in CYCLE_PHASES)   # 20.5 s
 CYCLES=3
-CYCLE_STEPS=round(CYCLES*CYCLE_SECONDS/.005)    # 11100
+CYCLE_STEPS=round(CYCLES*CYCLE_SECONDS/.005)    # 12300
+RETREAT_Y_M=-.04   # declared palm retreat along fixture -y after release (cycles-v4-01/02: thumb block under the barrel)
 
 
 def cycle_command(elapsed_s,config):
@@ -175,16 +176,19 @@ def cycle_command(elapsed_s,config):
         start+=d
     lo,hi=config.initial_wrist_z_m,config.lifted_wrist_z_m
     closing={'cycle_settle':0.,'cycle_close':smooth(local/duration),'cycle_grip_settle':1.,'cycle_lift':1.,'cycle_clearance_settle':1.,'cycle_hold':1.,
-             'cycle_lower':1.,'cycle_place_settle':1.,'cycle_release':1.-smooth(local/duration),'cycle_release_settle':0.,'cycle_withdraw':0.,'cycle_withdrawn_settle':0.,'cycle_approach':0.}[phase]
+             'cycle_lower':1.,'cycle_place_settle':1.,'cycle_release':1.-smooth(local/duration),'cycle_release_settle':0.,'cycle_retreat':0.,
+             'cycle_withdraw':0.,'cycle_withdrawn_settle':0.,'cycle_approach':0.,'cycle_advance':0.}[phase]
     # Fingers stay open through withdraw, re-approach and settle; they close from the open pose during
     # cycle_close (open->preload->closed in one smooth ramp) so the descent never sweeps closed fingers.
     opening={'cycle_settle':1.,'cycle_close':1.-smooth(local/duration),'cycle_release':smooth(local/duration),'cycle_release_settle':1.,
-             'cycle_withdraw':1.,'cycle_withdrawn_settle':1.,'cycle_approach':1.}.get(phase,0.)
+             'cycle_retreat':1.,'cycle_withdraw':1.,'cycle_withdrawn_settle':1.,'cycle_approach':1.,'cycle_advance':1.}.get(phase,0.)
     z={'cycle_settle':lo,'cycle_close':lo,'cycle_grip_settle':lo,'cycle_lift':lo+smooth(local/duration)*(hi-lo),'cycle_clearance_settle':hi,'cycle_hold':hi,
-       'cycle_lower':hi-smooth(local/duration)*(hi-lo),'cycle_place_settle':lo,'cycle_release':lo,'cycle_release_settle':lo,
-       'cycle_withdraw':lo+smooth(local/duration)*(hi-lo),'cycle_withdrawn_settle':hi,'cycle_approach':hi-smooth(local/duration)*(hi-lo)}[phase]
+       'cycle_lower':hi-smooth(local/duration)*(hi-lo),'cycle_place_settle':lo,'cycle_release':lo,'cycle_release_settle':lo,'cycle_retreat':lo,
+       'cycle_withdraw':lo+smooth(local/duration)*(hi-lo),'cycle_withdrawn_settle':hi,'cycle_approach':hi-smooth(local/duration)*(hi-lo),'cycle_advance':lo}[phase]
+    y={'cycle_retreat':RETREAT_Y_M*smooth(local/duration),'cycle_withdraw':RETREAT_Y_M,'cycle_withdrawn_settle':RETREAT_Y_M,'cycle_approach':RETREAT_Y_M,
+       'cycle_advance':RETREAT_Y_M*(1.-smooth(local/duration))}.get(phase,0.)
     held={'cycle_clearance_settle','cycle_hold'}
-    return {'phase':phase,'cycle':cycle,'closing_fraction':closing,'opening_fraction':opening,'wrist':[0.,0.,z,0.,0.,0.],
+    return {'phase':phase,'cycle':cycle,'closing_fraction':closing,'opening_fraction':opening,'wrist':[0.,y,z,0.,0.,0.],
             'retention_window':phase=='cycle_hold','external_support_allowed':phase not in held,
             'object_should_be_free_of_hand':phase in ('cycle_withdrawn_settle',)}
 
@@ -213,7 +217,7 @@ def cycle_result(rows,config,*,dt_s=.005):
         rk=[r for r in rows if r.get('cycle')==k]
         ph=lambda name:[r for r in rk if r.get('phase')==name]
         held=ph('cycle_hold');clearance=ph('cycle_clearance_settle');placed=ph('cycle_place_settle');released=ph('cycle_release_settle')
-        withdraw=ph('cycle_withdraw');withdrawn=ph('cycle_withdrawn_settle');settle=ph('cycle_settle')
+        withdraw=ph('cycle_withdraw');withdrawn=ph('cycle_withdrawn_settle');settle=ph('cycle_settle');retreat=ph('cycle_retreat');approach=ph('cycle_approach');advance=ph('cycle_advance')
         retention=retention_result(held,expected_seconds=5.,dt_s=dt_s)
         late_withdraw=withdraw[len(withdraw)//5:]   # last 80 % of the withdraw ramp must be hand-free
         checks={'rack_supported_marker_at_cycle_start':any(actual(r,'rack_object_contact') for r in settle),
@@ -225,7 +229,7 @@ def cycle_result(rows,config,*,dt_s=.005):
             'unchanged3mm3deg_retention':retention['accepted'],
             'placed_back_on_rack':bool(placed) and all(actual(r,'rack_object_contact') and abs(r.get('holder_lift_world_m',1.))<=.005 for r in placed[-20:]),
             'controlled_release_hand_free':bool(released) and bool(withdrawn) and all(not actual(r,'holder_hand_contact') for r in released[-20:]+late_withdraw+withdrawn),
-            'marker_stays_racked_after_release':bool(withdrawn) and all(actual(r,'rack_object_contact') and abs(r.get('holder_lift_world_m',1.))<=.010 for r in released+withdraw+withdrawn),
+            'marker_stays_racked_after_release':bool(withdrawn) and all(actual(r,'rack_object_contact') and abs(r.get('holder_lift_world_m',1.))<=.010 for r in released+retreat+withdraw+withdrawn+approach+advance),
             'no_unexpected_nonrack_support':not any(actual(r,'nonrack_external_object_contact') for r in rk),
             'no_loaded_rack_hand_contact':not any(actual(r,'rack_hand_contact') for r in rk)}
         cycles.append({'cycle':k,'samples':len(rk),'status':'NOT_RUN' if not rk else ('PASS' if all(checks.values()) else 'FAIL'),'checks':checks,'retention':retention})
