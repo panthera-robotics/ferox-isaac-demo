@@ -126,3 +126,16 @@ class ActuationBackendConfigTests(unittest.TestCase):
         for key, bad in (('hand_hold_kp_nm_rad', 11.), ('hand_hold_kp_nm_rad', 0.), ('hand_hold_kd_nm_s_rad', 2.), ('hand_hold_kd_nm_s_rad', float('nan'))):
             with self.assertRaises(ValueError):
                 probe.validate_config(self.config(**{key: bad}))
+
+
+class Float32PoseReadbackTests(unittest.TestCase):
+    def test_float32_unit_quaternion_readback_is_a_valid_frame(self):
+        import numpy as np
+        q = np.array([.3, -.5, .2, .7853], dtype=np.float64); q /= np.linalg.norm(q)
+        q32 = q.astype(np.float32).astype(float)          # PhysX float32 readback
+        frame = probe.pose_matrix([.1, .2, .3, *q32])
+        self.assertLess(abs(np.linalg.norm(q32) - 1.), 1e-6)
+        result = probe.frame_error(frame, frame)
+        self.assertAlmostEqual(result['translation_m'], 0.)
+        with self.assertRaisesRegex(ValueError, 'unit'):
+            probe.pose_matrix([.1, .2, .3, *(q * 1.01)])

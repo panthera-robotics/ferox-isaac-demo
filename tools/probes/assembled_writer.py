@@ -120,7 +120,10 @@ def frame_error(expected, actual):
     for value in (expected, actual):
         if value.shape != (4, 4) or not np.isfinite(value).all() or not np.allclose(value[3], [0., 0., 0., 1.], atol=1e-8):
             raise ValueError('invalid homogeneous frame')
-        if not np.allclose(value[:3, :3].T @ value[:3, :3], np.eye(3), atol=1e-6) or not math.isclose(np.linalg.det(value[:3, :3]), 1., abs_tol=1e-6):
+        # Consistent with pose_matrix's 1e-5 unit-quaternion tolerance for float32
+        # PhysX readback (writer14 tripped a 1e-6 bound at step 1000); reflections
+        # (det -1) and non-unit quaternions are still refused.
+        if not np.allclose(value[:3, :3].T @ value[:3, :3], np.eye(3), atol=1e-4) or not math.isclose(np.linalg.det(value[:3, :3]), 1., abs_tol=1e-4):
             raise ValueError('frame rotation must be proper orthonormal')
     delta = expected[:3, :3].T @ actual[:3, :3]
     return {'translation_m': float(np.linalg.norm(actual[:3, 3]-expected[:3, 3])),
