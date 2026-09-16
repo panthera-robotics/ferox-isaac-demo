@@ -400,14 +400,14 @@ def main():
             metrics.update(tool_attached=False, physical_tool_present=True, board_present=True,
                 physical_virtual_tip_meaning='physical free marker held by contact; nib/board contact measured',
                 support_constraints=['pelvis_fixed_to_world_1m_above_origin', 'declared_preload_support_%.2fs' % support_seconds])
-        warmup_depenetration = {}; warmup_depenetration_cap = .01
+        warmup_depenetration = {}; warmup_depenetration_cap = None   # runtime restore of the USD attribute did not reach PhysX (contact-07: capped links crept 1 mm during closure)
         for p in world.stage.Traverse():
             if p.HasAPI(PhysxSchema.PhysxArticulationAPI):
                 api = PhysxSchema.PhysxArticulationAPI(p)
                 api.CreateSolverPositionIterationCountAttr(32); api.CreateSolverVelocityIterationCountAttr(8)
             if p.HasAPI(UsdPhysics.RigidBodyAPI):
                 PhysxSchema.PhysxContactReportAPI.Apply(p).CreateThresholdAttr(0.)
-                if contact_mode:
+                if contact_mode and warmup_depenetration_cap is not None:
                     # The uncontrolled 1e-6 s warm-up microsteps would resolve the held pose's sub-0.1 mm
                     # initial overlaps in one microstep (tens of m/s, Ns-scale impulses); cap the warm-up
                     # depenetration velocity and restore the authored/fallback value before controlled physics.
