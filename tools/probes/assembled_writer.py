@@ -332,8 +332,8 @@ def main():
         root.ClearXformOpOrder(); root.AddTranslateOp().Set(Gf.Vec3d(0, 0, 1))
         marker = None; support_path = '/World/DeclaredPreloadSupport'; support_active = False; support_seconds = 0.
         if contact_mode:
-            from twin.inspire.whiteboard_scene import SceneConfig, BoardFrame, HolderParameters, build_scene, rotate, compression_from_poses, reduce_tip_contacts
-            from twin.inspire.contact_ink import ContactSample, IntendedStroke, MarkingRule, evaluate as evaluate_ink, export_svg, export_csv
+            from inspire.whiteboard_scene import SceneConfig, BoardFrame, HolderParameters, build_scene, rotate, compression_from_poses, reduce_tip_contacts
+            from inspire.contact_ink import ContactSample, IntendedStroke, MarkingRule, evaluate as evaluate_ink, export_svg, export_csv
             import yaml
             board_def = yaml.safe_load(Path(task_profile.tool_board_path).read_text())['board']
             pelvis_world = np.array([0., 0., 1.])
