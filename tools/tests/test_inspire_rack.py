@@ -155,14 +155,17 @@ class ThreeCycleSequenceTests(unittest.TestCase):
     def test_declared_sequence_timing_phases_and_wrist(self):
         from inspire_rack import cycle_command, RackConfig, CYCLE_SECONDS, CYCLE_STEPS, CYCLES
         c = RackConfig()
-        self.assertEqual((CYCLES, CYCLE_STEPS), (3, 14700)); self.assertAlmostEqual(CYCLE_SECONDS, 24.5)
+        self.assertEqual((CYCLES, CYCLE_STEPS), (3, 15900)); self.assertAlmostEqual(CYCLE_SECONDS, 26.5)
         self.assertEqual(cycle_command(0., c)['phase'], 'cycle_settle')
         hold = cycle_command(6., c); self.assertEqual((hold['phase'], hold['cycle'], hold['wrist'][2], hold['closing_fraction'], hold['opening_fraction']), ('cycle_hold', 0, .04, 1., 0.))
         self.assertFalse(hold['external_support_allowed']); self.assertTrue(hold['retention_window'])
-        withdrawn = cycle_command(19.2, c); self.assertEqual((withdrawn['phase'], withdrawn['opening_fraction'], withdrawn['closing_fraction'], withdrawn['wrist'][0], withdrawn['wrist'][1], withdrawn['wrist'][2], withdrawn['thumb_mode']), ('cycle_withdrawn_settle', 1., 0., .03, -.05, .04, ('lateral', 'lateral', 1.)))
+        withdrawn = cycle_command(20.2, c); self.assertEqual((withdrawn['phase'], withdrawn['opening_fraction'], withdrawn['closing_fraction'], withdrawn['wrist'][0], withdrawn['wrist'][1], withdrawn['wrist'][2], withdrawn['thumb_mode']), ('cycle_withdrawn_settle', 1., 0., .03, -.05, .04, ('lateral', 'lateral', 1.)))
         retreat = cycle_command(14.4, c); self.assertEqual(retreat['phase'], 'cycle_retreat'); self.assertLess(retreat['wrist'][1], 0.)
-        nxt = cycle_command(24.6, c); self.assertEqual((nxt['phase'], nxt['cycle'], nxt['wrist'][0], nxt['wrist'][1], nxt['wrist'][2]), ('cycle_settle', 1, 0., 0., -.04))
-        last = cycle_command(73.4, c); self.assertEqual((last['phase'], last['cycle']), ('cycle_advance', 2))
+        nxt = cycle_command(26.6, c); self.assertEqual((nxt['phase'], nxt['cycle'], nxt['wrist'][0], nxt['wrist'][1], nxt['wrist'][2]), ('cycle_settle', 1, 0., 0., -.04))
+        last = cycle_command(79.4, c); self.assertEqual((last['phase'], last['cycle']), ('cycle_advance', 2))
+        park = cycle_command(17.0, c); self.assertEqual((park['phase'], park['wrist'][0], park['wrist'][1]), ('cycle_thumb_park', .03, -.05)); self.assertAlmostEqual(park['wrist'][2], -.04-.015)
+        fwd = cycle_command(23.5, c); self.assertEqual(fwd['phase'], 'cycle_thumb_forward'); self.assertAlmostEqual(fwd['wrist'][2], -.04-.015)
+        undip = cycle_command(17.7, c); self.assertEqual(undip['phase'], 'cycle_undip'); self.assertGreater(undip['wrist'][2], -.04-.015); self.assertLess(undip['wrist'][2], -.04)
         with self.assertRaises(ValueError): cycle_command(-1., c)
         with self.assertRaises(ValueError): RackConfig.from_dict({'release_opening_rad': .05})
 

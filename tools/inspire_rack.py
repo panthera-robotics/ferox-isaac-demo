@@ -163,13 +163,15 @@ def acquisition_result(rows,*,dt_s=.005):
 # --- Three-cycle acquisition sequence (approach, close, lift, hold, place, release, withdraw, re-approach) ---
 CYCLE_PHASES=[('cycle_settle',.5),('cycle_close',1.),('cycle_grip_settle',1.),('cycle_lift',2.),('cycle_clearance_settle',.5),
               ('cycle_hold',5.),('cycle_lower',2.),('cycle_place_settle',.5),('cycle_release',1.),('cycle_release_settle',.5),
-              ('cycle_retreat',1.),('cycle_shift',1.),('cycle_thumb_park',1.),('cycle_withdraw',2.),('cycle_withdrawn_settle',.5),
-              ('cycle_approach',2.),('cycle_thumb_forward',1.),('cycle_unshift',1.),('cycle_advance',1.)]
-CYCLE_SECONDS=sum(d for _,d in CYCLE_PHASES)   # 24.5 s
+              ('cycle_retreat',1.),('cycle_shift',1.),('cycle_dip',.5),('cycle_thumb_park',1.),('cycle_undip',.5),('cycle_withdraw',2.),('cycle_withdrawn_settle',.5),
+              ('cycle_approach',2.),('cycle_redip',.5),('cycle_thumb_forward',1.),('cycle_reundip',.5),('cycle_unshift',1.),('cycle_advance',1.)]
+CYCLE_SECONDS=sum(d for _,d in CYCLE_PHASES)   # 26.5 s
 CYCLES=3
-CYCLE_STEPS=round(CYCLES*CYCLE_SECONDS/.005)    # 14700
+CYCLE_STEPS=round(CYCLES*CYCLE_SECONDS/.005)    # 15900
 RETREAT_Y_M=-.05   # declared palm retreat along fixture -y after release (axis limit); 40 mm left the barrel against the thumb tip (cycles-v4-04)
 SHIFT_X_M=.03      # declared shift along the barrel axis so the lateral thumb swing clears the rack end cheeks (cycles-v4-02/06)
+DIP_Z_M=.015       # declared palm dip at the retreated position so the forward<->lateral thumb swing passes under the racked barrel
+                   # (cycles-v4-07 swung at rack level and crossed the barrel; donor geometry: 9.4 mm minimum clearance at 15 mm dip)
 
 
 def cycle_command(elapsed_s,config):
@@ -194,15 +196,18 @@ def cycle_command(elapsed_s,config):
     # Thumb mode: 'grasp' while holding, 'forward' (declared release yaw/bend) from release through the retreat and shift,
     # 'lateral' (yaw 0, bend 0) for the withdraw/approach where the barrel passes the thumb vertically; blends 0..1.
     thumb={'cycle_release':('grasp','forward',sm),'cycle_release_settle':('forward','forward',1.),'cycle_retreat':('forward','forward',1.),'cycle_shift':('forward','forward',1.),
-           'cycle_thumb_park':('forward','lateral',sm),'cycle_withdraw':('lateral','lateral',1.),'cycle_withdrawn_settle':('lateral','lateral',1.),'cycle_approach':('lateral','lateral',1.),
-           'cycle_thumb_forward':('lateral','forward',sm),'cycle_unshift':('forward','forward',1.),'cycle_advance':('forward','forward',1.),'cycle_settle':('forward','forward',1.),
-           'cycle_close':('forward','grasp',sm)}.get(phase,('grasp','grasp',1.))
+           'cycle_dip':('forward','forward',1.),'cycle_thumb_park':('forward','lateral',sm),'cycle_undip':('lateral','lateral',1.),
+           'cycle_withdraw':('lateral','lateral',1.),'cycle_withdrawn_settle':('lateral','lateral',1.),'cycle_approach':('lateral','lateral',1.),'cycle_redip':('lateral','lateral',1.),
+           'cycle_thumb_forward':('lateral','forward',sm),'cycle_reundip':('forward','forward',1.),'cycle_unshift':('forward','forward',1.),'cycle_advance':('forward','forward',1.),
+           'cycle_settle':('forward','forward',1.),'cycle_close':('forward','grasp',sm)}.get(phase,('grasp','grasp',1.))
     z={'cycle_lift':lo+sm*(hi-lo),'cycle_clearance_settle':hi,'cycle_hold':hi,'cycle_lower':hi-sm*(hi-lo),
-       'cycle_withdraw':lo+sm*(hi-lo),'cycle_withdrawn_settle':hi,'cycle_approach':hi-sm*(hi-lo)}.get(phase,lo)
-    y={'cycle_retreat':RETREAT_Y_M*sm,'cycle_shift':RETREAT_Y_M,'cycle_thumb_park':RETREAT_Y_M,'cycle_withdraw':RETREAT_Y_M,'cycle_withdrawn_settle':RETREAT_Y_M,
-       'cycle_approach':RETREAT_Y_M,'cycle_thumb_forward':RETREAT_Y_M,'cycle_unshift':RETREAT_Y_M,'cycle_advance':RETREAT_Y_M*(1.-sm)}.get(phase,0.)
-    x={'cycle_shift':SHIFT_X_M*sm,'cycle_thumb_park':SHIFT_X_M,'cycle_withdraw':SHIFT_X_M,'cycle_withdrawn_settle':SHIFT_X_M,'cycle_approach':SHIFT_X_M,
-       'cycle_thumb_forward':SHIFT_X_M,'cycle_unshift':SHIFT_X_M*(1.-sm)}.get(phase,0.)
+       'cycle_dip':lo-sm*DIP_Z_M,'cycle_thumb_park':lo-DIP_Z_M,'cycle_undip':lo-(1.-sm)*DIP_Z_M,
+       'cycle_withdraw':lo+sm*(hi-lo),'cycle_withdrawn_settle':hi,'cycle_approach':hi-sm*(hi-lo),
+       'cycle_redip':lo-sm*DIP_Z_M,'cycle_thumb_forward':lo-DIP_Z_M,'cycle_reundip':lo-(1.-sm)*DIP_Z_M}.get(phase,lo)
+    retreated=('cycle_shift','cycle_dip','cycle_thumb_park','cycle_undip','cycle_withdraw','cycle_withdrawn_settle','cycle_approach','cycle_redip','cycle_thumb_forward','cycle_reundip','cycle_unshift')
+    y={'cycle_retreat':RETREAT_Y_M*sm,'cycle_advance':RETREAT_Y_M*(1.-sm)}.get(phase,RETREAT_Y_M if phase in retreated else 0.)
+    shifted=('cycle_dip','cycle_thumb_park','cycle_undip','cycle_withdraw','cycle_withdrawn_settle','cycle_approach','cycle_redip','cycle_thumb_forward','cycle_reundip')
+    x={'cycle_shift':SHIFT_X_M*sm,'cycle_unshift':SHIFT_X_M*(1.-sm)}.get(phase,SHIFT_X_M if phase in shifted else 0.)
     held={'cycle_clearance_settle','cycle_hold'}
     return {'phase':phase,'cycle':cycle,'closing_fraction':closing,'opening_fraction':opening,'thumb_mode':thumb,'wrist':[x,y,z,0.,0.,0.],
             'retention_window':phase=='cycle_hold','external_support_allowed':phase not in held,
