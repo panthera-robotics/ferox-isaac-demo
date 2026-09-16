@@ -467,14 +467,21 @@ def main():
                 metadata={'applied_to_physics': True, 'applies_to_next_physics_step': True,
                           'arbiter_pre_float32_effort_nm': list(effective.effort_nm),
                           'reference_owners': list(effective.reference_owners), 'implicit_body_gains': 'verified_zero'})
-            if sample_number % 20 == 0:
-                world.render()
-                frame = sample_number//20
+            if (sample_number+1) % 20 == 0:
+                # Same held-physics capture interval as the balance probe: the
+                # first frame follows 20 controlled steps, never the first 5ms.
+                capture_time = float(world.current_time); world.render()
+                frame = (sample_number+1)//20-1
                 frame_views = {}
                 for label, camera in cameras.items():
-                    pixels = camera.get_rgba()
+                    pixels = camera.get_rgba(); extra_renders = 0
+                    while (pixels is None or pixels.shape != (640,640,4)) and extra_renders < 3:
+                        world.render(); extra_renders += 1; pixels = camera.get_rgba()
+                    if float(world.current_time) != capture_time:
+                        raise ValueError('camera capture advanced physics')
+                    metrics['camera_extra_held_renders'] = max(metrics.get('camera_extra_held_renders', 0), extra_renders)
                     if pixels is None or pixels.shape != (640,640,4):
-                        raise ValueError('actual camera frame absent: '+label)
+                        raise ValueError('actual camera frame absent after bounded held renders: '+label)
                     filename='frames/%s/%06d.png'%(label,frame)
                     Image.fromarray(pixels.astype(np.uint8)).save(out/filename)
                     frame_views[label]=filename
