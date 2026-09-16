@@ -30,7 +30,20 @@ def validate_config(config):
         'planner_frames_sha256', 'body_home_rad', 'kp_nm_rad', 'kd_nm_s_rad',
         'tau_ff_nm', 'gain_provenance', 'feedforward_provenance', 'workflow_mode',
         'letter_height_m', 'maximum_steps', 'maximum_wall_s'}
-    optional = {'actuation_backend', 'maximum_wall_age_s', 'hand_hold_kp_nm_rad', 'hand_hold_kd_nm_s_rad'}
+    optional = {'actuation_backend', 'maximum_wall_age_s', 'hand_hold_kp_nm_rad', 'hand_hold_kd_nm_s_rad', 'contact_writing'}
+    contact = config.get('contact_writing')
+    if contact is not None:
+        needed = {'held_marker_grasp_path', 'preload_support_s', 'grasp_finger_kp_nm_rad', 'grasp_finger_kd_nm_s_rad', 'provenance'}
+        if not isinstance(contact, dict) or set(contact) != needed:
+            raise ValueError('contact_writing requires exactly held_marker_grasp_path, preload_support_s, grasp gains and provenance')
+        path = Path(contact['held_marker_grasp_path'])
+        if not path.is_absolute() or '..' in path.parts or path.parts[:2] != ('/', 'workspace'):
+            raise ValueError('held marker grasp must be an explicit /workspace mount')
+        finite(contact['preload_support_s'], 'contact_writing.preload_support_s', 0., 1.5)
+        finite(contact['grasp_finger_kp_nm_rad'], 'contact_writing.grasp_finger_kp_nm_rad', .1, 10.)
+        finite(contact['grasp_finger_kd_nm_s_rad'], 'contact_writing.grasp_finger_kd_nm_s_rad', .01, 1.)
+        if not isinstance(contact['provenance'], str) or not contact['provenance'].strip():
+            raise ValueError('contact_writing.provenance required')
     if not isinstance(config, dict) or not required <= set(config) <= required | optional:
         raise ValueError('explicit assembled writer config fields required')
     # Idle-hand hold gains of the fixture (open hand, no grasp). Bounded by the
@@ -142,12 +155,16 @@ def copy_writable_template(source,destination):
 def main():
     if os.environ.get('PANTHERA_SIM_AUTHORIZED') != '1' or sorted(p.name for p in Path('/sys/class/net').iterdir()) != ['lo']:
         raise RuntimeError('isolated simulator authorization required')
-    if os.environ.get('PANTHERA_PROBE_MODE') != 'assembled-writer-air':
-        raise RuntimeError('explicit assembled-writer-air mode required')
+    probe_mode = os.environ.get('PANTHERA_PROBE_MODE')
+    if probe_mode not in ('assembled-writer-air', 'assembled-writer-contact'):
+        raise RuntimeError('explicit assembled-writer-air or assembled-writer-contact mode required')
     config_path = Path(os.environ['PANTHERA_PROBE_CONFIG'])
     cfg = validate_config(json.loads(config_path.read_text()))
+    contact_mode = probe_mode == 'assembled-writer-contact'
+    if contact_mode != ('contact_writing' in cfg):
+        raise RuntimeError('contact mode requires the contact_writing config block and vice versa')
     out = Path('/evidence')
-    metrics = {'status': 'FAIL', 'scope': 'fixed_pelvis_actual_writer_air_integration',
+    metrics = {'status': 'FAIL', 'scope': 'fixed_pelvis_actual_writer_contact_writing' if contact_mode else 'fixed_pelvis_actual_writer_air_integration',
         'hardware_authorized': False, 'fixed_base': True, 'body_final_writers': 1,
         'tool_attached': False, 'ground_present': False,
         'support_constraints': ['pelvis_fixed_to_world_1m_above_origin'],
@@ -259,10 +276,35 @@ def main():
             raise ValueError('planner/donor geometry exceeds declared air-only1mm/0.2deg budget')
         metrics['planner_donor_frame_comparison'] = comparison
         stage = Usd.Stage.Open(str(asset))
+        held = None
+        if contact_mode:
+            # Declared held-marker grasp (the retention-qualified candidate): independent hand joints
+            # plus mimic-coupled children authored as initial joint state; targets closed by the same
+            # increments as the grasp bench. Not an attachment: the marker is a free dynamic body.
+            sys.path.insert(0, '/workspace/sim-source/tools')
+            from inspire_grasp import GraspConfig
+            grasp = GraspConfig.from_dict(json.loads(Path(cfg['contact_writing']['held_marker_grasp_path']).read_text()))
+            hand_limits = {n: (limits[n]['lower'], limits[n]['upper']) for n in limits}
+            held = {'config': grasp, 'initial': grasp.initial_targets(), 'closed': grasp.closed_targets(hand_limits),
+                    'config_sha256': grasp.sha256}
+            coupled = {}
+            for child, m in facts['mimic_map'].items():
+                parent_value = held['initial'].get(m['parent'], coupled.get(m['parent']))
+                if parent_value is not None:
+                    coupled[child] = m['multiplier'] * parent_value + m['offset']
+            for child, m in facts['mimic_map'].items():   # second pass for thumb_4 <- thumb_3
+                if child not in coupled and m['parent'] in coupled:
+                    coupled[child] = m['multiplier'] * coupled[m['parent']] + m['offset']
+            held['coupled_initial'] = coupled
+            metrics['held_marker_grasp'] = {'config': grasp.__dict__ if hasattr(grasp, '__dict__') else str(grasp), 'config_sha256': grasp.sha256,
+                'source': str(cfg['contact_writing']['held_marker_grasp_path']), 'provenance': cfg['contact_writing']['provenance']}
         for p in stage.Traverse():
             if p.IsA(UsdPhysics.RevoluteJoint):
                 state = PhysxSchema.JointStateAPI.Apply(p, 'angular')
-                state.CreatePositionAttr(math.degrees(cfg['body_home_rad'].get(p.GetName(), 0.)))
+                authored = cfg['body_home_rad'].get(p.GetName(), 0.)
+                if held is not None:
+                    authored = held['initial'].get(p.GetName(), held['coupled_initial'].get(p.GetName(), authored))
+                state.CreatePositionAttr(math.degrees(authored))
                 state.CreateVelocityAttr(0.)
             if p.IsA(UsdPhysics.RevoluteJoint) and p.GetName() in body_names:
                 drive = UsdPhysics.DriveAPI.Apply(p, 'angular')
@@ -288,6 +330,60 @@ def main():
         add_reference_to_stage(str(asset), '/World/G1')
         root = UsdGeom.Xformable(world.stage.GetPrimAtPath('/World/G1'))
         root.ClearXformOpOrder(); root.AddTranslateOp().Set(Gf.Vec3d(0, 0, 1))
+        marker = None; support_path = '/World/DeclaredPreloadSupport'; support_active = False; support_seconds = 0.
+        if contact_mode:
+            from twin.inspire.whiteboard_scene import SceneConfig, BoardFrame, HolderParameters, build_scene, rotate, compression_from_poses, reduce_tip_contacts
+            from twin.inspire.contact_ink import ContactSample, IntendedStroke, MarkingRule, evaluate as evaluate_ink, export_svg, export_csv
+            import yaml
+            board_def = yaml.safe_load(Path(task_profile.tool_board_path).read_text())['board']
+            pelvis_world = np.array([0., 0., 1.])
+            u, v, nrm = (np.asarray(board_def[k], dtype=float) for k in ('u_axis_unit', 'v_axis_unit', 'normal_unit'))
+            R_board = np.column_stack([u, v, nrm])
+            if not np.allclose(R_board.T @ R_board, np.eye(3), atol=1e-6) or np.linalg.det(R_board) < .5:
+                raise ValueError('board frame is not a proper rotation')
+            def quat_wxyz(R):
+                tr = np.trace(R)
+                if tr > 0:
+                    sq = math.sqrt(tr + 1.) * 2; return (sq/4, (R[2,1]-R[1,2])/sq, (R[0,2]-R[2,0])/sq, (R[1,0]-R[0,1])/sq)
+                i = int(np.argmax(np.diag(R))); j, k = (i+1) % 3, (i+2) % 3
+                sq = math.sqrt(1. + R[i,i] - R[j,j] - R[k,k]) * 2; qv = [0., 0., 0.]
+                qv[i] = sq/4; qv[j] = (R[j,i]+R[i,j])/sq; qv[k] = (R[k,i]+R[i,k])/sq
+                return ((R[k,j]-R[j,k])/sq, *qv)
+            board_frame = BoardFrame(origin_world_m=tuple((pelvis_world + np.asarray(board_def['origin_xyz_m'])).tolist()), orientation_world_qwxyz=quat_wxyz(R_board))
+            scene_cfg = SceneConfig(frame=board_frame, holder_mode='free_dynamic', holder=HolderParameters())
+            marker = build_scene(world.stage, scene_cfg)
+            # Held-marker placement: palm pose at the authored home from the source FK, then the declared
+            # palm-relative holder pose of the grasp candidate (centre + orientation), never an attachment.
+            pelvis_T = np.eye(4); pelvis_T[:3, 3] = pelvis_world
+            authored_q = {n: cfg['body_home_rad'].get(n, 0.) for n in limits}
+            authored_q.update(held['initial']); authored_q.update(held['coupled_initial'])
+            palm_T = kinematics.transforms(authored_q, pelvis_T)['right_base_link']
+            grasp = held['config']; c = np.asarray(grasp.holder_center_palm_m); qh = grasp.holder_orientation_palm_qwxyz
+            def qmat(w, x, y, z):
+                return np.array([[1-2*(y*y+z*z), 2*(x*y-z*w), 2*(x*z+y*w)], [2*(x*y+z*w), 1-2*(x*x+z*z), 2*(y*z-x*w)], [2*(x*z-y*w), 2*(y*z+x*w), 1-2*(x*x+y*y)]])
+            holder_T = np.eye(4); holder_T[:3, :3] = qmat(*qh); holder_T[:3, 3] = c
+            world_T_holder = palm_T @ holder_T
+            world_q = quat_wxyz(world_T_holder[:3, :3]); world_c = world_T_holder[:3, 3]
+            nib_offset = -scene_cfg.holder.tip_offset_m + scene_cfg.holder.nib_radius_m
+            for path, offset in [(marker['holder_body'], 0.), (marker['nib_body'], nib_offset)]:
+                prim = world.stage.GetPrimAtPath(path); xf = UsdGeom.Xformable(prim); xf.ClearXformOpOrder()
+                delta = world_T_holder[:3, :3] @ np.array([0., 0., offset])
+                xf.AddTranslateOp().Set(Gf.Vec3d(*(world_c + delta).tolist()))
+                xf.AddOrientOp().Set(Gf.Quatf(float(world_q[0]), Gf.Vec3f(*[float(x) for x in world_q[1:]])))
+            support_seconds = float(cfg['contact_writing']['preload_support_s']); support_active = support_seconds > 0.
+            if support_active:
+                joint = UsdPhysics.FixedJoint.Define(world.stage, support_path)
+                joint.CreateBody1Rel().SetTargets([marker['holder_body']])
+                joint.CreateLocalPos0Attr(Gf.Vec3f(*[float(x) for x in world_c])); joint.CreateLocalRot0Attr(Gf.Quatf(float(world_q[0]), Gf.Vec3f(*[float(x) for x in world_q[1:]])))
+                joint.CreateLocalPos1Attr(Gf.Vec3f(0., 0., 0.)); joint.CreateLocalRot1Attr(Gf.Quatf(1., Gf.Vec3f(0., 0., 0.)))
+            marker['declared_initial_pose'] = {'palm_T_holder_from_grasp': holder_T.tolist(), 'world_T_holder': world_T_holder.tolist(),
+                'board_frame_world': {'origin_m': list(board_frame.origin_world_m), 'orientation_qwxyz': list(board_frame.orientation_world_qwxyz)},
+                'preload_support': {'declared_seconds': support_seconds, 'joint_path': support_path if support_active else None,
+                                    'kind': 'world_fixed_joint_on_holder_body_released_before_the_job_moves'}}
+            (out/'marker_scene.json').write_text(json.dumps(marker, indent=2, allow_nan=False))
+            metrics.update(tool_attached=False, physical_tool_present=True, board_present=True,
+                physical_virtual_tip_meaning='physical free marker held by contact; nib/board contact measured',
+                support_constraints=['pelvis_fixed_to_world_1m_above_origin', 'declared_preload_support_%.2fs' % support_seconds])
         for p in world.stage.Traverse():
             if p.HasAPI(PhysxSchema.PhysxArticulationAPI):
                 api = PhysxSchema.PhysxArticulationAPI(p)
@@ -298,21 +394,27 @@ def main():
         sample_number = -1
         contact_count = 0
         collision_faults = []
+        step_contacts = []
         def on_contact(headers, data):
             nonlocal contact_count
             for h in headers:
+                collider0, collider1 = str(PhysicsSchemaTools.intToSdfPath(h.collider0)), str(PhysicsSchemaTools.intToSdfPath(h.collider1))
                 for i in range(h.contact_data_offset, h.contact_data_offset+h.num_contact_data):
                     d = data[i]
                     actor0, actor1 = str(PhysicsSchemaTools.intToSdfPath(h.actor0)), str(PhysicsSchemaTools.intToSdfPath(h.actor1))
                     record = {'sequence': sample_number, 'physics_s': float(world.current_time),
-                        'actor0': actor0, 'actor1': actor1,
+                        'actor0': actor0, 'actor1': actor1, 'collider0': collider0, 'collider1': collider1,
                         'position_world_m': list(map(float, d.position)), 'normal_world': list(map(float, d.normal)),
                         'impulse_ns': list(map(float, d.impulse)), 'separation_m': float(d.separation),
                         'source': 'actual_PhysX_contact_report_simulated_proxy'}
+                    task_pair = any(a.startswith(('/World/Marker', '/World/Whiteboard')) for a in (actor0, actor1))
                     pair = frozenset((Path(actor0).name, Path(actor1).name))
-                    if len(pair)==2 and pair not in adjacent and (record['separation_m'] < -.001 or
+                    # Robot self-collision guard only; marker/board contacts are the task and are scored separately.
+                    if not task_pair and len(pair)==2 and pair not in adjacent and (record['separation_m'] < -.001 or
                             sum(v*v for v in record['impulse_ns'])**.5 > .025):
                         collision_faults.append(record)
+                    if task_pair:
+                        step_contacts.append(record)
                     contact_file.write(json.dumps(record, allow_nan=False)+'\n')
                     contact_count += 1
         subscription = get_physx_simulation_interface().subscribe_contact_report_events(on_contact)
@@ -338,6 +440,18 @@ def main():
         kp[hand_ids], kd[hand_ids] = float(cfg.get('hand_hold_kp_nm_rad', 1.)), float(cfg.get('hand_hold_kd_nm_s_rad', .05))
         metrics['hand_hold_gains'] = {'kp_nm_rad': float(kp[hand_ids][0]), 'kd_nm_s_rad': float(kd[hand_ids][0]),
             'scope': 'declared idle open-hand fixture hold; not a grasp or exact-hand actuator model'}
+        hand_targets = np.zeros(12, dtype=np.float32)
+        if contact_mode:
+            # Right hand: the retention-qualified grasp bench drives (declared gains, closed targets);
+            # left hand: idle open. Same tensor path as the body gains.
+            right_hand = [n for n in hand_names if n.startswith('right_')]
+            right_ids = np.array([names.index(n) for n in right_hand], dtype=np.int32)
+            kp[right_ids] = float(cfg['contact_writing']['grasp_finger_kp_nm_rad']); kd[right_ids] = float(cfg['contact_writing']['grasp_finger_kd_nm_s_rad'])
+            for i, n in enumerate(hand_names):
+                if n in held['closed']:
+                    hand_targets[i] = held['closed'][n]
+            metrics['hand_hold_gains']['right_grasp'] = {'kp_nm_rad': float(kp[right_ids][0]), 'kd_nm_s_rad': float(kd[right_ids][0]),
+                'closed_targets_rad': {n: float(held['closed'][n]) for n in right_hand}, 'scope': 'grasp bench drives of the held-marker candidate'}
         if implicit_backend:
             # Declared body gains live inside the capped implicit drives (same
             # radian tensor path as the hands); no explicit body effort follows.
@@ -388,6 +502,13 @@ def main():
                  ['pelvis', 'right_wrist_yaw_link', 'left_wrist_yaw_link', 'right_base_link', 'left_base_link']}
         if any(v.count != 1 for v in views.values()):
             raise ValueError('named link pose readback absent/ambiguous')
+        marker_views = {}
+        ink_samples = []; ink_rows = []; held_drift = []; job_path = None; strokes = []; path_refs = {}
+        if contact_mode:
+            marker_views = {'holder': sim_view.create_rigid_body_view(marker['holder_body']), 'nib': sim_view.create_rigid_body_view(marker['nib_body'])}
+            if any(v.count != 1 for v in marker_views.values()):
+                raise ValueError('marker body pose readback absent/ambiguous')
+            ink_file = (out/'ink_samples.jsonl').open('w', buffering=1); files.append(ink_file)
         stats = get_physxunittests_interface().get_physics_stats()
         shapes = {'statistics': stats, 'palms': {}}
         left_thumb = sim_view.create_rigid_body_view('/World/G1/left_thumb_2')
@@ -459,7 +580,14 @@ def main():
             if sample_number and not world.is_playing():
                 arbiter.check_freshness(time.monotonic())
                 raise RuntimeError('physics pause requires stopping this admitted run')
-            robot.apply_action(ArticulationAction(joint_positions=np.zeros(12, dtype=np.float32), joint_indices=hand_ids))
+            robot.apply_action(ArticulationAction(joint_positions=hand_targets, joint_indices=hand_ids))
+            if contact_mode and support_active and float(world.current_time) >= support_seconds:
+                world.stage.RemovePrim(support_path)
+                if world.stage.GetPrimAtPath(support_path).IsValid():
+                    raise RuntimeError('Preload support joint was not removed')
+                support_active = False
+                metrics['preload_support_release'] = {'sequence': sample_number, 'physics_s_before_step': float(world.current_time)}
+            step_contacts.clear()
             world.step(render=False)
             q = np.ravel(robot.get_joint_positions()).astype(float).tolist()
             dq = np.ravel(robot.get_joint_velocities()).astype(float).tolist()
@@ -476,6 +604,65 @@ def main():
                 'phase':workflow['stage'] if workflow is not None else 'initial_measured_state'}
             state_file.write(json.dumps(record, allow_nan=True)+'\n')
             metrics['steps'] += 1
+            if contact_mode:
+                mp = {k: np.asarray(v.get_transforms())[0].astype(float).tolist() for k, v in marker_views.items()}
+                holder_pos, holder_rot = tuple(mp['holder'][:3]), (mp['holder'][6], *mp['holder'][3:6])
+                nib_pos, nib_rot = tuple(mp['nib'][:3]), (mp['nib'][6], *mp['nib'][3:6])
+                tip_world = tuple(a+b for a, b in zip(nib_pos, rotate(nib_rot, (0., 0., -scene_cfg.holder.nib_radius_m))))
+                geometric_q = compression_from_poses(holder_pos, holder_rot, nib_pos, scene_cfg.holder)
+                observation = reduce_tip_contacts(list(step_contacts), tip_collider=marker['tip_collider'], board_collider=marker['board_collider'],
+                                                  frame=board_frame, nib_position_world=tip_world, dt_s=.005)
+                # Job sample actually streamed (writer progress index), used only to label pen_down/stroke.
+                progress = getattr(bridge, '_progress', None) or {}
+                idx = progress.get('job_index'); job_state = progress.get('job_state')
+                if job_path is None and workflow is not None and workflow.get('approved_sha256'):
+                    reviewed = out/'writer_bridge'/('approved_job_'+workflow['approved_sha256']+'.json')
+                    if reviewed.is_file():
+                        job_path = json.loads(reviewed.read_text())['content']['path']
+                        # Intended strokes (planned tip, pelvis -> board u,v) and the synchronized reference of every
+                        # pen-down path sample: vertex j of its stroke polyline.
+                        origin = np.asarray(board_def['origin_xyz_m']); groups = {}; path_refs = {}
+                        for k, pt in enumerate(job_path):
+                            if pt.get('pen_down'):
+                                key = '%s_%d_%d' % (pt.get('char', '?'), pt.get('char_index', -1), pt.get('stroke_index', -1))
+                                d = np.asarray(pt['tip']) - origin; pt_uv = (float(d @ u), float(d @ v))
+                                pts = groups.setdefault(key, [])
+                                if not pts or pts[-1][0] != pt_uv:
+                                    pts.append((pt_uv, k))
+                                path_refs[k] = (key, len(pts)-1)
+                        strokes = []; stroke_len = {}
+                        for key, pts in groups.items():
+                            if len(pts) >= 2:
+                                strokes.append(IntendedStroke(key, tuple(q_ for q_, _ in pts))); stroke_len[key] = len(pts)
+                        for k, (key, j) in list(path_refs.items()):
+                            n_ = stroke_len.get(key)
+                            path_refs[k] = None if n_ is None else (key, (j if j < n_-1 else n_-2), (0. if j < n_-1 else 1.))
+                        metrics['intended_strokes'] = {s_.stroke_id: [list(q_) for q_ in s_.points_board_m] for s_ in strokes}
+                sample_ref = None; ref = None
+                if job_path and job_state == 'running' and isinstance(idx, int):
+                    k_ = max(0, min(len(job_path)-1, int(idx)-1)); sample_ref = job_path[k_]; ref = path_refs.get(k_)
+                pen_down = bool(sample_ref['pen_down']) and ref is not None if sample_ref else False
+                stroke_id, segment_index, reference_fraction = (ref if pen_down else (None, None, None))
+                # Hand-relative holder drift (tip and axis) as in the retention bench.
+                hand_contacts = [c for c in step_contacts if any(a.startswith('/World/G1/right_') for a in (c['actor0'], c['actor1'])) and any(a.startswith('/World/Marker') for a in (c['actor0'], c['actor1'])) and sum(v*v for v in c['impulse_ns']) > 1e-20]
+                board_contacts = [c for c in step_contacts if any(a.startswith('/World/Whiteboard') for a in (c['actor0'], c['actor1']))]
+                nonnib_board = [c for c in board_contacts if {c['collider0'], c['collider1']} != {marker['tip_collider'], marker['board_collider']}]
+                sample = ContactSample(physics_sequence=sample_number, physics_time_s=sim_time, physics_dt_s=.005,
+                    nib_position_board_m=observation['position_board_m'], nib_board_contact=observation['nib_board_contact'],
+                    pen_down=pen_down, spring_compression_m=max(0., geometric_q), stroke_id=stroke_id,
+                    segment_index=segment_index, reference_fraction=reference_fraction,
+                    normal_impulse_ns=observation['normal_impulse_ns'], normal_force_n=observation['normal_force_n'],
+                    attachment_active=False, fixture_support_active=support_active,
+                    holder_bottomed_out=geometric_q >= scene_cfg.holder.slider_travel_m-scene_cfg.holder.bottomout_margin_m)
+                ink_samples.append(sample)
+                ink_row = {'sequence': sample_number, 'physics_s': sim_time, 'phase': record['phase'], 'job_state': job_state, 'job_index': idx,
+                    'pen_down': pen_down, 'stroke_id': stroke_id, 'nib_board_contact': observation['nib_board_contact'],
+                    'normal_force_n': observation['normal_force_n'], 'position_board_m': list(observation['position_board_m']),
+                    'position_source': observation['position_source'], 'tip_world_m': list(tip_world), 'spring_compression_m': geometric_q,
+                    'holder_hand_contact': bool(hand_contacts), 'hand_contact_links': sorted({Path(a).name for c in hand_contacts for a in (c['actor0'], c['actor1']) if a.startswith('/World/G1/')}),
+                    'support_active': support_active, 'holder_pose_world_xyzw': mp['holder'], 'nonnib_board_contact': bool(nonnib_board),
+                    'other_board_contact_actors': sorted({a for c in nonnib_board for a in (c['actor0'], c['actor1']) if not a.startswith('/World/Whiteboard')})}
+                ink_rows.append(ink_row); ink_file.write(json.dumps(ink_row, allow_nan=False)+'\n')
             if collision_faults:
                 metrics['material_nonadjacent_collision_faults'] = collision_faults[:100]
                 raise ValueError('material nonadjacent self-collision before body write: penetration>1mm or impulse>0.025Ns')
@@ -616,6 +803,35 @@ def main():
                 and gain_receipt['kd'][indices[n]] == cfg['kd_nm_s_rad'][n] for n in body_names)
         else:
             metrics['checks']['implicit_body_gains_zero'] = True
+        if contact_mode:
+            # Intended strokes from the APPROVED job (planned tip in pelvis frame -> board u,v); ink from actual
+            # nib/board contacts only (MarkingRule unchanged: p95 3 mm, max 10 mm, coverage 95 %).
+            rule = MarkingRule(spring_travel_m=scene_cfg.holder.slider_travel_m, maximum_sample_interval_s=.005*1.1)
+            ink = None
+            if strokes and ink_samples:
+                try:
+                    ink = evaluate_ink(tuple(strokes), tuple(ink_samples), rule)
+                    (out/'contact_ink.json').write_text(json.dumps(ink, indent=2, allow_nan=False, default=str))
+                    export_svg(ink, out/'contact_ink.svg'); export_csv(ink_samples, out/'contact_samples.csv')
+                except Exception as error:
+                    ink = {'error': repr(error)}
+            contact_rows = [r for r in ink_rows if r['nib_board_contact']]
+            metrics['contact_writing'] = {'intended_strokes': [s_.stroke_id for s_ in strokes], 'ink_samples': len(ink_samples),
+                'nib_board_contact_samples': len(contact_rows), 'pen_down_samples': sum(1 for r in ink_rows if r['pen_down']),
+                'pen_down_with_contact': sum(1 for r in ink_rows if r['pen_down'] and r['nib_board_contact']),
+                'contact_without_pen_down': sum(1 for r in contact_rows if not r['pen_down']),
+                'max_normal_force_n': max((r['normal_force_n'] for r in contact_rows), default=0.),
+                'max_spring_compression_m': max((r['spring_compression_m'] for r in ink_rows), default=0.),
+                'holder_hand_contact_fraction': (sum(1 for r in ink_rows if r['holder_hand_contact'])/len(ink_rows)) if ink_rows else 0.,
+                'nonnib_board_contact_samples': sum(1 for r in ink_rows if r['nonnib_board_contact']),
+                'support_release': metrics.get('preload_support_release'), 'evaluation': ink}
+            passed = bool(ink and isinstance(ink, dict) and ink.get('accepted') is True and ink.get('valid') is True)
+            metrics['checks'].update({
+                'held_marker_never_lost': bool(ink_rows) and all(r['holder_hand_contact'] for r in ink_rows if not r['support_active'] and r['job_state'] in ('running', 'done')),
+                'actual_nib_board_contact_during_pen_down': metrics['contact_writing']['pen_down_with_contact'] > 0,
+                'no_nonnib_board_contact': metrics['contact_writing']['nonnib_board_contact_samples'] == 0,
+                'contact_ink_gate_p95_3mm_max_10mm_coverage_95': passed})
+            metrics['writing_qualification'] = 'FIXED_BASE_PROVISIONAL_PASS' if passed else 'NOT_QUALIFIED'
         metrics['status'] = 'PASS' if all(metrics['checks'].values()) else 'FAIL'
     except BaseException:
         metrics['error'] = traceback.format_exc()

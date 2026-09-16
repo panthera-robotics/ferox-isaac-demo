@@ -139,3 +139,12 @@ class Float32PoseReadbackTests(unittest.TestCase):
         self.assertAlmostEqual(result['translation_m'], 0.)
         with self.assertRaisesRegex(ValueError, 'unit'):
             probe.pose_matrix([.1, .2, .3, *(q * 1.01)])
+
+    def test_contact_writing_block_is_explicit_bounded_and_mounted(self):
+        block = {'held_marker_grasp_path': '/workspace/writer-fixture/held_marker_grasp.json', 'preload_support_s': .8,
+                 'grasp_finger_kp_nm_rad': 1., 'grasp_finger_kd_nm_s_rad': .05, 'provenance': 'v9b measured grasp'}
+        probe.validate_config(self.config(contact_writing=block))
+        for bad in ({**block, 'preload_support_s': 2.}, {**block, 'grasp_finger_kp_nm_rad': 20.}, {**block, 'held_marker_grasp_path': '/tmp/x.json'},
+                    {**block, 'provenance': ''}, {k: v for k, v in block.items() if k != 'provenance'}, {**block, 'extra': 1}):
+            with self.assertRaises(ValueError):
+                probe.validate_config(self.config(contact_writing=bad))
