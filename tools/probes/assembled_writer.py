@@ -175,11 +175,13 @@ def main():
             pose_dir=copied_input(profile_data['pose_dir']), record_dir=str(runtime/'recording'))
         if profile_data.get('planner_model_path'):
             profile_data['planner_model_path'] = copied_input(profile_data['planner_model_path'])
+        # Same declared wall arrival tolerance for the writer's telemetry watchdog.
+        profile_data['telemetry_stale_after_s'] = float(cfg.get('maximum_wall_age_s', .1))
         private_profile_path = runtime/'profile.json'
         private_profile_path.write_text(json.dumps(profile_data, indent=2, allow_nan=False))
         metrics.update(private_profile_template_sha256=hashlib.sha256(template_profile.read_bytes()).hexdigest(),
             private_profile_derived_sha256=hashlib.sha256(private_profile_path.read_bytes()).hexdigest(),
-            private_profile_derivation='copied explicit template; only runtime paths and admitted run_id rewritten')
+            private_profile_derivation='copied explicit template; only runtime paths, admitted run_id and declared telemetry_stale_after_s rewritten')
         task_profile = load_profile(private_profile_path)
         frames_path = Path(cfg['planner_frames_path'])
         if hashlib.sha256(frames_path.read_bytes()).hexdigest() != cfg['planner_frames_sha256']:
