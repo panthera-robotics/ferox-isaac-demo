@@ -374,7 +374,10 @@ def main():
         integrity['contact_instrumentation_valid'] = not contact_faults
         final_kp, final_kd = robot._articulation_view.get_gains()
         final_caps = robot._articulation_view.get_max_efforts()
-        integrity['drive_gains_caps_unchanged_through_episode'] = all(np.array_equal(np.asarray(value).reshape(-1), expected)
+        # Live readback is float32; the receipt values are float64 (balance03 reported
+        # a false 'changed' on 0.05 -> 0.0500000007). Compare at float32 resolution.
+        integrity['drive_gains_caps_unchanged_through_episode'] = all(
+            np.allclose(np.asarray(value, dtype=float).reshape(-1), np.asarray(expected, dtype=float), rtol=1e-6, atol=1e-7)
             for value, expected in zip((final_kp, final_kd, final_caps), (kp, kd, caps)))
         policy_receipt['learned_actor_inference_executed'] = any(r.get('policy_inference_this_step', False) for r in rows)
         policy_receipt['body_effort_write_count'] = sum(r.get('body_effort_writes_this_step', 0) for r in rows)
