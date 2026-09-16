@@ -259,3 +259,86 @@ class FreshnessTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ImplicitDriveArbiterTests(unittest.TestCase):
+    """Versioned implicit realization: gain-weighted blended target, zero additive effort."""
+
+    def drive_arbiter(self, **kw):
+        from isaac.twin.inspire.implicit_arm_adapter import NamedBodyDriveArbiter
+        config = dict(body_indices=INDICES, bounds=BOUNDS, simulator_id='isaacsim_test',
+                      run_id='episode_001', mode='hybrid', controller_id='balance_surrogate',
+                      simulation_authorized=True, explicit_efforts_disabled=True,
+                      source_caps_verified=True)
+        config.update(kw)
+        return NamedBodyDriveArbiter(**config)
+
+    def test_requires_verified_zero_explicit_effort_and_source_caps(self):
+        for bad in (dict(explicit_efforts_disabled=False), dict(source_caps_verified=False),
+                    dict(maximum_feedforward_bias_rad=0.5), dict(maximum_feedforward_bias_rad=float('nan'))):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                self.drive_arbiter(**bad)
+        with self.assertRaises(ValueError):
+            arbiter(actuation_backend='implicit_biased_drive_v1')  # implicit needs declared drives
+        with self.assertRaises(ValueError):
+            arbiter(actuation_backend='unknown_backend')
+
+    def test_blended_drive_matches_explicit_effort_field_before_the_cap(self):
+        a = self.drive_arbiter()
+        sample(a)
+        a.accept_upper_reference(task(), now_monotonic_s=10.0)
+        drive = a.compose_drives(body(tau=1.0), controller_id='balance_surrogate',
+                                 physics_sequence=1, now_monotonic_s=10.0)
+        b = arbiter()
+        sample(b)
+        b.accept_upper_reference(task(), now_monotonic_s=10.0)
+        explicit = dict(zip(*[(r := output(b, body(tau=1.0))).joint_names, r.effort_nm]))
+        self.assertEqual(drive.actuation_semantics.split(';')[0], 'implicit_biased_drive_v1')
+        self.assertEqual(drive.final_writer, 'simulation_implicit_body_arbiter')
+        for name, target, dq, kp, kd, cap, bias, estimate in zip(
+                drive.joint_names, drive.target_position_rad, drive.target_velocity_rad_s,
+                drive.stiffness_nm_rad, drive.damping_nm_s_rad, drive.source_effort_caps_nm,
+                drive.feedforward_target_bias_rad, drive.current_pd_estimate_nm):
+            # kp*(target-q)+kd*(dq_target-dq) at q=dq=0 reproduces the explicit blended field exactly.
+            self.assertAlmostEqual(kp * target + kd * dq, explicit[name], places=12)
+            self.assertAlmostEqual(estimate, explicit[name], places=12)
+            self.assertEqual(cap, BOUNDS[name].max_effort)
+            if name in UPPER_NAMES:
+                self.assertEqual(kp, 30.0)      # 0.5*20+0.5*40
+                self.assertAlmostEqual(bias, 0.5 / 30.0)
+            else:
+                self.assertEqual(kp, 20.0)
+                self.assertAlmostEqual(bias, 1.0 / 20.0)
+
+    def test_explicit_compose_is_refused_and_second_write_same_sample_is_refused(self):
+        a = self.drive_arbiter()
+        sample(a)
+        with self.assertRaises(SimulationAdmissionError):
+            output(a)
+        b = self.drive_arbiter()
+        sample(b)
+        b.compose_drives(body(), controller_id='balance_surrogate', physics_sequence=1, now_monotonic_s=10.0)
+        with self.assertRaises(SimulationAdmissionError):
+            b.compose_drives(body(), controller_id='balance_surrogate', physics_sequence=1, now_monotonic_s=10.0)
+
+    def test_bias_and_target_bounds_fault_instead_of_clipping(self):
+        a = self.drive_arbiter(maximum_feedforward_bias_rad=0.01)
+        sample(a)
+        with self.assertRaises(SimulationAdmissionError):   # tau/kp = 1/20 > 0.01
+            a.compose_drives(body(tau=1.0), controller_id='balance_surrogate', physics_sequence=1, now_monotonic_s=10.0)
+        b = self.drive_arbiter()
+        sample(b)
+        with self.assertRaises(SimulationAdmissionError):   # q=2.99 + bias 0.05 exceeds q_max 3.0
+            b.compose_drives(body(q=2.99, tau=1.0), controller_id='balance_surrogate', physics_sequence=1, now_monotonic_s=10.0)
+        c = self.drive_arbiter()
+        sample(c)
+        with self.assertRaises(SimulationAdmissionError):   # non-positive gain cannot realize a drive
+            c.compose_drives(body(kp=0.0), controller_id='balance_surrogate', physics_sequence=1, now_monotonic_s=10.0)
+
+    def test_handover_keeps_implicit_backend_and_needs_new_run(self):
+        a = self.drive_arbiter()
+        with self.assertRaises(ValueError):
+            a.reset_for_run(run_id='episode_001', mode='hybrid', controller_id='balance_surrogate', simulation_authorized=True)
+        b = a.reset_for_run(run_id='episode_002', mode='fullbody', controller_id='wbc', simulation_authorized=True)
+        self.assertEqual(b.actuation_backend, 'implicit_biased_drive_v1')
+        self.assertEqual(b.run_id, 'episode_002')

@@ -91,11 +91,17 @@ class NamedBodyArbiter:
     def __init__(self, *, body_indices: Mapping[str, int], bounds: Mapping[str, JointBound],
                  simulator_id: str, run_id: str, mode: str, controller_id: str,
                  simulation_authorized: bool, implicit_drives_disabled: bool,
-                 target='isaacsim', maximum_age_s=0.10):
+                 target='isaacsim', maximum_age_s=0.10,
+                 actuation_backend='explicit_pd'):
         if simulation_authorized is not True or target != 'isaacsim':
             raise ValueError('independent simulation authorization required')
-        if implicit_drives_disabled is not True:
+        if actuation_backend not in ('explicit_pd', 'implicit_biased_drive_v1'):
+            raise ValueError('unknown versioned actuation backend')
+        if actuation_backend == 'explicit_pd' and implicit_drives_disabled is not True:
             raise ValueError('implicit drives must be disabled before explicit PD actuation')
+        if actuation_backend == 'implicit_biased_drive_v1' and implicit_drives_disabled is not False:
+            raise ValueError('implicit backend requires explicitly declared implicit drives')
+        self.actuation_backend = actuation_backend
         self.simulator_id, self.run_id = _identifier(simulator_id), _identifier(run_id)
         if mode not in ('hybrid', 'fullbody'):
             raise ValueError('exactly one of hybrid/fullbody must own the body')
@@ -253,6 +259,8 @@ class NamedBodyArbiter:
         """
         self._ready()
         try:
+            if self.actuation_backend != 'explicit_pd':
+                raise ValueError('explicit torque composition conflicts with implicit drive ownership')
             self.check_freshness(now_monotonic_s)
             physics = self._physics
             if controller_id != self._controller_id:
