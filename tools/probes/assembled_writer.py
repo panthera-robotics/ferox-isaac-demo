@@ -684,12 +684,22 @@ def main():
             metrics['status'] = 'FAIL'
         metrics['wall_seconds'] = time.monotonic()-started
         (out/'metrics.json').write_text(json.dumps(metrics, indent=2, allow_nan=False))
-        artifacts = [str(p.relative_to(out)) for p in out.rglob('*') if p.is_file() and p.name not in
-                     ['run.json','probe.json','console.log','executed_probe.py','executed_launcher.py','uncommitted.patch']]
+        candidates = [p for p in out.rglob('*') if p.is_file() and p.name not in
+                      ['run.json','probe.json','console.log','executed_probe.py','executed_launcher.py','uncommitted.patch']]
+        # Zero-byte logs (e.g. a silent child console) are listed separately, not
+        # hidden: the launcher hashes and requires every listed artifact to be non-empty.
+        artifacts = [str(p.relative_to(out)) for p in candidates if p.stat().st_size > 0]
+        empty = [str(p.relative_to(out)) for p in candidates if p.stat().st_size == 0]
         (out/'probe.json').write_text(json.dumps({'status':metrics['status'], 'scope':metrics['scope'],
-            'metrics':'metrics.json', 'artifacts':artifacts}))
+            'metrics':'metrics.json', 'artifacts':artifacts, 'empty_artifacts':empty}))
     return 0 if metrics['status']=='PASS' else 1
 
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    code = main()
+    # Every receipt and stream is complete and flushed above. The pinned Isaac
+    # 5.1 + ROS2 bridge interpreter teardown segfaults during garbage collection
+    # after app.close() (writer03..15 console logs), which would turn a complete
+    # receipt into a nonzero container exit; skip interpreter teardown.
+    sys.stdout.flush(); sys.stderr.flush()
+    os._exit(code)
