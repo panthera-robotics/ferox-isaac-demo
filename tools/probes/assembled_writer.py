@@ -30,8 +30,10 @@ def validate_config(config):
         'planner_frames_sha256', 'body_home_rad', 'kp_nm_rad', 'kd_nm_s_rad',
         'tau_ff_nm', 'gain_provenance', 'feedforward_provenance', 'workflow_mode',
         'letter_height_m', 'maximum_steps', 'maximum_wall_s'}
-    if not isinstance(config, dict) or set(config) != required:
+    if not isinstance(config, dict) or not required <= set(config) <= required | {'actuation_backend'}:
         raise ValueError('explicit assembled writer config fields required')
+    if config.get('actuation_backend', 'explicit_pd') not in ('explicit_pd', 'implicit_biased_drive_v1'):
+        raise ValueError('unknown versioned body actuation backend')
     if type(config['schema_version']) is not int or config['schema_version'] != 1 or config['hardware_authorized'] is not False:
         raise ValueError('simulator-only config version1 required')
     for key in ['private_driver_path', 'private_dependency_path', 'private_profile_path', 'planner_frames_path']:
@@ -204,6 +206,9 @@ def main():
             app.update()
         from g1_arm_tasks.sim_process_bridge import WriterProcessBridge
         from inspire.arm_adapter import NamedBodyArbiter, JointBound
+        from inspire.implicit_arm_adapter import NamedBodyDriveArbiter
+        implicit_backend = cfg.get('actuation_backend', 'explicit_pd') == 'implicit_biased_drive_v1'
+        metrics['actuation_backend'] = 'implicit_biased_drive_v1' if implicit_backend else 'explicit_pd'
         from inspire_body_asset import import_body
         from inspire_collision import replace_palm_with_components, replace_left_thumb_with_slabs
         from rigid_inertia import audit_live_properties
@@ -312,14 +317,24 @@ def main():
         hand_ids = np.array([names.index(n) for n in hand_names], dtype=np.int32)
         kp, kd = np.zeros(53, dtype=np.float32), np.zeros(53, dtype=np.float32)
         kp[hand_ids], kd[hand_ids] = 1., .05
+        if implicit_backend:
+            # Declared body gains live inside the capped implicit drives (same
+            # radian tensor path as the hands); no explicit body effort follows.
+            kp[body_ids] = [cfg['kp_nm_rad'][n] for n in body_names]
+            kd[body_ids] = [cfg['kd_nm_s_rad'][n] for n in body_names]
         robot._articulation_view.set_gains(kp, kd)
         gains = robot.get_articulation_controller().get_gains()
-        gain_receipt = {'source': 'live_articulation_gain_readback_before_explicit_efforts',
+        live_caps = np.ravel(robot._articulation_view.get_max_efforts()).astype(float)
+        gain_receipt = {'source': 'live_articulation_gain_readback_before_body_writes',
+            'backend': metrics['actuation_backend'],
             'runtime_names': names, 'kp': np.ravel(gains[0]).tolist(), 'kd': np.ravel(gains[1]).tolist(),
-            'body_indices': indices, 'hand_root_names': hand_names}
+            'max_efforts': live_caps.tolist(), 'body_indices': indices, 'hand_root_names': hand_names}
         (out/'implicit_gain_readback.json').write_text(json.dumps(gain_receipt, indent=2))
         if not np.array_equal(np.ravel(gains[0]), kp) or not np.array_equal(np.ravel(gains[1]), kd):
-            raise ValueError('implicit gains differ from exact zero body/declared hand gains')
+            raise ValueError('implicit gains differ from declared body/hand gains')
+        if any(abs(live_caps[indices[n]] - limits[n]['effort']) > 1e-6 for n in body_names):
+            raise ValueError('live body drive caps differ from source effort limits')
+        gain_writes = 0
         q0 = np.zeros(53, dtype=np.float32)
         q0[body_ids] = [cfg['body_home_rad'][n] for n in body_names]
         # JointState was authored before physics initialization. No body pose,
@@ -379,10 +394,17 @@ def main():
         bridge = WriterProcessBridge(private_profile_path, out/'writer_bridge',
             dependency_path=cfg['private_dependency_path'], approved_fixture=True,
             letter_height_m=cfg['letter_height_m'], state_provenance='physx_measured_joint_effort')
-        arbiter = NamedBodyArbiter(body_indices=indices,
-            bounds={n: JointBound(limits[n]['lower'], limits[n]['upper'], limits[n]['velocity'], 200., 5., limits[n]['effort']) for n in body_names},
-            simulator_id=task_profile.simulator_id, run_id=task_profile.run_id, mode='hybrid',
-            controller_id='fixed_pelvis_home_fixture', simulation_authorized=True, implicit_drives_disabled=True)
+        bounds = {n: JointBound(limits[n]['lower'], limits[n]['upper'], limits[n]['velocity'], 200., 5., limits[n]['effort']) for n in body_names}
+        if implicit_backend:
+            arbiter = NamedBodyDriveArbiter(body_indices=indices, bounds=bounds,
+                simulator_id=task_profile.simulator_id, run_id=task_profile.run_id, mode='hybrid',
+                controller_id='fixed_pelvis_home_fixture', simulation_authorized=True,
+                explicit_efforts_disabled=True, source_caps_verified=True)
+        else:
+            arbiter = NamedBodyArbiter(body_indices=indices, bounds=bounds,
+                simulator_id=task_profile.simulator_id, run_id=task_profile.run_id, mode='hybrid',
+                controller_id='fixed_pelvis_home_fixture', simulation_authorized=True, implicit_drives_disabled=True)
+        explicit_body_effort_observed = 0
         base = {n: {'q': cfg['body_home_rad'][n], 'dq': 0., 'kp': cfg['kp_nm_rad'][n],
                     'kd': cfg['kd_nm_s_rad'][n], 'tau': cfg['tau_ff_nm'][n]} for n in body_names}
         metrics.update(runtime_names=names, source_mass_kg=facts['source_physical_mass_kg'],
@@ -456,17 +478,51 @@ def main():
             workflow = bridge.workflowadvance(mode=cfg['workflow_mode'], text='I')
             if workflow['finished']:
                 break
-            effective = arbiter.compose(base, controller_id='fixed_pelvis_home_fixture', physics_sequence=sample_number, now_monotonic_s=time.monotonic())
-            # Exactly ONE explicit named29 body effort write for this sample.
-            applied_efforts = np.asarray(effective.effort_nm, dtype=np.float32)
-            robot.apply_action(ArticulationAction(joint_efforts=applied_efforts,
-                joint_indices=np.asarray(effective.articulation_indices, dtype=np.int32)))
-            metrics['effective_body_writes'] += 1
-            bridge.record_effective_command(physics_sequence=sample_number, sim_time_s=sim_time,
-                final_owner=effective.final_writer, joints={n:{'effort_nm':float(v)} for n,v in zip(effective.joint_names,applied_efforts)},
-                metadata={'applied_to_physics': True, 'applies_to_next_physics_step': True,
-                          'arbiter_pre_float32_effort_nm': list(effective.effort_nm),
-                          'reference_owners': list(effective.reference_owners), 'implicit_body_gains': 'verified_zero'})
+            if implicit_backend:
+                drive = arbiter.compose_drives(base, controller_id='fixed_pelvis_home_fixture', physics_sequence=sample_number, now_monotonic_s=time.monotonic())
+                drive_ids = np.asarray(drive.articulation_indices, dtype=np.int32)
+                new_kp, new_kd = kp.copy(), kd.copy()
+                new_kp[drive_ids] = drive.stiffness_nm_rad; new_kd[drive_ids] = drive.damping_nm_s_rad
+                if not np.array_equal(new_kp, kp) or not np.array_equal(new_kd, kd):
+                    robot._articulation_view.set_gains(new_kp, new_kd); kp, kd = new_kp, new_kd; gain_writes += 1
+                    readback = robot.get_articulation_controller().get_gains()
+                    if not np.array_equal(np.ravel(readback[0]), kp) or not np.array_equal(np.ravel(readback[1]), kd):
+                        raise ValueError('blended implicit gain readback differs from the composed drive')
+                targets = np.asarray(drive.target_position_rad, dtype=np.float32)
+                target_velocities = np.asarray(drive.target_velocity_rad_s, dtype=np.float32)
+                # Exactly ONE implicit named29 body target write for this sample; zero explicit body effort.
+                robot.apply_action(ArticulationAction(joint_positions=targets, joint_velocities=target_velocities, joint_indices=drive_ids))
+                tensor = robot._articulation_view._physics_view
+                target_readback = np.asarray(tensor.get_dof_position_targets()).reshape(-1)
+                live_efforts = np.asarray(tensor.get_dof_actuation_forces()).reshape(-1)
+                if target_readback.shape != (53,) or not np.array_equal(target_readback[drive_ids], targets):
+                    raise ValueError('implicit target readback differs from the composed drive')
+                if np.any(live_efforts[body_ids] != 0.):
+                    explicit_body_effort_observed += 1
+                metrics['effective_body_writes'] += 1
+                bridge.record_effective_command(physics_sequence=sample_number, sim_time_s=sim_time,
+                    final_owner=drive.final_writer,
+                    joints={n:{'implicit_target_rad':float(t), 'implicit_target_velocity_rad_s':float(v), 'kp_nm_rad':float(k), 'kd_nm_s_rad':float(d),
+                               'feedforward_bias_rad':float(b), 'current_pd_estimate_nm':float(e)}
+                            for n,t,v,k,d,b,e in zip(drive.joint_names,targets,target_velocities,drive.stiffness_nm_rad,drive.damping_nm_s_rad,
+                                                     drive.feedforward_target_bias_rad,drive.current_pd_estimate_nm)},
+                    metadata={'applied_to_physics': True, 'applies_to_next_physics_step': True,
+                              'actuation_semantics': drive.actuation_semantics,
+                              'explicit_body_effort_written': False, 'source_effort_caps_nm': list(drive.source_effort_caps_nm),
+                              'reference_owners': list(drive.reference_owners), 'implicit_body_gains': 'declared_kp_kd_in_capped_drive',
+                              'gain_writes_so_far': gain_writes})
+            else:
+                effective = arbiter.compose(base, controller_id='fixed_pelvis_home_fixture', physics_sequence=sample_number, now_monotonic_s=time.monotonic())
+                # Exactly ONE explicit named29 body effort write for this sample.
+                applied_efforts = np.asarray(effective.effort_nm, dtype=np.float32)
+                robot.apply_action(ArticulationAction(joint_efforts=applied_efforts,
+                    joint_indices=np.asarray(effective.articulation_indices, dtype=np.int32)))
+                metrics['effective_body_writes'] += 1
+                bridge.record_effective_command(physics_sequence=sample_number, sim_time_s=sim_time,
+                    final_owner=effective.final_writer, joints={n:{'effort_nm':float(v)} for n,v in zip(effective.joint_names,applied_efforts)},
+                    metadata={'applied_to_physics': True, 'applies_to_next_physics_step': True,
+                              'arbiter_pre_float32_effort_nm': list(effective.effort_nm),
+                              'reference_owners': list(effective.reference_owners), 'implicit_body_gains': 'verified_zero'})
             if (sample_number+1) % 20 == 0:
                 # Same held-physics capture interval as the balance probe: the
                 # first frame follows 20 controlled steps, never the first 5ms.
@@ -493,13 +549,28 @@ def main():
         else:
             raise TimeoutError('admitted maximum steps ended before actual workflow completion')
         metrics['workflow'] = workflow
+        final_gains = robot.get_articulation_controller().get_gains()
+        final_caps = np.ravel(robot._articulation_view.get_max_efforts()).astype(float)
+        metrics['actuation_receipt'] = {'backend': metrics['actuation_backend'], 'gain_writes': gain_writes,
+            'explicit_body_effort_samples': explicit_body_effort_observed,
+            'final_kp': np.ravel(final_gains[0]).tolist(), 'final_kd': np.ravel(final_gains[1]).tolist(),
+            'final_max_efforts': final_caps.tolist(),
+            'final_gains_match_last_composed': bool(np.array_equal(np.ravel(final_gains[0]), kp) and np.array_equal(np.ravel(final_gains[1]), kd)),
+            'source_caps_unchanged': bool(np.array_equal(final_caps, live_caps))}
         metrics['checks'] = {'actual_workflow_finished': bool(workflow and workflow['finished']),
-            'explicit_body_writes_observed': metrics['effective_body_writes'] > 0,
+            'body_writes_observed': metrics['effective_body_writes'] > 0,
             'actual_writer_references_observed': metrics['returned_references'] > 0,
             'live_inertia_preserved': all(inertia['checks'].values()),
-            'implicit_body_gains_zero': True, 'actual_source_fk_within_budget': maximum_error <= .0002,
+            'body_actuation_ownership_verified': (explicit_body_effort_observed == 0 and metrics['actuation_receipt']['final_gains_match_last_composed']
+                                                  and metrics['actuation_receipt']['source_caps_unchanged']) if implicit_backend else True,
+            'actual_source_fk_within_budget': maximum_error <= .0002,
             'hand_coupling_within_budget': maximum_coupling <= .03,
             'full_job_complete': bool(workflow and workflow['full_job_completion']) if cfg['workflow_mode']=='complete' else True}
+        if implicit_backend:
+            metrics['checks']['implicit_body_gains_match_declared'] = bool(gain_receipt['kp'][indices[n]] == cfg['kp_nm_rad'][n]
+                and gain_receipt['kd'][indices[n]] == cfg['kd_nm_s_rad'][n] for n in body_names)
+        else:
+            metrics['checks']['implicit_body_gains_zero'] = True
         metrics['status'] = 'PASS' if all(metrics['checks'].values()) else 'FAIL'
     except BaseException:
         metrics['error'] = traceback.format_exc()

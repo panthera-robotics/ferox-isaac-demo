@@ -89,3 +89,28 @@ class PhysicalWriterGuards(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ActuationBackendConfigTests(unittest.TestCase):
+    def config(self, **extra):
+        names = ['j%d' % i for i in range(29)]
+        value = {'schema_version': 1, 'hardware_authorized': False,
+            'private_driver_path': '/workspace/driver', 'private_dependency_path': '/workspace/deps',
+            'private_profile_path': '/workspace/fixture/profile.json', 'planner_frames_path': '/workspace/fixture/frames.json',
+            'planner_frames_sha256': 'a' * 64,
+            'body_home_rad': {n: 0. for n in names}, 'kp_nm_rad': {n: 60. for n in names},
+            'kd_nm_s_rad': {n: 1.5 for n in names}, 'tau_ff_nm': {n: 0. for n in names},
+            'gain_provenance': 'declared', 'feedforward_provenance': 'declared',
+            'workflow_mode': 'complete', 'letter_height_m': .02, 'maximum_steps': 1000, 'maximum_wall_s': 300.}
+        value.update(extra)
+        return value
+
+    def test_backend_defaults_to_explicit_and_only_versioned_backends_are_admitted(self):
+        probe.validate_config(self.config())
+        probe.validate_config(self.config(actuation_backend='explicit_pd'))
+        probe.validate_config(self.config(actuation_backend='implicit_biased_drive_v1'))
+        for bad in ('implicit', 'implicit_biased_drive_v2', '', None, 1):
+            with self.assertRaises(ValueError):
+                probe.validate_config(self.config(actuation_backend=bad))
+        with self.assertRaises(ValueError):
+            probe.validate_config(self.config(unknown_key=1))
