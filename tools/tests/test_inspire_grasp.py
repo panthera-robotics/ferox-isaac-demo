@@ -135,3 +135,13 @@ class PreloadSupportConfigTests(unittest.TestCase):
                  'holder_hand_contact': True, 'external_object_contact': False} for i in range(800)]
         self.assertTrue(retention_result(rows, expected_seconds=4., dt_s=.005)['accepted'])
         self.assertFalse(retention_result(rows, expected_seconds=4., dt_s=.005, fixture_support_active=True)['accepted'])
+
+    def test_solver_iterations_are_declared_integers_and_hashed(self):
+        from inspire_grasp import GraspConfig
+        base = GraspConfig()
+        self.assertEqual((base.solver_position_iterations, base.solver_velocity_iterations), (32, 8))
+        changed = GraspConfig.from_dict({'solver_velocity_iterations': 32})
+        self.assertNotEqual(changed.sha256, base.sha256)
+        for bad in (0, 256, 8.0, '8'):
+            with self.assertRaises(ValueError):
+                GraspConfig.from_dict({'solver_velocity_iterations': bad})

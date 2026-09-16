@@ -32,6 +32,10 @@ class GraspConfig:
     # Declared temporary world support of the free holder while the fingers
     # close (a hand-over, not a weld); it must end before the retention window.
     preload_support_s: float = 0.
+    # Declared articulation solver iterations (hashed with the candidate). 32/8 is the
+    # retained bench control; the moving-wrist bench needed 32 velocity iterations.
+    solver_position_iterations: int = 32
+    solver_velocity_iterations: int = 8
 
     def __post_init__(self):
         if type(self.schema_version) is not int or self.schema_version!=1:raise ValueError('Unknown grasp schema')
@@ -44,6 +48,9 @@ class GraspConfig:
         if not math.isclose(sum(v*v for v in self.holder_orientation_palm_qwxyz),1.,abs_tol=1e-8):raise ValueError('Nonunit quaternion')
         for f in fields(self):
             if f.name in {'schema_version','palm_candidate_id','holder_center_palm_m','holder_orientation_palm_qwxyz'}:continue
+            if f.name in {'solver_position_iterations','solver_velocity_iterations'}:
+                if type(getattr(self,f.name)) is not int or not 1<=getattr(self,f.name)<=255:raise ValueError('Solver iterations must be integers in 1..255')
+                continue
             value=getattr(self,f.name)
             if type(value) not in (int,float) or not math.isfinite(value):raise ValueError('Invalid grasp scalar')
         if not (0<=self.four_finger_initial_rad<=1.4381 and 0<=self.thumb_yaw_initial_rad<=1.1641

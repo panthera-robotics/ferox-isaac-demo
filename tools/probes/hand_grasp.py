@@ -151,7 +151,7 @@ def main():
         add_reference_to_stage(str(imported),'/World/Hand')
         for p in world.stage.Traverse():
             if p.HasAPI(PhysxSchema.PhysxArticulationAPI):
-                a=PhysxSchema.PhysxArticulationAPI(p);a.CreateSolverPositionIterationCountAttr(32);a.CreateSolverVelocityIterationCountAttr(8);a.CreateSleepThresholdAttr(0.)
+                a=PhysxSchema.PhysxArticulationAPI(p);a.CreateSolverPositionIterationCountAttr(cfg.solver_position_iterations);a.CreateSolverVelocityIterationCountAttr(cfg.solver_velocity_iterations);a.CreateSleepThresholdAttr(0.)
         mat=UsdShade.Material.Define(world.stage,'/World/DeclaredGraspMaterial');m=UsdPhysics.MaterialAPI.Apply(mat.GetPrim())
         m.CreateStaticFrictionAttr(cfg.contact_static_friction);m.CreateDynamicFrictionAttr(cfg.contact_dynamic_friction);m.CreateRestitutionAttr(0.)
         for p in world.stage.Traverse():
@@ -239,7 +239,7 @@ def main():
               'names':names,'q':initial_positions.tolist(),'dq':initial_velocities.tolist(),
               'kp_readback':np.asarray(got_kp).tolist(),'kd_readback':np.asarray(got_kd).tolist(),
               'runtime_max_efforts_nm_or_n':runtime_max_efforts.tolist(),
-              'physics_statistics':get_physxunittests_interface().get_physics_stats(),'source_hand_mass_kg':source_mass,
+              'physics_statistics':get_physxunittests_interface().get_physics_stats(),'declared_solver_iterations':{'position':cfg.solver_position_iterations,'velocity':cfg.solver_velocity_iterations,'solver':'TGS'},'source_hand_mass_kg':source_mass,
               'imported_hand_plus_wrist_mass_kg':mass,'marker_free_mass_kg':marker['total_free_object_mass_kg'],
               'hand_friction':{'static':float(m.GetStaticFrictionAttr().Get()),'dynamic':float(m.GetDynamicFrictionAttr().Get()),'source':'declared_sim_fixture'},
               'sleep_disabled_for_contact_observability':True,'scope':scope}
