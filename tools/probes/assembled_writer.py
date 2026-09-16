@@ -397,12 +397,20 @@ def main():
             metrics.update(tool_attached=False, physical_tool_present=True, board_present=True,
                 physical_virtual_tip_meaning='physical free marker held by contact; nib/board contact measured',
                 support_constraints=['pelvis_fixed_to_world_1m_above_origin', 'declared_preload_support_%.2fs' % support_seconds])
+        warmup_depenetration = {}; warmup_depenetration_cap = .05
         for p in world.stage.Traverse():
             if p.HasAPI(PhysxSchema.PhysxArticulationAPI):
                 api = PhysxSchema.PhysxArticulationAPI(p)
                 api.CreateSolverPositionIterationCountAttr(32); api.CreateSolverVelocityIterationCountAttr(8)
             if p.HasAPI(UsdPhysics.RigidBodyAPI):
                 PhysxSchema.PhysxContactReportAPI.Apply(p).CreateThresholdAttr(0.)
+                if contact_mode:
+                    # The uncontrolled 1e-6 s warm-up microsteps would resolve the held pose's sub-0.1 mm
+                    # initial overlaps in one microstep (tens of m/s, Ns-scale impulses); cap the warm-up
+                    # depenetration velocity and restore the authored/fallback value before controlled physics.
+                    body_api = PhysxSchema.PhysxRigidBodyAPI.Apply(p)
+                    warmup_depenetration[str(p.GetPath())] = float(body_api.GetMaxDepenetrationVelocityAttr().Get())
+                    body_api.CreateMaxDepenetrationVelocityAttr(warmup_depenetration_cap)
         contact_file = (out/'contacts.jsonl').open('w', buffering=1); files.append(contact_file)
         sample_number = -1
         contact_count = 0
@@ -434,6 +442,11 @@ def main():
         robot = SingleArticulation('/World/G1', name='assembled_writer_fixture')
         world.reset(); robot.initialize()
         world.set_simulation_dt(physics_dt=.005, rendering_dt=.02)
+        for path, value in warmup_depenetration.items():
+            attr = PhysxSchema.PhysxRigidBodyAPI(world.stage.GetPrimAtPath(path)).GetMaxDepenetrationVelocityAttr()
+            attr.Set(value)
+            if attr.Get() != value:
+                raise ValueError('warm-up depenetration cap was not restored: ' + path)
         if not math.isclose(world.get_physics_dt(), .005, rel_tol=0, abs_tol=1e-12):
             raise ValueError('controlled physics timestep differs from declared5ms')
         metrics['initialization'] = {'warmup_physics_dt_s':initialization_dt,
@@ -441,7 +454,10 @@ def main():
             'runtime_physics_step_count_after_warmup':int(SimulationManager.get_num_physics_steps()),
             'world_time_after_warmup_s':float(world.current_time),
             'source':'pinned Isaac5.1 SimulationManager performs gravity integration before articulation handles exist',
-            'post_reset_state_writes':False, 'temporary_body_holding_drives':False}
+            'post_reset_state_writes':False, 'temporary_body_holding_drives':False,
+            'warmup_depenetration_velocity_cap_m_s': (warmup_depenetration_cap if warmup_depenetration else None),
+            'restored_depenetration_velocity_m_s': sorted(set(warmup_depenetration.values())) if warmup_depenetration else None,
+            'capped_bodies': len(warmup_depenetration)}
         names = list(robot.dof_names)
         if len(names) != 53 or set(names) != set(limits):
             raise ValueError('actual runtime named53 map differs from donor')
