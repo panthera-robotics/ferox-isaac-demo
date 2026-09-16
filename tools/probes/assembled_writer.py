@@ -400,7 +400,11 @@ def main():
             metrics.update(tool_attached=False, physical_tool_present=True, board_present=True,
                 physical_virtual_tip_meaning='physical free marker held by contact; nib/board contact measured',
                 support_constraints=['pelvis_fixed_to_world_1m_above_origin', 'declared_preload_support_%.2fs' % support_seconds])
-        warmup_depenetration = {}; warmup_depenetration_cap = None   # runtime restore of the USD attribute did not reach PhysX (contact-07: capped links crept 1 mm during closure)
+        # Declared depenetration-velocity bound for the whole contact run (0.05 m/s = 0.25 mm per 5 ms step):
+        # without it the 1e-6 s warm-up microsteps resolve the held pose's sub-0.1 mm overlaps at the 3 m/s
+        # fallback and launch the arm/hand (contact-04/08); a post-warm-up USD restore does not reach PhysX
+        # (contact-07), so the bound is not restored and is recorded as a run-wide solver setting.
+        warmup_depenetration = {}; warmup_depenetration_cap = .05
         for p in world.stage.Traverse():
             if p.HasAPI(PhysxSchema.PhysxArticulationAPI):
                 api = PhysxSchema.PhysxArticulationAPI(p)
@@ -408,9 +412,6 @@ def main():
             if p.HasAPI(UsdPhysics.RigidBodyAPI):
                 PhysxSchema.PhysxContactReportAPI.Apply(p).CreateThresholdAttr(0.)
                 if contact_mode and warmup_depenetration_cap is not None:
-                    # The uncontrolled 1e-6 s warm-up microsteps would resolve the held pose's sub-0.1 mm
-                    # initial overlaps in one microstep (tens of m/s, Ns-scale impulses); cap the warm-up
-                    # depenetration velocity and restore the authored/fallback value before controlled physics.
                     body_api = PhysxSchema.PhysxRigidBodyAPI.Apply(p)
                     warmup_depenetration[str(p.GetPath())] = float(body_api.GetMaxDepenetrationVelocityAttr().Get())
                     body_api.CreateMaxDepenetrationVelocityAttr(warmup_depenetration_cap)
@@ -445,11 +446,6 @@ def main():
         robot = SingleArticulation('/World/G1', name='assembled_writer_fixture')
         world.reset(); robot.initialize()
         world.set_simulation_dt(physics_dt=.005, rendering_dt=.02)
-        for path, value in warmup_depenetration.items():
-            attr = PhysxSchema.PhysxRigidBodyAPI(world.stage.GetPrimAtPath(path)).GetMaxDepenetrationVelocityAttr()
-            attr.Set(value)
-            if attr.Get() != value:
-                raise ValueError('warm-up depenetration cap was not restored: ' + path)
         if not math.isclose(world.get_physics_dt(), .005, rel_tol=0, abs_tol=1e-12):
             raise ValueError('controlled physics timestep differs from declared5ms')
         metrics['initialization'] = {'warmup_physics_dt_s':initialization_dt,
@@ -458,9 +454,10 @@ def main():
             'world_time_after_warmup_s':float(world.current_time),
             'source':'pinned Isaac5.1 SimulationManager performs gravity integration before articulation handles exist',
             'post_reset_state_writes':False, 'temporary_body_holding_drives':False,
-            'warmup_depenetration_velocity_cap_m_s': (warmup_depenetration_cap if warmup_depenetration else None),
-            'restored_depenetration_velocity_m_s': sorted(set(warmup_depenetration.values())) if warmup_depenetration else None,
-            'capped_bodies': len(warmup_depenetration)}
+            'depenetration_velocity_bound_m_s': (warmup_depenetration_cap if warmup_depenetration else None),
+            'depenetration_velocity_bound_scope': 'whole run, all rigid bodies and articulation links (not restored; USD restore does not reach PhysX)',
+            'replaced_fallback_depenetration_velocity_m_s': sorted(set(warmup_depenetration.values())) if warmup_depenetration else None,
+            'bounded_bodies': len(warmup_depenetration)}
         names = list(robot.dof_names)
         if len(names) != 53 or set(names) != set(limits):
             raise ValueError('actual runtime named53 map differs from donor')
