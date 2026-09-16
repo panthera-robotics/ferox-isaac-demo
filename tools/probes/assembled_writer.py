@@ -33,13 +33,17 @@ def validate_config(config):
     optional = {'actuation_backend', 'maximum_wall_age_s', 'hand_hold_kp_nm_rad', 'hand_hold_kd_nm_s_rad', 'contact_writing'}
     contact = config.get('contact_writing')
     if contact is not None:
-        needed = {'held_marker_grasp_path', 'preload_support_s', 'grasp_finger_kp_nm_rad', 'grasp_finger_kd_nm_s_rad', 'provenance'}
+        needed = {'held_marker_grasp_path', 'preload_support_s', 'closing_ramp_s', 'grasp_finger_kp_nm_rad', 'grasp_finger_kd_nm_s_rad', 'provenance'}
         if not isinstance(contact, dict) or set(contact) != needed:
-            raise ValueError('contact_writing requires exactly held_marker_grasp_path, preload_support_s, grasp gains and provenance')
+            raise ValueError('contact_writing requires exactly held_marker_grasp_path, preload_support_s, closing_ramp_s, grasp gains and provenance')
         path = Path(contact['held_marker_grasp_path'])
         if not path.is_absolute() or '..' in path.parts or path.parts[:2] != ('/', 'workspace'):
             raise ValueError('held marker grasp must be an explicit /workspace mount')
         finite(contact['preload_support_s'], 'contact_writing.preload_support_s', 0., 1.5)
+        # Bench-style smooth closure from the authored preload pose; it must finish while the support holds.
+        finite(contact['closing_ramp_s'], 'contact_writing.closing_ramp_s', .1, 1.)
+        if contact['closing_ramp_s'] > contact['preload_support_s']:
+            raise ValueError('contact_writing.closing_ramp_s must not exceed preload_support_s')
         finite(contact['grasp_finger_kp_nm_rad'], 'contact_writing.grasp_finger_kp_nm_rad', .1, 10.)
         finite(contact['grasp_finger_kd_nm_s_rad'], 'contact_writing.grasp_finger_kd_nm_s_rad', .01, 1.)
         if not isinstance(contact['provenance'], str) or not contact['provenance'].strip():
@@ -456,11 +460,12 @@ def main():
             right_hand = [n for n in hand_names if n.startswith('right_')]
             right_ids = np.array([names.index(n) for n in right_hand], dtype=np.int32)
             kp[right_ids] = float(cfg['contact_writing']['grasp_finger_kp_nm_rad']); kd[right_ids] = float(cfg['contact_writing']['grasp_finger_kd_nm_s_rad'])
-            for i, n in enumerate(hand_names):
-                if n in held['closed']:
-                    hand_targets[i] = held['closed'][n]
+            closing_ramp_s = float(cfg['contact_writing']['closing_ramp_s'])
+            right_open = np.array([held['initial'][n] if n in held['closed'] else 0. for n in hand_names], dtype=np.float32)
+            right_closed = np.array([held['closed'][n] if n in held['closed'] else 0. for n in hand_names], dtype=np.float32)
+            hand_targets[:] = right_open
             metrics['hand_hold_gains']['right_grasp'] = {'kp_nm_rad': float(kp[right_ids][0]), 'kd_nm_s_rad': float(kd[right_ids][0]),
-                'closed_targets_rad': {n: float(held['closed'][n]) for n in right_hand}, 'scope': 'grasp bench drives of the held-marker candidate'}
+                'closed_targets_rad': {n: float(held['closed'][n]) for n in right_hand}, 'closing_ramp_s': closing_ramp_s, 'scope': 'grasp bench drives of the held-marker candidate; smoothstep closure from the authored preload pose'}
         if implicit_backend:
             # Declared body gains live inside the capped implicit drives (same
             # radian tensor path as the hands); no explicit body effort follows.
@@ -491,6 +496,10 @@ def main():
             (out/'implicit_gain_readback.json').write_text(json.dumps(gain_receipt, indent=2))
         q0 = np.zeros(53, dtype=np.float32)
         q0[body_ids] = [cfg['body_home_rad'][n] for n in body_names]
+        if held is not None:   # authored held-marker hand state (independent + mimic-coupled joints)
+            for i, n in enumerate(names):
+                if n in held['initial'] or n in held['coupled_initial']:
+                    q0[i] = held['initial'].get(n, held['coupled_initial'].get(n))
         # JointState was authored before physics initialization. No body pose,
         # position or velocity setters are called after reset; the implicit
         # backend's only post-reset write is the declared home drive target above.
@@ -589,6 +598,10 @@ def main():
             if sample_number and not world.is_playing():
                 arbiter.check_freshness(time.monotonic())
                 raise RuntimeError('physics pause requires stopping this admitted run')
+            if contact_mode:
+                # Grasp-bench closure: smoothstep from the authored preload pose to the closed targets.
+                u = min(1., max(0., float(world.current_time)/closing_ramp_s)); u = u*u*(3.-2.*u)
+                hand_targets[:] = right_open + u*(right_closed-right_open)
             robot.apply_action(ArticulationAction(joint_positions=hand_targets, joint_indices=hand_ids))
             if contact_mode and support_active and float(world.current_time) >= support_seconds:
                 world.stage.RemovePrim(support_path)
