@@ -96,7 +96,9 @@ def camera_receipt(stamp):
     elif type(frame) is int and frame>=0:
         reference={'schema':'legacy_integer_render_frame','numerator':frame,'denominator':1}
     else:raise ValueError('Unknown camera render-reference schema: '+repr(frame))
+    time_value=raw['rendering_time']
     return {'raw_camera_metadata':raw,'render_reference':reference,
+            'rendering_time_finite':type(time_value) in (int,float) and math.isfinite(time_value),
             'render_to_physics_clock_mapping_available':False,
             'reported_rendering_time_scope':'raw Camera core-node interpolation result; unverified/unmapped in pinned Isaac Lab'}
 
@@ -108,7 +110,10 @@ def validate_camera_receipts(before,after,physics_s):
         if not all(isinstance(r,dict) and isinstance(r.get('render_reference'),dict) for r in (before[label],value)):
             raise ValueError('Camera receipt is not a parsed render-reference receipt')
         previous=before[label]['render_reference'];current=value['render_reference']
-        if previous['schema']!=current['schema']:raise ValueError('Render-reference schema changed during capture')
+        never_acquired=previous['schema']=='legacy_integer_render_frame' and previous['numerator']==0
+        # The pinned Camera starts with the integer 0 until its first acquisition;
+        # the one-time 0 -> Fabric transition is the first real frame (lab04 receipt).
+        if previous['schema']!=current['schema'] and not never_acquired:raise ValueError('Render-reference schema changed during capture')
         old=Fraction(previous['numerator'],previous['denominator']);new=Fraction(current['numerator'],current['denominator'])
         if new<=old:
             raise ValueError('Camera did not acquire a new frame after explicit render')

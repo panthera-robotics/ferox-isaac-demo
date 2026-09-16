@@ -115,6 +115,12 @@ class LabMediaTests(unittest.TestCase):
             broken=deepcopy(after);broken['side']=broken_side
             with self.assertRaises(ValueError,msg=label):probe.validate_camera_receipts(before,broken,.1)
         with self.assertRaises(ValueError):probe.validate_camera_receipts(before,after,float('nan'))
+        # First acquisition: integer 0 before, Fabric reference after (lab04 receipt) is valid;
+        # a nonzero legacy integer before a Fabric reference is still a schema change.
+        never={k:probe.camera_receipt({'rendering_frame':0,'rendering_time':0}) for k in before}
+        probe.validate_camera_receipts(never,after,.1)
+        stale_legacy={k:probe.camera_receipt({'rendering_frame':3,'rendering_time':0}) for k in before}
+        with self.assertRaises(ValueError):probe.validate_camera_receipts(stale_legacy,after,.1)
         with self.assertRaises(ValueError):probe.validate_camera_receipts(before,{'front':after['front']},.1)
         with self.assertRaises(ValueError):probe.validate_camera_receipts({'front':10,'side':10},after,.1)
 
