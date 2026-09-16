@@ -254,6 +254,11 @@ def main():
                 drive = UsdPhysics.DriveAPI.Apply(p, 'angular')
                 drive.CreateTypeAttr('force'); drive.CreateStiffnessAttr(0.); drive.CreateDampingAttr(0.)
                 drive.CreateMaxForceAttr(limits[p.GetName()]['effort'])
+                # The implicit backend receives its declared radian gains through the
+                # tensor path after reset; the authored target must already be the
+                # named home, otherwise PhysX's default zero target would yank every
+                # body joint toward 0 on the first controlled step (writer05).
+                drive.CreateTargetPositionAttr(math.degrees(cfg['body_home_rad'][p.GetName()]))
         stage.GetRootLayer().Save()
         # The pinned SimulationManager integrates during warm-up before it
         # exposes articulation handles. Use a declared microstep for those
@@ -335,10 +340,21 @@ def main():
         if any(abs(live_caps[indices[n]] - limits[n]['effort']) > 1e-6 for n in body_names):
             raise ValueError('live body drive caps differ from source effort limits')
         gain_writes = 0
+        if implicit_backend:
+            # One pre-loop implicit target write: exact named home, no bias yet.
+            home_targets = np.asarray([cfg['body_home_rad'][n] for n in body_names], dtype=np.float32)
+            robot.apply_action(ArticulationAction(joint_positions=home_targets, joint_velocities=np.zeros(29, dtype=np.float32), joint_indices=body_ids))
+            pre_targets = np.asarray(robot._articulation_view._physics_view.get_dof_position_targets()).reshape(-1)
+            if pre_targets.shape != (53,) or not np.array_equal(pre_targets[body_ids], home_targets):
+                raise ValueError('pre-loop implicit home target readback differs from named home')
+            gain_receipt['pre_loop_implicit_home_target_rad'] = home_targets.astype(float).tolist()
+            gain_receipt['pre_loop_target_readback_rad'] = pre_targets.astype(float).tolist()
+            (out/'implicit_gain_readback.json').write_text(json.dumps(gain_receipt, indent=2))
         q0 = np.zeros(53, dtype=np.float32)
         q0[body_ids] = [cfg['body_home_rad'][n] for n in body_names]
         # JointState was authored before physics initialization. No body pose,
-        # position, velocity or target setters are called after reset.
+        # position or velocity setters are called after reset; the implicit
+        # backend's only post-reset write is the declared home drive target above.
         initial_q = np.ravel(robot.get_joint_positions())
         (out/'initial_joint_state.json').write_text(json.dumps({'names':names,
             'authored_pre_reset_q_rad':q0.astype(float).tolist(), 'actual_q_rad':initial_q.astype(float).tolist(),
