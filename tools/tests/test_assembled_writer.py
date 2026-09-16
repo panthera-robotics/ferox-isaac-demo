@@ -148,3 +148,44 @@ class Float32PoseReadbackTests(unittest.TestCase):
         self.assertAlmostEqual(result['translation_m'], 0.)
         with self.assertRaisesRegex(ValueError, 'unit'):
             probe.pose_matrix([.1, .2, .3, *(q * 1.01)])
+
+
+class ContactSceneTypingTests(unittest.TestCase):
+    """The twin scene/ink validators reject numpy scalars; the contact-mode frames must reach them as plain floats."""
+
+    def setUp(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2]/'isaac'/'twin'))
+
+    def test_board_frame_from_rotation_matrix_is_plain_floats(self):
+        import numpy as np
+        from inspire.whiteboard_scene import BoardFrame, SceneConfig, HolderParameters
+        u, v, n = np.array([-1., 0., 0.]), np.array([0., 0., 1.]), np.array([0., 1., 0.])
+        R = np.column_stack([u, v, n])
+        q = probe.quaternion_wxyz_from_matrix(R)
+        self.assertTrue(all(type(x) is float for x in q))
+        self.assertAlmostEqual(sum(x*x for x in q), 1., places=12)
+        origin = tuple((np.array([0., 0., 1.]) + np.array([.30, -.45, .25])).tolist())
+        frame = BoardFrame(origin_world_m=origin, orientation_world_qwxyz=q)
+        SceneConfig(frame=frame, holder_mode='free_dynamic', holder=HolderParameters())
+        # The frame reproduces the declared axes.
+        self.assertTrue(np.allclose(frame.normal_world, n, atol=1e-9))
+        for R2 in (np.diag([1., -1., -1.]), np.diag([-1., 1., -1.]), np.diag([-1., -1., 1.])):
+            q2 = probe.quaternion_wxyz_from_matrix(R2)   # trace <= 0 branches
+            self.assertTrue(all(type(x) is float for x in q2)); self.assertAlmostEqual(sum(x*x for x in q2), 1., places=12)
+
+    def test_contact_sample_accepts_reduced_observation(self):
+        import numpy as np
+        from inspire.whiteboard_scene import BoardFrame, HolderParameters, reduce_tip_contacts, rotate, compression_from_poses
+        from inspire.contact_ink import ContactSample
+        frame = BoardFrame(origin_world_m=(.3, .55, 1.25), orientation_world_qwxyz=probe.quaternion_wxyz_from_matrix(np.column_stack([[-1., 0., 0.], [0., 0., 1.], [0., 1., 0.]])))
+        holder = HolderParameters()
+        pose = np.asarray([.2, .5, 1.2, 0., 0., 0., 1.], dtype=np.float32).astype(float).tolist()
+        pos, rot = tuple(pose[:3]), (pose[6], *pose[3:6])
+        tip = tuple(a+b for a, b in zip(pos, rotate(rot, (0., 0., -holder.nib_radius_m))))
+        q = compression_from_poses(pos, rot, pos, holder)
+        for rows in ([], [{'collider0': '/World/Marker/nib/tip', 'collider1': '/World/Whiteboard/board/face', 'impulse_ns': [0., .01, 0.], 'position_world_m': [.2, .55, 1.2]}]):
+            obs = reduce_tip_contacts(rows, tip_collider='/World/Marker/nib/tip', board_collider='/World/Whiteboard/board/face', frame=frame, nib_position_world=tip, dt_s=.005)
+            ContactSample(physics_sequence=0, physics_time_s=0., physics_dt_s=.005, nib_position_board_m=obs['position_board_m'],
+                nib_board_contact=obs['nib_board_contact'], pen_down=False, spring_compression_m=max(0., q), normal_impulse_ns=obs['normal_impulse_ns'],
+                normal_force_n=obs['normal_force_n'], attachment_active=False, fixture_support_active=True, holder_bottomed_out=False)

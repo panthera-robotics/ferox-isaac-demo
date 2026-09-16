@@ -112,6 +112,22 @@ def observed_checks(names, q, dq, effort, limits, mimic):
             'coupling_error_rad': coupling}
 
 
+def quaternion_wxyz_from_matrix(R):
+    """Unit quaternion (w, x, y, z) of a proper rotation matrix as plain Python floats; the twin scene
+    validators reject numpy scalars."""
+    import numpy as np
+    R = np.asarray(R, dtype=float)
+    tr = float(np.trace(R))
+    if tr > 0:
+        sq = math.sqrt(tr + 1.) * 2; q = (sq/4, (R[2,1]-R[1,2])/sq, (R[0,2]-R[2,0])/sq, (R[1,0]-R[0,1])/sq)
+    else:
+        i = int(np.argmax(np.diag(R))); j, k = (i+1) % 3, (i+2) % 3
+        sq = math.sqrt(1. + R[i,i] - R[j,j] - R[k,k]) * 2; qv = [0., 0., 0.]
+        qv[i] = sq/4; qv[j] = (R[j,i]+R[i,j])/sq; qv[k] = (R[k,i]+R[i,k])/sq
+        q = ((R[k,j]-R[j,k])/sq, *qv)
+    return tuple(float(v) for v in q)
+
+
 def pose_matrix(pose):
     import numpy as np
     if len(pose) != 7:
@@ -341,14 +357,7 @@ def main():
             R_board = np.column_stack([u, v, nrm])
             if not np.allclose(R_board.T @ R_board, np.eye(3), atol=1e-6) or np.linalg.det(R_board) < .5:
                 raise ValueError('board frame is not a proper rotation')
-            def quat_wxyz(R):
-                tr = np.trace(R)
-                if tr > 0:
-                    sq = math.sqrt(tr + 1.) * 2; return (sq/4, (R[2,1]-R[1,2])/sq, (R[0,2]-R[2,0])/sq, (R[1,0]-R[0,1])/sq)
-                i = int(np.argmax(np.diag(R))); j, k = (i+1) % 3, (i+2) % 3
-                sq = math.sqrt(1. + R[i,i] - R[j,j] - R[k,k]) * 2; qv = [0., 0., 0.]
-                qv[i] = sq/4; qv[j] = (R[j,i]+R[i,j])/sq; qv[k] = (R[k,i]+R[i,k])/sq
-                return ((R[k,j]-R[j,k])/sq, *qv)
+            quat_wxyz = quaternion_wxyz_from_matrix
             board_frame = BoardFrame(origin_world_m=tuple((pelvis_world + np.asarray(board_def['origin_xyz_m'])).tolist()), orientation_world_qwxyz=quat_wxyz(R_board))
             scene_cfg = SceneConfig(frame=board_frame, holder_mode='free_dynamic', holder=HolderParameters())
             marker = build_scene(world.stage, scene_cfg)
