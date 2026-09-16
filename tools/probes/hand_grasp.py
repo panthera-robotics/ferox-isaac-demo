@@ -273,7 +273,9 @@ def main():
         for _ in range(8):world.render()
         duration=5. if rack_mode else 60. if mode=='preloaded-retention-60s' else 4.
         total_steps=CYCLE_STEPS if cycle_mode else 2000 if rack_mode else round((2.+duration)/.005)
-        opening_names=[n for n in independent if 'thumb_1' not in n]   # four fingers and thumb bend open by release_opening_rad
+        # Only the four fingers open by release_opening_rad: opening the thumb bend lowers the thumb tip into the
+        # rack end floor during the -y retreat (cycles-v4-03), and thumb abduction hits the cheek (cycles-v4-02).
+        opening_names=[n for n in independent if 'thumb' not in n]
         reference=None;previous=float(world.current_time);aborted=None
         for sequence in range(total_steps):
             elapsed=sequence*.005
