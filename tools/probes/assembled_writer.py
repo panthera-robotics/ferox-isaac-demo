@@ -360,8 +360,8 @@ def main():
             import yaml
             board_def = yaml.safe_load(Path(task_profile.tool_board_path).read_text())['board']
             pelvis_world = np.array([0., 0., 1.])
-            u, v, nrm = (np.asarray(board_def[k], dtype=float) for k in ('u_axis_unit', 'v_axis_unit', 'normal_unit'))
-            R_board = np.column_stack([u, v, nrm])
+            board_u, board_v, board_n = (np.asarray(board_def[k], dtype=float) for k in ('u_axis_unit', 'v_axis_unit', 'normal_unit'))
+            R_board = np.column_stack([board_u, board_v, board_n])
             if not np.allclose(R_board.T @ R_board, np.eye(3), atol=1e-6) or np.linalg.det(R_board) < .5:
                 raise ValueError('board frame is not a proper rotation')
             quat_wxyz = quaternion_wxyz_from_matrix
@@ -619,8 +619,8 @@ def main():
                 raise RuntimeError('physics pause requires stopping this admitted run')
             if contact_mode:
                 # Grasp-bench closure: smoothstep from the authored preload pose to the closed targets.
-                u = min(1., max(0., float(world.current_time)/closing_ramp_s)); u = u*u*(3.-2.*u)
-                hand_targets[:] = right_open + u*(right_closed-right_open)
+                ramp = min(1., max(0., float(world.current_time)/closing_ramp_s)); ramp = ramp*ramp*(3.-2.*ramp)
+                hand_targets[:] = right_open + ramp*(right_closed-right_open)
             robot.apply_action(ArticulationAction(joint_positions=hand_targets, joint_indices=hand_ids))
             if contact_mode and support_active and float(world.current_time) >= support_seconds:
                 world.stage.RemovePrim(support_path)
@@ -666,7 +666,7 @@ def main():
                         for k, pt in enumerate(job_path):
                             if pt.get('pen_down'):
                                 key = '%s_%d_%d' % (pt.get('char', '?'), pt.get('char_index', -1), pt.get('stroke_index', -1))
-                                d = np.asarray(pt['tip']) - origin; pt_uv = (float(d @ u), float(d @ v))
+                                d = np.asarray(pt['tip']) - origin; pt_uv = (float(d @ board_u), float(d @ board_v))
                                 pts = groups.setdefault(key, [])
                                 if not pts or pts[-1][0] != pt_uv:
                                     pts.append((pt_uv, k))
