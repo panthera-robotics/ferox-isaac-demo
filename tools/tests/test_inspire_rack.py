@@ -159,7 +159,7 @@ class ThreeCycleSequenceTests(unittest.TestCase):
         self.assertEqual(cycle_command(0., c)['phase'], 'cycle_settle')
         hold = cycle_command(6., c); self.assertEqual((hold['phase'], hold['cycle'], hold['wrist'][2], hold['closing_fraction'], hold['opening_fraction']), ('cycle_hold', 0, .04, 1., 0.))
         self.assertFalse(hold['external_support_allowed']); self.assertTrue(hold['retention_window'])
-        withdrawn = cycle_command(17.2, c); self.assertEqual((withdrawn['phase'], withdrawn['opening_fraction'], withdrawn['closing_fraction'], withdrawn['wrist'][1], withdrawn['wrist'][2]), ('cycle_withdrawn_settle', 1., 0., -.04, .04))
+        withdrawn = cycle_command(17.2, c); self.assertEqual((withdrawn['phase'], withdrawn['opening_fraction'], withdrawn['closing_fraction'], withdrawn['wrist'][1], withdrawn['wrist'][2]), ('cycle_withdrawn_settle', 1., 0., -.05, .04))
         retreat = cycle_command(14.4, c); self.assertEqual(retreat['phase'], 'cycle_retreat'); self.assertLess(retreat['wrist'][1], 0.)
         nxt = cycle_command(20.6, c); self.assertEqual((nxt['phase'], nxt['cycle'], nxt['wrist'][1], nxt['wrist'][2]), ('cycle_settle', 1, 0., -.04))
         last = cycle_command(61.4, c); self.assertEqual((last['phase'], last['cycle']), ('cycle_advance', 2))

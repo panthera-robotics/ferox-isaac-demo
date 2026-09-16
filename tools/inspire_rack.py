@@ -159,7 +159,7 @@ CYCLE_PHASES=[('cycle_settle',.5),('cycle_close',1.),('cycle_grip_settle',1.),('
 CYCLE_SECONDS=sum(d for _,d in CYCLE_PHASES)   # 20.5 s
 CYCLES=3
 CYCLE_STEPS=round(CYCLES*CYCLE_SECONDS/.005)    # 12300
-RETREAT_Y_M=-.04   # declared palm retreat along fixture -y after release (cycles-v4-01/02: thumb block under the barrel)
+RETREAT_Y_M=-.05   # declared palm retreat along fixture -y after release (axis limit); 40 mm left the barrel against the thumb tip (cycles-v4-04)
 
 
 def cycle_command(elapsed_s,config):
