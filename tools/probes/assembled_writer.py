@@ -846,9 +846,12 @@ def main():
             # nib/board contacts only (MarkingRule unchanged: p95 3 mm, max 10 mm, coverage 95 %).
             rule = MarkingRule(spring_travel_m=scene_cfg.holder.slider_travel_m, maximum_sample_interval_s=.005*1.1)
             ink = None
-            if strokes and ink_samples:
+            # Scored window: after the declared preload support is gone (the support precedes the job; a
+            # supported sample would be disqualifying under the unchanged rule, so it is excluded and counted).
+            scored = tuple(s_ for s_ in ink_samples if not s_.fixture_support_active)
+            if strokes and scored:
                 try:
-                    ink = evaluate_ink(tuple(strokes), tuple(ink_samples), rule)
+                    ink = evaluate_ink(tuple(strokes), scored, rule)
                     (out/'contact_ink.json').write_text(json.dumps(ink, indent=2, allow_nan=False, default=str))
                     export_svg(ink, out/'contact_ink.svg'); export_csv(ink_samples, out/'contact_samples.csv')
                 except Exception as error:
@@ -862,7 +865,8 @@ def main():
                 'max_spring_compression_m': max((r['spring_compression_m'] for r in ink_rows), default=0.),
                 'holder_hand_contact_fraction': (sum(1 for r in ink_rows if r['holder_hand_contact'])/len(ink_rows)) if ink_rows else 0.,
                 'nonnib_board_contact_samples': sum(1 for r in ink_rows if r['nonnib_board_contact']),
-                'support_release': metrics.get('preload_support_release'), 'evaluation': ink}
+                'support_release': metrics.get('preload_support_release'), 'support_samples_excluded_from_ink_scoring': len(ink_samples)-len(scored),
+                'nib_board_contact_while_supported': sum(1 for r in ink_rows if r['support_active'] and r['nib_board_contact']), 'evaluation': ink}
             passed = bool(ink and isinstance(ink, dict) and ink.get('accepted') is True and ink.get('valid') is True)
             metrics['checks'].update({
                 'held_marker_never_lost': bool(ink_rows) and all(r['holder_hand_contact'] for r in ink_rows if not r['support_active'] and r['job_state'] in ('running', 'done')),
