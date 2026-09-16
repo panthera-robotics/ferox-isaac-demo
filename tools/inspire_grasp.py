@@ -29,6 +29,9 @@ class GraspConfig:
     contact_dynamic_friction: float = .6
     retention_tip_limit_m: float = .003
     retention_axis_limit_deg: float = 3.
+    # Declared temporary world support of the free holder while the fingers
+    # close (a hand-over, not a weld); it must end before the retention window.
+    preload_support_s: float = 0.
 
     def __post_init__(self):
         if type(self.schema_version) is not int or self.schema_version!=1:raise ValueError('Unknown grasp schema')
@@ -46,7 +49,7 @@ class GraspConfig:
         if not (0<=self.four_finger_initial_rad<=1.4381 and 0<=self.thumb_yaw_initial_rad<=1.1641
                 and 0<=self.thumb_flexion_initial_rad<=.5864 and 0<=self.finger_closing_increment_rad<=.20
                 and 0<=self.thumb_closing_increment_rad<=.10 and .1<=self.finger_stiffness_nm_rad<=2.
-                and .01<=self.finger_damping_nm_s_rad<=.2
+                and .01<=self.finger_damping_nm_s_rad<=.2 and 0<=self.preload_support_s<=1.5
                 and 0<=self.contact_dynamic_friction<=self.contact_static_friction<=1.):raise ValueError('Grasp parameters outside declared bounds')
         if self.retention_tip_limit_m!=.003 or self.retention_axis_limit_deg!=3.:raise ValueError('Acceptance limits cannot be relaxed through configuration')
 

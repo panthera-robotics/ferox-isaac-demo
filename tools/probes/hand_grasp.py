@@ -174,6 +174,19 @@ def main():
         if rack_mode:
             rack=build_rack(world.stage,rack_cfg,center,scene_cfg.holder.body_radius_m,mat)
             write('rack_scene.json',rack)
+        support_path='/World/DeclaredPreloadSupport';support_seconds=0. if (empty_control or rack_mode) else cfg.preload_support_s
+        support_active=support_seconds>0.;support_release=None
+        if support_active:
+            # World-anchored fixed joint on the holder body only; removed at the
+            # declared time so that retention is measured with no support.
+            joint=UsdPhysics.FixedJoint.Define(world.stage,support_path)
+            joint.CreateBody1Rel().SetTargets([marker['holder_body']])
+            joint.CreateLocalPos0Attr(Gf.Vec3f(*center));joint.CreateLocalRot0Attr(Gf.Quatf(rot[0],Gf.Vec3f(*rot[1:])))
+            joint.CreateLocalPos1Attr(Gf.Vec3f(0.,0.,0.));joint.CreateLocalRot1Attr(Gf.Quatf(1.,Gf.Vec3f(0.,0.,0.)))
+            joint.CreateBreakForceAttr(1e6);joint.CreateBreakTorqueAttr(1e6)
+        scope['preload_support']={'declared_seconds':support_seconds,'joint_path':support_path if support_active else None,
+            'kind':'world_fixed_joint_on_holder_body_released_before_retention' if support_active else 'none'}
+        if support_seconds>=2.:raise RuntimeError('Preload support must end before the retention window')
         assert len([p for p in Usd.PrimRange(world.stage.GetPrimAtPath('/World/Marker')) if p.IsA(UsdPhysics.Joint)])==1
         for path in [marker['holder_body'],marker['nib_body']]:assert UsdPhysics.RigidBodyAPI(world.stage.GetPrimAtPath(path)).GetKinematicEnabledAttr().Get() is False
         UsdLux.DomeLight.Define(world.stage,'/World/Light').CreateIntensityAttr(500.)
@@ -270,6 +283,11 @@ def main():
                 wrist=wrist_target(max(0.,elapsed-2.)) if elapsed>=2. and mode.endswith('60s') else [0.]*6
                 retention_window=elapsed>=2.
             command=[initial_q[n]+fraction*(target_q[n]-initial_q[n]) for n in independent]
+            if support_active and elapsed>=support_seconds:
+                world.stage.RemovePrim(support_path)
+                if world.stage.GetPrimAtPath(support_path).IsValid():raise RuntimeError('Preload support joint was not removed')
+                support_active=False;support_release={'sequence':sequence,'physics_s_before_step':float(world.current_time)}
+                scope['preload_support']={**scope['preload_support'],'release':support_release}
             step_contacts.clear();hand.apply_action(ArticulationAction(joint_positions=np.asarray(command,dtype=np.float32),joint_indices=ids))
             hand.apply_action(ArticulationAction(joint_positions=np.asarray(wrist,dtype=np.float32),joint_indices=fixture_ids))
             world.step(render=False);now=float(world.current_time);dt=now-previous;previous=now
@@ -318,7 +336,8 @@ def main():
                  'marker_compression_raw_m':compression,'marker_slider_q_m':nq.tolist(),'marker_slider_velocity_m_s':ndq.tolist(),
                  'marker_spring_force_toward_tip_n':scene_cfg.holder.force_model_toward_tip_n(float(nq[0]),float(ndq[0])),
                  'coupling_error_rad':{n:float(q[names.index(n)]-(m['multiplier']*q[names.index(m['parent'])]+m['offset'])) for n,m in mimics.items()},
-                 'scope':{**scope,'holder_fixture_support_active':bool(external)} if rack_mode else scope}
+                 'scope':{**scope,'holder_fixture_support_active':bool(external)} if rack_mode else {**scope,'holder_fixture_support_active':support_active}}
+            if support_active and retention_window:raise RuntimeError('Declared preload support overlapped the retention window')
             if rack_mode:
                 rack_hand=[c for c in step_contacts if np.linalg.norm(c['impulse_ns'])>1e-10
                     and any(c[a].startswith('/World/MarkerRack/') for a in ('actor0','actor1'))
@@ -345,7 +364,9 @@ def main():
             if not empty_control and elapsed>.2 and (math.dist(measurement['holder_center_palm_m'],cfg.holder_center_palm_m)>.08 or support_fault):
                 aborted='object_escaped_or_received_external_support';break
         retained=[r for r in rows if r['phase'].startswith('retention')]
-        retention=retention_result(retained,expected_seconds=duration,dt_s=.005)
+        retention=retention_result(retained,expected_seconds=duration,dt_s=.005,
+            fixture_support_active=any(r['scope'].get('holder_fixture_support_active') is True for r in retained))
+        retention['preload_support']=scope['preload_support']
         acquisition=acquisition_result(rows) if rack_mode else None
         initial_object=[c for c in contacts if c['sequence'] is None and any(c[a].startswith('/World/Marker/') for a in ['actor0','actor1'])]
         deepest=min((c['separation_m'] for c in initial_object),default=0.)

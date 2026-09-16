@@ -116,3 +116,22 @@ class FailureEvidenceTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class PreloadSupportConfigTests(unittest.TestCase):
+    def test_declared_preload_support_is_bounded_and_hashed(self):
+        from inspire_grasp import GraspConfig
+        base = GraspConfig()
+        self.assertEqual(base.preload_support_s, 0.)
+        supported = GraspConfig.from_dict({'preload_support_s': 1.5})
+        self.assertNotEqual(supported.sha256, base.sha256)
+        for bad in (-.1, 1.6, float('nan'), '1'):
+            with self.assertRaises(ValueError):
+                GraspConfig.from_dict({'preload_support_s': bad})
+
+    def test_retention_with_any_supported_sample_cannot_pass(self):
+        from inspire_grasp import retention_result
+        rows = [{'sequence': i, 'physics_s': 2. + i * .005, 'tip_drift_m': .001, 'axis_drift_deg': .5,
+                 'holder_hand_contact': True, 'external_object_contact': False} for i in range(800)]
+        self.assertTrue(retention_result(rows, expected_seconds=4., dt_s=.005)['accepted'])
+        self.assertFalse(retention_result(rows, expected_seconds=4., dt_s=.005, fixture_support_active=True)['accepted'])
