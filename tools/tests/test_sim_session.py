@@ -86,6 +86,22 @@ class AdmissionTests(unittest.TestCase):
         old = dict(first, session_id='previous-checkpoint', allocation_seconds=999999)
         self.assertEqual(admission(events=[old], **kwargs)['allocation_seconds'], 3600)
 
+    def test_cumulative_session_allocation_cap_counts_failed_and_stopped_jobs(self):
+        a = authorization(); a['limits']['maximum_session_allocated_seconds'] = 1000
+        first = dict(admission(a, seconds=300), run_id='a', event='ADMITTED')
+        done = [first, dict(first, event='FINISHED', status='WATCHDOG_STOPPED', cleanup_verified=True)]
+        second = dict(admission(a, events=done, seconds=300), run_id='b', event='ADMITTED')
+        done += [second, dict(second, event='FINISHED', status='FAIL', cleanup_verified=True)]
+        third = dict(admission(a, events=done, seconds=300), run_id='c', event='ADMITTED')
+        done += [third, dict(third, event='FINISHED', status='PASS', cleanup_verified=True)]
+        with self.assertRaisesRegex(AdmissionError, 'Cumulative session allocation'):
+            admission(a, events=done, seconds=300)          # 900 + 300 > 1000, no refunds
+        self.assertEqual(admission(a, events=done, seconds=100)['allocation_seconds'], 100)
+        other = [dict(e, session_id='previous-session') for e in done]
+        self.assertEqual(admission(a, events=other, seconds=300)['allocation_seconds'], 300)  # other sessions never charged here
+        a['limits']['maximum_session_allocated_seconds'] = float('nan')
+        with self.assertRaises(AdmissionError): admission(a, seconds=300)
+
     def test_nonfinite_and_expanded_authorization_refused(self):
         for value in [float('nan'), float('inf'), True]:
             with self.assertRaises(AdmissionError): admission(seconds=value)

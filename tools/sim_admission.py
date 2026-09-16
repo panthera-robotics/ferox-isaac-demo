@@ -152,6 +152,13 @@ def admit(auth, events, *, category, name, justification, seconds, cleanup_secon
         raise AdmissionError('Unknown job category')
     if seconds > cap:
         raise AdmissionError(f'{category} allocation exceeds its limit')
+    session_cap = limits.get('maximum_session_allocated_seconds')
+    if session_cap is not None:
+        # Cumulative RESERVED launcher time of this session (conservative: allocations,
+        # not measured time; failed and stopped jobs are never refunded).
+        allocated_total = sum(e['allocation_seconds'] for e in own if e['event'] == 'ADMITTED')
+        if allocated_total + seconds > _finite(session_cap, 'maximum_session_allocated_seconds'):
+            raise AdmissionError('Cumulative session allocation would exceed the authorized launcher allowance')
     monotonic_end = auth['start_monotonic'] + auth['experimental_deadline_unix'] - auth['start_unix']
     remaining = min(auth['experimental_deadline_unix'] - clock.utc, monotonic_end - clock.monotonic)
     if seconds > remaining:
