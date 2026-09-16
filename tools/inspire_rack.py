@@ -20,6 +20,9 @@ class RackConfig:
     initial_surface_gap_m: float = .0002
     initial_wrist_z_m: float = -.04
     lifted_wrist_z_m: float = .04
+    # Declared release opening (rad) applied to the four fingers and thumb bend beyond the preload
+    # pose during place/release/withdraw/re-approach of the three-cycle acquisition sequence.
+    release_opening_rad: float = .3
 
     def __post_init__(self):
         if type(self.schema_version) is not int or self.schema_version!=1:raise ValueError('Unknown rack schema')
@@ -36,6 +39,7 @@ class RackConfig:
             if not .001<=getattr(self,name)<=.08:raise ValueError('Invalid physical rack size')
         if not 0<=self.initial_surface_gap_m<=.001:raise ValueError('Invalid rack clearance')
         if self.initial_wrist_z_m!=-.04 or self.lifted_wrist_z_m!=.04:raise ValueError('Fixed80mm diagnostic lift inside original50mm fixture bounds')
+        if not .1<=self.release_opening_rad<=.6:raise ValueError('Release opening must be a declared 0.1..0.6 rad')
 
     @classmethod
     def from_dict(cls,data):
@@ -145,3 +149,89 @@ def acquisition_result(rows,*,dt_s=.005):
         'retention':retention,'evidence_error':error,
         'controlled_release_tested':False,'three_repeat_acquisition_qualified':False,
         'scope':'single_rack_supported_closure_then_contact_only_lift_and_hold; release/reacquisition require separate evaluation'}
+
+
+# --- Three-cycle acquisition sequence (approach, close, lift, hold, place, release, withdraw, re-approach) ---
+CYCLE_PHASES=[('cycle_settle',.5),('cycle_close',1.),('cycle_grip_settle',1.),('cycle_lift',2.),('cycle_clearance_settle',.5),
+              ('cycle_hold',5.),('cycle_lower',2.),('cycle_place_settle',.5),('cycle_release',1.),('cycle_release_settle',.5),
+              ('cycle_withdraw',2.),('cycle_withdrawn_settle',.5),('cycle_approach',2.)]
+CYCLE_SECONDS=sum(d for _,d in CYCLE_PHASES)   # 18.5 s
+CYCLES=3
+CYCLE_STEPS=round(CYCLES*CYCLE_SECONDS/.005)    # 11100
+
+
+def cycle_command(elapsed_s,config):
+    """Declared three-cycle acquisition command: phase, closing fraction (0..1 relative to the preload
+    pose), opening fraction (0..1 of release_opening_rad beyond the preload pose), wrist, flags."""
+    if type(elapsed_s) not in (int,float) or not math.isfinite(elapsed_s) or elapsed_s<0:raise ValueError('Invalid cycle time')
+    def smooth(value):
+        u=min(1.,max(0.,value));return u*u*u*(10+u*(-15+6*u))
+    cycle=min(CYCLES-1,int(elapsed_s//CYCLE_SECONDS));t=elapsed_s-cycle*CYCLE_SECONDS
+    if elapsed_s>=CYCLES*CYCLE_SECONDS:cycle=CYCLES-1;t=CYCLE_SECONDS
+    start=0.;phase=CYCLE_PHASES[-1][0];local=0.;duration=CYCLE_PHASES[-1][1]
+    for name,d in CYCLE_PHASES:
+        if t<start+d:phase=name;local=t-start;duration=d;break
+        start+=d
+    lo,hi=config.initial_wrist_z_m,config.lifted_wrist_z_m
+    closing={'cycle_settle':0.,'cycle_close':smooth(local/duration),'cycle_grip_settle':1.,'cycle_lift':1.,'cycle_clearance_settle':1.,'cycle_hold':1.,
+             'cycle_lower':1.,'cycle_place_settle':1.,'cycle_release':1.-smooth(local/duration),'cycle_release_settle':0.,'cycle_withdraw':0.,'cycle_withdrawn_settle':0.,'cycle_approach':0.}[phase]
+    # Fingers stay open through withdraw, re-approach and settle; they close from the open pose during
+    # cycle_close (open->preload->closed in one smooth ramp) so the descent never sweeps closed fingers.
+    opening={'cycle_settle':1.,'cycle_close':1.-smooth(local/duration),'cycle_release':smooth(local/duration),'cycle_release_settle':1.,
+             'cycle_withdraw':1.,'cycle_withdrawn_settle':1.,'cycle_approach':1.}.get(phase,0.)
+    z={'cycle_settle':lo,'cycle_close':lo,'cycle_grip_settle':lo,'cycle_lift':lo+smooth(local/duration)*(hi-lo),'cycle_clearance_settle':hi,'cycle_hold':hi,
+       'cycle_lower':hi-smooth(local/duration)*(hi-lo),'cycle_place_settle':lo,'cycle_release':lo,'cycle_release_settle':lo,
+       'cycle_withdraw':lo+smooth(local/duration)*(hi-lo),'cycle_withdrawn_settle':hi,'cycle_approach':hi-smooth(local/duration)*(hi-lo)}[phase]
+    held={'cycle_clearance_settle','cycle_hold'}
+    return {'phase':phase,'cycle':cycle,'closing_fraction':closing,'opening_fraction':opening,'wrist':[0.,0.,z,0.,0.,0.],
+            'retention_window':phase=='cycle_hold','external_support_allowed':phase not in held,
+            'object_should_be_free_of_hand':phase in ('cycle_withdrawn_settle',)}
+
+
+def cycle_result(rows,config,*,dt_s=.005):
+    """Per-cycle scoring of the declared three-cycle sequence; missing cycles are NOT_RUN, never passes."""
+    from inspire_grasp import retention_result
+    if type(dt_s) not in (int,float) or not math.isclose(dt_s,.005,abs_tol=1e-12):raise ValueError('The declared cycle sequence requires5ms physics')
+    valid=True;error=None;continuous=bool(rows) and len(rows)==CYCLE_STEPS
+    try:
+        for i,row in enumerate(rows):
+            expected=cycle_command(i*dt_s,config)
+            continuous &= type(row['sequence']) is int and row['sequence']==i and row['phase']==expected['phase'] and row.get('cycle')==expected['cycle']
+            if type(row['physics_s']) not in (int,float) or not math.isfinite(row['physics_s']):raise ValueError('Nonfinite physical clock')
+            if i:continuous &= math.isclose(row['physics_s']-rows[i-1]['physics_s'],dt_s,rel_tol=1e-5,abs_tol=1e-8)
+            for key in ['rack_object_contact','external_object_contact','nonrack_external_object_contact','holder_hand_contact','rack_hand_contact']:
+                if type(row[key]) is not bool:raise ValueError('Missing actual contact classification')
+            if type(row['holder_lift_world_m']) not in (int,float) or not math.isfinite(row['holder_lift_world_m']):raise ValueError('Missing measured lift')
+    except (KeyError,TypeError,ValueError) as exc:
+        valid=False;error=str(exc)
+    def actual(row,key):return row.get(key) is True
+    def cleared(row):
+        lift=row.get('holder_lift_world_m');return row.get('external_object_contact') is False and type(lift) in (int,float) and math.isfinite(lift) and lift>=.05
+    cycles=[]
+    for k in range(CYCLES):
+        rk=[r for r in rows if r.get('cycle')==k]
+        ph=lambda name:[r for r in rk if r.get('phase')==name]
+        held=ph('cycle_hold');clearance=ph('cycle_clearance_settle');placed=ph('cycle_place_settle');released=ph('cycle_release_settle')
+        withdraw=ph('cycle_withdraw');withdrawn=ph('cycle_withdrawn_settle');settle=ph('cycle_settle')
+        retention=retention_result(held,expected_seconds=5.,dt_s=dt_s)
+        late_withdraw=withdraw[len(withdraw)//5:]   # last 80 % of the withdraw ramp must be hand-free
+        checks={'rack_supported_marker_at_cycle_start':any(actual(r,'rack_object_contact') for r in settle),
+            'full5s_free_hold':len(held)==round(5./dt_s),
+            'clearance_settled_half_second':len(clearance)==round(.5/dt_s) and all(cleared(r) for r in clearance),
+            'measured_lift50mm':bool(held) and all(cleared(r) for r in held),
+            'no_external_hold_support':bool(held) and all(r.get('external_object_contact') is False for r in held),
+            'actual_hand_contact_entire_clearance_and_hold':bool(held) and all(actual(r,'holder_hand_contact') for r in clearance+held),
+            'unchanged3mm3deg_retention':retention['accepted'],
+            'placed_back_on_rack':bool(placed) and all(actual(r,'rack_object_contact') and abs(r.get('holder_lift_world_m',1.))<=.005 for r in placed[-20:]),
+            'controlled_release_hand_free':bool(released) and bool(withdrawn) and all(not actual(r,'holder_hand_contact') for r in released[-20:]+late_withdraw+withdrawn),
+            'marker_stays_racked_after_release':bool(withdrawn) and all(actual(r,'rack_object_contact') and abs(r.get('holder_lift_world_m',1.))<=.010 for r in released+withdraw+withdrawn),
+            'no_unexpected_nonrack_support':not any(actual(r,'nonrack_external_object_contact') for r in rk),
+            'no_loaded_rack_hand_contact':not any(actual(r,'rack_hand_contact') for r in rk)}
+        cycles.append({'cycle':k,'samples':len(rk),'status':'NOT_RUN' if not rk else ('PASS' if all(checks.values()) else 'FAIL'),'checks':checks,'retention':retention})
+    checks={'full_contiguous_declared_sequence':bool(continuous),'finite_measured_cycle_evidence':valid,
+            **{f'cycle_{c["cycle"]}_complete':c['status']=='PASS' for c in cycles}}
+    return {'checks':checks,'cycles':cycles,'cycles_completed':sum(c['status']=='PASS' for c in cycles),'evidence_error':error,
+            'controlled_release_tested':any(c['samples'] for c in cycles),
+            'three_repeat_acquisition_qualified':all(checks.values()) and all(c['status']=='PASS' for c in cycles),
+            'scope':'three declared rack acquisition cycles (approach, close, lift>=50mm, 5 s hold, place, release, withdraw, re-approach) on a driven-wrist fixture; provisional donor; not free-standing'}
+

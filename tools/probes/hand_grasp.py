@@ -24,11 +24,12 @@ def main():
     from inspire_wrist_fixture import write_wrist_fixture
     from urdf_kinematics import UrdfKinematics
     from twin.inspire.whiteboard_scene import SceneConfig,BoardFrame,HolderParameters,build_scene,rotate,compression_from_poses
-    from inspire_rack import parse_rack_config,build_rack,rack_command,acquisition_result
+    from inspire_rack import parse_rack_config,build_rack,rack_command,acquisition_result,cycle_command,cycle_result,CYCLE_STEPS,CYCLE_PHASES,CYCLES
     mode=os.environ.get('PANTHERA_PROBE_MODE','preloaded-close-hold')
-    assert mode in {'preloaded-free-control','preloaded-close-hold','preloaded-retention-60s','rack-lift-hold-one'}
+    assert mode in {'preloaded-free-control','preloaded-close-hold','preloaded-retention-60s','rack-lift-hold-one','rack-acquire-cycles-three'}
     empty_control=mode=='preloaded-free-control'
-    rack_mode=mode=='rack-lift-hold-one'
+    cycle_mode=mode=='rack-acquire-cycles-three'
+    rack_mode=mode=='rack-lift-hold-one' or cycle_mode
     config_data=json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text()) if os.environ.get('PANTHERA_PROBE_CONFIG') else {}
     if rack_mode:cfg,rack_cfg=parse_rack_config(config_data)
     else:cfg=GraspConfig.from_dict(config_data);rack_cfg=None
@@ -47,7 +48,8 @@ def main():
             controlled_release_tested=False,three_repeat_acquisition_qualified=False)
     write('grasp_config.json',{'config':asdict(cfg),'config_sha256':cfg.sha256,'scope':scope,'mode':mode})
     if rack_mode:write('rack_config.json',{'config':asdict(rack_cfg),'config_sha256':rack_cfg.sha256,
-        'sequence':{'rack_settle_s':.5,'close_s':1.,'grip_settle_s':1.,'lift_s':2.,'clearance_s':.5,'hold_s':5.,'physics_dt_s':.005},
+        'sequence':({'cycles':CYCLES,'phases_s':CYCLE_PHASES,'release_opening_rad':rack_cfg.release_opening_rad,'physics_dt_s':.005} if cycle_mode else
+                    {'rack_settle_s':.5,'close_s':1.,'grip_settle_s':1.,'lift_s':2.,'clearance_s':.5,'hold_s':5.,'physics_dt_s':.005}),
         'gates':{'minimum_measured_lift_m':.05,'tip_drift_m':.003,'axis_drift_deg':3.,'continuous_actual_hand_contact':True,
                  'external_contact_during_clearance_or_hold_allowed':False},'marker_total_mass_kg':.088})
     try:
@@ -270,19 +272,24 @@ def main():
             out.joinpath('frames',label).mkdir(parents=True)
         for _ in range(8):world.render()
         duration=5. if rack_mode else 60. if mode=='preloaded-retention-60s' else 4.
-        total_steps=2000 if rack_mode else round((2.+duration)/.005)
+        total_steps=CYCLE_STEPS if cycle_mode else 2000 if rack_mode else round((2.+duration)/.005)
+        opening_names=[n for n in independent if 'thumb_1' not in n]   # four fingers and thumb bend open on release
         reference=None;previous=float(world.current_time);aborted=None
         for sequence in range(total_steps):
             elapsed=sequence*.005
-            if rack_mode:
+            if cycle_mode:
+                rack_target=cycle_command(elapsed,rack_cfg);phase=rack_target['phase'];fraction=rack_target['closing_fraction']
+                wrist=rack_target['wrist'];retention_window=rack_target['retention_window'];opening=rack_target['opening_fraction']
+            elif rack_mode:
                 rack_target=rack_command(elapsed,rack_cfg);phase=rack_target['phase'];fraction=rack_target['closing_fraction']
-                wrist=rack_target['wrist'];retention_window=rack_target['retention_window']
+                wrist=rack_target['wrist'];retention_window=rack_target['retention_window'];opening=0.
             else:
                 phase='preloaded_close' if elapsed<1. else 'grip_settle' if elapsed<2. else 'retention_wrist' if mode.endswith('60s') else 'retention_static'
                 fraction=min(1.,elapsed/.5);fraction=fraction*fraction*(3-2*fraction)
                 wrist=wrist_target(max(0.,elapsed-2.)) if elapsed>=2. and mode.endswith('60s') else [0.]*6
-                retention_window=elapsed>=2.
-            command=[initial_q[n]+fraction*(target_q[n]-initial_q[n]) for n in independent]
+                retention_window=elapsed>=2.;opening=0.
+            command=[initial_q[n]+fraction*(target_q[n]-initial_q[n])-(opening*rack_cfg.release_opening_rad if (cycle_mode and n in opening_names) else 0.) for n in independent]
+            command=[min(limits[n][1],max(limits[n][0],v)) for n,v in zip(independent,command)]
             if support_active and elapsed>=support_seconds:
                 world.stage.RemovePrim(support_path)
                 if world.stage.GetPrimAtPath(support_path).IsValid():raise RuntimeError('Preload support joint was not removed')
@@ -301,6 +308,7 @@ def main():
             if not np.isfinite(q).all() or not np.isfinite(dq).all() or not np.isfinite(measured_efforts).all():raise RuntimeError('Nonfinite runtime joint observation')
             if contact_faults:raise RuntimeError('Nonfinite contact telemetry')
             measurement=relative_measurement(p['palm'],p['holder'],p['nib'],scene_cfg.holder.nib_radius_m)
+            if cycle_mode and retention_window and rows and rows[-1]['phase']!='cycle_hold':reference=None   # fresh drift reference per re-grasp
             if reference is None and retention_window:reference=measurement
             slip=drift(reference or initial_measurement,measurement)
             object_contacts=[];hand_contacts=[];external=[];rack_contacts=[];nonrack_external=[]
@@ -342,7 +350,8 @@ def main():
                 rack_hand=[c for c in step_contacts if np.linalg.norm(c['impulse_ns'])>1e-10
                     and any(c[a].startswith('/World/MarkerRack/') for a in ('actor0','actor1'))
                     and any(c[a].startswith('/World/Hand/') for a in ('actor0','actor1'))]
-                row.update(rack_object_contact=bool(rack_contacts),nonrack_external_object_contact=bool(nonrack_external),
+                row.update(cycle=rack_target.get('cycle'),opening_fraction=(opening if cycle_mode else 0.),
+                    rack_object_contact=bool(rack_contacts),nonrack_external_object_contact=bool(nonrack_external),
                     rack_hand_contact=bool(rack_hand),actual_loaded_rack_hand_contacts=rack_hand,
                     holder_lift_world_m=float(hp[2]-initial_poses['holder'][2]),
                     rack_support_allowed=rack_target['external_support_allowed'],retention_window=retention_window,
@@ -361,7 +370,13 @@ def main():
                 frames.append(frame);frame_file.write(json.dumps(frame)+'\n')
             elif (sequence+1)%4==0:world.render()
             support_fault=bool(nonrack_external) or bool(rack_hand) or (bool(external) and not rack_target['external_support_allowed']) if rack_mode else bool(external)
-            if not empty_control and elapsed>.2 and (math.dist(measurement['holder_center_palm_m'],cfg.holder_center_palm_m)>.08 or support_fault):
+            if cycle_mode:
+                # Escape is judged only while the object should be in hand; when released it must stay near the rack.
+                held_phase=phase in ('cycle_clearance_settle','cycle_hold')
+                racked_escape=(not held_phase) and abs(row['holder_lift_world_m'])>.08
+                if elapsed>.2 and ((held_phase and math.dist(measurement['holder_center_palm_m'],cfg.holder_center_palm_m)>.08) or racked_escape or support_fault):
+                    aborted='object_escaped_or_received_external_support';break
+            elif not empty_control and elapsed>.2 and (math.dist(measurement['holder_center_palm_m'],cfg.holder_center_palm_m)>.08 or support_fault):
                 aborted='object_escaped_or_received_external_support';break
         retained=[r for r in rows if r['phase'].startswith('retention')]
         # Declared closure check (added 2026-09-16 after v8-hold-01): the retention window scores drift
@@ -372,7 +387,13 @@ def main():
         retention=retention_result(retained,expected_seconds=duration,dt_s=.005,
             fixture_support_active=any(r['scope'].get('holder_fixture_support_active') is True for r in retained))
         retention['preload_support']=scope['preload_support']
-        acquisition=acquisition_result(rows) if rack_mode else None
+        acquisition=cycle_result(rows,rack_cfg) if cycle_mode else acquisition_result(rows) if rack_mode else None
+        if cycle_mode:
+            retention={'accepted':bool(acquisition['three_repeat_acquisition_qualified']),
+                'checks':{f'cycle_{c["cycle"]}_hold_retention':c['retention']['accepted'] for c in acquisition['cycles']},
+                'measured_samples':sum(c['retention']['measured_samples'] for c in acquisition['cycles']),'required_seconds':5.,
+                'scope':'per-cycle 5 s hold windows with a fresh drift reference after each re-grasp','preload_support':scope['preload_support'],
+                'rack_acquisition_qualified':bool(acquisition['three_repeat_acquisition_qualified']),'exact_E2_qualified':False,'standing_qualified':False}
         initial_object=[c for c in contacts if c['sequence'] is None and any(c[a].startswith('/World/Marker/') for a in ['actor0','actor1'])]
         deepest=min((c['separation_m'] for c in initial_object),default=0.)
         self_contacts=[c for c in contacts if all(c[a].startswith('/World/Hand/') for a in ['actor0','actor1']) and np.linalg.norm(c['impulse_ns'])>1e-10]
@@ -410,8 +431,9 @@ def main():
         checks.update(initial_gates['checks'])
         metrics={'schema_version':1,'checks':checks,'steps':len(rows),'mode':mode,'scope':scope,'retention':retention,'initialization':initial_gates,
                  'pre_retention_window_holder_displacement_m':pre_window_displacement,
-                 'rack_acquisition':acquisition,'single_rack_lift_hold_diagnostic_pass':rack_mode and all(checks.values()),
-                 'three_repeat_acquisition_qualified':False,'controlled_release_tested':False,
+                 'rack_acquisition':acquisition,'single_rack_lift_hold_diagnostic_pass':rack_mode and not cycle_mode and all(checks.values()),
+                 'three_repeat_acquisition_qualified':bool(acquisition and acquisition.get('three_repeat_acquisition_qualified')),
+                 'controlled_release_tested':bool(acquisition and acquisition.get('controlled_release_tested')),
                  'supported_preloaded_retention_60s_qualified':mode.endswith('60s') and all(checks.values()),
                  'static_preloaded_diagnostic_pass':mode=='preloaded-close-hold' and all(checks.values()),
                  'empty_hand_preload_control_pass':empty_control and all(checks.values()),
@@ -428,7 +450,7 @@ def main():
                                   'saturation_evidence_kind':'PD estimate from measured q/dq and runtime gains; direct solver drive force unavailable'},
                  'backend':'CPU_PhysX_with_GPU_rendering','media_labels':{'fixture':'Dynamically driven six-axis supported wrist; freely dynamic marker',
                  'embodiment':'PROVISIONAL FTP RIGHT HAND - exact E2 unverified',
-                 'qualification':'Empty-hand preload control; no grasp test' if empty_control else 'Single physical rack lift/hold diagnostic; repeated acquisition, release, writing and standing unqualified' if rack_mode else 'Preloaded supported-hand retention only; pickup, writing and standing unqualified'}}
+                 'qualification':'Empty-hand preload control; no grasp test' if empty_control else 'Three declared rack acquisition/release cycles on a driven-wrist fixture; writing and standing unqualified' if cycle_mode else 'Single physical rack lift/hold diagnostic; repeated acquisition, release, writing and standing unqualified' if rack_mode else 'Preloaded supported-hand retention only; pickup, writing and standing unqualified'}}
         if rack_mode:
             metrics['media_labels']['fixture']='Physical rack closure, driven wrist lift, then freely dynamic marker hold'
         write('metrics.json',metrics);write('retention.json',retention)
@@ -440,7 +462,7 @@ def main():
         if out.joinpath('contacts.jsonl').stat().st_size:artifacts.append('contacts.jsonl')
         artifacts += [str(p.relative_to(out)) for p in sorted(out.joinpath('frames').rglob('*.png'))]
         status='PASS' if all(checks.values()) else 'FAIL';write('probe.json',{'status':status,
-            'scope':'provisional_supported_hand_single_physical_rack_lift_hold' if rack_mode else 'provisional_supported_preloaded_hand_only','artifacts':artifacts})
+            'scope':'provisional_supported_hand_three_rack_acquisition_cycles' if cycle_mode else 'provisional_supported_hand_single_physical_rack_lift_hold' if rack_mode else 'provisional_supported_preloaded_hand_only','artifacts':artifacts})
         return 0 if status=='PASS' else 1
     except BaseException as e:
         write_failed_grasp_receipt(out,error=f'{type(e).__name__}: {e}',traceback_text=traceback.format_exc(),

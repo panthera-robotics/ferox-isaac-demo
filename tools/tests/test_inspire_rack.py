@@ -133,3 +133,58 @@ class RackTests(unittest.TestCase):
 
 
 if __name__=='__main__':unittest.main()
+
+
+class ThreeCycleSequenceTests(unittest.TestCase):
+    def rows(self, config, mutate=None):
+        from inspire_rack import cycle_command, CYCLE_STEPS
+        rows = []
+        for i in range(CYCLE_STEPS):
+            c = cycle_command(i * .005, config)
+            held = c['phase'] in ('cycle_clearance_settle', 'cycle_hold')
+            free = c['phase'] in ('cycle_release_settle', 'cycle_withdraw', 'cycle_withdrawn_settle', 'cycle_approach', 'cycle_settle')
+            lift = .08 if c['phase'] in ('cycle_clearance_settle', 'cycle_hold') else 0.
+            rows.append({'sequence': i, 'physics_s': .005 * (i + 1), 'phase': c['phase'], 'cycle': c['cycle'],
+                         'rack_object_contact': not held, 'external_object_contact': not held, 'nonrack_external_object_contact': False,
+                         'holder_hand_contact': not free, 'rack_hand_contact': False, 'holder_lift_world_m': lift,
+                         'tip_drift_m': .0005, 'axis_drift_deg': .2})
+        if mutate:
+            mutate(rows)
+        return rows
+
+    def test_declared_sequence_timing_phases_and_wrist(self):
+        from inspire_rack import cycle_command, RackConfig, CYCLE_SECONDS, CYCLE_STEPS, CYCLES
+        c = RackConfig()
+        self.assertEqual((CYCLES, CYCLE_STEPS), (3, 11100)); self.assertAlmostEqual(CYCLE_SECONDS, 18.5)
+        self.assertEqual(cycle_command(0., c)['phase'], 'cycle_settle')
+        hold = cycle_command(6., c); self.assertEqual((hold['phase'], hold['cycle'], hold['wrist'][2], hold['closing_fraction'], hold['opening_fraction']), ('cycle_hold', 0, .04, 1., 0.))
+        self.assertFalse(hold['external_support_allowed']); self.assertTrue(hold['retention_window'])
+        withdrawn = cycle_command(16.2, c); self.assertEqual((withdrawn['phase'], withdrawn['opening_fraction'], withdrawn['closing_fraction'], withdrawn['wrist'][2]), ('cycle_withdrawn_settle', 1., 0., .04))
+        nxt = cycle_command(18.6, c); self.assertEqual((nxt['phase'], nxt['cycle'], nxt['wrist'][2]), ('cycle_settle', 1, -.04))
+        last = cycle_command(55.4, c); self.assertEqual((last['phase'], last['cycle']), ('cycle_approach', 2))
+        with self.assertRaises(ValueError): cycle_command(-1., c)
+        with self.assertRaises(ValueError): RackConfig.from_dict({'release_opening_rad': .05})
+
+    def test_three_good_cycles_qualify_and_any_missing_or_broken_cycle_does_not(self):
+        from inspire_rack import cycle_result, RackConfig
+        c = RackConfig()
+        good = cycle_result(self.rows(c), c)
+        self.assertTrue(good['three_repeat_acquisition_qualified']); self.assertEqual(good['cycles_completed'], 3)
+        self.assertTrue(good['controlled_release_tested'])
+        partial = cycle_result(self.rows(c)[:7400], c)
+        self.assertFalse(partial['three_repeat_acquisition_qualified']); self.assertEqual(partial['cycles'][2]['status'], 'NOT_RUN')
+        def hand_kept_marker(rows):
+            for r in rows:
+                if r['cycle'] == 1 and r['phase'] == 'cycle_withdrawn_settle': r['holder_hand_contact'] = True
+        self.assertFalse(cycle_result(self.rows(c, hand_kept_marker), c)['cycles'][1]['checks']['controlled_release_hand_free'])
+        def marker_lifted_after_release(rows):
+            for r in rows:
+                if r['cycle'] == 2 and r['phase'] == 'cycle_withdraw': r['holder_lift_world_m'] = .03; r['rack_object_contact'] = False; r['external_object_contact'] = False
+        self.assertFalse(cycle_result(self.rows(c, marker_lifted_after_release), c)['cycles'][2]['checks']['marker_stays_racked_after_release'])
+        def short_lift(rows):
+            for r in rows:
+                if r['cycle'] == 0 and r['phase'] == 'cycle_hold': r['holder_lift_world_m'] = .04
+        self.assertFalse(cycle_result(self.rows(c, short_lift), c)['cycles'][0]['checks']['measured_lift50mm'])
+        def rack_support_during_hold(rows):
+            rows[1300]['external_object_contact'] = True; rows[1300]['rack_object_contact'] = True
+        self.assertFalse(cycle_result(self.rows(c, rack_support_during_hold), c)['cycles'][0]['checks']['no_external_hold_support'])
