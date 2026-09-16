@@ -165,6 +165,42 @@ class BalanceEvidenceTests(unittest.TestCase):
         changed = copy.deepcopy(rows); changed[10]['body_effort_writes_this_step'] = 2
         self.assertFalse(check(changed)['checks']['single_zero_command_body_owner'])
 
+    def test_implicit_bias_equivalence_preserves_source_caps_and_refuses_invalid_targets(self):
+        controller = self.controller(); receipt = controller.implicit_receipt(self.limits)
+        self.assertEqual(receipt['body_implicit_target_rad'], [.05]*29)
+        for position, velocity in [(-.4, .0), (.1, .2), (.9, -.3)]:
+            computed = controller.compute(self.names, [position]*53, [velocity]*53)
+            equivalent = [min(cap, max(-cap, k*(target-position)-d*velocity)) for k, target, d, cap in
+                zip(controller.kp, receipt['body_implicit_target_rad'], controller.kd, controller.caps)]
+            for actual, expected in zip(computed['body_effort_nm'], equivalent):
+                self.assertAlmostEqual(actual, expected)
+        invalid = dict(self.limits); invalid['joint_0'] = {'lower': -1., 'upper': .04}
+        with self.assertRaises(ValueError): controller.implicit_receipt(invalid)
+        controller.kp[0] = 0.
+        with self.assertRaises(ValueError): controller.implicit_receipt(self.limits)
+
+    def test_implicit_equilibrium_requires_actual_target_and_zero_additive_effort(self):
+        reference = self.controller().implicit_receipt(self.limits)
+        rows = []
+        for original in self.rows:
+            row = {k: v for k, v in original.items() if k not in ('policy_observation', 'policy_action')}
+            row.update(controller_mode='source_equilibrium_implicit_target_bias_v1',
+                body_command_owner='source_equilibrium_implicit_single_writer',
+                body_command_rad=reference['body_implicit_target_rad'],
+                body_implicit_target_backend_rad=reference['body_implicit_target_rad'],
+                body_effort_writes_this_step=0, body_implicit_position_writes_this_step=1,
+                applied_generalized_actuation_effort_nm=[0.]*53)
+            rows.append(row)
+        def check(values):
+            return evaluate(values, self.initial, self.limits, {}, supporting_constraints=[], integrity_checks={},
+                controller_mode='source_equilibrium_implicit_target_bias_v1', controller_reference=reference)
+        self.assertEqual(check(rows)['status'], 'PASS')
+        for key in ('body_implicit_target_backend_rad', 'applied_generalized_actuation_effort_nm'):
+            changed = copy.deepcopy(rows); changed[10][key][0] = .123
+            self.assertFalse(check(changed)['checks']['source_equilibrium_implicit_target_bias_verified'])
+        changed = copy.deepcopy(rows); changed[10]['body_effort_writes_this_step'] = 1
+        self.assertFalse(check(changed)['checks']['single_zero_command_body_owner'])
+
     def test_loaded_nonadjacent_self_penetration_uses_pair_load_and_source_adjacency(self):
         contact = {'actor0': '/World/G1/palm', 'actor1': '/World/G1/thumb2',
                    'impulse_ns': [0., 0., .003], 'separation_m': -.0011}

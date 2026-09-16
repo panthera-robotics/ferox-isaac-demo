@@ -32,7 +32,7 @@ class BalanceConfig:
                 raise ValueError('Declared ground friction must be finite in [0,2]')
         if obj.ground_dynamic_friction > obj.ground_static_friction:
             raise ValueError('Dynamic friction exceeds static friction')
-        if obj.controller_mode not in ('policy', 'source_contact_equilibrium_pd'):
+        if obj.controller_mode not in ('policy', 'source_contact_equilibrium_pd', 'source_equilibrium_implicit_target_bias_v1'):
             raise ValueError('Unknown balance controller')
         if (obj.controller_mode == 'policy') != (obj.source_contact_equilibrium is None):
             raise ValueError('Equilibrium mode alone requires its immutable source reference')
@@ -123,6 +123,19 @@ class SourceEquilibriumPD:
             'learned_policy_inference': False, 'external_base_wrench_applied': False,
             'source_contact_forces_applied_to_simulator': False,
             'scope': 'Contact forces derive fixed joint feedforward only; actual free-body stance must pass measured gates'}
+
+    def implicit_receipt(self, limits):
+        if any(k <= 0 for k in self.kp):
+            raise ValueError('An implicit feedforward target bias requires strictly positive body stiffness')
+        targets = [home + ff/k for home, ff, k in zip(self.default, self.ff, self.kp)]
+        if any(not limits[n]['lower'] <= target <= limits[n]['upper'] for n, target in zip(self.names, targets)):
+            raise ValueError('Equivalent feedforward target would exceed an unchanged source joint limit')
+        return self.receipt() | {'controller_mode': 'source_equilibrium_implicit_target_bias_v1',
+            'body_implicit_target_rad': targets, 'body_target_bias_rad': [f/k for f, k in zip(self.ff, self.kp)],
+            'controller_equation': 'q_drive=q_nominal+tau_equilibrium/kp; existing implicit drive applies capped kp*(q_drive-q)-kd*dq',
+            'explicit_effort_command': False, 'implicit_drive_source_caps_unchanged': True,
+            'integration_scope': 'PhysX implicit drive; algebraic constant-feedforward equivalence, no additive effort and no artificial inertia',
+            'scope': 'Declared SIM drive representation; source nominal pose, gains, caps and masses unchanged; actual stance still requires measured gates'}
 
 
 def source_adjacency(source):
@@ -265,10 +278,12 @@ def evaluate(rows, initial, limits, mimics, *, supporting_constraints, integrity
     ground_impulses = {n: 0. for n in FEET}
     unsupported_contact_count = 0
     self_penetrations = []
-    if controller_mode not in ('policy', 'source_contact_equilibrium_pd'):
+    if controller_mode not in ('policy', 'source_contact_equilibrium_pd', 'source_equilibrium_implicit_target_bias_v1'):
         raise ValueError('Unknown evaluated controller mode')
     if controller_mode == 'source_contact_equilibrium_pd':
         checks['source_equilibrium_effort_matches_capped_pd'] = bool(rows)
+    elif controller_mode == 'source_equilibrium_implicit_target_bias_v1':
+        checks['source_equilibrium_implicit_target_bias_verified'] = bool(rows)
     try:
         if not finite_tree(initial):
             raise ValueError('Nonfinite initial reference')
@@ -287,7 +302,9 @@ def evaluate(rows, initial, limits, mimics, *, supporting_constraints, integrity
                 raise ValueError('Missing actual policy computation')
             if row['sequence'] != seq or abs(row['physics_s']-initial['physics_s']-(seq+1)*.005) > 1e-7:
                 checks['contiguous_physics_sequence'] = False
-            owner = 'named_policy_single_writer' if controller_mode == 'policy' else 'source_equilibrium_effort_single_writer'
+            owner = {'policy': 'named_policy_single_writer',
+                     'source_contact_equilibrium_pd': 'source_equilibrium_effort_single_writer',
+                     'source_equilibrium_implicit_target_bias_v1': 'source_equilibrium_implicit_single_writer'}[controller_mode]
             if (row['command_velocity'] != [0., 0., 0.] or row['body_command_owner'] != owner
                     or len(row['body_command_names']) != 29 or len(set(row['body_command_names'])) != 29
                     or not set(row['body_command_names']).issubset(names) or len(row['body_command_rad']) != 29):
@@ -324,6 +341,25 @@ def evaluate(rows, initial, limits, mimics, *, supporting_constraints, integrity
                 effort_by_name = dict(zip(row['body_command_names'], vectors[3]))
                 if any(abs(value-effort_by_name.get(name, 0.)) > 1e-7 for name, value in zip(names, live_effort)):
                     checks['source_equilibrium_effort_matches_capped_pd'] = False
+            elif controller_mode == 'source_equilibrium_implicit_target_bias_v1':
+                reference = controller_reference
+                if (not isinstance(reference, dict) or row.get('controller_mode') != controller_mode
+                        or row.get('body_effort_writes_this_step') != 0 or row.get('body_implicit_position_writes_this_step') != 1
+                        or row['body_command_names'] != reference['body_joint_names']):
+                    checks['single_zero_command_body_owner'] = False
+                    raise ValueError('Missing implicit equilibrium controller ownership/reference')
+                nominal, ff, kp = (reference[key] for key in ('body_nominal_rad', 'body_feedforward_nm', 'body_kp_nm_rad'))
+                if any(len(v) != 29 for v in (nominal, ff, kp)) or any(k <= 0 for k in kp):
+                    raise ValueError('Invalid implicit equilibrium reference')
+                target = [home+force/k for home, force, k in zip(nominal, ff, kp)]
+                readback = row['body_implicit_target_backend_rad']
+                effort = row['applied_generalized_actuation_effort_nm']
+                if len(readback) != 29 or len(effort) != 53:
+                    raise ValueError('Missing implicit target or explicit force backend evidence')
+                if (any(abs(a-b) > 1e-7 for a, b in zip(row['body_command_rad'] + readback, target + target))
+                        or any(value != 0. for value in effort)
+                        or any(not limits[n]['lower'] <= value <= limits[n]['upper'] for n, value in zip(row['body_command_names'], target))):
+                    checks['source_equilibrium_implicit_target_bias_verified'] = False
             pose = row['link_poses_world_xyzw']['pelvis']
             roll, pitch = roll_pitch(pose)
             min_height = pose[2] if min_height is None else min(min_height, pose[2])

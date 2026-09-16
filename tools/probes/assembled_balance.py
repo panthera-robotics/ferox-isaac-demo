@@ -61,7 +61,9 @@ def main():
         contract = PolicyContract.load(cfg.policy_path)
         assert contract.observation_width == 480 and len(contract.policy_names) == 29
         default = dict(zip(contract.policy_names, contract.default_position))
-        equilibrium_mode = cfg.controller_mode == 'source_contact_equilibrium_pd'
+        equilibrium_mode = cfg.controller_mode != 'policy'
+        explicit_equilibrium = cfg.controller_mode == 'source_contact_equilibrium_pd'
+        implicit_equilibrium = cfg.controller_mode == 'source_equilibrium_implicit_target_bias_v1'
         adjacent_pairs = source_adjacency(source)
         write('source_self_contact_gate.json', {'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
             'direct_source_adjacency_pairs': [list(p) for p in sorted(adjacent_pairs)],
@@ -122,8 +124,8 @@ def main():
                 if name in default:
                     i = contract.policy_names.index(name); drive = UsdPhysics.DriveAPI.Apply(prim, 'angular')
                     drive.CreateTypeAttr('force')
-                    drive.CreateStiffnessAttr(0. if equilibrium_mode else contract.stiffness[i])
-                    drive.CreateDampingAttr(0. if equilibrium_mode else contract.damping[i])
+                    drive.CreateStiffnessAttr(0. if explicit_equilibrium else contract.stiffness[i])
+                    drive.CreateDampingAttr(0. if explicit_equilibrium else contract.damping[i])
                     drive.CreateMaxForceAttr(facts['joint_limits'][name]['effort']); drive.CreateTargetPositionAttr(math.degrees(default[name]))
         stage.GetRootLayer().Save()
         write('initialization_frame_corrections.json', {n: t.tolist() for n, t in corrections.items()})
@@ -185,7 +187,7 @@ def main():
         # In the deterministic mode the adapter configures named gains/caps only.
         # A sentinel prevents loading the actor, and forward is never invoked.
         policy = named_policy_class(G1VelocityPolicy)(robot=robot, policy_dir=cfg.policy_path, source_urdf=source, physics_dt=.005,
-            body_actuation_mode='external_effort' if equilibrium_mode else 'implicit_position',
+            body_actuation_mode='external_effort' if explicit_equilibrium else 'implicit_position',
             policy=object() if equilibrium_mode else None)
         policy_receipt = policy.initialize(initialize_articulation=False)
         body_names = list(contract.policy_names); hand_names = list(facts['hand_independent_names'])
@@ -195,10 +197,12 @@ def main():
                 contract.stiffness, contract.damping, [facts['joint_limits'][n]['effort'] for n in body_names],
                 source_sha256=hashlib.sha256(source.read_bytes()).hexdigest())
             assert abs(cfg.source_contact_equilibrium['source_mass_kg'] - facts['source_physical_mass_kg']) < 1e-8
-            controller_reference = equilibrium.receipt()
+            controller_reference = (equilibrium.implicit_receipt(facts['joint_limits']) if implicit_equilibrium
+                                    else equilibrium.receipt())
             policy_receipt.update(controller_reference)
-            assert all(policy_receipt['live_stiffness_by_name'][n] == policy_receipt['live_damping_by_name'][n] == 0.
-                       for n in body_names)
+            if explicit_equilibrium:
+                assert all(policy_receipt['live_stiffness_by_name'][n] == policy_receipt['live_damping_by_name'][n] == 0.
+                           for n in body_names)
         policy_receipt['learned_actor_loaded'] = not equilibrium_mode
         policy_receipt['learned_actor_inference_executed'] = False
         policy_receipt['additional_source_sha256'] = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
@@ -251,8 +255,15 @@ def main():
             'initialization_no_material_loaded_nonadjacent_self_penetration': not material_self_penetrations(contacts, adjacent_pairs),
             'contact_instrumentation_valid': not contact_faults}
         if equilibrium_mode:
-            integrity['body29_implicit_drives_zero_verified'] = all(
-                policy_receipt['live_stiffness_by_name'][n] == policy_receipt['live_damping_by_name'][n] == 0. for n in body_names)
+            if explicit_equilibrium:
+                integrity['body29_implicit_drives_zero_verified'] = all(
+                    policy_receipt['live_stiffness_by_name'][n] == policy_receipt['live_damping_by_name'][n] == 0. for n in body_names)
+            else:
+                integrity['implicit_body29_exported_gains_and_source_caps_preserved'] = all(
+                    abs(policy_receipt['live_stiffness_by_name'][n]-contract.stiffness[i]) < 1e-6 and
+                    abs(policy_receipt['live_damping_by_name'][n]-contract.damping[i]) < 1e-6 and
+                    abs(policy_receipt['live_drive_effort_caps_by_name'][n]-facts['joint_limits'][n]['effort']) < 1e-6
+                    for i, n in enumerate(body_names))
             integrity['source_equilibrium_reference_verified'] = equilibrium is not None
         else:
             integrity['policy_observation_contract_width_480'] = policy_receipt['observation_width'] == 480
@@ -275,7 +286,7 @@ def main():
         observation_sequence = None; observation_physics_s = None
         for sequence in range(GATES['required_steps']):
             step_contacts.clear()
-            if equilibrium_mode:
+            if explicit_equilibrium:
                 feedback = read_state()
                 control = equilibrium.compute(names, feedback['q_rad'], feedback['dq_rad_s'])
                 targets = default
@@ -294,6 +305,24 @@ def main():
                     body_feedback_source_sequence=sequence-1, body_feedback_physics_s=feedback['physics_s'],
                     body_effort_writes_this_step=1, body_implicit_position_writes_this_step=0,
                     body_command_owner='source_equilibrium_effort_single_writer', learned_policy_inference=False)
+            elif implicit_equilibrium:
+                targets = dict(zip(body_names, controller_reference['body_implicit_target_rad']))
+                command = np.asarray([targets[n] for n in body_names] + [0.]*12, dtype=np.float32)
+                # One position-target writer owns body29 + disjoint hand12.
+                # Constant FF is inside each capped implicit body drive; there
+                # is no additive effort which could exceed its source cap.
+                robot.apply_action(ArticulationAction(joint_positions=command, joint_indices=indices))
+                tensor = robot._articulation_view._physics_view
+                target_readback = np.asarray(tensor.get_dof_position_targets()).reshape(-1)
+                live_efforts = np.asarray(tensor.get_dof_actuation_forces()).reshape(-1)
+                assert target_readback.shape == live_efforts.shape == (53,)
+                assert np.array_equal(target_readback[indices], command)
+                assert np.all(live_efforts == 0.)
+                controller_row = dict(controller_mode=cfg.controller_mode,
+                    body_implicit_target_backend_rad=target_readback[body_indices].tolist(),
+                    applied_generalized_actuation_effort_nm=live_efforts.tolist(),
+                    body_effort_writes_this_step=0, body_implicit_position_writes_this_step=1,
+                    body_command_owner='source_equilibrium_implicit_single_writer', learned_policy_inference=False)
             else:
                 inference = policy._policy_counter % policy._decimation == 0
                 if inference:
@@ -321,8 +350,10 @@ def main():
             row['drive_estimate_names'] = body_names + hand_names
             row['drive_estimate_near_cap_names'] = [n for n, e, cap in zip(body_names + hand_names, estimate, caps[indices]) if abs(e) >= .99 * cap]
             row['drive_estimate_scope'] = 'Unclipped PD estimate; measured generalized efforts also include constraint reactions'
-            if equilibrium_mode:
+            if explicit_equilibrium:
                 row['drive_estimate_scope'] = 'Implicit hand12 estimate only; body29 gains are zero, actual explicit body torque is exported separately'
+            elif implicit_equilibrium:
+                row['drive_estimate_scope'] = 'Unclipped algebraic implicit PD+FF estimate at post-step state, not an actual measured drive-force readback'
             rows.append(row); state_file.write(json.dumps(row, allow_nan=False) + '\n')
             pelvis = row['link_poses_world_xyzw']['pelvis']; roll, pitch = roll_pitch(pelvis)
             violated = {n: float(q[i]) for i, n in enumerate(names) if q[i] < facts['joint_limits'][n]['lower'] - .1 or q[i] > facts['joint_limits'][n]['upper'] + .1}
@@ -341,8 +372,13 @@ def main():
                 frame_file.write(json.dumps({'frame': frame, 'sequence': sequence, 'physics_s': before, 'phase': phase,
                     'captured_after_same_step_render': True, 'views': files}) + '\n')
         integrity['contact_instrumentation_valid'] = not contact_faults
+        final_kp, final_kd = robot._articulation_view.get_gains()
+        final_caps = robot._articulation_view.get_max_efforts()
+        integrity['drive_gains_caps_unchanged_through_episode'] = all(np.array_equal(np.asarray(value).reshape(-1), expected)
+            for value, expected in zip((final_kp, final_kd, final_caps), (kp, kd, caps)))
         policy_receipt['learned_actor_inference_executed'] = any(r.get('policy_inference_this_step', False) for r in rows)
         policy_receipt['body_effort_write_count'] = sum(r.get('body_effort_writes_this_step', 0) for r in rows)
+        policy_receipt['body_implicit_position_write_count'] = sum(r.get('body_implicit_position_writes_this_step', 0) for r in rows)
         policy_receipt['body_effort_saturated_steps'] = sum(bool(r.get('body_effort_saturated_names')) for r in rows)
         write('controller_receipt.json', policy_receipt)
         result = evaluate(rows, initial, facts['joint_limits'], facts['mimic_map'], supporting_constraints=supporting_constraints,
