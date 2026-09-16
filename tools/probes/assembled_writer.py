@@ -30,7 +30,10 @@ def validate_config(config):
         'planner_frames_sha256', 'body_home_rad', 'kp_nm_rad', 'kd_nm_s_rad',
         'tau_ff_nm', 'gain_provenance', 'feedforward_provenance', 'workflow_mode',
         'letter_height_m', 'maximum_steps', 'maximum_wall_s'}
-    optional = {'actuation_backend', 'maximum_wall_age_s', 'hand_hold_kp_nm_rad', 'hand_hold_kd_nm_s_rad', 'contact_writing'}
+    optional = {'actuation_backend', 'maximum_wall_age_s', 'hand_hold_kp_nm_rad', 'hand_hold_kd_nm_s_rad', 'contact_writing', 'job_text'}
+    text = config.get('job_text', 'I')
+    if not isinstance(text, str) or not 1 <= len(text) <= 12 or text != text.strip() or any(c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ' for c in text):
+        raise ValueError('job_text must be 1-12 upper-case letters/digits/spaces without surrounding whitespace')
     contact = config.get('contact_writing')
     if contact is not None:
         needed = {'held_marker_grasp_path', 'preload_support_s', 'closing_ramp_s', 'grasp_finger_kp_nm_rad', 'grasp_finger_kd_nm_s_rad', 'provenance'}
@@ -184,7 +187,7 @@ def main():
     if contact_mode != ('contact_writing' in cfg):
         raise RuntimeError('contact mode requires the contact_writing config block and vice versa')
     out = Path('/evidence')
-    metrics = {'status': 'FAIL', 'scope': 'fixed_pelvis_actual_writer_contact_writing' if contact_mode else 'fixed_pelvis_actual_writer_air_integration',
+    metrics = {'job_text': cfg.get('job_text', 'I'), 'status': 'FAIL', 'scope': 'fixed_pelvis_actual_writer_contact_writing' if contact_mode else 'fixed_pelvis_actual_writer_air_integration',
         'hardware_authorized': False, 'fixed_base': True, 'body_final_writers': 1,
         'tool_attached': False, 'ground_present': False,
         'support_constraints': ['pelvis_fixed_to_world_1m_above_origin'],
@@ -740,7 +743,7 @@ def main():
             for reference in references:
                 arbiter.accept_upper_reference(reference, now_monotonic_s=time.monotonic())
             metrics['returned_references'] += len(references)
-            workflow = bridge.workflowadvance(mode=cfg['workflow_mode'], text='I')
+            workflow = bridge.workflowadvance(mode=cfg['workflow_mode'], text=cfg.get('job_text', 'I'))
             if workflow['finished']:
                 break
             if implicit_backend:

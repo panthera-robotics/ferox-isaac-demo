@@ -125,6 +125,13 @@ class ActuationBackendConfigTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 probe.validate_config(self.config(contact_writing=bad))
 
+    def test_job_text_defaults_to_I_and_is_bounded(self):
+        self.assertEqual(probe.validate_config(self.config()).get('job_text', 'I'), 'I')
+        probe.validate_config(self.config(job_text='L')); probe.validate_config(self.config(job_text='G1 OK'))
+        for bad in ('', ' I', 'i', 'ABCDEFGHIJKLM', 1, None):
+            with self.assertRaises(ValueError):
+                probe.validate_config(self.config(job_text=bad))
+
     def test_wall_age_tolerance_is_declared_and_bounded(self):
         probe.validate_config(self.config(maximum_wall_age_s=1.0))
         for bad in (.05, 6., float('nan'), '1'):
