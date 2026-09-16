@@ -294,10 +294,12 @@ def main():
             # the declared release retreats the palm 40 mm along -y instead before lifting.
             command=[initial_q[n]+fraction*(target_q[n]-initial_q[n])-(opening*rack_cfg.release_opening_rad if (cycle_mode and n in opening_names) else 0.) for n in independent]
             if cycle_mode:
-                # Declared thumb release pose blended in with the opening fraction (yaw/bend), if configured.
-                for name,value in (('right_thumb_1_joint',rack_cfg.release_thumb_yaw_rad),('right_thumb_2_joint',rack_cfg.release_thumb_bend_rad)):
-                    if value is not None:
-                        i=independent.index(name);command[i]=(1.-opening)*command[i]+opening*value
+                # Declared thumb modes per phase: grasp (closure command), forward (release yaw/bend), lateral (0,0); blended.
+                mode_a,mode_b,blend=rack_target['thumb_mode']
+                for name,forward in (('right_thumb_1_joint',rack_cfg.release_thumb_yaw_rad),('right_thumb_2_joint',rack_cfg.release_thumb_bend_rad)):
+                    i=independent.index(name);grasp_value=initial_q[name]+fraction*(target_q[name]-initial_q[name])
+                    values={'grasp':grasp_value,'forward':forward if forward is not None else grasp_value,'lateral':0.}
+                    command[i]=(1.-blend)*values[mode_a]+blend*values[mode_b]
             command=[min(limits[n][1],max(limits[n][0],v)) for n,v in zip(independent,command)]
             if support_active and elapsed>=support_seconds:
                 world.stage.RemovePrim(support_path)
@@ -359,7 +361,7 @@ def main():
                 rack_hand=[c for c in step_contacts if np.linalg.norm(c['impulse_ns'])>1e-10
                     and any(c[a].startswith('/World/MarkerRack/') for a in ('actor0','actor1'))
                     and any(c[a].startswith('/World/Hand/') for a in ('actor0','actor1'))]
-                row.update(cycle=rack_target.get('cycle'),opening_fraction=(opening if cycle_mode else 0.),
+                row.update(cycle=rack_target.get('cycle'),opening_fraction=(opening if cycle_mode else 0.),thumb_mode=rack_target.get('thumb_mode'),
                     rack_object_contact=bool(rack_contacts),nonrack_external_object_contact=bool(nonrack_external),
                     rack_hand_contact=bool(rack_hand),actual_loaded_rack_hand_contacts=rack_hand,
                     holder_lift_world_m=float(hp[2]-initial_poses['holder'][2]),
