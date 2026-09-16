@@ -364,6 +364,11 @@ def main():
             if not empty_control and elapsed>.2 and (math.dist(measurement['holder_center_palm_m'],cfg.holder_center_palm_m)>.08 or support_fault):
                 aborted='object_escaped_or_received_external_support';break
         retained=[r for r in rows if r['phase'].startswith('retention')]
+        # Declared closure check (added 2026-09-16 after v8-hold-01): the retention window scores drift
+        # relative to its own first sample, so a closure that drops the object onto the thumb base
+        # before the window would otherwise score as stable. The holder centre at the first retained
+        # sample must stay within 10 mm of the declared preload centre (palm frame).
+        pre_window_displacement=(math.dist(retained[0]['relative']['holder_center_palm_m'],cfg.holder_center_palm_m) if retained else None)
         retention=retention_result(retained,expected_seconds=duration,dt_s=.005,
             fixture_support_active=any(r['scope'].get('holder_fixture_support_active') is True for r in retained))
         retention['preload_support']=scope['preload_support']
@@ -381,6 +386,7 @@ def main():
         write('self_contact_summary.json',self_pairs)
         checks={'complete_steps':len(rows)==total_steps,'initial_preload_realized':initial_error<.01,
                 'initial_object_no_deep_penetration':deepest>=-.0005,'retention_window':retention['accepted'],
+                'closure_kept_declared_pose_10mm':(pre_window_displacement is not None and pre_window_displacement<=.010) if not rack_mode else True,
                 'front_and_side_recorded':bool(frames),'no_early_abort':aborted is None}
         if rack_mode:
             checks.update(acquisition['checks'])
@@ -403,6 +409,7 @@ def main():
                     'front_and_side_recorded':bool(frames)}
         checks.update(initial_gates['checks'])
         metrics={'schema_version':1,'checks':checks,'steps':len(rows),'mode':mode,'scope':scope,'retention':retention,'initialization':initial_gates,
+                 'pre_retention_window_holder_displacement_m':pre_window_displacement,
                  'rack_acquisition':acquisition,'single_rack_lift_hold_diagnostic_pass':rack_mode and all(checks.values()),
                  'three_repeat_acquisition_qualified':False,'controlled_release_tested':False,
                  'supported_preloaded_retention_60s_qualified':mode.endswith('60s') and all(checks.values()),
