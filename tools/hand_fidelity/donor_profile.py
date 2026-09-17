@@ -274,6 +274,11 @@ class HandUrdf:
         out['palm_band_width_along_viewer_right_m'] = round(float((band @ r).max() - (band @ r).min()), 5)
         out['palm_band_definition'] = 'base-link vertices with 0.09 m < (v . fingers) < 0.15 m; thickness measured along the flexion normal, width along viewer-right'
         out['base_link_note'] = 'the base mesh includes the wrist cylinder; extents are mesh extremities, not manufacturer datums'
+        # unit scaling: a hand's open envelope along the finger axis is 0.15-0.35 m; a millimetre or inch STL would be 25-1000x off
+        length = float((allv @ f).max() - (allv @ f).min())
+        out['open_length_along_fingers_m'] = round(length, 5)
+        out['units_check'] = {'status': 'METRES_PLAUSIBLE' if 0.15 <= length <= 0.35 else 'UNIT_SCALE_SUSPECT', 'rule': 'open hand length along the finger axis within [0.15, 0.35] m; URDF mesh scale attribute absent or 1'}
+        out['mesh_scale_attributes'] = sorted({(self.links[l].find('visual/geometry/mesh').get('scale') or '1 1 1') for l in self.hand_links if self.links[l].find('visual/geometry/mesh') is not None})
         return out
 
     def mass_properties(self, q=None, in_wrist_frame=False):

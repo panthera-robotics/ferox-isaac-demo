@@ -297,3 +297,14 @@ class CandidateInvalidationTests(unittest.TestCase):
         invalidation_report(MANIFEST, DONOR_URDF, widen_coupled_lower_limits(0.05), live_extra=self.LIVE)
         after = hashlib.sha256(DONOR_URDF.read_bytes()).hexdigest(), hashlib.sha256(MANIFEST.read_bytes()).hexdigest()
         self.assertEqual(before, after)
+
+
+@unittest.skipUnless(DONOR_URDF.exists(), 'donor URDF not in this checkout')
+class UnitScalingTests(unittest.TestCase):
+    def test_donor_meshes_are_in_metres_and_unscaled(self):
+        h = HandUrdf(DONOR_URDF, 'right')
+        if not h.meshes_available():
+            self.skipTest('donor meshes not in this checkout')
+        e = h.mesh_extents()
+        self.assertEqual(e['units_check']['status'], 'METRES_PLAUSIBLE'); self.assertEqual(e['mesh_scale_attributes'], ['1 1 1'])
+        self.assertAlmostEqual(e['open_length_along_fingers_m'], 0.25, delta=0.02)
