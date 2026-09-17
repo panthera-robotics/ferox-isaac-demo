@@ -32,7 +32,7 @@ def main():
     out = Path('/evidence'); app = None; world = None; subscription = None; streams = []
     rows = []; contacts = []; step_contacts = []; contact_faults = []; sequence = None; events = []
     phase = 'configuration'; last = {}; initial = {}; facts = {}; abort = None; integrity = {}
-    media = {'fixture': 'RIG-SUPPORTED SETTLE then RECORDED RELEASE; free standing on physical ground afterwards',
+    media = {'fixture': ('TRAINING-RESET START (spawned in the default pose, no rig at any time, policy from step 0); free standing on physical ground' if cfg.training_reset else 'RIG-SUPPORTED SETTLE then RECORDED RELEASE; free standing on physical ground afterwards'),
              'embodiment': arm['label'], 'qualification': 'SIM-only zero-command standing A/B; no firmware or manipulation qualification'}
     scope = {'fixed_base': False, 'support_constraints': [], 'external_forces': 'rig wrench during supported_settle only; zero after release',
              'pose_writes_after_reset': 0, 'joint_state_writes_after_reset': 0, 'exact_E2_qualified': False,
