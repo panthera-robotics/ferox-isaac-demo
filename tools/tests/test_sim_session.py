@@ -315,6 +315,22 @@ class MeasuredRuntimeAccountingTests(unittest.TestCase):
         account = session_accounting(measured_authorization(), events)
         self.assertEqual((account['charged_completed_seconds'], account['active_reservation_seconds'], account['reserved_history_seconds']), (90., 0., 900.))
 
+    def test_inference_jobs_share_the_measured_allowance_and_named_batch_cap(self):
+        events = []
+        with self.assertRaises(AdmissionError):
+            admission(measured_authorization(), events, category='inference', seconds=600)   # needs a name and justification
+        with self.assertRaises(AdmissionError):
+            admission(measured_authorization(), events, category='inference', seconds=1801, name='inf', justification='offline batch inference')
+        self._run(events, 'inf1', 600, 200, finish_after=150, category='inference', name='inf', justification='offline batch inference')
+        settled = self._settle(events, 'inf1', 400)
+        self.assertEqual((settled['charged_seconds'], settled['released_reservation_seconds']), (150., 450.))
+        account = session_accounting(measured_authorization(), events)
+        self.assertEqual(account['charged_completed_seconds'], 150.)
+        # a second GPU workload cannot be admitted while an inference job is unresolved
+        self._run(events, 'inf2', 600, 1000, finish_after=None, category='inference', name='inf', justification='offline batch inference')
+        with self.assertRaises(AdmissionError):
+            admission(measured_authorization(), events, category='evaluation', seconds=300, name='sim', justification='sim', clock=Clock(100000. + 1100, 1100., 'boot'))
+
     def test_early_failure_and_timeout_charge_their_measured_runtime(self):
         events = []
         self._run(events, 'a', 300, 200, finish_after=40, status='FAIL'); self._settle(events, 'a', 250)

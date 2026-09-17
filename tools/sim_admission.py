@@ -204,7 +204,7 @@ def admit(auth, events, *, category, name, justification, seconds, cleanup_secon
     limits = auth['limits']
     if category == 'diagnostic':
         cap = limits['default_diagnostic_seconds']
-    elif category in {'asset-build', 'initialization', 'integration', 'evaluation'}:
+    elif category in {'asset-build', 'initialization', 'integration', 'evaluation', 'inference'}:
         cap = limits['maximum_named_batch_seconds']
         if not name or not justification.strip():
             raise AdmissionError('Named batch requires a name and manifest justification')
