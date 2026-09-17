@@ -372,7 +372,7 @@ def active_session(campaign, clock):
 def _cli(argv):
     """python3 sim_admission.py reconcile <campaign> [run_id ...] | account <campaign>"""
     import sys
-    command, campaign = argv[0], Path(argv[1])
+    command, campaign = argv[0], Path(argv[1]).resolve()
     clock = Clock.now()
     path, auth = active_session(campaign, clock)
     ledger = path.parent / 'ledger.jsonl'
