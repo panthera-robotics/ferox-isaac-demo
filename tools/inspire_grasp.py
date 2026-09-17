@@ -28,6 +28,10 @@ class GraspConfig:
     thumb_closing_increment_rad: float = .05
     finger_stiffness_nm_rad: float = 1.
     finger_damping_nm_s_rad: float = .05
+    # Optional separate thumb drive gains (None = finger gains). A thumb parked clear of the index
+    # needs its own declared hold stiffness so it is neither pressing the index nor freely back-driven.
+    thumb_stiffness_nm_rad: float = None
+    thumb_damping_nm_s_rad: float = None
     contact_static_friction: float = .7
     contact_dynamic_friction: float = .6
     retention_tip_limit_m: float = .003
@@ -56,6 +60,7 @@ class GraspConfig:
             object.__setattr__(self,'finger_initial_rad',tuple(float(x) for x in v))
         for f in fields(self):
             if f.name in {'schema_version','palm_candidate_id','holder_center_palm_m','holder_orientation_palm_qwxyz','finger_initial_rad'}:continue
+            if f.name in {'thumb_stiffness_nm_rad','thumb_damping_nm_s_rad'} and getattr(self,f.name) is None:continue
             if f.name in {'solver_position_iterations','solver_velocity_iterations'}:
                 if type(getattr(self,f.name)) is not int or not 1<=getattr(self,f.name)<=255:raise ValueError('Solver iterations must be integers in 1..255')
                 continue
@@ -64,7 +69,9 @@ class GraspConfig:
         if not (0<=self.four_finger_initial_rad<=1.4381 and 0<=self.thumb_yaw_initial_rad<=1.1641
                 and 0<=self.thumb_flexion_initial_rad<=.5864 and 0<=self.finger_closing_increment_rad<=.20
                 and 0<=self.thumb_closing_increment_rad<=.10 and .1<=self.finger_stiffness_nm_rad<=2.
-                and .01<=self.finger_damping_nm_s_rad<=.2 and 0<=self.preload_support_s<=1.5
+                and .01<=self.finger_damping_nm_s_rad<=1. and 0<=self.preload_support_s<=1.5
+                and (self.thumb_stiffness_nm_rad is None or .1<=self.thumb_stiffness_nm_rad<=10.)
+                and (self.thumb_damping_nm_s_rad is None or .01<=self.thumb_damping_nm_s_rad<=1.)
                 and 0<=self.contact_dynamic_friction<=self.contact_static_friction<=1.):raise ValueError('Grasp parameters outside declared bounds')
         if self.retention_tip_limit_m!=.003 or self.retention_axis_limit_deg!=3.:raise ValueError('Acceptance limits cannot be relaxed through configuration')
 
@@ -76,6 +83,12 @@ class GraspConfig:
     @property
     def sha256(self):
         return hashlib.sha256(json.dumps(asdict(self),sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+
+    def drive_gains(self,name):
+        """(stiffness, damping) of one independent hand joint: thumb gains when declared, else finger gains."""
+        if 'thumb' in name and self.thumb_stiffness_nm_rad is not None:
+            return self.thumb_stiffness_nm_rad,(self.thumb_damping_nm_s_rad if self.thumb_damping_nm_s_rad is not None else self.finger_damping_nm_s_rad)
+        return self.finger_stiffness_nm_rad,self.finger_damping_nm_s_rad
 
     def initial_targets(self):
         fingers=['index','middle','ring','little']

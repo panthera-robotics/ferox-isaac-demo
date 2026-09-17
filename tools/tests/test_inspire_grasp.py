@@ -157,3 +157,16 @@ class PreloadSupportConfigTests(unittest.TestCase):
         for bad in ([1.3, 1.2], [1.5, 1.2, 1.2, 1.2], [1.2, float('nan'), 1.2, 1.2], 'x'):
             with self.assertRaises(ValueError):
                 GraspConfig.from_dict({'finger_initial_rad': bad})
+
+
+class ThumbDriveGainTests(unittest.TestCase):
+    def test_thumb_gains_default_to_finger_gains_and_are_bounded(self):
+        from inspire_grasp import GraspConfig
+        g = GraspConfig(finger_stiffness_nm_rad=1., finger_damping_nm_s_rad=.5)
+        self.assertEqual(g.drive_gains('right_thumb_1_joint'), (1., .5)); self.assertEqual(g.drive_gains('right_index_1_joint'), (1., .5))
+        h = GraspConfig(finger_stiffness_nm_rad=1., finger_damping_nm_s_rad=.5, thumb_stiffness_nm_rad=5., thumb_damping_nm_s_rad=.5)
+        self.assertEqual(h.drive_gains('right_thumb_2_joint'), (5., .5)); self.assertEqual(h.drive_gains('right_little_1_joint'), (1., .5))
+        self.assertNotEqual(g.sha256, h.sha256)
+        for bad in (dict(thumb_stiffness_nm_rad=11.), dict(thumb_damping_nm_s_rad=2.), dict(finger_damping_nm_s_rad=1.5), dict(thumb_stiffness_nm_rad=float('nan'))):
+            with self.assertRaises(ValueError): GraspConfig(**bad)
+        self.assertEqual(GraspConfig.from_dict(json.loads(json.dumps(h.__dict__))).drive_gains('right_thumb_1_joint'), (5., .5))

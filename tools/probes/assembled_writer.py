@@ -475,12 +475,18 @@ def main():
             # left hand: idle open. Same tensor path as the body gains.
             right_hand = [n for n in hand_names if n.startswith('right_')]
             right_ids = np.array([names.index(n) for n in right_hand], dtype=np.int32)
-            kp[right_ids] = float(cfg['contact_writing']['grasp_finger_kp_nm_rad']); kd[right_ids] = float(cfg['contact_writing']['grasp_finger_kd_nm_s_rad'])
+            # Gains come from the grasp file itself (one source of truth, hashed): finger gains must equal the
+            # config's declared grasp_finger_* values; the thumb may carry its own declared hold gains.
+            if (abs(grasp.finger_stiffness_nm_rad - float(cfg['contact_writing']['grasp_finger_kp_nm_rad'])) > 1e-9
+                    or abs(grasp.finger_damping_nm_s_rad - float(cfg['contact_writing']['grasp_finger_kd_nm_s_rad'])) > 1e-9):
+                raise ValueError('config grasp_finger gains differ from the held-marker grasp file')
+            for n, i in zip(right_hand, right_ids):
+                kp[i], kd[i] = grasp.drive_gains(n)
             closing_ramp_s = float(cfg['contact_writing']['closing_ramp_s'])
             right_open = np.array([held['initial'][n] if n in held['closed'] else 0. for n in hand_names], dtype=np.float32)
             right_closed = np.array([held['closed'][n] if n in held['closed'] else 0. for n in hand_names], dtype=np.float32)
             hand_targets[:] = right_open
-            metrics['hand_hold_gains']['right_grasp'] = {'kp_nm_rad': float(kp[right_ids][0]), 'kd_nm_s_rad': float(kd[right_ids][0]),
+            metrics['hand_hold_gains']['right_grasp'] = {'kp_nm_rad': {n: float(kp[i]) for n, i in zip(right_hand, right_ids)}, 'kd_nm_s_rad': {n: float(kd[i]) for n, i in zip(right_hand, right_ids)},
                 'closed_targets_rad': {n: float(held['closed'][n]) for n in right_hand}, 'closing_ramp_s': closing_ramp_s, 'scope': 'grasp bench drives of the held-marker candidate; smoothstep closure from the authored preload pose'}
         if implicit_backend:
             # Declared body gains live inside the capped implicit drives (same

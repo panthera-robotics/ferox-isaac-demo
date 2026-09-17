@@ -129,7 +129,7 @@ def main():
                     p.CreateAttribute(f'physxMimicJoint:{axis}:naturalFrequency',Sdf.ValueTypeNames.Float).Set(0.)
                 else:
                     d=UsdPhysics.DriveAPI.Apply(p,'angular');d.CreateTypeAttr('force');d.CreateMaxForceAttr(10.)
-                    d.CreateStiffnessAttr(cfg.finger_stiffness_nm_rad);d.CreateDampingAttr(cfg.finger_damping_nm_s_rad)
+                    gk,gd=cfg.drive_gains(name);d.CreateStiffnessAttr(gk);d.CreateDampingAttr(gd)
                     d.CreateTargetPositionAttr(math.degrees(initial_q[name]))
         for axis in fixture['axes']:
             joints=[p for p in stage.Traverse() if p.GetName()==axis['name'] and p.IsA(UsdPhysics.Joint)];assert len(joints)==1
@@ -224,7 +224,8 @@ def main():
         names=list(hand.dof_names);assert set(names)==set(limits)|{a['name'] for a in fixture['axes']}
         ids=np.array([names.index(n) for n in independent],dtype=np.int32)
         fixture_ids=np.array([names.index(a['name']) for a in fixture['axes']],dtype=np.int32)
-        kp=np.zeros(len(names),dtype=np.float32);kd=kp.copy();kp[ids]=cfg.finger_stiffness_nm_rad;kd[ids]=cfg.finger_damping_nm_s_rad
+        kp=np.zeros(len(names),dtype=np.float32);kd=kp.copy()
+        for n,i in zip(independent,ids):kp[i],kd[i]=cfg.drive_gains(n)
         for a,i in zip(fixture['axes'],fixture_ids):kp[i],kd[i]=a['kp'],a['kd']
         hand._articulation_view.set_gains(kp,kd)
         got_kp,got_kd=hand.get_articulation_controller().get_gains();assert np.allclose(got_kp,kp) and np.allclose(got_kd,kd)
