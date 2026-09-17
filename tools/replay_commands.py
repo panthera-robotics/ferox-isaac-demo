@@ -21,7 +21,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'isaac' / 'twin'))
-from inspire.embodiment import ContractError, EmbodimentManifest, ReplaySequence  # noqa: E402
+from inspire.embodiment import ContractError, EmbodimentManifest, ReplaySequence, dependency_values_from_urdf  # noqa: E402
+
+COLLISION_COOKING = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'   # the probe's declared provisional colliders
 
 SYNTHETIC_CONTRACT = {'axis_order': ['index', 'middle', 'ring', 'little', 'thumb_bend', 'thumb_rotation'], 'open_value': 0.0, 'closed_value': 1.0, 'saturation_policy': 'reject'}
 
@@ -45,7 +47,29 @@ def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def validate(manifest, spec, controller):
+def validate_controller_gains(manifest, controller):
+    """Types, finiteness, named joints and declared ranges of the replay controller (first layer; the probe re-checks at runtime)."""
+    problems = []
+    allow_zero = set(controller.get('allow_zero_stiffness_joints') or [])
+    for key, low, high in (('body_kp_nm_rad', 0.0, 5000.0), ('body_kd_nm_s_rad', 0.0, 500.0)):
+        block = controller.get(key)
+        if not isinstance(block, dict) or set(block) != set(manifest.body_names):
+            problems.append('controller.%s must map exactly the 29 body joints' % key); continue
+        for n, v in block.items():
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < low or v > high:
+                problems.append('controller.%s[%s] = %r is not a finite value in [%s, %s]' % (key, n, v, low, high))
+            elif key == 'body_kp_nm_rad' and v == 0.0 and n not in allow_zero:
+                problems.append('controller.body_kp_nm_rad[%s] is zero without allow_zero_stiffness_joints declaring it' % n)
+    for key, low, high in (('hand_kp_nm_rad', 0.0, 10.0), ('hand_kd_nm_s_rad', 0.0, 1.0)):
+        v = controller.get(key)
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < low or v > high or (key == 'hand_kp_nm_rad' and v == 0.0):
+            problems.append('controller.%s = %r is not a finite value in (%s, %s]' % (key, v, low, high))
+    if not isinstance(controller.get('provenance'), str) or len(controller.get('provenance', '')) < 20:
+        problems.append('controller.provenance must describe the gain origin')
+    return problems
+
+
+def validate(manifest, spec, controller, *, live_dependencies=None):
     """Return (sequence, report). Refusals are collected as data, never as a crash."""
     problems = []
     try:
@@ -66,7 +90,19 @@ def validate(manifest, spec, controller):
                 problems.append('controller home %s outside limits' % n)
     if controller.get('manifest_sha256') not in (None, manifest.sha256):
         problems.append('controller was declared for a different manifest (%s)' % controller.get('manifest_sha256'))
-    report = {'status': 'REJECTED' if problems else 'VALID', 'problems': problems, 'summary': sequence.summary()}
+    problems += validate_controller_gains(manifest, controller)
+    validity = None
+    if live_dependencies is not None:
+        if live_dependencies.get('urdf_sha256') != manifest.data['source_asset']['urdf_sha256']:
+            problems.append('incompatible profile: the mounted asset hash differs from the manifest source asset')
+        validity = manifest.check_validity(live_dependencies)
+        bad_transforms = {k: v for k, v in validity['transforms'].items() if v['status'] != 'VALID'}
+        if bad_transforms:
+            problems.append('transform validity failed: %s' % json.dumps(bad_transforms))
+        replay_claim = validity['claims'].get('command_replay_integration')
+        if replay_claim and replay_claim['active_compatibility'] == 'STALE':
+            problems.append('command_replay_integration binding is STALE: %s' % json.dumps(replay_claim['mismatched']))
+    report = {'status': 'REJECTED' if problems else 'VALID', 'problems': problems, 'summary': sequence.summary(), 'qualification_validity': validity}
     return (None if problems else sequence), report
 
 
@@ -81,11 +117,16 @@ def main(argv=None):
     ap.add_argument('--validate-only', action='store_true', help='report conversion/refusals and exit without writing a package')
     ap.add_argument('--mount-name', default='replay-package', help='private input name the launcher mounts at /workspace/<name>')
     ap.add_argument('--frame-every', type=int, default=8); ap.add_argument('--lead-in-s', type=float, default=0.5); ap.add_argument('--maximum-steps', type=int, default=4000)
+    ap.add_argument('--source-urdf', type=Path, help='the donor URDF that will be mounted; its live dependency values are checked against the manifest bindings before admission')
+    ap.add_argument('--support', default='FIXED_PELVIS'); ap.add_argument('--controller-descriptor', default='implicit_biased_drive_v1 replay controller (package-hashed gains)')
     a = ap.parse_args(argv)
     manifest = EmbodimentManifest.load(a.manifest)
     controller = json.loads(a.controller.read_text())
     spec = synthetic_hand_open_close(controller['body_home_rad']) if a.synthetic else json.loads(a.source_spec.read_text())
-    sequence, report = validate(manifest, spec, controller)
+    live = None
+    if a.source_urdf is not None:
+        live = dict(dependency_values_from_urdf(a.source_urdf, collision_cooking=COLLISION_COOKING), support=a.support, controller=a.controller_descriptor)
+    sequence, report = validate(manifest, spec, controller, live_dependencies=live)
     report.update(manifest_id=manifest.data['manifest_id'], manifest_sha256=manifest.sha256, validated_utc=datetime.now(timezone.utc).isoformat())
     if a.validate_only or sequence is None:
         print(json.dumps(report, indent=1))

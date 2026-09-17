@@ -50,6 +50,46 @@ def canonical_sha256(obj) -> str:
     return hashlib.sha256(json.dumps(obj, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
 
 
+def _fixed_joint(root, parent, child):
+    for j in root.findall('joint'):
+        if j.get('type') == 'fixed' and j.find('parent').get('link') == parent and j.find('child').get('link') == child:
+            o = j.find('origin')
+            return {'parent_link': parent, 'child_link': child, 'xyz_m': [float(v) for v in (o.get('xyz') or '0 0 0').split()], 'rpy_rad': [float(v) for v in (o.get('rpy') or '0 0 0').split()]}
+    raise ContractError('no fixed joint %s -> %s' % (parent, child))
+
+
+def fixed_joint_matrix(origin):
+    """4x4 transform from a URDF origin dict (xyz + rpy, URDF convention Rz*Ry*Rx)."""
+    r, p_, y = origin['rpy_rad']; xyz = origin['xyz_m']
+    cr, sr, cp, sp, cy, sy = math.cos(r), math.sin(r), math.cos(p_), math.sin(p_), math.cos(y), math.sin(y)
+    R = [[cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr], [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr], [-sp, cp * sr, cp * cr]]
+    return [[*R[0], xyz[0]], [*R[1], xyz[1]], [*R[2], xyz[2]], [0.0, 0.0, 0.0, 1.0]]
+
+
+def coupling_map_from_urdf(root):
+    """{side: {child: {parent, multiplier, offset, limit_rad}}} for the mimic joints of both hands, from the URDF."""
+    joints = {j.get('name'): j for j in root.findall('joint') if j.get('type') in ('revolute', 'prismatic')}
+    out = {}
+    for side in SIDES:
+        out[side] = {n: {'parent': j.find('mimic').get('joint'), 'multiplier': float(j.find('mimic').get('multiplier', 1)), 'offset': float(j.find('mimic').get('offset', 0)),
+                         'limit_rad': [float(j.find('limit').get('lower')), float(j.find('limit').get('upper'))]}
+                     for n, j in joints.items() if n.startswith(side + '_') and j.find('mimic') is not None}
+    return out
+
+
+def dependency_values_from_urdf(urdf_path, *, collision_cooking, physics_dt_s='0.005', solver='TGS_32_8'):
+    """Live dependency values a runtime can compare against manifest bindings (identity, not physical correctness)."""
+    import xml.etree.ElementTree as ET
+    data = open(urdf_path, 'rb').read(); root = ET.fromstring(data)
+    coupling = coupling_map_from_urdf(root)
+    return {'urdf_sha256': hashlib.sha256(data).hexdigest(),
+            'coupling_map_sha256': hashlib.sha256(json.dumps(coupling, sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
+            'collision_cooking': collision_cooking,
+            'wrist_mount_sha256': hashlib.sha256(json.dumps(fixed_joint_matrix(_fixed_joint(root, 'right_wrist_yaw_link', 'right_base_link'))).encode()).hexdigest(),
+            'camera_mount_sha256': hashlib.sha256(json.dumps(_fixed_joint(root, 'torso_link', 'd435_link'), sort_keys=True).encode()).hexdigest(),
+            'physics_dt_s': physics_dt_s, 'solver': solver}
+
+
 class EmbodimentManifest:
     """Validated, hashed view of one manifest version. ``data`` is never mutated."""
 
@@ -70,6 +110,20 @@ class EmbodimentManifest:
         for k in ('robot', 'right_hand', 'left_hand', 'identity_evidence'):
             if k not in ident:
                 raise ContractError('hardware_identity.%s required' % k)
+        qual = data['qualification']
+        if not isinstance(qual, Mapping) or 'claims' not in qual or not isinstance(qual['claims'], Mapping):
+            raise ContractError('qualification.claims must map claim names to bound claims')
+        for name, claim in qual['claims'].items():
+            if not isinstance(claim, Mapping) or claim.get('status') not in ('PASS', 'FAIL', 'EXECUTED_NOT_QUALIFIED', 'NOT_RUN', 'NOT_QUALIFIED'):
+                raise ContractError('qualification claim %s needs a status of PASS/FAIL/EXECUTED_NOT_QUALIFIED/NOT_RUN/NOT_QUALIFIED' % name)
+            if claim['status'] != 'NOT_RUN':
+                cfg = claim.get('configuration')
+                if not isinstance(cfg, Mapping) or not cfg or any(not isinstance(v, str) or not v for v in cfg.values()):
+                    raise ContractError('qualification claim %s must bind a non-empty configuration of named content hashes/descriptors' % name)
+                if not claim.get('evidence'):
+                    raise ContractError('qualification claim %s needs an evidence reference' % name)
+        if 'installed_hand_similarity_percent' not in qual:
+            raise ContractError('qualification.installed_hand_similarity_percent must be present (null until independent real-hand evidence exists)')
         asset = data['source_asset']
         for k in ('asset_id', 'kind', 'exact_hand_model', 'urdf_sha256'):
             if k not in asset:
@@ -175,24 +229,37 @@ class EmbodimentManifest:
         return self.data['hands'][side]['actuators'][actuator]
 
     def check_validity(self, current: Mapping[str, str]):
-        """Compare the transform validity hashes with the live asset/grasp/mount hashes.
+        """Compare every bound dependency with the live content hashes/descriptors.
 
-        Returns the manifest's qualification block with every transform-dependent status demoted to
-        ``INVALIDATED_BY_CHANGE`` when any hash disagrees; a missing live hash counts as a disagreement.
-        Never mutates the manifest.
+        ``current`` maps dependency names (urdf_sha256, coupling_map_sha256, collision_cooking, wrist_mount_sha256,
+        hand_drive_gains, grasp_sha256, support, source_image, camera_mount_sha256, physics_dt_s, ...) to their live
+        values. Each qualification claim keeps its historical status and gets an active compatibility:
+        ACTIVE_COMPATIBLE when every bound dependency is present and equal, STALE when any differs, UNVERIFIED
+        when any is missing. Transforms are checked the same way. Never mutates the manifest; never fills
+        missing hashes.
         """
-        report = {'transforms': {}, 'qualification': json.loads(json.dumps(self.data['qualification'])), 'valid': True}
+        report = {'transforms': {}, 'claims': {}, 'valid': True}
         for side, block in self.data['transforms'].items():
             for key, t in block.items():
                 if t is None:
                     continue
-                bad = {k: (current.get(k), v) for k, v in t['valid_for'].items() if current.get(k) != v}
-                status = 'VALID' if not bad else 'INVALID'
-                report['transforms']['%s.%s' % (side, key)] = {'status': status, 'mismatched': bad}
-                if bad:
+                missing = [k for k in t['valid_for'] if k not in current]
+                bad = {k: (current.get(k), v) for k, v in t['valid_for'].items() if k in current and current[k] != v}
+                status = 'VALID' if not (bad or missing) else ('UNVERIFIED' if missing and not bad else 'INVALID')
+                report['transforms']['%s.%s' % (side, key)] = {'status': status, 'mismatched': bad, 'missing': missing}
+                if status != 'VALID':
                     report['valid'] = False
-                    for dep in t.get('dependent_qualifications', []):
-                        report['qualification'][dep] = 'INVALIDATED_BY_CHANGE'
+        for name, claim in self.data['qualification']['claims'].items():
+            if claim['status'] == 'NOT_RUN':
+                report['claims'][name] = {'historical_status': 'NOT_RUN', 'active_compatibility': 'NOT_APPLICABLE', 'mismatched': {}, 'missing': []}
+                continue
+            cfg = claim['configuration']
+            missing = [k for k in cfg if k not in current]
+            bad = {k: (current[k], v) for k, v in cfg.items() if k in current and current[k] != v}
+            active = 'ACTIVE_COMPATIBLE' if not (bad or missing) else ('STALE' if bad else 'UNVERIFIED')
+            report['claims'][name] = {'historical_status': claim['status'], 'active_compatibility': active, 'mismatched': bad, 'missing': missing}
+            if active != 'ACTIVE_COMPATIBLE':
+                report['valid'] = False
         return report
 
 

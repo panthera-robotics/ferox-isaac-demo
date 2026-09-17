@@ -13,7 +13,9 @@ import math
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from urdf_kinematics import UrdfKinematics  # noqa: F401  (keeps the public kinematics module the single URDF reader)
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'isaac' / 'twin'))
+from inspire.embodiment import dependency_values_from_urdf  # noqa: E402
 
 BODY_ORDER = ('left_hip_pitch_joint', 'left_hip_roll_joint', 'left_hip_yaw_joint', 'left_knee_joint', 'left_ankle_pitch_joint', 'left_ankle_roll_joint',
               'right_hip_pitch_joint', 'right_hip_roll_joint', 'right_hip_yaw_joint', 'right_knee_joint', 'right_ankle_pitch_joint', 'right_ankle_roll_joint',
@@ -48,6 +50,10 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--urdf', type=Path, required=True); ap.add_argument('--out', type=Path, required=True)
     ap.add_argument('--manifest-id', default='g1_edu29_rh56dftp_donor_v1')
+    ap.add_argument('--grasp-v12-sha256', default='eef219de8f088b7953b773ba513aa41b9158a830bf0cb47de9054e670d1bfa1e', help='sha256 of the retention-qualified grasp file v12 (also the retention probe config)')
+    ap.add_argument('--grasp-v13-sha256', default='e80befb00b34cae04d2ab4ba8b750b41d94138689c5534b24831a94f9e31ce88')
+    ap.add_argument('--acquisition-config-sha256', default='7052810259bd935a0477c48c6481b90b75e7b239fe097cce27b758e3a7b38c9c', help='sha256 of the rack-acquisition probe config (kd 0.5 regression)')
+    ap.add_argument('--hand-image', default='sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54')
     a = ap.parse_args(argv)
     root = ET.parse(a.urdf).getroot()
     joints = {j.get('name'): j for j in root.findall('joint') if j.get('type') in ('revolute', 'prismatic')}
@@ -76,6 +82,26 @@ def main(argv=None):
                                  'note': 'verify per recording/interface/firmware revision before use; datasets declare their own order and scale in their source contract'},
             'feedback': {'independent_axes_measured': True, 'coupled_joints_measured': False,
                          'note': 'simulator returns all 12 joint positions; the real hand reports six native angle readbacks (counts), not twelve measured joint angles'}}
+    collision = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'
+    live = dependency_values_from_urdf(a.urdf, collision_cooking=collision)
+    urdf_sha, wrist_mount_sha, camera_mount_sha = live['urdf_sha256'], live['wrist_mount_sha256'], live['camera_mount_sha256']
+    base = {k: live[k] for k in ('urdf_sha256', 'coupling_map_sha256', 'collision_cooking', 'wrist_mount_sha256', 'physics_dt_s', 'solver')}
+    claims = {
+        'mechanism_checks': {'status': 'PASS', 'evidence': 'assembled-body 13/13, moving wrist 37/37 (session records)', 'configuration': dict(base, support='FIXED_PELVIS')},
+        'retention_60s_grasp_v12': {'status': 'PASS', 'evidence': 'evidence/sF-grasp-v12-retention60-01 (tip 0.102 mm, axis 0.042 deg)',
+                                    'configuration': dict(base, grasp_sha256=a.grasp_v12_sha256, hand_drive_gains='kp=1.0;kd=0.5;thumb_kp=inherited', support='DRIVEN_WRIST', source_image=a.hand_image)},
+        'retention_60s_grasp_v13': {'status': 'PASS', 'evidence': 'evidence/sF-grasp-v13-retention60-01 (tip 0.094 mm, axis 0.038 deg)',
+                                    'configuration': dict(base, grasp_sha256=a.grasp_v13_sha256, hand_drive_gains='kp=2.0;kd=0.5', support='DRIVEN_WRIST', source_image=a.hand_image)},
+        'acquisition_cycles_kd05': {'status': 'PASS', 'evidence': 'evidence/sF-rack-acquire-cycles-kd05-01 (3/3 cycles)',
+                                    'configuration': dict(base, probe_config_sha256=a.acquisition_config_sha256, support='DRIVEN_WRIST', source_image=a.hand_image)},
+        'contact_writing': {'status': 'EXECUTED_NOT_QUALIFIED', 'evidence': 'evidence/sF-writer-contact-16-v9e-G1OK55 (p95 3.53 mm, coverage 70 %)',
+                            'configuration': dict(base, grasp_sha256=a.grasp_v13_sha256, tool_frame='measured in sF-writer-contact-15-v13-measure (simulator, invalidated by grasp/mount/asset change)', support='FIXED_PELVIS')},
+        'command_replay_integration': {'status': 'PASS', 'evidence': 'evidence/sG-replay-pickup-ep0-03 (121/121 rows)',
+                                       'configuration': dict(base, camera_mount_sha256=camera_mount_sha, support='FIXED_PELVIS', controller='implicit_biased_drive_v1 replay controller (package-hashed gains)')},
+        'standing': {'status': 'NOT_QUALIFIED', 'evidence': 'evidence/takeover-balance-implicit-03 (topples)', 'configuration': dict(base, support='NONE')},
+        'real_data_agreement': {'status': 'NOT_RUN', 'evidence': None, 'configuration': None},
+        'learned_policy_evaluation': {'status': 'NOT_RUN', 'evidence': None, 'configuration': None},
+    }
     manifest = {
         'schema_version': 1, 'manifest_id': a.manifest_id,
         'hardware_identity': {'robot': 'Unitree G1 EDU 29-DoF', 'right_hand': 'Inspire RH56E2-2R-T1 (nameplate photo, owner)', 'left_hand': 'Inspire RH56E2-2L-T1 (context-reported, unverified)',
@@ -83,19 +109,18 @@ def main(argv=None):
         'source_asset': {'asset_id': 'unitree_ftp_g1_29dof_rev_1_0_with_inspire_hand_FTP', 'kind': 'provisional_donor', 'exact_hand_model': False,
                          'urdf_sha256': hashlib.sha256(a.urdf.read_bytes()).hexdigest(), 'urdf_name': a.urdf.name,
                          'collision': 'declared provisional palm/thumb colliders (ftp_palm_yz_slabs_v2 right, ftp_left_palm_yz_slabs_v1 left)'},
-        'qualification': {'exact_asset_qualified': False, 'mechanism_checks': 'assembled-body 13/13, moving wrist 37/37 (session records)',
-                          'retention_60s': 'PASS on driven-wrist fixture with grasp v12/v13 (provisional donor)', 'acquisition_cycles': 'PASS 3/3 driven-wrist fixture',
-                          'contact_writing': 'EXECUTED_NOT_QUALIFIED', 'standing': 'NOT_QUALIFIED', 'installed_hand_similarity_percent': None},
+        'qualification': {'exact_asset_qualified': False, 'installed_hand_similarity_percent': None, 'claims': claims,
+                          'rule': 'historical status stays attached to its bound configuration; active compatibility is ACTIVE_COMPATIBLE only when every bound dependency is present and identical (check_validity), STALE when any differs, UNVERIFIED when any is missing; a hash proves identity, not physical correctness'},
         'body': {'joint_names': list(BODY_ORDER), 'limits_rad': {n: limits[n] for n in BODY_ORDER},
                  'order_provenance': 'Unitree G1 29-DoF SDK joint index order; the twin maps by name (articulation indices are never assumed)',
                  'units': {'position': 'rad', 'velocity': 'rad/s', 'effort': 'N*m'}, 'sign': 'URDF axis sign',
                  'floating_base': {'state_fields': ['root_position_xyz_m', 'root_orientation_wxyz'], 'support': 'FIXED_PELVIS in every replay of this version (pelvis fixed to world; root fields ignored and reported)'}},
         'hands': hands,
         'transforms': {'right': {'wrist_to_hand': {'matrix_4x4': fixed_joint_matrix(root, 'right_wrist_yaw_link', 'right_base_link'), 'frame': 'right_wrist_yaw_link -> right_base_link', 'provenance': 'donor URDF fixed joint (not measured on hardware)',
-                                                   'valid_for': {'urdf_sha256': hashlib.sha256(a.urdf.read_bytes()).hexdigest()}, 'dependent_qualifications': ['contact_writing']},
+                                                   'valid_for': {'urdf_sha256': urdf_sha, 'wrist_mount_sha256': wrist_mount_sha}, 'dependent_qualifications': ['contact_writing']},
                                  'hand_to_tool': None},
                        'left': {'wrist_to_hand': {'matrix_4x4': fixed_joint_matrix(root, 'left_wrist_yaw_link', 'left_base_link'), 'frame': 'left_wrist_yaw_link -> left_base_link', 'provenance': 'donor URDF fixed joint (not measured on hardware)',
-                                                  'valid_for': {'urdf_sha256': hashlib.sha256(a.urdf.read_bytes()).hexdigest()}, 'dependent_qualifications': []},
+                                                  'valid_for': {'urdf_sha256': urdf_sha}, 'dependent_qualifications': []},
                                 'hand_to_tool': None}},
         'controller': {'type': 'implicit_biased_drive_v1 (PhysX capped position drives) for body targets; implicit position drives for the six hand actuators; coupled joints follow mimic constraints',
                        'gains_provenance': 'declared per replay package (hashed); NOT hardware firmware gains', 'rate_hz': 200.0,

@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from isaac.twin.inspire.embodiment import (
-    BODY_JOINT_ORDER_UNITREE_29, ContractError, EmbodimentManifest, HAND_ACTUATORS, HandCommandAdapter, ReplaySequence,
+    BODY_JOINT_ORDER_UNITREE_29, ContractError, EmbodimentManifest, HAND_ACTUATORS, HandCommandAdapter, ReplaySequence, dependency_values_from_urdf,
 )
 
 MANIFEST_PATH = Path(__file__).resolve().parents[2] / 'isaac/twin/inspire/embodiments/g1_edu29_rh56dftp_donor_v1.json'
@@ -22,12 +22,23 @@ def manifest():
 
 
 class ManifestTests(unittest.TestCase):
+    def test_live_dependencies_from_urdf_match_manifest_bindings(self):
+        urdf = Path(__file__).resolve().parents[3] / 'generated/ftp_donor/g1_29dof_rev_1_0_with_inspire_hand_FTP.urdf'
+        if not urdf.exists():
+            self.skipTest('donor URDF not available in this checkout')
+        m = manifest()
+        live = dependency_values_from_urdf(urdf, collision_cooking='right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0')
+        c = m.data['qualification']['claims']['mechanism_checks']['configuration']
+        for k in ('urdf_sha256', 'coupling_map_sha256', 'wrist_mount_sha256', 'collision_cooking'):
+            self.assertEqual(live[k], c[k], k)
+        self.assertEqual(m.check_validity(dict(live, support='FIXED_PELVIS'))['claims']['mechanism_checks']['active_compatibility'], 'ACTIVE_COMPATIBLE')
+
     def test_donor_manifest_loads_with_expected_structure(self):
         m = manifest()
         self.assertEqual(m.body_names, BODY_JOINT_ORDER_UNITREE_29)
         self.assertEqual(m.hand_joint_names('right'), ('right_index_1_joint', 'right_middle_1_joint', 'right_ring_1_joint', 'right_little_1_joint', 'right_thumb_2_joint', 'right_thumb_1_joint'))
         self.assertFalse(m.data['source_asset']['exact_hand_model'])
-        self.assertIsNone(m.data['qualification']['installed_hand_similarity_percent'])
+        self.assertIsNone(m.data['qualification']['installed_hand_similarity_percent']); self.assertEqual(m.data['qualification']['claims']['retention_60s_grasp_v12']['status'], 'PASS')
         self.assertEqual(len(m.data['hands']['left']['coupled_joints']), 6)
 
     def test_missing_required_field_is_refused(self):
@@ -60,17 +71,56 @@ class ManifestTests(unittest.TestCase):
         with self.assertRaises(ContractError):
             EmbodimentManifest(data)
 
-    def test_validity_hashes_invalidate_dependent_qualification(self):
-        m = manifest()
-        ok = m.check_validity({'urdf_sha256': m.data['source_asset']['urdf_sha256']})
-        self.assertTrue(ok['valid']); self.assertEqual(ok['qualification']['contact_writing'], 'EXECUTED_NOT_QUALIFIED')
-        changed = m.check_validity({'urdf_sha256': 'deadbeef'})
-        self.assertFalse(changed['valid'])
-        self.assertEqual(changed['qualification']['contact_writing'], 'INVALIDATED_BY_CHANGE')
-        self.assertEqual(changed['transforms']['right.wrist_to_hand']['status'], 'INVALID')
-        self.assertEqual(m.data['qualification']['contact_writing'], 'EXECUTED_NOT_QUALIFIED')   # never mutated
-        missing = m.check_validity({})
-        self.assertFalse(missing['valid'])
+    def live(self, **extra):
+        m = manifest(); c = m.data['qualification']['claims']['retention_60s_grasp_v12']['configuration']
+        base = {k: c[k] for k in ('urdf_sha256', 'coupling_map_sha256', 'collision_cooking', 'wrist_mount_sha256', 'physics_dt_s', 'solver', 'grasp_sha256', 'hand_drive_gains', 'support', 'source_image')}
+        base['probe_config_sha256'] = m.data['qualification']['claims']['acquisition_cycles_kd05']['configuration']['probe_config_sha256']
+        base.update(extra); return m, base
+
+    def test_bound_claims_active_when_every_dependency_matches(self):
+        m, live = self.live()
+        r = m.check_validity(live)
+        self.assertEqual(r['claims']['retention_60s_grasp_v12']['active_compatibility'], 'ACTIVE_COMPATIBLE')
+        self.assertEqual(r['claims']['retention_60s_grasp_v12']['historical_status'], 'PASS')
+        self.assertEqual(r['transforms']['right.wrist_to_hand']['status'], 'VALID')
+        self.assertEqual(r['claims']['real_data_agreement']['active_compatibility'], 'NOT_APPLICABLE')
+
+    def test_one_changed_dependency_at_a_time(self):
+        for key, victim, control in (('grasp_sha256', 'retention_60s_grasp_v12', 'acquisition_cycles_kd05'), ('probe_config_sha256', 'acquisition_cycles_kd05', 'retention_60s_grasp_v12'),
+                                     ('coupling_map_sha256', 'retention_60s_grasp_v12', None), ('collision_cooking', 'retention_60s_grasp_v12', None), ('wrist_mount_sha256', 'retention_60s_grasp_v12', None)):
+            m, live = self.live(); live[key] = 'changed'
+            r = m.check_validity(live)
+            self.assertEqual(r['claims'][victim]['active_compatibility'], 'STALE', key)
+            self.assertEqual(r['claims'][victim]['historical_status'], 'PASS')   # history keeps its PASS
+            self.assertIn(key, r['claims'][victim]['mismatched'])
+            if control:
+                self.assertEqual(r['claims'][control]['active_compatibility'], 'ACTIVE_COMPATIBLE', key)   # the unrelated claim stays active
+        m, live = self.live(); live['urdf_sha256'] = 'changed'
+        self.assertEqual(m.check_validity(live)['transforms']['right.wrist_to_hand']['status'], 'INVALID')
+
+    def test_control_change_does_not_invalidate_unrelated_claim(self):
+        m, live = self.live(support='FIXED_PELVIS', camera_mount_sha256='other-camera', controller='implicit_biased_drive_v1 replay controller (package-hashed gains)')
+        r = m.check_validity(live)
+        self.assertEqual(r['claims']['command_replay_integration']['active_compatibility'], 'STALE')      # camera mount bound to the replay claim
+        self.assertEqual(r['claims']['mechanism_checks']['active_compatibility'], 'ACTIVE_COMPATIBLE')   # unaffected by the camera
+        self.assertEqual(r['claims']['retention_60s_grasp_v12']['active_compatibility'], 'STALE')        # support differs (DRIVEN_WRIST bound)
+
+    def test_missing_dependency_is_unverified_not_passed(self):
+        m, live = self.live(); del live['grasp_sha256']
+        r = m.check_validity(live)
+        self.assertEqual(r['claims']['retention_60s_grasp_v12']['active_compatibility'], 'UNVERIFIED')
+        self.assertEqual(r['claims']['retention_60s_grasp_v12']['missing'], ['grasp_sha256'])
+        self.assertFalse(r['valid'])
+        self.assertEqual(m.data['qualification']['claims']['retention_60s_grasp_v12']['status'], 'PASS')   # manifest never mutated
+
+    def test_tampered_claim_without_binding_is_refused(self):
+        data = json.loads(MANIFEST_PATH.read_text())
+        data['qualification']['claims']['standing'] = {'status': 'PASS', 'evidence': 'invented', 'configuration': {}}
+        with self.assertRaises(ContractError):
+            EmbodimentManifest(data)
+        data = json.loads(MANIFEST_PATH.read_text())
+        data['qualification']['claims']['standing']['status'] = 'PASS'   # relabelled with the old binding: a different manifest hash, not the historical one
+        self.assertNotEqual(EmbodimentManifest(data).sha256, manifest().sha256)
 
 
 class HandAdapterTests(unittest.TestCase):

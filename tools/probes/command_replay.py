@@ -16,7 +16,7 @@ assert sorted(p.name for p in Path('/sys/class/net').iterdir()) == ['lo']
 assert os.environ.get('PANTHERA_PROBE_MODE') == 'command-replay'
 config_path = Path(os.environ['PANTHERA_PROBE_CONFIG']); config = json.loads(config_path.read_text())
 out = Path('/evidence'); sys.path[:0] = ['/workspace/ferox_tools', '/workspace/ferox_isaac/twin']
-from inspire.embodiment import ContractError, EmbodimentManifest, ReplaySequence, canonical_sha256  # noqa: E402
+from inspire.embodiment import ContractError, EmbodimentManifest, ReplaySequence, canonical_sha256, dependency_values_from_urdf  # noqa: E402
 
 started_wall = time.monotonic()
 package = Path(config['package'])
@@ -81,6 +81,14 @@ limits = facts['joint_limits']
 for n in body_names:
     lo, hi = manifest.body_limit(n)
     assert abs(lo - limits[n]['lower']) < 1e-9 and abs(hi - limits[n]['upper']) < 1e-9, n
+# Second-layer qualification/transform validity against the MOUNTED inputs (identity, not physical correctness).
+COLLISION_COOKING = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'
+live_dependencies = dict(dependency_values_from_urdf(source, collision_cooking=COLLISION_COOKING), support='FIXED_PELVIS', controller='implicit_biased_drive_v1 replay controller (package-hashed gains)')
+qualification_validity = manifest.check_validity(live_dependencies)
+if any(v['status'] != 'VALID' for v in qualification_validity['transforms'].values()):
+    raise RuntimeError('transform validity failed against the mounted asset: %s' % json.dumps(qualification_validity['transforms']))
+if pkg.get('validation', {}).get('qualification_validity') is None:
+    raise RuntimeError('replay package was admitted without a qualification validity record (rebuild with --source-urdf)')
 home = controller['body_home_rad']; kp_body = controller['body_kp_nm_rad']; kd_body = controller['body_kd_nm_s_rad']
 assert set(home) == set(kp_body) == set(kd_body) == set(body_names)
 for n in body_names:
@@ -253,6 +261,7 @@ checks = {'package_hashes_verified': True, 'manifest_asset_hash_matches_mounted_
 metrics = {'status': 'PASS' if all(checks.values()) else 'FAIL', 'checks': checks, 'scope': 'fixed_pelvis_command_driven_replay_provisional_donor',
            'replay_mode': 'command_driven_simulation (mode 2): initialize once, drive targets only, physics generates the response',
            'source': sequence.source, 'sequence_summary': sequence.summary(), 'package_files_sha256': files, 'package_sha256': pkg,
+           'qualification_validity': qualification_validity, 'live_dependencies': live_dependencies,
            'controller': {'type': manifest.data['controller']['type'], 'provenance': controller.get('provenance'), 'hand_kp_nm_rad': hand_kp, 'hand_kd_nm_s_rad': hand_kd,
                           'body_gains_sha256': canonical_sha256({'kp': kp_body, 'kd': kd_body, 'home': home})},
            'initialization': {'body': 'first row targets where named, else controller home (written once)', 'hands': 'URDF open pose written once; targets ramped open -> first row over the lead-in', 'lead_in_s': lead_in_s},

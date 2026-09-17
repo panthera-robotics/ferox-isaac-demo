@@ -17,12 +17,123 @@
   },
   "qualification": {
     "exact_asset_qualified": false,
-    "mechanism_checks": "assembled-body 13/13, moving wrist 37/37 (session records)",
-    "retention_60s": "PASS on driven-wrist fixture with grasp v12/v13 (provisional donor)",
-    "acquisition_cycles": "PASS 3/3 driven-wrist fixture",
-    "contact_writing": "EXECUTED_NOT_QUALIFIED",
-    "standing": "NOT_QUALIFIED",
-    "installed_hand_similarity_percent": null
+    "installed_hand_similarity_percent": null,
+    "claims": {
+      "mechanism_checks": {
+        "status": "PASS",
+        "evidence": "assembled-body 13/13, moving wrist 37/37 (session records)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "support": "FIXED_PELVIS"
+        }
+      },
+      "retention_60s_grasp_v12": {
+        "status": "PASS",
+        "evidence": "evidence/sF-grasp-v12-retention60-01 (tip 0.102 mm, axis 0.042 deg)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "grasp_sha256": "eef219de8f088b7953b773ba513aa41b9158a830bf0cb47de9054e670d1bfa1e",
+          "hand_drive_gains": "kp=1.0;kd=0.5;thumb_kp=inherited",
+          "support": "DRIVEN_WRIST",
+          "source_image": "sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54"
+        }
+      },
+      "retention_60s_grasp_v13": {
+        "status": "PASS",
+        "evidence": "evidence/sF-grasp-v13-retention60-01 (tip 0.094 mm, axis 0.038 deg)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "grasp_sha256": "e80befb00b34cae04d2ab4ba8b750b41d94138689c5534b24831a94f9e31ce88",
+          "hand_drive_gains": "kp=2.0;kd=0.5",
+          "support": "DRIVEN_WRIST",
+          "source_image": "sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54"
+        }
+      },
+      "acquisition_cycles_kd05": {
+        "status": "PASS",
+        "evidence": "evidence/sF-rack-acquire-cycles-kd05-01 (3/3 cycles)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "probe_config_sha256": "7052810259bd935a0477c48c6481b90b75e7b239fe097cce27b758e3a7b38c9c",
+          "support": "DRIVEN_WRIST",
+          "source_image": "sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54"
+        }
+      },
+      "contact_writing": {
+        "status": "EXECUTED_NOT_QUALIFIED",
+        "evidence": "evidence/sF-writer-contact-16-v9e-G1OK55 (p95 3.53 mm, coverage 70 %)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "grasp_sha256": "e80befb00b34cae04d2ab4ba8b750b41d94138689c5534b24831a94f9e31ce88",
+          "tool_frame": "measured in sF-writer-contact-15-v13-measure (simulator, invalidated by grasp/mount/asset change)",
+          "support": "FIXED_PELVIS"
+        }
+      },
+      "command_replay_integration": {
+        "status": "PASS",
+        "evidence": "evidence/sG-replay-pickup-ep0-03 (121/121 rows)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "camera_mount_sha256": "3a2945ae8aa782172f87c4a22cdd7c1adb1f97b2e56611f13d9bf8cba553b1f9",
+          "support": "FIXED_PELVIS",
+          "controller": "implicit_biased_drive_v1 replay controller (package-hashed gains)"
+        }
+      },
+      "standing": {
+        "status": "NOT_QUALIFIED",
+        "evidence": "evidence/takeover-balance-implicit-03 (topples)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "support": "NONE"
+        }
+      },
+      "real_data_agreement": {
+        "status": "NOT_RUN",
+        "evidence": null,
+        "configuration": null
+      },
+      "learned_policy_evaluation": {
+        "status": "NOT_RUN",
+        "evidence": null,
+        "configuration": null
+      }
+    },
+    "rule": "historical status stays attached to its bound configuration; active compatibility is ACTIVE_COMPATIBLE only when every bound dependency is present and identical (check_validity), STALE when any differs, UNVERIFIED when any is missing; a hash proves identity, not physical correctness"
   },
   "body": {
     "joint_names": [
@@ -503,7 +614,8 @@
         "frame": "right_wrist_yaw_link -> right_base_link",
         "provenance": "donor URDF fixed joint (not measured on hardware)",
         "valid_for": {
-          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb"
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062"
         },
         "dependent_qualifications": [
           "contact_writing"
