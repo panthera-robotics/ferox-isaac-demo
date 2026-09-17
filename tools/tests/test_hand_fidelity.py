@@ -512,3 +512,46 @@ class LoadContractTests(unittest.TestCase):
         validate_bundle(b)
         half = load_at_configuration(h, h.actuator_command({a: 0.5 for a in ('index', 'middle', 'ring', 'little')}))
         self.assertTrue(compare_with_samples(b, 'right', half)['between_samples'])
+
+
+@unittest.skipUnless(DONOR_URDF.exists(), 'donor URDF not in this checkout')
+class AbAnalysisTests(unittest.TestCase):
+    """The A/B trace comparator on a tiny synthetic evidence pair: aligned stages, measured/commanded deltas, contact sets, object-in-palm."""
+
+    def _evidence(self, tmp, name, finger_rad, contact_links):
+        from hand_fidelity.donor_profile import HandUrdf
+        h = HandUrdf(DONOR_URDF, 'right')
+        d = Path(tmp) / name; d.mkdir()
+        names = h.hand_joints + ['right_shoulder_pitch_joint']
+        rows, cmds, objs, cons = [], [], [], []
+        for i in range(12):
+            t = 0.005 * (i + 1); stage_row = 0 if i < 6 else 1
+            q = h.joint_values({h.actuators['index']: finger_rad, h.actuators['middle']: finger_rad, h.actuators['ring']: finger_rad, h.actuators['little']: finger_rad})
+            qv = [q[n] if n in q else 0.0 for n in names]
+            rows.append({'sequence': i, 'physics_s': t, 'wall_s': t, 'phase': 'replay', 'source_row': stage_row, 'source_t_s': stage_row * 0.03, 'runtime_names': names, 'q_rad': qv, 'dq_rad_s': [0.0] * len(names),
+                         'measured_generalized_effort_nm': [0.01] * len(names), 'body_command_names': [], 'body_command_rad': [],
+                         'hand_command_names': [h.actuators[a] for a in ('index', 'middle', 'ring', 'little', 'thumb_bend', 'thumb_rotation')], 'hand_command_rad': [finger_rad] * 4 + [0.02, 0.02],
+                         'link_poses_world_xyzw': {'right_base_link': [0.2, -0.15, 1.1, 0, 0, 0, 1]}, 'coupling_error_rad': {'right_index_2_joint': 0.001}, 'body_feedforward': {}})
+            objs.append({'sequence': i, 'physics_s': t, 'phase': 'replay', 'source_row': stage_row, 'pose_world_xyzw': [0.23, -0.12, 1.2, 0, 0, 0, 1], 'linear_velocity_m_s': [0, 0, 0], 'angular_velocity_rad_s': [0, 0, 0], 'right_palm_pose_world_xyzw': [0.2, -0.15, 1.1, 0, 0, 0, 1]})
+            for link in contact_links:
+                cons.append({'sequence': i, 'physics_s': t, 'phase': 'replay', 'actor0': '/World/Scene/Object', 'actor1': '/World/G1/' + link, 'position_world_m': [0, 0, 0], 'normal_world': [0, 0, 1], 'impulse_ns': [0, 0, 0.1], 'separation_m': 0.0, 'source': 'simulated_proxy'})
+        for sr in (0, 1):
+            cmds.append({'sequence': sr, 'physics_s': 0.005 * (1 + 6 * sr), 'source_row': sr, 'source_t_s': sr * 0.03, 'body_targets_rad': {}, 'hand_targets_rad': {'right': {}}, 'hand_closure': {'right': {}}, 'clipped_axes': {'right': []}})
+        (d / 'state.jsonl').write_text('\n'.join(json.dumps(r) for r in rows) + '\n'); (d / 'commands.jsonl').write_text('\n'.join(json.dumps(c) for c in cmds) + '\n')
+        (d / 'object.jsonl').write_text('\n'.join(json.dumps(o) for o in objs) + '\n'); (d / 'contacts.jsonl').write_text('\n'.join(json.dumps(c) for c in cons) + '\n')
+        (d / 'task_eval_v2.json').write_text(json.dumps({'C1_grasp': {'pass': True}, 'C2_lift_retention': {'pass': name == 'B'}, 'C3_place': {'pass': True}, 'C4_release': {'pass': True}, 'C5_prohibited': {'pass': True}, 'overall': 'PASS' if name == 'B' else 'FAIL'}))
+        spec = d / 'spec.json'; spec.write_text(json.dumps({'rows': [{'stage': 'close'}, {'stage': 'hold'}]}))
+        return d, spec, h
+
+    def test_compare_reports_measured_delta_contacts_and_object_offset(self):
+        from hand_fidelity.ab_analysis import compare, summarize_run
+        with tempfile.TemporaryDirectory() as tmp:
+            a, spec, h = self._evidence(tmp, 'A', 1.0997, ['right_base_link'])
+            b, _, _ = self._evidence(tmp, 'B', 1.3, ['right_base_link', 'right_index_2', 'right_middle_2'])
+            sa, sb = summarize_run(a, h, source_spec=spec), summarize_run(b, h, source_spec=spec)
+            self.assertEqual(sa['phases'], ['close', 'hold']); self.assertEqual(sa['contact_links_in_hold'], ['right_base_link']); self.assertEqual(len(sb['contact_links_in_hold']), 3)
+            self.assertEqual(sa['per_phase']['hold']['object_in_palm_m'], [0.03, 0.03, 0.1])
+            c = compare(sa, sb)
+            self.assertAlmostEqual(c['phases']['hold']['measured_end_rad_B_minus_A']['right_index_1_joint'], 0.2003, 3)
+            self.assertGreater(abs(c['phases']['hold']['fingertip_B_minus_A_m']['index_tip_sensor'][2]), 0.01)
+            self.assertEqual(c['task_eval']['A']['overall'], 'FAIL'); self.assertEqual(c['task_eval']['B']['overall'], 'PASS')
