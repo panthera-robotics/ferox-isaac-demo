@@ -54,6 +54,9 @@ def main(argv=None):
     ap.add_argument('--grasp-v13-sha256', default='e80befb00b34cae04d2ab4ba8b750b41d94138689c5534b24831a94f9e31ce88')
     ap.add_argument('--acquisition-config-sha256', default='7052810259bd935a0477c48c6481b90b75e7b239fe097cce27b758e3a7b38c9c', help='sha256 of the rack-acquisition probe config (kd 0.5 regression)')
     ap.add_argument('--hand-image', default='sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54')
+    ap.add_argument('--claims-bound-to-urdf', type=Path, help='bind the historical qualification claims to THIS (original) URDF instead of --urdf, so that a reformulated asset reports them STALE until re-qualified (sprint J J2)')
+    ap.add_argument('--replay-integration-status', default='PASS', choices=['PASS', 'PENDING_REQUALIFICATION'], help='PENDING_REQUALIFICATION leaves command_replay_integration unbound (UNVERIFIED) so the re-qualification run itself is admissible')
+    ap.add_argument('--variant-note', default='', help='free-text note recorded under source_asset.variant_note')
     a = ap.parse_args(argv)
     root = ET.parse(a.urdf).getroot()
     joints = {j.get('name'): j for j in root.findall('joint') if j.get('type') in ('revolute', 'prismatic')}
@@ -85,7 +88,8 @@ def main(argv=None):
     collision = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'
     live = dependency_values_from_urdf(a.urdf, collision_cooking=collision)
     urdf_sha, wrist_mount_sha, camera_mount_sha = live['urdf_sha256'], live['wrist_mount_sha256'], live['camera_mount_sha256']
-    base = {k: live[k] for k in ('urdf_sha256', 'coupling_map_sha256', 'collision_cooking', 'wrist_mount_sha256', 'physics_dt_s', 'solver')}
+    bound = dependency_values_from_urdf(a.claims_bound_to_urdf, collision_cooking=collision) if a.claims_bound_to_urdf else live
+    base = {k: bound[k] for k in ('urdf_sha256', 'coupling_map_sha256', 'collision_cooking', 'wrist_mount_sha256', 'physics_dt_s', 'solver')}
     claims = {
         'mechanism_checks': {'status': 'PASS', 'evidence': 'assembled-body 13/13, moving wrist 37/37 (session records)', 'configuration': dict(base, support='FIXED_PELVIS')},
         'retention_60s_grasp_v12': {'status': 'PASS', 'evidence': 'evidence/sF-grasp-v12-retention60-01 (tip 0.102 mm, axis 0.042 deg)',
@@ -96,8 +100,9 @@ def main(argv=None):
                                     'configuration': dict(base, probe_config_sha256=a.acquisition_config_sha256, support='DRIVEN_WRIST', source_image=a.hand_image)},
         'contact_writing': {'status': 'EXECUTED_NOT_QUALIFIED', 'evidence': 'evidence/sF-writer-contact-16-v9e-G1OK55 (p95 3.53 mm, coverage 70 %)',
                             'configuration': dict(base, grasp_sha256=a.grasp_v13_sha256, tool_frame='measured in sF-writer-contact-15-v13-measure (simulator, invalidated by grasp/mount/asset change)', support='FIXED_PELVIS')},
-        'command_replay_integration': {'status': 'PASS', 'evidence': 'evidence/sG-replay-pickup-ep0-03 (121/121 rows)',
-                                       'configuration': dict(base, camera_mount_sha256=camera_mount_sha, support='FIXED_PELVIS', controller='implicit_biased_drive_v1 replay controller (package-hashed gains)')},
+        'command_replay_integration': ({'status': 'PASS', 'evidence': 'evidence/sG-replay-pickup-ep0-03 (121/121 rows)',
+                                        'configuration': dict(base, camera_mount_sha256=camera_mount_sha, support='FIXED_PELVIS', controller='implicit_biased_drive_v1 replay controller (package-hashed gains)')}
+                                       if a.replay_integration_status == 'PASS' else {'status': 'NOT_RUN', 'evidence': 'pending re-qualification on this asset variant (sprint J J2)', 'configuration': None}),
         'standing': {'status': 'NOT_QUALIFIED', 'evidence': 'evidence/takeover-balance-implicit-03 (topples)', 'configuration': dict(base, support='NONE')},
         'real_data_agreement': {'status': 'NOT_RUN', 'evidence': None, 'configuration': None},
         'learned_policy_evaluation': {'status': 'NOT_RUN', 'evidence': None, 'configuration': None},
@@ -107,7 +112,8 @@ def main(argv=None):
         'hardware_identity': {'robot': 'Unitree G1 EDU 29-DoF', 'right_hand': 'Inspire RH56E2-2R-T1 (nameplate photo, owner)', 'left_hand': 'Inspire RH56E2-2L-T1 (context-reported, unverified)',
                               'identity_evidence': 'owner nameplate photo (private, not in this repository); left hand not photographed'},
         'source_asset': {'asset_id': 'unitree_ftp_g1_29dof_rev_1_0_with_inspire_hand_FTP', 'kind': 'provisional_donor', 'exact_hand_model': False,
-                         'urdf_sha256': hashlib.sha256(a.urdf.read_bytes()).hexdigest(), 'urdf_name': a.urdf.name,
+                         'urdf_sha256': hashlib.sha256(a.urdf.read_bytes()).hexdigest(), 'urdf_name': a.urdf.name, 'variant_note': a.variant_note or None,
+                         'claims_bound_to_urdf_sha256': base['urdf_sha256'],
                          'collision': 'declared provisional palm/thumb colliders (ftp_palm_yz_slabs_v2 right, ftp_left_palm_yz_slabs_v1 left)'},
         'qualification': {'exact_asset_qualified': False, 'installed_hand_similarity_percent': None, 'claims': claims,
                           'rule': 'historical status stays attached to its bound configuration; active compatibility is ACTIVE_COMPATIBLE only when every bound dependency is present and identical (check_validity), STALE when any differs, UNVERIFIED when any is missing; a hash proves identity, not physical correctness'},

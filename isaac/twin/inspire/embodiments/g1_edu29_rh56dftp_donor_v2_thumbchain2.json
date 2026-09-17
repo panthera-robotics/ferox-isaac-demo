@@ -1,0 +1,726 @@
+{
+  "schema_version": 1,
+  "manifest_id": "g1_edu29_rh56dftp_donor_v2_thumbchain2",
+  "hardware_identity": {
+    "robot": "Unitree G1 EDU 29-DoF",
+    "right_hand": "Inspire RH56E2-2R-T1 (nameplate photo, owner)",
+    "left_hand": "Inspire RH56E2-2L-T1 (context-reported, unverified)",
+    "identity_evidence": "owner nameplate photo (private, not in this repository); left hand not photographed"
+  },
+  "source_asset": {
+    "asset_id": "unitree_ftp_g1_29dof_rev_1_0_with_inspire_hand_FTP",
+    "kind": "provisional_donor",
+    "exact_hand_model": false,
+    "urdf_sha256": "e87714e521450de863a0f62d0ab6ada45c78696d4189e266e789423c39685196",
+    "urdf_name": "g1_29dof_rev_1_0_with_inspire_hand_FTP_thumbchain2.urdf",
+    "variant_note": "sprint J J2: distal thumb joints re-referenced to thumb_2 with the product multiplier 0.76123688 (kinematically equivalent single-reference coupling, see generated/ftp_donor/THUMBCHAIN2_DERIVATION.md); every historical claim stays bound to the original asset and reads STALE here until re-qualified",
+    "claims_bound_to_urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+    "collision": "declared provisional palm/thumb colliders (ftp_palm_yz_slabs_v2 right, ftp_left_palm_yz_slabs_v1 left)"
+  },
+  "qualification": {
+    "exact_asset_qualified": false,
+    "installed_hand_similarity_percent": null,
+    "claims": {
+      "mechanism_checks": {
+        "status": "PASS",
+        "evidence": "assembled-body 13/13, moving wrist 37/37 (session records)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "support": "FIXED_PELVIS"
+        }
+      },
+      "retention_60s_grasp_v12": {
+        "status": "PASS",
+        "evidence": "evidence/sF-grasp-v12-retention60-01 (tip 0.102 mm, axis 0.042 deg)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "grasp_sha256": "eef219de8f088b7953b773ba513aa41b9158a830bf0cb47de9054e670d1bfa1e",
+          "hand_drive_gains": "kp=1.0;kd=0.5;thumb_kp=inherited",
+          "support": "DRIVEN_WRIST",
+          "source_image": "sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54"
+        }
+      },
+      "retention_60s_grasp_v13": {
+        "status": "PASS",
+        "evidence": "evidence/sF-grasp-v13-retention60-01 (tip 0.094 mm, axis 0.038 deg)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "grasp_sha256": "e80befb00b34cae04d2ab4ba8b750b41d94138689c5534b24831a94f9e31ce88",
+          "hand_drive_gains": "kp=2.0;kd=0.5",
+          "support": "DRIVEN_WRIST",
+          "source_image": "sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54"
+        }
+      },
+      "acquisition_cycles_kd05": {
+        "status": "PASS",
+        "evidence": "evidence/sF-rack-acquire-cycles-kd05-01 (3/3 cycles)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "probe_config_sha256": "7052810259bd935a0477c48c6481b90b75e7b239fe097cce27b758e3a7b38c9c",
+          "support": "DRIVEN_WRIST",
+          "source_image": "sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54"
+        }
+      },
+      "contact_writing": {
+        "status": "EXECUTED_NOT_QUALIFIED",
+        "evidence": "evidence/sF-writer-contact-16-v9e-G1OK55 (p95 3.53 mm, coverage 70 %)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "grasp_sha256": "e80befb00b34cae04d2ab4ba8b750b41d94138689c5534b24831a94f9e31ce88",
+          "tool_frame": "measured in sF-writer-contact-15-v13-measure (simulator, invalidated by grasp/mount/asset change)",
+          "support": "FIXED_PELVIS"
+        }
+      },
+      "command_replay_integration": {
+        "status": "NOT_RUN",
+        "evidence": "pending re-qualification on this asset variant (sprint J J2)",
+        "configuration": null
+      },
+      "standing": {
+        "status": "NOT_QUALIFIED",
+        "evidence": "evidence/takeover-balance-implicit-03 (topples)",
+        "configuration": {
+          "urdf_sha256": "63097d7366e1903b595c6adbdb187b205f5c1b1189088ca5aea32d25622415cb",
+          "coupling_map_sha256": "399b33861decd1790dc9704b01d6787eb54a2d3c1bf7f48031632bfe5bfcad46",
+          "collision_cooking": "right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062",
+          "physics_dt_s": "0.005",
+          "solver": "TGS_32_8",
+          "support": "NONE"
+        }
+      },
+      "real_data_agreement": {
+        "status": "NOT_RUN",
+        "evidence": null,
+        "configuration": null
+      },
+      "learned_policy_evaluation": {
+        "status": "NOT_RUN",
+        "evidence": null,
+        "configuration": null
+      }
+    },
+    "rule": "historical status stays attached to its bound configuration; active compatibility is ACTIVE_COMPATIBLE only when every bound dependency is present and identical (check_validity), STALE when any differs, UNVERIFIED when any is missing; a hash proves identity, not physical correctness"
+  },
+  "body": {
+    "joint_names": [
+      "left_hip_pitch_joint",
+      "left_hip_roll_joint",
+      "left_hip_yaw_joint",
+      "left_knee_joint",
+      "left_ankle_pitch_joint",
+      "left_ankle_roll_joint",
+      "right_hip_pitch_joint",
+      "right_hip_roll_joint",
+      "right_hip_yaw_joint",
+      "right_knee_joint",
+      "right_ankle_pitch_joint",
+      "right_ankle_roll_joint",
+      "waist_yaw_joint",
+      "waist_roll_joint",
+      "waist_pitch_joint",
+      "left_shoulder_pitch_joint",
+      "left_shoulder_roll_joint",
+      "left_shoulder_yaw_joint",
+      "left_elbow_joint",
+      "left_wrist_roll_joint",
+      "left_wrist_pitch_joint",
+      "left_wrist_yaw_joint",
+      "right_shoulder_pitch_joint",
+      "right_shoulder_roll_joint",
+      "right_shoulder_yaw_joint",
+      "right_elbow_joint",
+      "right_wrist_roll_joint",
+      "right_wrist_pitch_joint",
+      "right_wrist_yaw_joint"
+    ],
+    "limits_rad": {
+      "left_hip_pitch_joint": [
+        -2.5307,
+        2.8798
+      ],
+      "left_hip_roll_joint": [
+        -0.5236,
+        2.9671
+      ],
+      "left_hip_yaw_joint": [
+        -2.7576,
+        2.7576
+      ],
+      "left_knee_joint": [
+        -0.087267,
+        2.8798
+      ],
+      "left_ankle_pitch_joint": [
+        -0.87267,
+        0.5236
+      ],
+      "left_ankle_roll_joint": [
+        -0.2618,
+        0.2618
+      ],
+      "right_hip_pitch_joint": [
+        -2.5307,
+        2.8798
+      ],
+      "right_hip_roll_joint": [
+        -2.9671,
+        0.5236
+      ],
+      "right_hip_yaw_joint": [
+        -2.7576,
+        2.7576
+      ],
+      "right_knee_joint": [
+        -0.087267,
+        2.8798
+      ],
+      "right_ankle_pitch_joint": [
+        -0.87267,
+        0.5236
+      ],
+      "right_ankle_roll_joint": [
+        -0.2618,
+        0.2618
+      ],
+      "waist_yaw_joint": [
+        -2.618,
+        2.618
+      ],
+      "waist_roll_joint": [
+        -0.52,
+        0.52
+      ],
+      "waist_pitch_joint": [
+        -0.52,
+        0.52
+      ],
+      "left_shoulder_pitch_joint": [
+        -3.0892,
+        2.6704
+      ],
+      "left_shoulder_roll_joint": [
+        -1.5882,
+        2.2515
+      ],
+      "left_shoulder_yaw_joint": [
+        -2.618,
+        2.618
+      ],
+      "left_elbow_joint": [
+        -1.0472,
+        2.0944
+      ],
+      "left_wrist_roll_joint": [
+        -1.972222054,
+        1.972222054
+      ],
+      "left_wrist_pitch_joint": [
+        -1.614429558,
+        1.614429558
+      ],
+      "left_wrist_yaw_joint": [
+        -1.614429558,
+        1.614429558
+      ],
+      "right_shoulder_pitch_joint": [
+        -3.0892,
+        2.6704
+      ],
+      "right_shoulder_roll_joint": [
+        -2.2515,
+        1.5882
+      ],
+      "right_shoulder_yaw_joint": [
+        -2.618,
+        2.618
+      ],
+      "right_elbow_joint": [
+        -1.0472,
+        2.0944
+      ],
+      "right_wrist_roll_joint": [
+        -1.972222054,
+        1.972222054
+      ],
+      "right_wrist_pitch_joint": [
+        -1.614429558,
+        1.614429558
+      ],
+      "right_wrist_yaw_joint": [
+        -1.614429558,
+        1.614429558
+      ]
+    },
+    "order_provenance": "Unitree G1 29-DoF SDK joint index order; the twin maps by name (articulation indices are never assumed)",
+    "units": {
+      "position": "rad",
+      "velocity": "rad/s",
+      "effort": "N*m"
+    },
+    "sign": "URDF axis sign",
+    "floating_base": {
+      "state_fields": [
+        "root_position_xyz_m",
+        "root_orientation_wxyz"
+      ],
+      "support": "FIXED_PELVIS in every replay of this version (pelvis fixed to world; root fields ignored and reported)"
+    }
+  },
+  "hands": {
+    "left": {
+      "model_nominal": "Inspire RH56E2-2L-T1 (owner context; right confirmed by nameplate photo, left context-reported)",
+      "source_joints": "RH56DFTP donor (provisional)",
+      "actuators": {
+        "index": {
+          "joint": "left_index_1_joint",
+          "open_rad": 0.0,
+          "closed_rad": 1.4381,
+          "limit_rad": [
+            0.0,
+            1.4381
+          ],
+          "endpoint_provenance": "donor URDF joint limits; open = URDF zero pose (bench convention), closed = upper limit; NOT an E2 angle datum"
+        },
+        "middle": {
+          "joint": "left_middle_1_joint",
+          "open_rad": 0.0,
+          "closed_rad": 1.4381,
+          "limit_rad": [
+            0.0,
+            1.4381
+          ],
+          "endpoint_provenance": "donor URDF joint limits; open = URDF zero pose (bench convention), closed = upper limit; NOT an E2 angle datum"
+        },
+        "ring": {
+          "joint": "left_ring_1_joint",
+          "open_rad": 0.0,
+          "closed_rad": 1.4381,
+          "limit_rad": [
+            0.0,
+            1.4381
+          ],
+          "endpoint_provenance": "donor URDF joint limits; open = URDF zero pose (bench convention), closed = upper limit; NOT an E2 angle datum"
+        },
+        "little": {
+          "joint": "left_little_1_joint",
+          "open_rad": 0.0,
+          "closed_rad": 1.4381,
+          "limit_rad": [
+            0.0,
+            1.4381
+          ],
+          "endpoint_provenance": "donor URDF joint limits; open = URDF zero pose (bench convention), closed = upper limit; NOT an E2 angle datum"
+        },
+        "thumb_bend": {
+          "joint": "left_thumb_2_joint",
+          "open_rad": 0.0,
+          "closed_rad": 0.5864,
+          "limit_rad": [
+            0.0,
+            0.5864
+          ],
+          "endpoint_provenance": "donor URDF joint limits; open = URDF zero pose (bench convention), closed = upper limit; NOT an E2 angle datum"
+        },
+        "thumb_rotation": {
+          "joint": "left_thumb_1_joint",
+          "open_rad": 0.0,
+          "closed_rad": 1.1641,
+          "limit_rad": [
+            0.0,
+            1.1641
+          ],
+          "endpoint_provenance": "donor URDF joint limits; open = URDF zero pose (bench convention), closed = upper limit; NOT an E2 angle datum"
+        }
+      },
+      "coupled_joints": {
+        "left_thumb_3_joint": {
+          "parent": "left_thumb_2_joint",
+          "multiplier": 0.8024,
+          "offset": 0.0,
+          "limit_rad": [
+            0.0,
+            0.5
+          ]
+        },
+        "left_thumb_4_joint": {
+          "parent": "left_thumb_2_joint",
+          "multiplier": 0.76123688,
+          "offset": 0.0,
+          "limit_rad": [
+            0.0,
+            3.14
+          ]
+        },
+        "left_index_2_joint": {
+          "parent": "left_index_1_joint",
+          "multiplier": 1.0843,
+          "offset": 0.0,
+          "limit_rad": [
+            0.0,
+            3.14
+          ]
+        },
+        "left_middle_2_joint": {
+          "parent": "left_middle_1_joint",
+          "multiplier": 1.0843,
+          "offset": 0.0,
+          "limit_rad": [
+            0.0,
+            3.14
+          ]
+        },
+        "left_ring_2_joint": {
+          "parent": "left_ring_1_joint",
+          "multiplier": 1.0843,
+          "offset": 0.0,
+          "limit_rad": [
+            0.0,
+            3.14
+          ]
+        },
+        "left_little_2_joint": {
+          "parent": "left_little_1_joint",
+          "multiplier": 1.0843,
+          "offset": 0.0,
+          "limit_rad": [
+            0.0,
+            3.14
+          ]
+        }
+      },
+      "native_interface": {
+        "axis_order_owner_context": [
+          "little",
+          "ring",
+          "middle",
+          "index",
+          "thumb_bend",
+          "thumb_rotation"
+        ],
+        "scale_owner_context": "0..1000 counts, 1000 = open",
+        "status": "UNVERIFIED_PROJECT_SOURCE_STARTING_POINT",
+        "note": "verify per recording/interface/firmware revision before use; datasets declare their own order and scale in their source contract"
+      },
+      "feedback": {
+        "independent_axes_measured": true,
+        "coupled_joints_measured": false,
+        "note": "simulator returns all 12 joint positions; the real hand reports six native angle readbacks (counts), not twelve measured joint angles"
+      }
+    },
+    "right": {
+      "model_nominal": "Inspire RH56E2-2R-T1 (owner context; right confirmed by nameplate photo, left context-reported)",
+      "source_joints": "RH56DFTP donor (provisional)",
+      "actuators": {
+        "index": {
+          "joint": "right_index_1_joint",
+          "open_rad": 0.0,
+          "closed_rad": 1.4381,
+          "limit_rad": [
+            0.0,
+            1.4381
+          ],
+          "endpoint_provenance": "donor URDF joint limits; open = URDF zero pose (bench convention), closed = upper limit; NOT an E2 angle datum"
+        },
+        "middle": {
+          "joint": "right_middle_1_joint",
+          "open_rad": 0.0,
+          "closed_rad": 1.4381,
+          "limit_rad": [
+            0.0,
+            1.4381
+          ],
+          "endpoint_provenance": "donor URDF joint limits; open = URDF zero pose (bench convention), closed = upper limit; NOT an E2 angle datum"
+        },
+        "ring": {
+          "joint": "right_ring_1_joint",
+          "open_rad": 0.0,
+          "closed_rad": 1.4381,
+          "limit_rad": [
+            0.0,
+            1.4381
+          ],
+          "endpoint_provenance": "donor URDF joint limits; open = URDF zero pose (bench convention), closed = upper limit; NOT an E2 angle datum"
+        },
+        "little": {
+          "joint": "right_little_1_joint",
+          "open_rad": 0.0,
+          "closed_rad": 1.4381,
+          "limit_rad": [
+            0.0,
+            1.4381
+          ],
+          "endpoint_provenance": "donor URDF joint limits; open = URDF zero pose (bench convention), closed = upper limit; NOT an E2 angle datum"
+        },
+        "thumb_bend": {
+          "joint": "right_thumb_2_joint",
+          "open_rad": 0.0,
+          "closed_rad": 0.5864,
+          "limit_rad": [
+            0.0,
+            0.5864
+          ],
+          "endpoint_provenance": "donor URDF joint limits; open = URDF zero pose (bench convention), closed = upper limit; NOT an E2 angle datum"
+        },
+        "thumb_rotation": {
+          "joint": "right_thumb_1_joint",
+          "open_rad": 0.0,
+          "closed_rad": 1.1641,
+          "limit_rad": [
+            0.0,
+            1.1641
+          ],
+          "endpoint_provenance": "donor URDF joint limits; open = URDF zero pose (bench convention), closed = upper limit; NOT an E2 angle datum"
+        }
+      },
+      "coupled_joints": {
+        "right_thumb_3_joint": {
+          "parent": "right_thumb_2_joint",
+          "multiplier": 0.8024,
+          "offset": 0.0,
+          "limit_rad": [
+            0.0,
+            0.5
+          ]
+        },
+        "right_thumb_4_joint": {
+          "parent": "right_thumb_2_joint",
+          "multiplier": 0.76123688,
+          "offset": 0.0,
+          "limit_rad": [
+            0.0,
+            3.14
+          ]
+        },
+        "right_index_2_joint": {
+          "parent": "right_index_1_joint",
+          "multiplier": 1.0843,
+          "offset": 0.0,
+          "limit_rad": [
+            0.0,
+            3.14
+          ]
+        },
+        "right_middle_2_joint": {
+          "parent": "right_middle_1_joint",
+          "multiplier": 1.0843,
+          "offset": 0.0,
+          "limit_rad": [
+            0.0,
+            3.14
+          ]
+        },
+        "right_ring_2_joint": {
+          "parent": "right_ring_1_joint",
+          "multiplier": 1.0843,
+          "offset": 0.0,
+          "limit_rad": [
+            0.0,
+            3.14
+          ]
+        },
+        "right_little_2_joint": {
+          "parent": "right_little_1_joint",
+          "multiplier": 1.0843,
+          "offset": 0.0,
+          "limit_rad": [
+            0.0,
+            3.14
+          ]
+        }
+      },
+      "native_interface": {
+        "axis_order_owner_context": [
+          "little",
+          "ring",
+          "middle",
+          "index",
+          "thumb_bend",
+          "thumb_rotation"
+        ],
+        "scale_owner_context": "0..1000 counts, 1000 = open",
+        "status": "UNVERIFIED_PROJECT_SOURCE_STARTING_POINT",
+        "note": "verify per recording/interface/firmware revision before use; datasets declare their own order and scale in their source contract"
+      },
+      "feedback": {
+        "independent_axes_measured": true,
+        "coupled_joints_measured": false,
+        "note": "simulator returns all 12 joint positions; the real hand reports six native angle readbacks (counts), not twelve measured joint angles"
+      }
+    }
+  },
+  "transforms": {
+    "right": {
+      "wrist_to_hand": {
+        "matrix_4x4": [
+          [
+            9.489659630678013e-11,
+            0.0,
+            1.0,
+            0.0415
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            -1.0,
+            0.0,
+            9.489659630678013e-11,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "frame": "right_wrist_yaw_link -> right_base_link",
+        "provenance": "donor URDF fixed joint (not measured on hardware)",
+        "valid_for": {
+          "urdf_sha256": "e87714e521450de863a0f62d0ab6ada45c78696d4189e266e789423c39685196",
+          "wrist_mount_sha256": "df164a315e051b41d46df8e08acbe94f1abbcccbd970116e28fc3852e0e87062"
+        },
+        "dependent_qualifications": [
+          "contact_writing"
+        ]
+      },
+      "hand_to_tool": null
+    },
+    "left": {
+      "wrist_to_hand": {
+        "matrix_4x4": [
+          [
+            9.489659630678013e-11,
+            -8.979318433952318e-11,
+            1.0,
+            0.0415
+          ],
+          [
+            0.0,
+            -1.0,
+            -8.979318433952318e-11,
+            0.0
+          ],
+          [
+            1.0,
+            8.521067565368023e-21,
+            -9.489659630678013e-11,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "frame": "left_wrist_yaw_link -> left_base_link",
+        "provenance": "donor URDF fixed joint (not measured on hardware)",
+        "valid_for": {
+          "urdf_sha256": "e87714e521450de863a0f62d0ab6ada45c78696d4189e266e789423c39685196"
+        },
+        "dependent_qualifications": []
+      },
+      "hand_to_tool": null
+    }
+  },
+  "controller": {
+    "type": "implicit_biased_drive_v1 (PhysX capped position drives) for body targets; implicit position drives for the six hand actuators; coupled joints follow mimic constraints",
+    "gains_provenance": "declared per replay package (hashed); NOT hardware firmware gains",
+    "rate_hz": 200.0,
+    "latency_assumption": "zero-order hold of the source command at simulator time; no transport latency modelled",
+    "clock_domains": {
+      "physics": "simulator physics time (5 ms steps)",
+      "wall": "host monotonic (watchdogs only)",
+      "source": "recording timestamps mapped to physics time from the first row"
+    }
+  },
+  "cameras": {
+    "policy_head_d435_color_nominal": {
+      "mount_frame": "d435_link (torso_link fixed joint from the donor URDF)",
+      "mount": {
+        "parent_link": "torso_link",
+        "child_link": "d435_link",
+        "xyz_m": [
+          0.0576235,
+          0.01753,
+          0.42987
+        ],
+        "rpy_rad": [
+          0.0,
+          0.8307767239493009,
+          0.0
+        ]
+      },
+      "image_format": "RGB8 640x480",
+      "calibration": {
+        "status": "NOMINAL_NOT_MEASURED",
+        "horizontal_fov_deg": 69.0,
+        "source": "Intel D435 colour datasheet nominal"
+      },
+      "timestamp_domain": "physics time of the rendered step"
+    },
+    "external_front": {
+      "mount_frame": "world",
+      "image_format": "RGBA8 640x640",
+      "calibration": {
+        "status": "simulator_only"
+      },
+      "timestamp_domain": "physics time"
+    },
+    "external_side": {
+      "mount_frame": "world",
+      "image_format": "RGBA8 640x640",
+      "calibration": {
+        "status": "simulator_only"
+      },
+      "timestamp_domain": "physics time"
+    }
+  },
+  "tactile_force": {
+    "contact_normal_force": {
+      "availability": "simulator_only",
+      "units": "N",
+      "note": "PhysX contact impulses / dt; no real tactile array on the donor"
+    },
+    "tactile_arrays_e2_t1": {
+      "availability": "unavailable",
+      "units": "counts 0..4095 (manual)",
+      "note": "E2 T1 arrays are not modelled; the donor carries force-sensor frames only"
+    },
+    "fingertip_force_e2": {
+      "availability": "unavailable",
+      "units": "N",
+      "note": "nominal 28 N fingertip / 30 N thumb (product page); no measured conversion"
+    }
+  }
+}

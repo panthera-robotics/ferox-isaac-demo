@@ -59,7 +59,7 @@ from inspire_body_asset import import_body  # noqa: E402
 from inspire_collision import replace_palm_with_components, replace_left_thumb_with_slabs  # noqa: E402
 from rigid_inertia import audit_live_properties  # noqa: E402
 
-source = Path('/source-assets/g1_29dof_rev_1_0_with_inspire_hand_FTP.urdf')
+source = Path('/source-assets') / manifest.data['source_asset'].get('urdf_name', 'g1_29dof_rev_1_0_with_inspire_hand_FTP.urdf')   # the manifest names the asset variant; its hash is checked below
 if hashlib.sha256(source.read_bytes()).hexdigest() != manifest.data['source_asset']['urdf_sha256']:
     raise RuntimeError('mounted source asset differs from the manifest asset hash')
 
