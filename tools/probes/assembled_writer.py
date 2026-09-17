@@ -37,8 +37,9 @@ def validate_config(config):
     contact = config.get('contact_writing')
     if contact is not None:
         needed = {'held_marker_grasp_path', 'preload_support_s', 'closing_ramp_s', 'grasp_finger_kp_nm_rad', 'grasp_finger_kd_nm_s_rad', 'provenance'}
-        if not isinstance(contact, dict) or set(contact) != needed:
-            raise ValueError('contact_writing requires exactly held_marker_grasp_path, preload_support_s, closing_ramp_s, grasp gains and provenance')
+        if not isinstance(contact, dict) or not needed <= set(contact) <= needed | {'board_offset_normal_m'}:
+            raise ValueError('contact_writing requires exactly held_marker_grasp_path, preload_support_s, closing_ramp_s, grasp gains and provenance (+ optional board_offset_normal_m)')
+        finite(contact.get('board_offset_normal_m', 0.), 'contact_writing.board_offset_normal_m', 0., .2)
         path = Path(contact['held_marker_grasp_path'])
         if not path.is_absolute() or '..' in path.parts or path.parts[:2] != ('/', 'workspace'):
             raise ValueError('held marker grasp must be an explicit /workspace mount')
@@ -369,7 +370,12 @@ def main():
                 raise ValueError('board frame is not a proper rotation')
             quat_wxyz = quaternion_wxyz_from_matrix
             board_frame = BoardFrame(origin_world_m=tuple((pelvis_world + np.asarray(board_def['origin_xyz_m'])).tolist()), orientation_world_qwxyz=quat_wxyz(R_board))
-            scene_cfg = SceneConfig(frame=board_frame, holder_mode='free_dynamic', holder=HolderParameters())
+            # Optional AIR-COMPARISON placement: the PHYSICAL board is moved away from the robot along the
+            # board normal while the planner, the scoring frame and every trace stay at the fixture frame.
+            board_offset = float(cfg['contact_writing'].get('board_offset_normal_m', 0.))
+            physical_frame = board_frame if board_offset == 0. else BoardFrame(
+                origin_world_m=tuple((np.asarray(board_frame.origin_world_m) - board_offset * board_n).tolist()), orientation_world_qwxyz=board_frame.orientation_world_qwxyz)
+            scene_cfg = SceneConfig(frame=physical_frame, holder_mode='free_dynamic', holder=HolderParameters())
             marker = build_scene(world.stage, scene_cfg)
             # Held-marker placement: palm pose at the authored home from the source FK, then the declared
             # palm-relative holder pose of the grasp candidate (centre + orientation), never an attachment.
@@ -397,10 +403,12 @@ def main():
                 joint.CreateLocalPos1Attr(Gf.Vec3f(0., 0., 0.)); joint.CreateLocalRot1Attr(Gf.Quatf(1., Gf.Vec3f(0., 0., 0.)))
             marker['declared_initial_pose'] = {'palm_T_holder_from_grasp': holder_T.tolist(), 'world_T_holder': world_T_holder.tolist(),
                 'board_frame_world': {'origin_m': list(board_frame.origin_world_m), 'orientation_qwxyz': list(board_frame.orientation_world_qwxyz)},
+                'physical_board_offset_normal_m': board_offset, 'physical_board_origin_m': list(physical_frame.origin_world_m),
+                'air_comparison': board_offset != 0.,
                 'preload_support': {'declared_seconds': support_seconds, 'joint_path': support_path if support_active else None,
                                     'kind': 'world_fixed_joint_on_holder_body_released_before_the_job_moves'}}
             (out/'marker_scene.json').write_text(json.dumps(marker, indent=2, allow_nan=False))
-            metrics.update(tool_attached=False, physical_tool_present=True, board_present=True,
+            metrics.update(tool_attached=False, physical_tool_present=True, board_present=True, physical_board_offset_normal_m=board_offset, air_comparison=board_offset != 0.,
                 physical_virtual_tip_meaning='physical free marker held by contact; nib/board contact measured',
                 support_constraints=['pelvis_fixed_to_world_1m_above_origin', 'declared_preload_support_%.2fs' % support_seconds])
         # Declared depenetration-velocity bound for the whole contact run (0.05 m/s = 0.25 mm per 5 ms step):

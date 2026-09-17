@@ -119,7 +119,8 @@ class ActuationBackendConfigTests(unittest.TestCase):
         block = {'held_marker_grasp_path': '/workspace/writer-fixture/held_marker_grasp.json', 'preload_support_s': .8, 'closing_ramp_s': .4,
                  'grasp_finger_kp_nm_rad': 1., 'grasp_finger_kd_nm_s_rad': .05, 'provenance': 'v9b measured grasp'}
         probe.validate_config(self.config(contact_writing=block))
-        for bad in ({**block, 'preload_support_s': 2.}, {**block, 'grasp_finger_kp_nm_rad': 20.}, {**block, 'held_marker_grasp_path': '/tmp/x.json'},
+        probe.validate_config(self.config(contact_writing={**block, 'board_offset_normal_m': .05}))
+        for bad in ({**block, 'preload_support_s': 2.}, {**block, 'grasp_finger_kp_nm_rad': 20.}, {**block, 'held_marker_grasp_path': '/tmp/x.json'}, {**block, 'board_offset_normal_m': -.01}, {**block, 'board_offset_normal_m': .5},
                     {**block, 'closing_ramp_s': .05}, {**block, 'closing_ramp_s': 1.}, {**block, 'preload_support_s': .3},
                     {**block, 'provenance': ''}, {k: v for k, v in block.items() if k != 'provenance'}, {**block, 'extra': 1}):
             with self.assertRaises(ValueError):
