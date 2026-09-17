@@ -629,3 +629,24 @@ class LeftHandProfileTests(unittest.TestCase):
         with self.assertRaises(ContractError):
             pl.apply(raw, side='right')
         self.assertNotEqual(pl.sha256, pr.sha256)
+
+
+class AppliedConversionDependencyGapTests(unittest.TestCase):
+    """Documents a dependency gap on the ACTUAL manifest: the bound claims do not include the hand command contract, so a
+    changed applied conversion (a different contract hash) leaves command_replay_integration ACTIVE_COMPATIBLE. The
+    package itself carries contract_sha256, but a qualification that should depend on the conversion needs the key."""
+
+    def test_changing_only_the_hand_contract_does_not_stale_any_manifest_claim(self):
+        from hand_fidelity.ab_source_specs import contract
+        m = EmbodimentManifest.load(MANIFEST)
+        a = HandCommandAdapter(m, 'right', contract('closure_preserving')); b = HandCommandAdapter(m, 'right', contract('radian_identity'))
+        self.assertNotEqual(a.contract_sha256, b.contract_sha256)
+        live = {'urdf_sha256': m.data['source_asset']['urdf_sha256'], 'coupling_map_sha256': m.data['qualification']['claims']['mechanism_checks']['configuration']['coupling_map_sha256'],
+                'collision_cooking': m.data['qualification']['claims']['mechanism_checks']['configuration']['collision_cooking'], 'wrist_mount_sha256': m.data['qualification']['claims']['mechanism_checks']['configuration']['wrist_mount_sha256'],
+                'physics_dt_s': '0.005', 'solver': 'TGS_32_8', 'support': 'FIXED_PELVIS', 'camera_mount_sha256': m.data['qualification']['claims']['command_replay_integration']['configuration']['camera_mount_sha256'],
+                'controller': 'implicit_biased_drive_v1 replay controller (package-hashed gains)'}
+        for adapter in (a, b):
+            r = m.check_validity(dict(live, hand_contract_sha256=adapter.contract_sha256))
+            self.assertEqual(r['claims']['command_replay_integration']['active_compatibility'], 'ACTIVE_COMPATIBLE')   # the gap: the contract is not a bound key
+        keys = set(m.data['qualification']['claims']['command_replay_integration']['configuration'])
+        self.assertNotIn('hand_contract_sha256', keys)   # proposal: bind hand_contract_sha256 in the next manifest revision (coordinator's call)
