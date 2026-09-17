@@ -66,6 +66,17 @@ def validate_controller_gains(manifest, controller):
             problems.append('controller.%s = %r is not a finite value in (%s, %s]' % (key, v, low, high))
     if not isinstance(controller.get('provenance'), str) or len(controller.get('provenance', '')) < 20:
         problems.append('controller.provenance must describe the gain origin')
+    gff = controller.get('gravity_feedforward')
+    if gff is not None:
+        if not isinstance(gff, dict) or gff.get('enabled') not in (True, False):
+            problems.append('controller.gravity_feedforward must be an object with a boolean enabled')
+        elif gff['enabled']:
+            if gff.get('source') != 'articulation_generalized_gravity_forces_current_configuration' or gff.get('joints') != 'commanded_body_joints' or gff.get('combined_effort_limit') != 'urdf_effort_limit':
+                problems.append('controller.gravity_feedforward must declare source=articulation_generalized_gravity_forces_current_configuration, joints=commanded_body_joints, combined_effort_limit=urdf_effort_limit')
+            for key, low, high in (('ramp_in_s', 0.0, 5.0), ('scale', 0.0, 1.0)):
+                v = gff.get(key, 1.0)
+                if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < low or v > high or (key == 'scale' and v == 0.0):
+                    problems.append('controller.gravity_feedforward.%s = %r out of range' % (key, v))
     return problems
 
 

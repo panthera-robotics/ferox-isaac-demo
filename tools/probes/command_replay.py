@@ -17,6 +17,7 @@ assert os.environ.get('PANTHERA_PROBE_MODE') == 'command-replay'
 config_path = Path(os.environ['PANTHERA_PROBE_CONFIG']); config = json.loads(config_path.read_text())
 out = Path('/evidence'); sys.path[:0] = ['/workspace/ferox_tools', '/workspace/ferox_isaac/twin']
 from inspire.embodiment import ContractError, EmbodimentManifest, ReplaySequence, canonical_sha256, dependency_values_from_urdf  # noqa: E402
+from inspire.body_feedforward import bounded_gravity_feedforward  # noqa: E402
 
 started_wall = time.monotonic()
 package = Path(config['package'])
@@ -95,6 +96,18 @@ for n in body_names:
     assert limits[n]['lower'] <= home[n] <= limits[n]['upper'] and math.isfinite(kp_body[n]) and kp_body[n] > 0 and math.isfinite(kd_body[n]) and kd_body[n] >= 0
 hand_kp, hand_kd = float(controller['hand_kp_nm_rad']), float(controller['hand_kd_nm_s_rad'])
 assert 0 < hand_kp <= 10 and 0 <= hand_kd <= 1
+# Optional declared body gravity feed-forward (controller v4+): the implicit PD drives stay as declared; a bounded
+# model-based joint effort equal to the articulation's generalized gravity force at the CURRENT configuration (the
+# executed asset's masses/inertias/COMs incl. the mounted donor hands, fixed base) is added on the commanded body joints
+# only, ramped in over the lead-in. The combined effort (estimated PD term + feed-forward) is capped at the URDF effort
+# limit per joint; every cap is counted. Hand joints and coupled joints never receive feed-forward.
+gff = controller.get('gravity_feedforward') or {'enabled': False}
+assert isinstance(gff, dict) and gff.get('enabled') in (True, False)
+if gff['enabled']:
+    assert gff.get('source') == 'articulation_generalized_gravity_forces_current_configuration' and gff.get('joints') == 'commanded_body_joints'
+    gff_ramp_s = float(gff.get('ramp_in_s', 1.0)); assert 0.0 <= gff_ramp_s <= 5.0
+    gff_scale = float(gff.get('scale', 1.0)); assert 0.0 < gff_scale <= 1.0
+    gff_limit = gff.get('combined_effort_limit'); assert gff_limit == 'urdf_effort_limit'
 
 stage = Usd.Stage.Open(str(asset))
 for prim in stage.Traverse():
@@ -240,6 +253,7 @@ phase = 'lead_in'; aborted = None; rejections = []; applied_rows = set(); lead_i
 body_target = np.array([initial_body[n] for n in body_names], dtype=np.float32)
 hand_open = np.array([open_hand[n] for n in hand_names], dtype=np.float32); hand_first = np.array([first_hand[n] for n in hand_names], dtype=np.float32)
 hand_target = hand_first.copy() if hand_init_applied else hand_open.copy()
+ff_cap_count = 0; ff_cap_max = 0.0
 loop_wall_start = time.monotonic()
 for tick in range(steps):
     t_source = (tick - lead_in_steps) * dt + sequence.converted[0]['t_s']
@@ -261,6 +275,20 @@ for tick in range(steps):
                                            'hand_closure': {s: b['closure'] for s, b in row['hands'].items()}, 'clipped_axes': {s: b['clipped_axes'] for s, b in row['hands'].items()}}, allow_nan=False) + '\n')
     robot.apply_action(ArticulationAction(joint_positions=body_target, joint_indices=body_ids))
     robot.apply_action(ArticulationAction(joint_positions=hand_target, joint_indices=hand_ids))
+    ff_record = None
+    if gff['enabled']:
+        q_now = np.ravel(robot.get_joint_positions()); dq_now = np.ravel(robot.get_joint_velocities())
+        g_all = np.ravel(robot._articulation_view.get_generalized_gravity_forces())   # model-based: effort needed to hold the current pose against gravity (PhysX, executed asset)
+        ramp = 1.0 if gff_ramp_s <= 0 else min(1.0, (tick + 1) * dt / gff_ramp_s)
+        lim = np.asarray([limits[n]['effort'] for n in body_names], dtype=np.float64)
+        try:
+            ff_applied, capped, pd_est, cap_mask = bounded_gravity_feedforward(kp[body_ids], kd[body_ids], body_target, q_now[body_ids], dq_now[body_ids], g_all[body_ids], lim, ramp=ramp, scale=gff_scale)
+        except ValueError as exc:
+            aborted = {'sequence': tick, 'reason': 'nonfinite_gravity_feedforward', 'detail': str(exc)}; break
+        ff_capped_joints = [body_names[i] for i in np.where(cap_mask)[0]]; total = pd_est + g_all[body_ids] * gff_scale * ramp
+        robot.set_joint_efforts(ff_applied.astype(np.float32), joint_indices=body_ids)
+        ff_record = {'gravity_model_nm': g_all[body_ids].tolist(), 'ramp': ramp, 'pd_estimate_nm': pd_est.tolist(), 'feedforward_applied_nm': ff_applied.tolist(), 'estimated_total_nm': capped.tolist(), 'capped_joints': ff_capped_joints}
+        ff_cap_count += len(ff_capped_joints); ff_cap_max = max(ff_cap_max, float(np.max(np.abs(total) - lim)))
     world.step(render=False)
     if (tick + 1) % frame_every == 0:
         world.render()
@@ -272,7 +300,7 @@ for tick in range(steps):
     r = {'sequence': tick, 'physics_s': world.current_time, 'wall_s': time.monotonic() - loop_wall_start, 'phase': phase, 'source_row': None if row is None else row['row'],
          'source_t_s': None if row is None else row['t_s'], 'runtime_names': names, 'q_rad': q.tolist(), 'dq_rad_s': dq.tolist(), 'measured_generalized_effort_nm': effort.tolist(),
          'body_command_names': body_names, 'body_command_rad': body_target.tolist(), 'hand_command_names': hand_names, 'hand_command_rad': hand_target.tolist(),
-         'link_poses_world_xyzw': poses, 'coupling_error_rad': coupling}
+         'link_poses_world_xyzw': poses, 'coupling_error_rad': coupling, 'body_feedforward': ff_record}
     trace.append(r); state_file.write(json.dumps(r, allow_nan=False) + '\n')
     if object_view is not None:
         op = np.asarray(object_view.get_transforms())[0].tolist(); ov = np.asarray(object_view.get_velocities())[0].tolist()
@@ -324,6 +352,7 @@ metrics = {'status': 'PASS' if all(checks.values()) else 'FAIL', 'checks': check
            'source': sequence.source, 'sequence_summary': sequence.summary(), 'package_files_sha256': files, 'package_sha256': pkg,
            'qualification_validity': qualification_validity, 'live_dependencies': live_dependencies,
            'controller': {'type': manifest.data['controller']['type'], 'provenance': controller.get('provenance'), 'hand_kp_nm_rad': hand_kp, 'hand_kd_nm_s_rad': hand_kd,
+                          'gravity_feedforward': ({**gff, 'combined_effort_cap_events': ff_cap_count, 'max_requested_over_limit_nm': ff_cap_max, 'accounting': 'implicit PD drive (declared gains, URDF max force) + applied joint effort = model gravity term at the current configuration, ramped over ramp_in_s, reduced so that estimated PD + feed-forward stays within the URDF effort limit; measured_generalized_effort_nm in the trace is the solver joint effort (not motor torque)'} if gff['enabled'] else {'enabled': False}),
                           'body_gains_sha256': canonical_sha256({'kp': kp_body, 'kd': kd_body, 'home': home})},
            'initialization': {'body': 'first row targets where named, else controller home (written once)', 'hands': ('first-row (observed, nearly open) pose written once with consistent coupled joints; targets held at the first row' if hand_init_applied else 'URDF open pose written once; targets ramped open -> first row over the lead-in'), 'hand_init': hand_init, 'lead_in_s': lead_in_s},
            'steps': len(trace), 'physics_dt': dt, 'lead_in_s': lead_in_s, 'simulated_s': len(trace) * dt, 'loop_wall_s': loop_wall,
