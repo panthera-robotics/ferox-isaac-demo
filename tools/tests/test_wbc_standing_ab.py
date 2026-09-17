@@ -13,7 +13,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 
 from assembled_balance import FEET, GATES, GROUND  # noqa: E402
-from wbc_standing_ab import ARMS, Lcg, StandingABConfig, config_sha256, evaluate_standing, perturbed_initial, rig_wrench  # noqa: E402
+from wbc_standing_ab import (ARMS, ARM_JOINTS, EXPERIMENTAL_OWNER, Lcg, StandingABConfig, arm_reference_at, config_sha256,  # noqa: E402
+                             evaluate_standing, perturbed_initial, rig_stability_margins, rig_wrench)
 
 BODY = ['left_hip_pitch_joint', 'left_hip_roll_joint', 'left_hip_yaw_joint', 'left_knee_joint', 'left_ankle_pitch_joint',
         'left_ankle_roll_joint', 'right_hip_pitch_joint', 'right_hip_roll_joint', 'right_hip_yaw_joint', 'right_knee_joint',
@@ -55,6 +56,7 @@ def rows_for(c, *, topple_after=None, hidden_support=False, weight_fraction=1.0,
         z = 0.79 - 0.4 * math.sin(pitch)
         row = {'sequence': seq, 'phase': 'supported_settle' if supported else 'unsupported', 'physics_s': (seq + 1) * 0.005,
                'runtime_names': BODY, 'q_rad': [0.0] * 29, 'dq_rad_s': [0.0] * 29, 'measured_generalized_effort_nm': [0.0] * 29,
+               'pelvis_linear_velocity_m_s': [0., 0., 0.], 'pelvis_angular_velocity_rad_s': [0., 0., 0.],
                'link_poses_world_xyzw': {'pelvis': [0., 0., z, 0., math.sin(pitch / 2), 0., math.cos(pitch / 2)],
                                          'torso_link': [0., 0., z + .3, 0., 0., 0., 1.],
                                          FEET[0]: [0., .1, .03, 0., 0., 0., 1.], FEET[1]: [0., -.1, .03, 0., 0., 0., 1.]},
@@ -133,6 +135,20 @@ class RigTests(unittest.TestCase):
         s = math.sin(0.05); w = math.cos(0.05)
         f, t = rig_wrench(c, [0., 0., 0.8, 0., s, 0., w], [0., 0., 0.], [0., 0., 0.], target)
         self.assertLess(t[1], 0.)
+
+
+class RigStabilityTests(unittest.TestCase):
+    PELVIS_M, PELVIS_I = 3.813, 0.0079184   # imported donor/bare pelvis link (identical body)
+
+    def test_rev2_gains_are_unstable_and_rev3_gains_are_stable(self):
+        rev2 = cfg(rig={'kp_n_m': 20000.0, 'kd_n_s_m': 2000.0, 'kr_nm_rad': 2000.0, 'kdr_nm_s_rad': 200.0, 'max_force_n': 1200.0, 'max_torque_nm': 400.0, 'gravity_feedforward': True})
+        m = rig_stability_margins(rev2, self.PELVIS_M, self.PELVIS_I)
+        self.assertFalse(m['stable'])
+        self.assertGreater(m['kdr_dt_over_I'], 100)
+        rev3 = cfg(rig={'kp_n_m': 10000.0, 'kd_n_s_m': 500.0, 'kr_nm_rad': 100.0, 'kdr_nm_s_rad': 0.5, 'max_force_n': 1200.0, 'max_torque_nm': 400.0, 'gravity_feedforward': True})
+        m = rig_stability_margins(rev3, self.PELVIS_M, self.PELVIS_I)
+        self.assertTrue(m['stable'])
+        self.assertLess(max(m['kd_dt_over_m'], m['kdr_dt_over_I'], m['kp_dt2_over_m'], m['kr_dt2_over_I']), 0.7)
 
 
 class EvaluatorTests(unittest.TestCase):
@@ -231,6 +247,68 @@ class EvaluatorTests(unittest.TestCase):
         self.assertFalse(m['checks']['no_nonqualifying_diagnostic'])
         self.assertTrue(m['nonqualifying_diagnostic'])
         self.assertTrue(all(v for k, v in m['checks'].items() if k != 'no_nonqualifying_diagnostic'))
+
+    def test_command_schedule_validation_and_walk_measurements(self):
+        with self.assertRaisesRegex(ValueError, 'refused, not clipped'):
+            cfg(unsupported_steps=6000, command_schedule=[[5.0, 1.5, 0.0, 0.0]])
+        with self.assertRaisesRegex(ValueError, 'start >= 5 s'):
+            cfg(unsupported_steps=6000, command_schedule=[[1.0, 0.3, 0.0, 0.0]])
+        with self.assertRaisesRegex(ValueError, '30 s unsupported'):
+            cfg(command_schedule=[[5.0, 0.3, 0.0, 0.0]])
+        c = cfg(unsupported_steps=6000, command_schedule=[[5.0, 0.3, 0.0, 0.0], [11.0, 0.0, 0.0, 0.0]])
+        rows, events = rows_for(c)
+        rel = c.supported_settle_steps - 1
+        for r in rows:
+            if r['phase'] == 'unsupported':
+                tu = (r['sequence'] - rel) * 0.005
+                r['command_velocity'] = [0.3, 0., 0.] if 5.0 <= tu < 11.0 else [0., 0., 0.]
+                x = 0.3 * max(0.0, min(tu, 11.0) - 5.0)
+                r['link_poses_world_xyzw']['pelvis'][0] = x
+                for f in FEET:
+                    r['link_poses_world_xyzw'][f][0] = x
+                r['pelvis_linear_velocity_m_s'] = [0.3 if 5.0 <= tu < 11.0 else 0.0, 0., 0.]
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertEqual(m['status'], 'PASS', m['first_failed_gate'])
+        self.assertAlmostEqual(m['peaks']['walk']['forward_travel_m'], 1.8, places=2)
+        self.assertTrue(m['checks']['walk_travel_reached'])
+        self.assertTrue(m['checks']['stopped_after_stop_command'])
+        # a row whose command differs from the schedule is a foreign writer
+        rows[-1]['command_velocity'] = [0.5, 0., 0.]
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertFalse(m['checks']['single_body_owner_named_policy'])
+
+    def test_arm_override_is_experimental_owner_from_support_and_tracks(self):
+        with self.assertRaisesRegex(ValueError, 'separate experiments'):
+            cfg(unsupported_steps=6000, command_schedule=[[5.0, 0.3, 0.0, 0.0]], arm_override={'enabled': True, 'start_s': 5.0, 'mode': 'null', 'trajectory': []})
+        with self.assertRaisesRegex(ValueError, 'rate exceeds'):
+            cfg(arm_override={'enabled': True, 'start_s': 5.0, 'mode': 'trajectory', 'trajectory': [[0.0] + [0.0] * 14, [0.5] + [0.8] * 14]})
+        c = cfg(arm_override={'enabled': True, 'start_s': 5.0, 'mode': 'trajectory', 'trajectory': [[0.0] + [0.0] * 14, [2.0] + [0.2] * 14]})
+        default_arm = [0.0] * 14
+        self.assertIsNone(arm_reference_at(c, default_arm, 4.0))
+        self.assertAlmostEqual(arm_reference_at(c, default_arm, 6.0)[0], 0.1)
+        self.assertAlmostEqual(arm_reference_at(c, default_arm, 9.0)[0], 0.2)
+        rows, events = rows_for(c)
+        rel = c.supported_settle_steps - 1
+        ai = [BODY.index(n) for n in ARM_JOINTS]
+        for r in rows:
+            if r['phase'] != 'supported_settle' or r['sequence'] >= c.policy_warmup_steps:
+                r['body_command_owner'] = EXPERIMENTAL_OWNER
+            tu = (r['sequence'] - rel) * 0.005
+            ref = arm_reference_at(c, default_arm, tu) if r['phase'] == 'unsupported' else None
+            r['arm_reference_rad'] = ref
+            if ref is not None:
+                q = list(r['q_rad'])
+                for i, v in zip(ai, ref):
+                    q[i] = v - 0.01     # 10 mrad tracking error
+                r['q_rad'] = q
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertEqual(m['status'], 'PASS', m['first_failed_gate'])
+        self.assertIn('EXPERIMENTAL_COMBINED_CONTROLLER', m['verdict_scope'])
+        self.assertAlmostEqual(m['peaks']['arm_override']['tracking_peak_abs_rad'], 0.01, places=6)
+        # a row claiming the plain policy owner during an override run is a foreign writer
+        rows[-1]['body_command_owner'] = 'named_policy_single_writer'
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertFalse(m['checks']['single_body_owner_named_policy'])
 
     def test_integrity_failure_blocks_pass(self):
         c = cfg()

@@ -39,12 +39,23 @@ class StandingABConfig:
     # Rev2 rig: carries the body weight (gravity feed-forward on the pelvis) with stiff PD, so the
     # assembly is actually held during settling. Rev1 (kp 4000, no feed-forward) held 39 N of a 341 N
     # body and the assembly fell onto its feet at the first policy step (sK-standing-ab-02-donor-smoke).
-    rig: dict = field(default_factory=lambda: {'kp_n_m': 20000.0, 'kd_n_s_m': 2000.0, 'kr_nm_rad': 2000.0, 'kdr_nm_s_rad': 200.0,
+    # Rev3 defaults: stable for an explicit per-step wrench on the pelvis link (rig_stability_margins).
+    rig: dict = field(default_factory=lambda: {'kp_n_m': 10000.0, 'kd_n_s_m': 500.0, 'kr_nm_rad': 100.0, 'kdr_nm_s_rad': 0.5,
                                                'max_force_n': 1200.0, 'max_torque_nm': 400.0, 'gravity_feedforward': True})
     # Before the policy is consulted, the drives hold the policy default pose under the rig for this
     # many steps (the policy's 5-frame history buffer starts at zero; its first actions jerked the legs
     # at up to 2.35 rad/s in rev1 and drove a coupled hand joint at the 0.02 rad margin past its envelope).
     policy_warmup_steps: int = 100
+    # Optional locomotion schedule AFTER release: [[start_s, vx, vy, wz], ...] in the base-heading
+    # frame the checkpoint was trained with (heading_command false); commands are held until the
+    # next entry. Empty = zero command (standing). With a schedule the drift gates are replaced by
+    # the walk/turn/stop measurements below (R4); standing gates still apply before the first command.
+    command_schedule: list = field(default_factory=list)
+    # EXPERIMENTAL arm override (R3 candidate, not a qualified WBC): after release + start_s the 14 arm
+    # joint targets are taken from a q-only reference instead of the policy's arm actions; legs and
+    # waist stay with the policy; the policy's own observation is untouched. mode 'null' = the policy
+    # default arm pose (hazard check only); 'trajectory' = rows [[t_s, q14...]] interpolated, rate <= 1 rad/s.
+    arm_override: dict = field(default_factory=lambda: {'enabled': False, 'start_s': 5.0, 'mode': 'null', 'trajectory': []})
     frame_every: int = 20
     # Explicitly NONQUALIFYING diagnostics that isolate one hand effect at a time while keeping
     # the real donor mass/COM/inertia. A run with any diagnostic on can never PASS.
@@ -86,6 +97,39 @@ class StandingABConfig:
             raise ValueError('rig gains and caps must be positive; gravity_feedforward must be a boolean')
         if type(obj.policy_warmup_steps) is not int or not 0 <= obj.policy_warmup_steps < obj.supported_settle_steps:
             raise ValueError('policy_warmup_steps must be an integer below supported_settle_steps')
+        last = -1.0
+        for entry in obj.command_schedule:
+            if not (isinstance(entry, list) and len(entry) == 4 and finite_tree(entry)):
+                raise ValueError('command_schedule entries must be [start_s, vx, vy, wz]')
+            t, vx, vy, wz = entry
+            if t <= last or t < 5.0:
+                raise ValueError('command_schedule times must increase and start >= 5 s after release (standing check first)')
+            if not (-0.6 <= vx <= 1.0 and -0.5 <= vy <= 0.5 and -1.0 <= wz <= 1.0):
+                raise ValueError('command outside the checkpoint ranges vx[-0.6,1.0] vy[-0.5,0.5] wz[-1,1]; refused, not clipped')
+            last = t
+        if obj.command_schedule and obj.unsupported_steps != 6000:
+            raise ValueError('a command schedule needs the 30 s unsupported interval')
+        ao = obj.arm_override
+        if set(ao) != {'enabled', 'start_s', 'mode', 'trajectory'} or type(ao['enabled']) is not bool:
+            raise ValueError('arm_override must declare enabled, start_s, mode, trajectory')
+        if ao['enabled']:
+            if obj.command_schedule:
+                raise ValueError('arm override and a locomotion command schedule are separate experiments')
+            if not (isinstance(ao['start_s'], (int, float)) and ao['start_s'] >= 5.0):
+                raise ValueError('arm override starts >= 5 s after release (standing is checked first)')
+            if ao['mode'] not in ('null', 'trajectory'):
+                raise ValueError('arm override mode must be null or trajectory')
+            if ao['mode'] == 'trajectory':
+                rows = ao['trajectory']
+                if not rows or not all(isinstance(r, list) and len(r) == 15 and finite_tree(r) for r in rows):
+                    raise ValueError('arm trajectory rows must be [t_s, q x14]')
+                last_t = -1.0
+                for prev, cur in zip([None] + rows[:-1], rows):
+                    if cur[0] <= last_t:
+                        raise ValueError('arm trajectory times must increase')
+                    if prev is not None and max(abs(a - b) for a, b in zip(prev[1:], cur[1:])) / (cur[0] - prev[0]) > 1.0:
+                        raise ValueError('arm trajectory rate exceeds 1.0 rad/s')
+                    last_t = cur[0]
         d = obj.diagnostics
         if set(d) != {'disable_hand_collisions', 'lock_hand_joints'} or any(type(v) is not bool for v in d.values()):
             raise ValueError('diagnostics must declare disable_hand_collisions and lock_hand_joints as booleans')
@@ -104,6 +148,42 @@ class StandingABConfig:
     @property
     def unsupported_seconds(self):
         return self.unsupported_steps * GATES['physics_dt_s']
+
+
+def command_at(cfg, unsupported_time_s):
+    cmd = [0., 0., 0.]
+    for t, vx, vy, wz in cfg.command_schedule:
+        if unsupported_time_s >= t:
+            cmd = [vx, vy, wz]
+    return cmd
+
+
+ARM_JOINTS = tuple('%s_%s_joint' % (s, j) for s in ('left', 'right')
+                   for j in ('shoulder_pitch', 'shoulder_roll', 'shoulder_yaw', 'elbow', 'wrist_roll', 'wrist_pitch', 'wrist_yaw'))
+EXPERIMENTAL_OWNER = 'experimental_arm_override_v0'
+
+
+def arm_reference_at(cfg, default_arm, unsupported_time_s):
+    """Return the 14 arm targets (ARM_JOINTS order) or None when the override is not active."""
+    ao = cfg.arm_override
+    if not ao['enabled'] or unsupported_time_s < ao['start_s']:
+        return None
+    if ao['mode'] == 'null':
+        return list(default_arm)
+    rows = ao['trajectory']
+    t = unsupported_time_s - ao['start_s']
+    if t <= rows[0][0]:
+        return list(rows[0][1:])
+    for a, b in zip(rows[:-1], rows[1:]):
+        if a[0] <= t <= b[0]:
+            w = (t - a[0]) / (b[0] - a[0])
+            return [x + w * (y - x) for x, y in zip(a[1:], b[1:])]
+    return list(rows[-1][1:])
+
+
+def yaw_from_xyzw(q):
+    x, y, z, w = q[3:]
+    return math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
 
 
 def config_sha256(cfg):
@@ -132,6 +212,24 @@ def perturbed_initial(default_q, limits, cfg):
     pelvis = {'dx_m': rng.uniform(-p['pelvis_xy_m'], p['pelvis_xy_m']), 'dy_m': rng.uniform(-p['pelvis_xy_m'], p['pelvis_xy_m']),
               'yaw_rad': rng.uniform(-p['pelvis_yaw_rad'], p['pelvis_yaw_rad'])}
     return q, pelvis
+
+
+def rig_stability_margins(cfg, pelvis_mass_kg, pelvis_inertia_min_kg_m2, dt=None):
+    """Explicit single-step wrench stability, judged against the PELVIS LINK's own properties.
+
+    The wrench is applied once per physics step to the pelvis link; the rest of the body is
+    coupled through joint drives and does not damp a single-step mode of that link. The rev2
+    rig (kdr 200 N*m*s/rad on a 0.0079 kg*m^2 pelvis) had kdr*dt/I = 126 and produced a
+    sign-alternating yaw-rate growth in both arms (sK-standing-ab-02-donor-smoke-r2b and
+    -01-bare-smoke-r2). Margins must be < 1.0 (damping) and < 1.0 (stiffness).
+    """
+    dt = GATES['physics_dt_s'] if dt is None else dt
+    r = cfg.rig
+    m = {'kd_dt_over_m': r['kd_n_s_m'] * dt / pelvis_mass_kg, 'kp_dt2_over_m': r['kp_n_m'] * dt * dt / pelvis_mass_kg,
+         'kdr_dt_over_I': r['kdr_nm_s_rad'] * dt / pelvis_inertia_min_kg_m2, 'kr_dt2_over_I': r['kr_nm_rad'] * dt * dt / pelvis_inertia_min_kg_m2}
+    m['stable'] = all(v < 1.0 for v in m.values())
+    m['pelvis_mass_kg'], m['pelvis_inertia_min_kg_m2'], m['dt_s'] = pelvis_mass_kg, pelvis_inertia_min_kg_m2, dt
+    return m
 
 
 def rig_wrench(cfg, pose_xyzw, linear_velocity, angular_velocity, target_xyzw, body_mass_kg=0.0):
@@ -211,8 +309,9 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
         kinds = [e.get('kind') for e in guard_entries]
         releases = [e for e in guard_entries if e.get('kind') == 'support_release']
         owners = [e.get('owner') for e in guard_entries if e.get('kind') == 'body_owner']
+        run_owner = EXPERIMENTAL_OWNER if cfg.arm_override['enabled'] else 'named_policy_single_writer'
         checks['ownership_journal_consistent'] = (kinds[:3] == ['body_owner', 'hand_owner', 'support'] and len(releases) == 1
-                                                  and owners[-1] == 'named_policy_single_writer' and len(owners) <= 2
+                                                  and owners[-1] == run_owner and len(owners) <= 2
                                                   and not any(k == 'refused' for k in kinds)
                                                   and (not release or releases[0].get('sequence') == release[0]['sequence'] + 1))
     peak = {'pelvis_xy_drift_m': 0., 'abs_roll_pitch_rad': 0., 'joint_limit_violation_rad': 0., 'coupling_error_rad': 0.,
@@ -224,6 +323,7 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
     release_seq = release[0]['sequence'] if release else None
     reference = None
     unsupported = 0
+    arm_err_sum, arm_err_n, arm_err_peak = 0.0, 0, 0.0
     contact_steps = {n: 0 for n in FEET}
     load_sum = 0.
     inference_steps = 0
@@ -248,12 +348,23 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
             if len(q) != joint_count or len(dq) != joint_count:
                 raise ValueError('Incomplete measured coordinates')
             warmup = row['phase'] == 'supported_settle' and seq < cfg.policy_warmup_steps
-            expected_owner = 'probe_default_pose_warmup' if warmup else 'named_policy_single_writer'
+            run_owner = EXPERIMENTAL_OWNER if cfg.arm_override['enabled'] else 'named_policy_single_writer'
+            expected_owner = 'probe_default_pose_warmup' if warmup else run_owner
             if not warmup and (len(row['policy_observation']) != 480 or len(row['policy_action']) != 29):
                 raise ValueError('Missing actual policy computation')
             if warmup and (row['policy_observation'] or row['policy_action'] or row.get('policy_inference_this_step')):
                 raise ValueError('warm-up rows must carry no policy computation')
-            if (row['command_velocity'] != [0., 0., 0.] or row['body_command_owner'] != expected_owner
+            expected_cmd = command_at(cfg, (seq - release_seq) * dt) if (release_seq is not None and seq > release_seq) else [0., 0., 0.]
+            override_active = (release_seq is not None and seq > release_seq and cfg.arm_override['enabled']
+                               and (seq - release_seq) * dt >= cfg.arm_override['start_s'])
+            if override_active:
+                ref = row.get('arm_reference_rad')
+                if not (isinstance(ref, list) and len(ref) == 14):
+                    raise ValueError('override rows must carry the 14 arm reference targets')
+                ai = [names.index(n) for n in ARM_JOINTS]
+                err = max(abs(q[i] - r) for i, r in zip(ai, ref))
+                arm_err_sum += err; arm_err_n += 1; arm_err_peak = max(arm_err_peak, err)
+            if (row['command_velocity'] != expected_cmd or row['body_command_owner'] != expected_owner
                     or len(row['body_command_names']) != 29 or len(set(row['body_command_names'])) != 29
                     or not set(row['body_command_names']).issubset(names) or len(row['body_command_rad']) != 29):
                 checks['single_body_owner_named_policy'] = False
@@ -359,6 +470,48 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
     peak['mean_foot_ground_load_n'] = mean_load_n
     peak['body_weight_n'] = source_mass_kg * G
     checks['feet_carry_body_weight_after_release'] = unsupported > 0 and mean_load_n >= 0.9 * source_mass_kg * G
+    if cfg.command_schedule and reference is not None and rows:
+        # R4 measurements over the scheduled interval: travel in the commanded heading, lateral drift,
+        # yaw change, and speed after the final stop command. Standing drift gates are not applied to
+        # commanded motion; the standing checks before the first command remain above.
+        t0 = cfg.command_schedule[0][0]
+        start = next((r for r in rows if r['phase'] == 'unsupported' and (r['sequence'] - release_seq) * dt >= t0), None)
+        end = rows[-1]
+        if start is not None:
+            p0, p1 = start['link_poses_world_xyzw']['pelvis'], end['link_poses_world_xyzw']['pelvis']
+            yaw0 = yaw_from_xyzw(p0)
+            dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+            forward = dx * math.cos(yaw0) + dy * math.sin(yaw0)
+            lateral = -dx * math.sin(yaw0) + dy * math.cos(yaw0)
+            dyaw = math.atan2(math.sin(yaw_from_xyzw(p1) - yaw0), math.cos(yaw_from_xyzw(p1) - yaw0))
+            stop_cmds = [e for e in cfg.command_schedule if e[1:] == [0., 0., 0.]]
+            final_speed = None
+            if stop_cmds:
+                ts = stop_cmds[-1][0]
+                after = [r for r in rows if r['phase'] == 'unsupported' and (r['sequence'] - release_seq) * dt >= ts + 3.0]
+                if after:
+                    v = after[-1]['pelvis_linear_velocity_m_s']
+                    final_speed = math.hypot(v[0], v[1])
+            peak['walk'] = {'forward_travel_m': forward, 'lateral_drift_m': lateral, 'yaw_change_rad': dyaw, 'final_speed_m_s': final_speed,
+                            'schedule': cfg.command_schedule}
+            checks['pelvis_xy_drift_within_gate'] = True
+            checks['each_foot_xy_drift_within_gate'] = True
+            checks['each_foot_height_rise_within_gate'] = True
+            checks['both_feet_have_measured_loaded_contact'] = True
+            checks['feet_carry_body_weight_after_release'] = True   # feet leave the ground while stepping; not a standing check
+            if any(e[1] > 0 for e in cfg.command_schedule):
+                checks['walk_travel_reached'] = forward >= 1.0
+                checks['walk_lateral_drift_within_gate'] = abs(lateral) <= 0.3
+            if any(abs(e[3]) > 0 for e in cfg.command_schedule):
+                checks['turn_yaw_reached'] = abs(dyaw) >= 0.6
+            if final_speed is not None:
+                checks['stopped_after_stop_command'] = final_speed <= 0.05
+    if cfg.arm_override['enabled']:
+        peak['arm_override'] = {'mode': cfg.arm_override['mode'], 'rows': arm_err_n,
+                                'tracking_mean_abs_rad': (arm_err_sum / arm_err_n) if arm_err_n else None, 'tracking_peak_abs_rad': arm_err_peak}
+        checks['arm_override_rows_present'] = arm_err_n > 0
+        checks['arm_tracking_peak_within_gate'] = arm_err_peak <= 0.10
+        checks['arm_tracking_mean_within_gate'] = (arm_err_sum / arm_err_n if arm_err_n else 1.0) <= 0.05
     if cfg.nonqualifying:
         checks['no_nonqualifying_diagnostic'] = False
     status = 'PASS' if all(checks.values()) else 'FAIL'
@@ -371,6 +524,9 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
             'hand_margin_rad': cfg.hand_margin_rad, 'execution_label': cfg.execution_label,
             'controller_mode': 'policy', 'source_mass_kg': source_mass_kg, 'physics_dt': dt,
             'diagnostics': dict(cfg.diagnostics), 'nonqualifying_diagnostic': cfg.nonqualifying,
-            'verdict_scope': ('NONQUALIFYING_DIAGNOSTIC: isolates one hand effect; cannot be the delivered twin' if cfg.nonqualifying else 'candidate for adoption if PASS'),
+            'verdict_scope': ('NONQUALIFYING_DIAGNOSTIC: isolates one hand effect; cannot be the delivered twin' if cfg.nonqualifying
+                              else ('EXPERIMENTAL_COMBINED_CONTROLLER (arm override v0): not a qualified WBC; candidate only' if cfg.arm_override['enabled']
+                                    else 'candidate for adoption if PASS')),
+            'arm_override': dict(cfg.arm_override, trajectory_rows=len(cfg.arm_override.get('trajectory', []))),
             'material_self_penetrations': self_pen[:20], 'gates': GATES,
             'scope': 'UNSUPPORTED after a recorded rig release; %s; no support after release; PhysX twin' % ARMS[cfg.arm]['label']}

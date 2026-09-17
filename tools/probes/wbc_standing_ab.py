@@ -23,7 +23,8 @@ def main():
     assert os.environ.get('PANTHERA_PROBE_MODE') == 'wbc-standing-ab'
     sys.path[:0] = ['/workspace/ferox_tools', '/workspace/sim-source', '/workspace/ferox_isaac']
     from assembled_balance import GATES, FEET, GROUND, source_foot_spheres, initial_height, roll_pitch, finite_tree, safe_json, source_adjacency
-    from wbc_standing_ab import ARMS, StandingABConfig, config_sha256, perturbed_initial, rig_wrench, evaluate_standing, guarded_state_view
+    from wbc_standing_ab import (ARMS, ARM_JOINTS, EXPERIMENTAL_OWNER, StandingABConfig, config_sha256, perturbed_initial, rig_wrench,
+                                 evaluate_standing, command_at, arm_reference_at, guarded_state_view, rig_stability_margins)
     from wbc_runtime_guard import GuardRefused, RuntimeOwnershipGuard
     cfg = StandingABConfig.from_dict(json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text()))
     arm = ARMS[cfg.arm]
@@ -86,6 +87,13 @@ def main():
                 rest_offset_m=0., candidate_id='ftp_palm_yz_slabs_v2' if side == 'right' else 'ftp_left_palm_yz_slabs_v1')
         asset, facts = import_body(source, out, fixed_base=False, palm_builder=palm_builder,
                                    left_thumb_builder=replace_left_thumb_with_slabs, hands_expected=arm['hands_expected'])
+        # Rig gains are checked against the imported pelvis link's own mass/inertia BEFORE physics.
+        pel = facts['expected_source_rigid_properties_in_imported_frame']['pelvis']
+        inertia = pel['inertia_at_com_runtime_link_kg_m2']
+        margins = rig_stability_margins(cfg, float(pel['mass_kg']), min(inertia[i][i] for i in range(3)))
+        write('rig_stability_margins.json', margins)
+        if not margins['stable']:
+            raise ValueError('rig gains unstable for an explicit per-step wrench on the pelvis link: %s' % json.dumps(margins))
         assert set(default) == set(facts['body_joint_names'])
         assert len(facts['joint_limits']) == arm['joint_count']
         hand_names = list(facts['hand_independent_names'])
@@ -261,6 +269,7 @@ def main():
                                       max_target_step_rad=1.0, journal=journal_file)
         guard.claim_body('probe_default_pose_warmup'); guard.claim_hands('probe_margin_hold'); guard.declare_support('RIG_WRENCH')
         default_targets = {n: float(default[n]) for n in body_names}
+        default_arm = [float(default[n]) for n in ARM_JOINTS]
         kp = np.asarray([policy_receipt['live_stiffness_by_name'][n] for n in names])
         kd = np.asarray([policy_receipt['live_damping_by_name'][n] for n in names])
         caps = np.asarray([policy_receipt['live_drive_effort_caps_by_name'][n] for n in names])
@@ -291,6 +300,8 @@ def main():
             except GuardRefused as exc:
                 abort = {'sequence': sequence, 'reason': 'guard_refused: ' + str(exc), 'phase': phase}; break
             warmup = sequence < cfg.policy_warmup_steps
+            command_velocity = [0., 0., 0.]
+            arm_reference = None
             if warmup:
                 # Pre-policy hold: the drives hold the policy default pose under the rig while the
                 # articulation settles; the policy's history buffer is not fed synthetic data.
@@ -298,17 +309,28 @@ def main():
                 owner = 'probe_default_pose_warmup'
                 targets = default_targets
             else:
+                # The body owner for the whole run after warm-up is fixed here, while still supported:
+                # the named policy alone, or the EXPERIMENTAL policy+arm-override combination.
+                run_owner = EXPERIMENTAL_OWNER if cfg.arm_override['enabled'] else 'named_policy_single_writer'
                 if sequence == cfg.policy_warmup_steps:
                     try:
-                        guard.claim_body('named_policy_single_writer')
+                        guard.claim_body(run_owner)
                     except GuardRefused as exc:
                         abort = {'sequence': sequence, 'reason': 'guard_refused: ' + str(exc), 'phase': phase}; break
-                owner = 'named_policy_single_writer'
+                owner = run_owner
                 inference = policy._policy_counter % policy._decimation == 0
                 if inference:
                     observation_sequence = sequence - 1
                     observation_physics_s = float(world.current_time)
-                targets = policy.forward(.005, [0., 0., 0.])
+                command_velocity = command_at(cfg, (sequence - release_sequence) * .005) if not supported else [0., 0., 0.]
+                targets = policy.forward(.005, command_velocity)
+                arm_reference = arm_reference_at(cfg, default_arm, (sequence - release_sequence) * .005) if not supported else None
+                if arm_reference is not None:
+                    # EXPERIMENTAL combined controller: legs+waist from the policy, arms from the q-only
+                    # reference. The policy's observation is NOT edited; its arm actions are discarded.
+                    targets = dict(targets)
+                    for n, v in zip(ARM_JOINTS, arm_reference):
+                        targets[n] = float(v)
             assert set(targets) == set(body_names)
             command = np.asarray([targets[n] for n in body_names] + hand_command, dtype=np.float32)
             if supported:
@@ -335,11 +357,12 @@ def main():
                 guard.observe_state(*guarded_state_view(names, row['q_rad'], row['dq_rad_s'], body_names + hand_names))
             except GuardRefused as exc:
                 abort = {'sequence': sequence, 'reason': 'guard_refused: ' + str(exc), 'phase': phase}
-                row.update(sequence=sequence, phase=phase, support=support, command_velocity=[0., 0., 0.],
+                row.update(sequence=sequence, phase=phase, support=support, command_velocity=command_velocity,
                     body_command_owner=owner, body_command_names=body_names,
                     body_command_rad=[float(targets[n]) for n in body_names], hand_command_names=hand_names, hand_command_rad=hand_command)
                 rows.append(row); break
-            row.update(sequence=sequence, phase=phase, support=support, command_velocity=[0., 0., 0.],
+            row.update(sequence=sequence, phase=phase, support=support, command_velocity=command_velocity,
+                arm_reference_rad=(arm_reference if (not warmup and not supported) else None),
                 body_command_owner=owner, body_command_names=body_names,
                 body_command_rad=[float(targets[n]) for n in body_names], hand_command_names=hand_names, hand_command_rad=hand_command,
                 policy_inference_this_step=inference,
