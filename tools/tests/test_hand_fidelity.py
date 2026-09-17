@@ -650,3 +650,19 @@ class AppliedConversionDependencyGapTests(unittest.TestCase):
             self.assertEqual(r['claims']['command_replay_integration']['active_compatibility'], 'ACTIVE_COMPATIBLE')   # the gap: the contract is not a bound key
         keys = set(m.data['qualification']['claims']['command_replay_integration']['configuration'])
         self.assertNotIn('hand_contract_sha256', keys)   # proposal: bind hand_contract_sha256 in the next manifest revision (coordinator's call)
+
+
+class MountedToolInclusionTests(unittest.TestCase):
+    def test_declared_tool_composes_and_wrist_total_refuses_double_counting(self):
+        from hand_fidelity.load_contract import LoadContractError, declared_tool_component, hand_and_tool
+        hand = {'mass_kg': 0.8783, 'com_m': [0.138, 0.001, 0.005], 'inertia_about_com_kg_m2': (np.eye(3) * 1e-3).tolist(), 'provenance': 'URDF', 'frame': 'right_wrist_yaw_link'}
+        holder = declared_tool_component(mass_kg=0.088, com_m=[0.20, 0.0, 0.0], frame='right_wrist_yaw_link', note='holder + marker declared per job')
+        t = hand_and_tool(hand, holder)
+        self.assertAlmostEqual(t['mass_kg'], 0.9663, 9); self.assertAlmostEqual(t['com_m'][0], (0.8783 * 0.138 + 0.088 * 0.20) / 0.9663, 9); self.assertIsNone(t['inertia_about_com_kg_m2'])
+        total = declared_tool_component(mass_kg=0.95, com_m=[0.15, 0, 0], frame='right_wrist_yaw_link', replaces_hand=True, note='tool_board tool.mass_kg semantics')
+        with self.assertRaises(LoadContractError):
+            hand_and_tool(hand, total)
+        with self.assertRaises(LoadContractError):
+            declared_tool_component(mass_kg=0.088, com_m=None, frame='right_wrist_yaw_link')
+        with self.assertRaises(LoadContractError):
+            declared_tool_component(mass_kg=0.088, com_m=[0.2, 0, 0], frame='left_wrist_yaw_link', provenance='assumed')

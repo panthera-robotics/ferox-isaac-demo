@@ -166,3 +166,23 @@ def compare_with_samples(bundle, side, load):
     x = load['com_m'][0]
     return {'com_x_m': x, 'open_x_m': o['com_m'][0], 'closed_x_m': c['com_m'][0], 'between_samples': min(o['com_m'][0], c['com_m'][0]) - 1e-9 <= x <= max(o['com_m'][0], c['com_m'][0]) + 1e-9,
             'note': 'samples bracket the range for finger closure only; thumb rotation moves the COM off this line'}
+
+
+def declared_tool_component(*, mass_kg, com_m, frame, provenance='declared', inertia_about_com_kg_m2=None, replaces_hand=False, note=''):
+    """A held tool/holder declared per job. `replaces_hand=True` marks a TOTAL hung off the wrist (hand + holder + marker,
+    the driver's tool_board `tool.mass_kg` semantics): such a component must never be composed with hand_only again."""
+    if isinstance(mass_kg, bool) or not isinstance(mass_kg, (int, float)) or not math.isfinite(mass_kg) or mass_kg <= 0:
+        raise LoadContractError('tool mass must be finite and > 0')
+    if com_m is None:
+        raise LoadContractError('a declared tool needs a COM in the wrist frame; a mass without a COM is not a load (the driver tool_board total carries no COM today)')
+    c = {'mass_kg': float(mass_kg), 'com_m': [float(v) for v in com_m], 'inertia_about_com_kg_m2': inertia_about_com_kg_m2, 'provenance': provenance, 'frame': frame, 'replaces_hand': bool(replaces_hand), 'note': note}
+    return validate_component(c, 'tool', frame)
+
+
+def hand_and_tool(hand, tool):
+    """Compose hand + tool unless the tool is declared as a wrist TOTAL (then it replaces the hand and hand_only must not be added)."""
+    if tool is None:
+        return None
+    if tool.get('replaces_hand'):
+        raise LoadContractError('tool is declared as the wrist TOTAL (hand + holder + marker): it replaces the hand; composing it with hand_only would double count')
+    return compose([hand, tool])
