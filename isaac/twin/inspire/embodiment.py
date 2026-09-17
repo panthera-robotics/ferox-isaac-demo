@@ -287,21 +287,35 @@ class HandCommandAdapter:
             raise ContractError('unknown saturation policy')
         self.policy = policy
         self.tolerance = _finite(source_contract.get('endpoint_tolerance', 0.0), 'endpoint_tolerance', 0.0)
+        # Optional per-axis endpoints (e.g. a source in joint radians whose open/closed values differ per axis);
+        # each pair overrides the global pair for that axis only and must be finite and distinct.
+        self.per_axis = {}
+        for axis, spec in (source_contract.get('per_axis_endpoints') or {}).items():
+            if axis not in HAND_ACTUATORS:
+                raise ContractError('per_axis_endpoints names an unknown actuator %s' % axis)
+            o, c = _finite(spec.get('open_value'), axis + '.open_value'), _finite(spec.get('closed_value'), axis + '.closed_value')
+            if o == c:
+                raise ContractError('per-axis open and closed values coincide for %s' % axis)
+            self.per_axis[axis] = (o, c)
         self.manifest, self.side, self.order = manifest, side, tuple(order)
-        self.contract_sha256 = canonical_sha256({'axis_order': self.order, 'open_value': self.open_value, 'closed_value': self.closed_value,
+        self.contract_sha256 = canonical_sha256({'axis_order': self.order, 'open_value': self.open_value, 'closed_value': self.closed_value, 'per_axis_endpoints': {k: list(v) for k, v in sorted(self.per_axis.items())},
                                                  'saturation_policy': policy, 'endpoint_tolerance': self.tolerance, 'manifest': manifest.sha256, 'side': side})
 
-    def closure(self, value, name):
+    def endpoints(self, actuator):
+        return self.per_axis.get(actuator, (self.open_value, self.closed_value))
+
+    def closure(self, value, name, actuator=None):
         """Normalized closure from a source value; rejects or clips per the declared policy."""
         v = _finite(value, name)
-        lo, hi = sorted((self.open_value, self.closed_value))
+        open_value, closed_value = self.endpoints(actuator) if actuator else (self.open_value, self.closed_value)
+        lo, hi = sorted((open_value, closed_value))
         clipped = False
         if v < lo - self.tolerance or v > hi + self.tolerance:
             if self.policy == 'reject':
                 raise ContractError('%s = %r outside the source range [%s, %s]' % (name, value, lo, hi))
             clipped = True
         v = min(max(v, lo), hi)
-        return (v - self.open_value) / (self.closed_value - self.open_value), clipped
+        return (v - open_value) / (closed_value - open_value), clipped
 
     def to_joint_targets(self, values):
         """Source vector (declared order) -> {joint_name: target_rad}; also returns clipping/closure info."""
@@ -309,7 +323,7 @@ class HandCommandAdapter:
             raise ContractError('hand command needs exactly six values in the declared order')
         targets, closures, clipped_axes = {}, {}, []
         for actuator, value in zip(self.order, values):
-            c, clipped = self.closure(value, '%s.%s' % (self.side, actuator))
+            c, clipped = self.closure(value, '%s.%s' % (self.side, actuator), actuator)
             spec = self.manifest.hand_actuator(self.side, actuator)
             q = spec['open_rad'] + c * (spec['closed_rad'] - spec['open_rad'])
             lo, hi = spec['limit_rad']
@@ -328,7 +342,8 @@ class HandCommandAdapter:
                 raise ContractError('missing joint %s for %s' % (spec['joint'], actuator))
             q = _finite(joint_values[spec['joint']], spec['joint'])
             c = (q - spec['open_rad']) / (spec['closed_rad'] - spec['open_rad'])
-            out.append(self.open_value + c * (self.closed_value - self.open_value))
+            o, cl = self.endpoints(actuator)
+            out.append(o + c * (cl - o))
         return out
 
 

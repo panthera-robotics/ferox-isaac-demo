@@ -194,6 +194,24 @@ class HandAdapterTests(unittest.TestCase):
         with self.assertRaises(ContractError):
             HandCommandAdapter(m, 'right', dict(DATASET_CONTRACT, saturation_policy='silently_clip'))
 
+    def test_per_axis_radian_endpoints_identity_and_reversal(self):
+        m = manifest()
+        limits = {a: m.hand_actuator('right', a)['closed_rad'] for a in HAND_ACTUATORS}
+        radians = {'axis_order': ['little', 'ring', 'middle', 'index', 'thumb_bend', 'thumb_rotation'], 'open_value': 0.0, 'closed_value': 1.0,
+                   'per_axis_endpoints': {a: {'open_value': 0.0, 'closed_value': limits[a]} for a in HAND_ACTUATORS}, 'saturation_policy': 'clip_declared'}
+        ad = HandCommandAdapter(m, 'right', radians)
+        targets, info = ad.to_joint_targets([1.3, 1.3, 1.3, 1.3, 0.0, -0.1])   # the piston dataset's grasp command (thumb yaw -0.1 below the donor limit)
+        self.assertAlmostEqual(targets['right_index_1_joint'], 1.3); self.assertAlmostEqual(targets['right_thumb_1_joint'], 0.0); self.assertEqual(info['clipped_axes'], ['thumb_rotation'])
+        self.assertAlmostEqual(ad.from_joint_state(targets)[0], 1.3)
+        reversed_ = dict(radians, per_axis_endpoints={a: {'open_value': limits[a], 'closed_value': 0.0} for a in HAND_ACTUATORS})
+        rev = HandCommandAdapter(m, 'right', reversed_)
+        self.assertAlmostEqual(rev.to_joint_targets([1.3, 1.3, 1.3, 1.3, 0.0, 0.5])[0]['right_index_1_joint'], 1.4381 - 1.3)   # reversed endpoints produce the mirrored joint: a test that fails if direction is swapped silently
+        self.assertNotEqual(ad.contract_sha256, rev.contract_sha256)
+        thumb_wrong = dict(radians); thumb_wrong['per_axis_endpoints'] = dict(radians['per_axis_endpoints'], thumb_bend={'open_value': 0.0, 'closed_value': 1.7})   # mismatched thumb scale
+        self.assertNotAlmostEqual(HandCommandAdapter(m, 'right', thumb_wrong).to_joint_targets([0, 0, 0, 0, 0.5, 0])[0]['right_thumb_2_joint'], 0.5, places=3)
+        with self.assertRaises(ContractError):
+            HandCommandAdapter(m, 'right', dict(radians, per_axis_endpoints={'thumb': {'open_value': 0, 'closed_value': 1}}))
+
     def test_invalid_normalization_and_axis_order_refused(self):
         m = manifest()
         with self.assertRaises(ContractError):
