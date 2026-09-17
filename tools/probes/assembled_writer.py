@@ -197,9 +197,12 @@ def main():
         'physics_dt_s': .005, 'gpu_dynamics': False, 'checks': {},
         'profile_sha256': hashlib.sha256(config_path.read_bytes()).hexdigest(),
         'gain_provenance': cfg['gain_provenance'], 'feedforward_provenance': cfg['feedforward_provenance'],
-        'media_labels': {'fixture': 'FIXED PELVIS - ACTUAL WRITER AIR TASK',
+        'media_labels': {'fixture': ('FIXED PELVIS - ACTUAL WRITER CONTACT TASK (held marker, world-fixed board, declared support released)' if contact_mode
+                                     else 'FIXED PELVIS - ACTUAL WRITER AIR TASK'),
             'embodiment': 'PROVISIONAL G1 + bilateral FTP hands',
-            'qualification': 'No marker, grasp, contact writing or standing qualification'}}
+            'text': cfg.get('job_text', 'I'), 'letter_height_m': cfg['letter_height_m'],
+            'qualification': ('Contact ink evaluated (see contact_writing.evaluation); no standing qualification; PROVISIONAL asset' if contact_mode
+                              else 'No marker, grasp, contact writing or standing qualification')}}
     app = world = bridge = subscription = None
     files = []
     started = time.monotonic()
@@ -880,6 +883,8 @@ def main():
                 'no_nonnib_board_contact': metrics['contact_writing']['nonnib_board_contact_samples'] == 0,
                 'contact_ink_gate_p95_3mm_max_10mm_coverage_95': passed})
             metrics['writing_qualification'] = 'FIXED_BASE_PROVISIONAL_PASS' if passed else 'NOT_QUALIFIED'
+            metrics['media_labels']['qualification'] = ('CONTACT INK GATE PASS (fixed pelvis, provisional asset)' if passed else
+                'CONTACT INK GATE FAIL (fixed pelvis, provisional asset)') + '; text %s at %.0f mm' % (cfg.get('job_text', 'I'), cfg['letter_height_m']*1000)
         metrics['status'] = 'PASS' if all(metrics['checks'].values()) else 'FAIL'
     except BaseException:
         metrics['error'] = traceback.format_exc()
