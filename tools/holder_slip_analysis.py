@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Per-stroke holder-in-palm motion from a contact-writing run: rotation about the marker axis, axis
-tilt and translation of the held holder relative to the measured right palm (right_base_link), with
-the contact normal force. CPU post hoc; reads ink_samples.jsonl + state.jsonl; writes holder_slip.json.
+tilt and translation of the held holder relative to the measured right palm (right_base_link), alongside
+the NIB/BOARD contact normal force from the ink samples (NOT a finger grip force — grip force is not
+measured by this tool). CPU post hoc; reads ink_samples.jsonl + state.jsonl; writes holder_slip.json.
 Distinguishes marker motion in the hand (grip slip) from wrist tracking (which moves palm and holder
 together) and from spring compression (nib travel along the axis, reported separately).
 """
@@ -51,7 +52,7 @@ def main(argv=None):
         spin = np.degrees(np.arctan2(np.cross(x0p, x1p) @ axis0, x0p @ x1p))
         dp = p - p0; along = float(dp @ axis0); lateral = float(np.linalg.norm(dp - along * axis0))
         per_stroke.setdefault(str(r['stroke_id']), []).append({'t': r['physics_s'], 'spin_deg': float(spin), 'tilt_deg': float(tilt), 'total_rot_deg': float(angle), 'along_axis_mm': 1000 * along, 'lateral_mm': 1000 * lateral,
-                                                               'normal_force_n': r.get('normal_force_n'), 'compression_mm': 1000 * r.get('spring_compression_m', 0.0), 'hand_contacts': len(r.get('hand_contact_links') or [])})
+                                                               'nib_board_normal_force_n': r.get('normal_force_n'), 'compression_mm': 1000 * r.get('spring_compression_m', 0.0), 'hand_contact_links': len(r.get('hand_contact_links') or [])})
     summary = {}
     for sid, rows in per_stroke.items():
         f = lambda k: [x[k] for x in rows]
@@ -59,14 +60,16 @@ def main(argv=None):
                         'tilt_deg': {'start': rows[0]['tilt_deg'], 'end': rows[-1]['tilt_deg'], 'max': max(f('tilt_deg'))},
                         'along_axis_mm': {'start': rows[0]['along_axis_mm'], 'end': rows[-1]['along_axis_mm'], 'min': min(f('along_axis_mm')), 'max': max(f('along_axis_mm'))},
                         'lateral_mm': {'start': rows[0]['lateral_mm'], 'end': rows[-1]['lateral_mm'], 'max': max(f('lateral_mm'))},
-                        'normal_force_n_mean': float(np.mean([x for x in f('normal_force_n') if x is not None])), 'hand_contacts_min': min(f('hand_contacts'))}
+                        'nib_board_normal_force_n_mean': float(np.mean([x for x in f('nib_board_normal_force_n') if x is not None])), 'hand_contact_links_min': min(f('hand_contact_links')),
+                        'note': 'nib/board contact force from the ink record; finger grip force is NOT measured here; hand_contact_links counts finger links in contact with the holder (retention evidence), not force'}
     out = {'kind': 'holder_in_palm_motion_per_stroke', 'run': str(a.run), 'reference': 'unloaded held window %s s (support released, job not started)' % list(a.reference_window),
            'frames': 'holder pose expressed in the measured right_base_link (palm) frame; spin = rotation about the pen axis, tilt = pen-axis angle change, along/lateral = holder translation in the palm',
-           'per_stroke': summary, 'note': 'grip slip is what moves here; wrist tracking moves palm and holder together and does not appear; spring compression is the nib, not the holder'}
+           'per_stroke': summary, 'note': 'grip slip is what moves here; wrist tracking moves palm and holder together and does not appear; spring compression is the nib, not the holder',
+           'terminology_correction_2026-09-17': 'earlier reports quoted the 1.2-1.6 N nib/board normal force as if it were grip force; it is the ink/nib contact record. Opposition/holder remedies remain UNTESTED proposals.'}
     (a.run / 'holder_slip.json').write_text(json.dumps(out, indent=2) + '\n')
     for sid, s in summary.items():
-        print('%-6s n=%4d spin %+6.2f -> %+6.2f deg (max %6.2f)  tilt end %5.2f max %5.2f deg  along %+5.2f -> %+5.2f mm  lateral end %5.2f max %5.2f mm  F %.2f N  contacts>=%d' % (
-            sid, s['samples'], s['spin_deg']['start'], s['spin_deg']['end'], s['spin_deg']['max'], s['tilt_deg']['end'], s['tilt_deg']['max'], s['along_axis_mm']['start'], s['along_axis_mm']['end'], s['lateral_mm']['end'], s['lateral_mm']['max'], s['normal_force_n_mean'], s['hand_contacts_min']))
+        print('%-6s n=%4d spin %+6.2f -> %+6.2f deg (max %6.2f)  tilt end %5.2f max %5.2f deg  along %+5.2f -> %+5.2f mm  lateral end %5.2f max %5.2f mm  nib/board F %.2f N (not grip force)  finger links in contact>=%d' % (
+            sid, s['samples'], s['spin_deg']['start'], s['spin_deg']['end'], s['spin_deg']['max'], s['tilt_deg']['end'], s['tilt_deg']['max'], s['along_axis_mm']['start'], s['along_axis_mm']['end'], s['lateral_mm']['end'], s['lateral_mm']['max'], s['nib_board_normal_force_n_mean'], s['hand_contact_links_min']))
     return 0
 
 
