@@ -450,3 +450,65 @@ class ConversionProfileTests(unittest.TestCase):
         self.assertEqual(len({a.sha256, b.sha256, c.sha256}), 3)
         d = a.dependencies(); self.assertEqual(d['manifest_sha256'], a.manifest.sha256); self.assertIn('invalidates_when_changed', d)
         self.assertEqual(a.describe()['axis_order'], list(cs.NATIVE_ORDER))
+
+
+class LoadContractTests(unittest.TestCase):
+    def _bundle(self):
+        import numpy as np
+        def hand(side, x, y):
+            I = [[6.6e-4, 0, 0], [0, 2.1e-3, 0], [0, 0, 2.6e-3]]
+            return {'mass_kg': 0.8783, 'com_m': [x, y, 0.005], 'inertia_about_com_kg_m2': I, 'provenance': 'URDF', 'frame': side + '_wrist_yaw_link'}
+        recs = {}
+        for side, y in (('right', 0.0012), ('left', -0.0008)):
+            recs[side] = {}
+            for cfg, x in (('open', 0.138 if side == 'right' else 0.1454), ('closed', 0.1316 if side == 'right' else 0.139)):
+                h = hand(side, x, y)
+                recs[side][cfg] = {'frame': side + '_wrist_yaw_link', 'components': {'hand': h, 'wrist_adapter': None, 'tool': None},
+                                   'totals': {'hand_only': {'mass_kg': h['mass_kg'], 'com_m': h['com_m'], 'inertia_about_com_kg_m2': h['inertia_about_com_kg_m2']}, 'hand_and_adapter': None, 'hand_and_tool': None, 'hand_adapter_and_tool': None}}
+        return {'schema': 'hand_load_record_bundle_v1', 'records': recs}
+
+    def test_valid_bundle_reports_sides_and_asymmetry(self):
+        from hand_fidelity.load_contract import validate_bundle
+        r = validate_bundle(self._bundle())
+        self.assertEqual(r['sides']['right']['open']['mass_kg'], 0.8783); self.assertAlmostEqual(r['sides']['right']['open']['gravity_moment_at_horizontal_extension_N_m'], 9.81 * 0.8783 * 0.138, 3)
+        self.assertIn('ASYMMETRIC', r['mirror_consistency']['open']['status']); self.assertIn('never_add_when', r['consumer_rules'])
+
+    def test_parallel_axis_and_reexpression_round_trips(self):
+        import numpy as np
+        from hand_fidelity.load_contract import parallel_axis, reexpress
+        I = np.diag([1e-3, 2e-3, 2.5e-3]); m, r = 0.8, np.array([0.1, 0.02, -0.01])
+        Io = parallel_axis(I, m, r)
+        self.assertTrue(np.allclose(Io - m * ((r @ r) * np.eye(3) - np.outer(r, r)), I))
+        th = 0.3; R = np.array([[np.cos(th), 0, np.sin(th)], [0, 1, 0], [-np.sin(th), 0, np.cos(th)]])
+        self.assertTrue(np.allclose(reexpress(reexpress(I, R), R.T), I)); self.assertTrue(np.allclose(np.linalg.eigvalsh(reexpress(I, R)), np.linalg.eigvalsh(I)))
+
+    def test_rejections(self):
+        from hand_fidelity.load_contract import LoadContractError, validate_bundle
+        b = self._bundle(); b['records']['right']['open']['components']['hand']['inertia_about_com_kg_m2'] = [[1e-3, 0, 0], [0, 1e-3, 0], [0, 0, 3e-3]]   # triangle inequality
+        with self.assertRaises(LoadContractError):
+            validate_bundle(b)
+        b = self._bundle(); b['records']['right']['open']['components']['wrist_adapter'] = {'mass_kg': 0.05, 'com_m': [0.02, 0, 0], 'inertia_about_com_kg_m2': None, 'provenance': 'assumed', 'frame': 'right_wrist_yaw_link'}
+        with self.assertRaises(LoadContractError):
+            validate_bundle(b)
+        b = self._bundle(); b['records']['left']['closed']['components']['hand']['mass_kg'] = 0.9
+        with self.assertRaises(LoadContractError):
+            validate_bundle(b)   # open/closed are samples of one rigid body
+        b = self._bundle(); b['records']['right']['open']['totals']['hand_and_tool'] = b['records']['right']['open']['totals']['hand_only']
+        with self.assertRaises(LoadContractError):
+            validate_bundle(b)   # a total that needs an unknown component must be null
+
+    @unittest.skipUnless(DONOR_URDF.exists(), 'donor URDF not in this checkout')
+    def test_actual_configuration_load_sits_between_the_samples_for_finger_closure(self):
+        from hand_fidelity.load_contract import compare_with_samples, load_at_configuration
+        h = HandUrdf(DONOR_URDF, 'right')
+        b = self._bundle()
+        for side in ('right', 'left'):
+            hh = HandUrdf(DONOR_URDF, side)
+            for cfg, c in (('open', 0.0), ('closed', 1.0)):
+                mp = hh.mass_properties(hh.actuator_command({a: c for a in hh.actuators}), in_wrist_frame=True)
+                b['records'][side][cfg]['components']['hand'].update(mass_kg=mp['mass_kg'], com_m=mp['com_m'], inertia_about_com_kg_m2=mp['inertia_about_com_kg_m2'])
+                b['records'][side][cfg]['totals']['hand_only'] = {'mass_kg': mp['mass_kg'], 'com_m': mp['com_m'], 'inertia_about_com_kg_m2': mp['inertia_about_com_kg_m2']}
+        from hand_fidelity.load_contract import validate_bundle
+        validate_bundle(b)
+        half = load_at_configuration(h, h.actuator_command({a: 0.5 for a in ('index', 'middle', 'ring', 'little')}))
+        self.assertTrue(compare_with_samples(b, 'right', half)['between_samples'])
