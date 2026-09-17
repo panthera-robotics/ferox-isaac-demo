@@ -35,7 +35,7 @@ class ConversionProfile:
     """A pinned, hashed description of ONE conversion route for ONE side."""
 
     def __init__(self, *, profile_id, side, source_convention, manifest: EmbodimentManifest, policy='closure_preserving', operating_margin_rad=0.02,
-                 margin_ends=('open',), exploratory=True, declared_clip_tolerance=0.0, require_verified=False, provenance=None, urdf_sha256=None):
+                 margin_ends=('open',), exploratory=True, declared_clip=False, declared_clip_tolerance=0.0, require_verified=False, provenance=None, urdf_sha256=None):
         if side not in ('left', 'right'):
             raise ContractError('side must be left or right')
         if policy not in POLICIES:
@@ -54,9 +54,10 @@ class ConversionProfile:
         self.margin, self.margin_ends = float(operating_margin_rad), tuple(margin_ends)
         if any(e not in ('open', 'closed') for e in self.margin_ends):
             raise ContractError('margin_ends must be open and/or closed')
-        if declared_clip_tolerance and not self.exploratory:
+        if (declared_clip or declared_clip_tolerance) and not self.exploratory:
             raise ContractError('a declared clip is only admissible on an EXPLORATORY profile')
-        self.clip_tol = float(declared_clip_tolerance)
+        self.declared_clip = bool(declared_clip or declared_clip_tolerance)
+        self.clip_tol = float(declared_clip_tolerance)      # values beyond this band are snapped AND flagged by the adapter; inside it they are snapped silently (adapter semantics), so the trace re-checks every raw value
         self.require_verified = bool(require_verified)
         self.provenance = dict(provenance or {})
         for k in ('source_model', 'source_datum', 'target_model', 'target_datum'):
@@ -69,7 +70,7 @@ class ConversionProfile:
         else:
             contract = {'axis_order': list(conv['axis_order']), 'open_value': 0.0, 'closed_value': 1.4381, 'saturation_policy': 'reject',
                         'per_axis_endpoints': {a: {'open_value': manifest.hand_actuator(side, a)['open_rad'], 'closed_value': manifest.hand_actuator(side, a)['closed_rad']} for a in HAND_ACTUATORS}}
-        contract['saturation_policy'] = 'clip_declared' if self.clip_tol > 0 else 'reject'
+        contract['saturation_policy'] = 'clip_declared' if self.declared_clip else 'reject'
         contract['endpoint_tolerance'] = self.clip_tol
         self.adapter = HandCommandAdapter(manifest, side, contract)
         self.axis_order = tuple(conv['axis_order'])
@@ -96,7 +97,7 @@ class ConversionProfile:
                               'margin_kind': 'operating_margin (declared diagnostic; %s end%s)' % ('/'.join(self.margin_ends), 's' if len(self.margin_ends) > 1 else '')}
         self.profile_id = profile_id
         self.sha256 = canonical_sha256({'profile_id': profile_id, 'side': side, 'source': self.source_name, 'source_units': conv.get('units'), 'axis_order': self.axis_order, 'policy': policy,
-                                        'margin': self.margin, 'margin_ends': self.margin_ends, 'exploratory': self.exploratory, 'clip_tolerance': self.clip_tol,
+                                        'margin': self.margin, 'margin_ends': self.margin_ends, 'exploratory': self.exploratory, 'declared_clip': self.declared_clip, 'clip_tolerance': self.clip_tol,
                                         'require_verified': self.require_verified, 'contract': self.adapter.contract_sha256, 'manifest': manifest.sha256, 'urdf_sha256': urdf_sha256, 'provenance': self.provenance})
 
     # ---- conversion ------------------------------------------------------------------------------------------
@@ -146,7 +147,7 @@ class ConversionProfile:
 
     def describe(self):
         return {'profile_id': self.profile_id, 'sha256': self.sha256, 'side': self.side, 'source_convention': self.source_name, 'source_type': self.source_type, 'policy': self.policy, 'exploratory': self.exploratory,
-                'operating_margin_rad': self.margin, 'margin_ends': list(self.margin_ends), 'declared_clip_tolerance': self.clip_tol, 'require_verified': self.require_verified,
+                'operating_margin_rad': self.margin, 'margin_ends': list(self.margin_ends), 'declared_clip': self.declared_clip, 'declared_clip_tolerance': self.clip_tol, 'require_verified': self.require_verified,
                 'axis_order': list(self.axis_order), 'evidence': self.evidence, 'bounds': self.bounds, 'provenance': self.provenance, 'dependencies': self.dependencies()}
 
 

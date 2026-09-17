@@ -413,13 +413,13 @@ class ConversionProfileTests(unittest.TestCase):
         with self.assertRaises(ContractError):
             self._profile(require_verified=True)                                          # scale UNRESOLVED -> a qualified profile cannot be built
         with self.assertRaises(ContractError):
-            self._profile(policy='radian_identity', exploratory=False, declared_clip_tolerance=0.1)   # a clip needs an exploratory profile
+            self._profile(policy='radian_identity', exploratory=False, declared_clip=True)   # a clip needs an exploratory profile
 
     def test_radian_identity_profile_refuses_the_dataset_thumb_yaw_unless_a_clip_is_declared(self):
         pid = self._profile(profile_id='piston-identity-v1', policy='radian_identity')
         with self.assertRaises(ContractError):
             pid.apply([1.3, 1.3, 1.3, 1.3, 0.0, -0.1], side='right')
-        clip = self._profile(profile_id='piston-identity-clip-v1', policy='radian_identity', declared_clip_tolerance=0.1)
+        clip = self._profile(profile_id='piston-identity-clip-v1', policy='radian_identity', declared_clip=True)
         tr = clip.apply([1.3, 1.3, 1.3, 1.3, 0.0, -0.1], side='right')
         self.assertEqual(tr['clipped_axes'], ['thumb_rotation']); self.assertEqual(tr['interventions'][0]['kind'], 'declared_clip')
         self.assertAlmostEqual(tr['effective_rad']['right_index_1_joint'], 1.3, 9); self.assertAlmostEqual(tr['effective_rad']['right_thumb_1_joint'], 0.02, 9)
@@ -666,3 +666,27 @@ class MountedToolInclusionTests(unittest.TestCase):
             declared_tool_component(mass_kg=0.088, com_m=None, frame='right_wrist_yaw_link')
         with self.assertRaises(LoadContractError):
             declared_tool_component(mass_kg=0.088, com_m=[0.2, 0, 0], frame='left_wrist_yaw_link', provenance='assumed')
+
+
+class PistonRouteTests(unittest.TestCase):
+    """The existing validate_piston_chunk accepts the profile adapters unchanged: both policies convert the same chunk, differing by 0.2003 rad."""
+
+    def _chunk(self, H=3):
+        z7, z6 = [0.0] * 7, [1.3, 1.3, 1.3, 1.3, 0.0, -0.1]
+        return {'left_arm': [z7] * H, 'right_arm': [z7] * H, 'left_hand': [[0.0] * 5 + [-0.1]] * H, 'right_hand': [z6] * H, 'base_height': [[0.76]] * H, 'navigate_command': [[0.0, 0.0, 0.0]] * H}
+
+    def test_both_policies_through_the_existing_validator(self):
+        from isaac.twin.inspire.model_action_adapter import validate_piston_chunk
+        from hand_fidelity.piston_route import hand_adapters, route_record
+        m = EmbodimentManifest.load(MANIFEST)
+        ra = validate_piston_chunk(m, self._chunk(), hand_adapters=hand_adapters(m, policy='closure_preserving'))
+        rb = validate_piston_chunk(m, self._chunk(), hand_adapters=hand_adapters(m, policy='radian_identity'))
+        self.assertTrue(ra.get('rows') and rb.get('rows'), (ra.get('refusal'), rb.get('refusal')))
+        qa = ra['rows'][0]['hands']['right']; qb = rb['rows'][0]['hands']['right']
+        # rows carry the SOURCE values for the package contract; the converted targets differ through the contract
+        self.assertEqual(qa, qb)
+        ta, _ = hand_adapters(m, policy='closure_preserving')['right'].to_joint_targets(qa); tb, _ = hand_adapters(m, policy='radian_identity')['right'].to_joint_targets(qb)
+        self.assertAlmostEqual(tb['right_index_1_joint'] - ta['right_index_1_joint'], 0.2003, 3)
+        self.assertAlmostEqual(ta['right_thumb_1_joint'], 0.0, 9); self.assertAlmostEqual(tb['right_thumb_1_joint'], 0.0, 9)   # -0.1: open under A; clipped to the endpoint under B
+        self.assertEqual(ra['interventions'], []); self.assertTrue(rb['interventions'], 'identity must record the thumb_yaw clip')
+        rec = route_record(m, policy='closure_preserving'); self.assertTrue(rec['exploratory']); self.assertEqual(rec['profiles']['right']['evidence']['index']['scale'], 'UNRESOLVED')
