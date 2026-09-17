@@ -322,7 +322,7 @@ def main():
             supported = sequence <= release_sequence
             try:
                 guard.begin_step(sequence, float(world.current_time))
-                if sequence == release_sequence + 1:
+                if sequence == release_sequence + 1 and not cfg.training_reset:   # training_reset: never supported, declared before step 0
                     phase = 'unsupported'
                     guard.release_support()
                     events.append({'sequence': release_sequence, 'physics_s': float(world.current_time), 'name': 'support_release',
