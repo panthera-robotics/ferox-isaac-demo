@@ -17,7 +17,8 @@ from hand_fidelity.coupling import compose, coupling_table, equivalent_layouts, 
 from hand_fidelity.donor_profile import HandUrdf, read_stl
 from hand_fidelity.load_record import load_record, validate_load_record
 from hand_fidelity.measurement_intake import IntakeError, validate_intake
-from isaac.twin.inspire.embodiment import ContractError, EmbodimentManifest, HandCommandAdapter
+from isaac.twin.inspire.embodiment import ContractError, EmbodimentManifest, HandCommandAdapter, ReplaySequence
+CARD = ("index", "middle", "ring", "little", "thumb_bend", "thumb_rotation")
 
 ROOT = Path(__file__).resolve().parents[2]
 # donor assets live outside the repository (campaign generated/ftp_donor); override with HAND_FIDELITY_DONOR_DIR
@@ -308,3 +309,63 @@ class UnitScalingTests(unittest.TestCase):
         e = h.mesh_extents()
         self.assertEqual(e['units_check']['status'], 'METRES_PLAUSIBLE'); self.assertEqual(e['mesh_scale_attributes'], ['1 1 1'])
         self.assertAlmostEqual(e['open_length_along_fingers_m'], 0.25, delta=0.02)
+
+
+class AbSourceSpecTests(unittest.TestCase):
+    """Paired hand-map import-policy specs: identical rows, two contracts, predictable converted endpoints, refusals."""
+
+    def _admitted(self):
+        # synthetic donor-closure schedule in the admitted card order: open margin -> plateau 0.9 -> open margin (like rod30 v2)
+        mo = [0.013907, 0.013907, 0.013907, 0.013907, 0.034106, 0.017181]
+        rows = []
+        for i, (stage, c) in enumerate([('retract', mo), ('close', [0.45, 0.45, 0.45, 0.45, 0.034106, 0.017181]), ('close', [0.9, 0.9, 0.9, 0.9, 0.55, 0.5]),
+                                        ('hold', [0.9, 0.9, 0.9, 0.9, 0.55, 0.5]), ('open', [0.45, 0.45, 0.45, 0.45, 0.275, 0.25]), ('open', mo)]):
+            rows.append({'t_s': round(i / 30.0, 6), 'stage': stage, 'body_q_rad': {'right_elbow_joint': 0.5}, 'hands': {'right': c, 'left': None}})
+        return {'source': {'source_id': 'synthetic-admitted', 'kind': 'synthetic_test_sequence', 'provenance': 'unit test'},
+                'hand_contracts': {'right': {'axis_order': list(CARD), 'open_value': 0.0, 'closed_value': 1.0, 'saturation_policy': 'reject'}}, 'rows': rows, 'maximum_step_s': 0.2}
+
+    def test_pair_rows_identical_and_converted_finger_difference_is_0p20_rad(self):
+        from hand_fidelity.ab_source_specs import build_pair, expected_converted
+        pair, deriv = build_pair(self._admitted(), source_label='t')
+        a, b = pair['closure_preserving'], pair['radian_identity']
+        self.assertEqual(json.dumps(a['rows'], sort_keys=True), json.dumps(b['rows'], sort_keys=True))
+        self.assertEqual(a['rows'][2]['hands']['right'][:4], [1.3] * 4)                      # plateau = the piston dataset grasp value
+        m = EmbodimentManifest.load(MANIFEST)
+        ta, _ = expected_converted(a, m, at_row=2); tb, _ = expected_converted(b, m, at_row=2)
+        self.assertAlmostEqual(tb['right_index_1_joint'] - ta['right_index_1_joint'], 1.3 - 1.3 / 1.7 * 1.4381, 6)   # 0.2003 rad
+        self.assertAlmostEqual(tb['right_index_1_joint'], 1.3, 9); self.assertAlmostEqual(ta['right_index_1_joint'], 1.0997, 4)
+        self.assertAlmostEqual(tb['right_thumb_2_joint'], 0.55 * 0.5864, 6); self.assertAlmostEqual(tb['right_thumb_1_joint'], 0.5 * 1.1641, 6)   # B reproduces the admitted thumb exactly
+        oa, _ = expected_converted(a, m, at_row=0); ob, _ = expected_converted(b, m, at_row=0)
+        for t in (oa, ob):
+            for j, q in t.items():
+                self.assertGreaterEqual(q, 0.02 - 1e-9, j)                                        # operating margin respected under both policies
+        for spec in (a, b):
+            seq = ReplaySequence(m, spec['rows'], hand_contracts=spec['hand_contracts'], source=spec['source'], maximum_step_s=spec['maximum_step_s'])
+            self.assertEqual(seq.summary()['clipped_rows'], [])
+        self.assertEqual(deriv['finger_source_plateau_rad'], 1.3); self.assertGreaterEqual(deriv['finger_source_open_rad'], 0.02)
+
+    def test_identity_contract_refuses_the_dataset_thumb_yaw_open_endpoint_and_closure_contract_maps_it_to_open(self):
+        from hand_fidelity.ab_source_specs import contract
+        m = EmbodimentManifest.load(MANIFEST)
+        row = [0.5, 0.5, 0.5, 0.5, 0.0, -0.1]
+        with self.assertRaises(ContractError):
+            HandCommandAdapter(m, 'right', contract('radian_identity')).to_joint_targets(row)
+        t, info = HandCommandAdapter(m, 'right', contract('closure_preserving')).to_joint_targets(row)
+        self.assertAlmostEqual(t['right_thumb_1_joint'], 0.0, 9); self.assertEqual(info['clipped_axes'], []); self.assertAlmostEqual(info['closure']['thumb_rotation'], 0.0, 9)
+
+    def test_free_sweep_rows_hold_the_arm_and_replay_close_then_open(self):
+        from hand_fidelity.ab_source_specs import free_sweep_rows
+        rows = free_sweep_rows(self._admitted()['rows'], rate_hz=30.0, open_hold_s=0.1, plateau_hold_s=0.1, tail_hold_s=0.1)
+        stages = [r['stage'] for r in rows]
+        self.assertEqual(stages[:3], ['hold_open'] * 3); self.assertIn('close', stages); self.assertIn('open', stages); self.assertEqual(stages[-1], 'hold_open_end')
+        self.assertTrue(all(r['body_q_rad'] == {'right_elbow_joint': 0.5} for r in rows))
+        ts = [r['t_s'] for r in rows]; self.assertTrue(all(b > a for a, b in zip(ts, ts[1:])))
+
+    @unittest.skipUnless(os.environ.get('HAND_FIDELITY_ADMITTED_SPEC'), 'private admitted spec not provided')
+    def test_private_admitted_spec_pair_is_valid(self):
+        from hand_fidelity.ab_source_specs import build_pair
+        adm = json.loads(Path(os.environ['HAND_FIDELITY_ADMITTED_SPEC']).read_text())
+        pair, _ = build_pair({k: adm[k] for k in ('source', 'hand_contracts', 'rows', 'maximum_step_s')}, source_label='t')
+        m = EmbodimentManifest.load(MANIFEST)
+        for spec in pair.values():
+            self.assertEqual(ReplaySequence(m, spec['rows'], hand_contracts=spec['hand_contracts'], source=spec['source'], maximum_step_s=spec['maximum_step_s']).summary()['clipped_rows'], [])
