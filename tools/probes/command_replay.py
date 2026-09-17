@@ -160,7 +160,8 @@ assert all(v.count == 1 for v in views.values())
 
 # Cameras: two external views and the policy camera on the torso at the donor URDF d435 mount.
 cameras = {}
-for label, position, target in [('front', (2.4, -2.4, 1.7), (0, 0, 1.0)), ('side', (-.3, 3.2, 1.6), (0, 0, 1.0))]:
+closeup = config.get('closeup_camera', {'position': [0.85, -0.85, 1.2], 'target': [0.2, -0.2, 0.92]})   # right-hand workspace close-up (world-fixed camera view, not a bilateral trial)
+for label, position, target in [('front', (2.4, -2.4, 1.7), (0, 0, 1.0)), ('side', (-.3, 3.2, 1.6), (0, 0, 1.0)), ('closeup_right_hand', tuple(closeup['position']), tuple(closeup['target']))]:
     camera = Camera('/World/' + label + 'Camera', resolution=(640, 640)); camera.initialize(); camera.set_clipping_range(.01, 10.)
     x = UsdGeom.Xformable(camera.prim); x.ClearXformOpOrder(); x.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*position), Gf.Vec3d(*target), Gf.Vec3d(0, 0, 1)).GetInverse())
     cameras[label] = camera; (out / 'frames' / label).mkdir(parents=True)
