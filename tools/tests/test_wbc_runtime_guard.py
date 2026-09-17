@@ -127,6 +127,18 @@ class GuardTests(unittest.TestCase):
         self.assertEqual(g.state, 'fault_damp')
         self.assertEqual(g.body_owner, 'damp')
 
+    def test_never_supported_declaration(self):
+        g = guard(); g.claim_body('probe_default_pose_warmup'); g.claim_hands('h')
+        g.declare_never_supported('named_policy_single_writer')
+        self.assertEqual((g.state, g.support, g.release_sequence, g.body_owner), ('unsupported', 'NONE', -1, 'named_policy_single_writer'))
+        g.begin_step(0, 0.005)
+        g.assert_support_row({'kind': 'NONE', 'force_n': [0., 0., 0.], 'torque_nm': [0., 0., 0.]})
+        with self.assertRaisesRegex(GuardRefused, 'switching while unsupported'):
+            g.claim_body('other')
+        g2 = guard(); g2.begin_step(0, 0.005)
+        with self.assertRaisesRegex(GuardRefused, 'precede the first step'):
+            g2.declare_never_supported('a')
+
     def test_fault_is_terminal(self):
         g = guard(); g.claim_body('a'); g.begin_step(0, 0.005); g.fault('body_dq guard')
         with self.assertRaisesRegex(GuardRefused, 'faulted'):

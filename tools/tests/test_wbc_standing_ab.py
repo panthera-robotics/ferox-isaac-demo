@@ -119,6 +119,22 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(m['actuator_profile'], 'checkpoint_training_env')
         self.assertEqual(m['status'], 'PASS')
 
+    def test_training_reset_mode(self):
+        c = cfg(training_reset=True)
+        self.assertEqual(c.training_reset_z, 0.8)
+        with self.assertRaisesRegex(ValueError, 'training_reset'):
+            cfg(training_reset=True, training_reset_z=1.5)
+        rows, events = rows_for(c)
+        rows = [r for r in rows if r['phase'] == 'unsupported']
+        for i, r in enumerate(rows):
+            r['sequence'] = i
+        events = [{'sequence': -1, 'name': 'support_release'}]
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertTrue(m['training_reset'])
+        self.assertEqual(m['status'], 'PASS', m['first_failed_gate'])
+        with self.assertRaisesRegex(ValueError, 'sequence -1'):
+            evaluate_standing(rows, [{'sequence': 5, 'name': 'support_release'}], c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+
     def test_seeded_perturbation_is_deterministic_and_clipped(self):
         default = {n: 0.0 for n in BODY}
         limits = dict(LIMITS, left_knee_joint={'lower': -0.001, 'upper': 0.001, 'effort': 25., 'velocity': 30.})

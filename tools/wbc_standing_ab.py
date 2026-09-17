@@ -79,6 +79,12 @@ class StandingABConfig:
     # 25 N*m instead of the URDF's 35), joint armature 0.01 kg*m^2, max_depenetration_velocity 1 m/s,
     # solver iterations 8/4. Asset masses/inertias/limits are untouched; recorded per joint.
     actuator_profile: str = 'asset'
+    # training_reset: replicate the checkpoint's Isaac Lab reset instead of the rig hand-over:
+    # spawn at the training init height (pelvis z = training_reset_z) in the default pose with zero
+    # velocity, NO rig at any time, policy from step 0 with a first-value-filled history. The whole
+    # run is 'unsupported' and the recorded release is declared at sequence -1 (never supported).
+    training_reset: bool = False
+    training_reset_z: float = 0.8
     execution_label: str = 'UNSUPPORTED_STANDING_AB'
 
     @classmethod
@@ -168,6 +174,10 @@ class StandingABConfig:
             raise ValueError('hand diagnostics apply to the donor arm only')
         if type(obj.frame_every) is not int or not 8 <= obj.frame_every <= 100:
             raise ValueError('frame_every must be an integer in [8, 100]')
+        if type(obj.training_reset) is not bool or not (isinstance(obj.training_reset_z, (int, float)) and 0.6 <= obj.training_reset_z <= 1.0):
+            raise ValueError('training_reset must be a boolean and training_reset_z in [0.6, 1.0] m')
+        if obj.training_reset and obj.supported_settle_steps != 100:
+            raise ValueError('training_reset ignores the settle; declare supported_settle_steps=100 (the minimum) for accounting')
         if obj.actuator_profile not in ('asset', 'checkpoint_training_env'):
             raise ValueError('actuator_profile must be asset or checkpoint_training_env')
         if obj.execution_label != 'UNSUPPORTED_STANDING_AB':
@@ -345,6 +355,8 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
     dt = GATES['physics_dt_s']
     required = cfg.unsupported_steps
     release = [e for e in events if e.get('name') == 'support_release']
+    if cfg.training_reset and release and release[0]['sequence'] != -1:
+        raise ValueError('training_reset runs declare the release at sequence -1 (never supported)')
     checks = {'single_recorded_release': len(release) == 1, 'finite_complete_measured_state': bool(rows),
               'contiguous_physics_sequence': bool(rows), 'single_body_owner_named_policy': bool(rows),
               'supported_settle_completed': False, 'no_support_after_release': True,
@@ -582,6 +594,7 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
             'hand_margin_rad': cfg.hand_margin_rad, 'execution_label': cfg.execution_label,
             'controller_mode': 'policy', 'source_mass_kg': source_mass_kg, 'physics_dt': dt,
             'diagnostics': dict(cfg.diagnostics), 'nonqualifying_diagnostic': cfg.nonqualifying, 'actuator_profile': cfg.actuator_profile,
+            'training_reset': cfg.training_reset,
             'verdict_scope': ('NONQUALIFYING_DIAGNOSTIC: isolates one hand effect; cannot be the delivered twin' if cfg.nonqualifying
                               else ('EXPERIMENTAL_COMBINED_CONTROLLER (arm override v0): not a qualified WBC; candidate only' if cfg.arm_override['enabled']
                                     else 'candidate for adoption if PASS')),

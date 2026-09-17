@@ -176,7 +176,8 @@ def main():
         add_reference_to_stage(str(asset), '/World/G1')
         root = UsdGeom.Xformable(world.stage.GetPrimAtPath('/World/G1'))
         root.ClearXformOpOrder()
-        root.AddTranslateOp().Set(Gf.Vec3d(pelvis_jitter['dx_m'], pelvis_jitter['dy_m'], height + .002))
+        spawn_z = cfg.training_reset_z if cfg.training_reset else height + .002
+        root.AddTranslateOp().Set(Gf.Vec3d(pelvis_jitter['dx_m'], pelvis_jitter['dy_m'], spawn_z))
         root.AddRotateZOp().Set(math.degrees(pelvis_jitter['yaw_rad']))
         floor = UsdGeom.Cube.Define(world.stage, GROUND); floor.CreateSizeAttr(1.)
         floor.AddTranslateOp().Set(Gf.Vec3d(0., 0., -.05)); floor.AddScaleOp().Set(Gf.Vec3f(6., 6., .1))
@@ -263,7 +264,8 @@ def main():
         initial = read_state(); last = initial
         initial_error = max(abs(initial['q_rad'][names.index(n)] - q) for n, q in initial_q.items())
         initial['source_initial_q_error_max_rad'] = initial_error
-        initial['authored_pelvis_height_m'] = height + .002
+        initial['authored_pelvis_height_m'] = spawn_z
+        initial['training_reset'] = cfg.training_reset
         initial['initialization_contact_count'] = len(contacts)
         write('initial_state.json', initial)
         integrity = {'source_mass_com_inertia_preserved': all(inertia['checks'].values()),
@@ -284,7 +286,9 @@ def main():
                                       limits={n: facts['joint_limits'][n] for n in body_names + hand_names},
                                       physics_dt=.005, decimation=policy._decimation, hand_margin_rad=cfg.hand_margin_rad,
                                       max_target_step_rad=1.0, journal=journal_file)
-        guard.claim_body('probe_default_pose_warmup'); guard.claim_hands('probe_margin_hold'); guard.declare_support('RIG_WRENCH')
+        guard.claim_body('probe_default_pose_warmup'); guard.claim_hands('probe_margin_hold')
+        if not cfg.training_reset:
+            guard.declare_support('RIG_WRENCH')
         default_targets = {n: float(default[n]) for n in body_names}
         default_arm = [float(default[n]) for n in ARM_JOINTS]
         kp = np.asarray([policy_receipt['live_stiffness_by_name'][n] for n in names])
@@ -299,9 +303,19 @@ def main():
         for _ in range(8): world.render()
         assert float(world.current_time) == initial['physics_s']
         rig_target = list(initial['link_poses_world_xyzw']['pelvis'])
-        release_sequence = cfg.supported_settle_steps - 1
-        total_steps = cfg.supported_settle_steps + cfg.unsupported_steps
-        phase = 'supported_settle'
+        release_sequence = -1 if cfg.training_reset else cfg.supported_settle_steps - 1
+        total_steps = (0 if cfg.training_reset else cfg.supported_settle_steps) + cfg.unsupported_steps
+        phase = 'unsupported' if cfg.training_reset else 'supported_settle'
+        if cfg.training_reset:
+            # Never supported: declare it so, prime the history as at an Isaac Lab reset, own the body from step 0.
+            guard.declare_never_supported(EXPERIMENTAL_OWNER if cfg.arm_override['enabled'] else 'named_policy_single_writer')
+            events.append({'sequence': -1, 'physics_s': float(world.current_time), 'name': 'support_release',
+                           'detail': 'training_reset: no rig at any time; policy from step 0 with a first-value-filled history'})
+            event_file.write(json.dumps(events[-1]) + '\n')
+            if cfg.handover['history_priming']:
+                policy.prime_history_from_current([0., 0., 0.])
+                events.append({'sequence': -1, 'physics_s': float(world.current_time), 'name': 'policy_history_primed', 'detail': 'at spawn'})
+                event_file.write(json.dumps(events[-1]) + '\n')
         observation_sequence = None; observation_physics_s = None
         for sequence in range(total_steps):
             step_contacts.clear()
@@ -316,7 +330,7 @@ def main():
                     event_file.write(json.dumps(events[-1]) + '\n')
             except GuardRefused as exc:
                 abort = {'sequence': sequence, 'reason': 'guard_refused: ' + str(exc), 'phase': phase}; break
-            warmup = sequence < cfg.policy_warmup_steps
+            warmup = (not cfg.training_reset) and sequence < cfg.policy_warmup_steps
             command_velocity = [0., 0., 0.]
             arm_reference = None
             if warmup:
@@ -329,7 +343,7 @@ def main():
                 # The body owner for the whole run after warm-up is fixed here, while still supported:
                 # the named policy alone, or the EXPERIMENTAL policy+arm-override combination.
                 run_owner = EXPERIMENTAL_OWNER if cfg.arm_override['enabled'] else 'named_policy_single_writer'
-                if sequence == cfg.policy_warmup_steps:
+                if sequence == cfg.policy_warmup_steps and not cfg.training_reset:
                     try:
                         guard.claim_body(run_owner)
                     except GuardRefused as exc:

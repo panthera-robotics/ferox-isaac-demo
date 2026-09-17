@@ -132,6 +132,18 @@ class RuntimeOwnershipGuard:
         self.support, self.state, self.release_sequence = 'NONE', 'unsupported', self.sequence
         self._log('support_release')
 
+    def declare_never_supported(self, owner):
+        """Training-reset runs: no support at any time. The owner is fixed before the first step,
+        the release is journaled at sequence -1, and the body is unsupported from step 0."""
+        if self.state != 'idle' or self.sequence is not None:
+            self._refuse('never-supported declaration must precede the first step')
+        if self.body_owner is not None and self.body_owner != owner:
+            self._log('body_owner_handover', previous=self.body_owner, owner=owner)
+        self.body_owner = owner
+        self._log('body_owner', owner=owner)
+        self.support, self.state, self.release_sequence = 'NONE', 'unsupported', -1
+        self._log('support_release', never_supported=True)
+
     def assert_support_row(self, support):
         """Called with the support record the probe is about to apply this step."""
         kind = support.get('kind')
