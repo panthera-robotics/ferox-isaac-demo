@@ -66,6 +66,21 @@ class ReplayCommandsTests(unittest.TestCase):
         self.assertTrue(any('incompatible profile' in p for p in report['problems']))
         self.assertEqual(report['qualification_validity']['transforms']['right.wrist_to_hand']['status'], 'INVALID')
 
+    def test_unverified_hand_semantics_refused_on_qualified_route(self):
+        m = EmbodimentManifest.load(MANIFEST)
+        spec = replay_commands.synthetic_hand_open_close(controller(m)['body_home_rad'])
+        seq, report = replay_commands.validate(m, spec, controller(m), require_verified_hand_semantics=True)
+        self.assertIsNone(seq); self.assertTrue(any('axis_semantics' in p for p in report['problems']))
+        spec['hand_contracts']['right']['axis_semantics'] = {a: {'direction': 'VERIFIED', 'order': 'VERIFIED', 'scale': 'VERIFIED'} for a in spec['hand_contracts']['right']['axis_order']}
+        spec['hand_contracts']['right']['axis_semantics']['thumb_rotation']['scale'] = 'UNRESOLVED'
+        seq, report = replay_commands.validate(m, spec, controller(m), require_verified_hand_semantics=True)
+        self.assertIsNone(seq); self.assertTrue(any('thumb_rotation' in p for p in report['problems']))
+        spec['hand_contracts']['right']['axis_semantics']['thumb_rotation']['scale'] = 'VERIFIED'
+        seq, report = replay_commands.validate(m, spec, controller(m), require_verified_hand_semantics=True)
+        self.assertIsNotNone(seq)
+        seq, report = replay_commands.validate(m, replay_commands.synthetic_hand_open_close(controller(m)['body_home_rad']), controller(m))   # exploratory route unchanged
+        self.assertIsNotNone(seq)
+
     def test_controller_for_other_manifest_is_refused(self):
         m = EmbodimentManifest.load(MANIFEST)
         with tempfile.TemporaryDirectory() as tmp:

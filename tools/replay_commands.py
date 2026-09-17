@@ -69,7 +69,7 @@ def validate_controller_gains(manifest, controller):
     return problems
 
 
-def validate(manifest, spec, controller, *, live_dependencies=None):
+def validate(manifest, spec, controller, *, live_dependencies=None, require_verified_hand_semantics=False):
     """Return (sequence, report). Refusals are collected as data, never as a crash."""
     problems = []
     try:
@@ -91,6 +91,16 @@ def validate(manifest, spec, controller, *, live_dependencies=None):
     if controller.get('manifest_sha256') not in (None, manifest.sha256):
         problems.append('controller was declared for a different manifest (%s)' % controller.get('manifest_sha256'))
     problems += validate_controller_gains(manifest, controller)
+    if require_verified_hand_semantics:
+        for side, contract in spec['hand_contracts'].items():
+            sem = contract.get('axis_semantics')
+            if not isinstance(sem, dict):
+                problems.append('%s hand contract declares no axis_semantics; a qualified route needs VERIFIED direction/order/scale per axis' % side); continue
+            for axis in contract['axis_order']:
+                st = sem.get(axis, {})
+                bad = [k for k in ('direction', 'order', 'scale') if st.get(k) != 'VERIFIED']
+                if bad:
+                    problems.append('%s.%s semantics not VERIFIED for %s (%s)' % (side, axis, ', '.join(bad), json.dumps(st)))
     validity = None
     if live_dependencies is not None:
         if live_dependencies.get('urdf_sha256') != manifest.data['source_asset']['urdf_sha256']:
@@ -119,6 +129,7 @@ def main(argv=None):
     ap.add_argument('--frame-every', type=int, default=8); ap.add_argument('--lead-in-s', type=float, default=0.5); ap.add_argument('--maximum-steps', type=int, default=4000)
     ap.add_argument('--source-urdf', type=Path, help='the donor URDF that will be mounted; its live dependency values are checked against the manifest bindings before admission')
     ap.add_argument('--support', default='FIXED_PELVIS'); ap.add_argument('--controller-descriptor', default='implicit_biased_drive_v1 replay controller (package-hashed gains)')
+    ap.add_argument('--require-verified-hand-semantics', action='store_true', help='qualified route: refuse hand axes whose direction/order/scale are not VERIFIED in the source contract')
     a = ap.parse_args(argv)
     manifest = EmbodimentManifest.load(a.manifest)
     controller = json.loads(a.controller.read_text())
@@ -126,7 +137,7 @@ def main(argv=None):
     live = None
     if a.source_urdf is not None:
         live = dict(dependency_values_from_urdf(a.source_urdf, collision_cooking=COLLISION_COOKING), support=a.support, controller=a.controller_descriptor)
-    sequence, report = validate(manifest, spec, controller, live_dependencies=live)
+    sequence, report = validate(manifest, spec, controller, live_dependencies=live, require_verified_hand_semantics=a.require_verified_hand_semantics)
     report.update(manifest_id=manifest.data['manifest_id'], manifest_sha256=manifest.sha256, validated_utc=datetime.now(timezone.utc).isoformat())
     if a.validate_only or sequence is None:
         print(json.dumps(report, indent=1))
