@@ -20,7 +20,7 @@ import sys
 import re
 
 from sim_admission import (AdmissionError, Clock, admit, atomic_json, digest, ledger_event,
-                           read_ledger, remaining_execution, snapshot_public, snapshot_tree, tree_hashes, private_input)
+                           read_ledger, reconcile, remaining_execution, snapshot_public, snapshot_tree, tree_hashes, private_input)
 from sim_watchdog import cleanup_container, finish_event, process_identity
 
 
@@ -310,6 +310,15 @@ def main():
         save()
         atomic_json(control / 'complete.json', {'status': manifest['status'], 'utc': end.utc, 'monotonic': end.monotonic})
         finish_event(job, manifest['status'], end, cleanup_verified=not errors)
+        if authorization_ref and not errors and authorization.get('limits', {}).get('maximum_session_measured_launcher_seconds') is not None:
+            # Measured-runtime allowance: charge the launcher's own ADMITTED->FINISHED clocks exactly once and
+            # release this job's reservation; the ADMITTED reservation stays in the ledger history.
+            try:
+                settled = reconcile(authorization, read_ledger(ledger_path), run_id=name, clock=Clock.now(), authorization_sha256=auth_hash)
+                ledger_event(ledger_path, settled)
+                manifest['reconciliation'] = settled; save()
+            except AdmissionError as exc:
+                manifest['reconciliation_error'] = str(exc); save()
         if watchdog:
             try:
                 watchdog.wait(timeout=3)

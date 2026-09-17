@@ -12,8 +12,8 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from sim_admission import (AdmissionError, Clock, admit, atomic_json, digest, ledger_event,
-                           read_ledger, remaining_execution, snapshot_tree, snapshot_public, private_input)
+from sim_admission import (AdmissionError, Clock, active_session, admit, atomic_json, digest, ledger_event,
+                           read_ledger, reconcile, remaining_execution, session_accounting, snapshot_tree, snapshot_public, private_input)
 from sim_watchdog import cleanup_container, matches_container, process_identity
 
 
@@ -283,3 +283,134 @@ elif args[0]=='start':
 
 
 if __name__ == '__main__': unittest.main()
+
+
+def measured_authorization(cap=27000.):
+    a = authorization(); a['schema_version'] = 2
+    a['limits'].update(maximum_session_measured_launcher_seconds=cap, maximum_session_allocated_seconds=None,
+                       maximum_training_job_seconds=0, maximum_total_training_allocation_seconds=0)
+    return a
+
+
+class MeasuredRuntimeAccountingTests(unittest.TestCase):
+    """Cumulative cap on MEASURED launcher wall time with reservations held until reconciliation."""
+
+    def _run(self, events, run_id, seconds, t0, finish_after=None, status='PASS', cleanup=True, **kw):
+        job = dict(admission(measured_authorization(), events, seconds=seconds, clock=Clock(100000. + t0, t0, 'boot'), **kw), run_id=run_id, event='ADMITTED')
+        events.append(job)
+        if finish_after is not None:
+            events.append({'session_id': 'session', 'authorization_sha256': 'auth', 'run_id': run_id, 'event': 'FINISHED', 'status': status,
+                           'utc': 100000. + t0 + finish_after, 'monotonic': t0 + finish_after, 'boot_id': 'boot', 'cleanup_verified': cleanup})
+        return job
+
+    def _settle(self, events, run_id, t):
+        event = reconcile(measured_authorization(), events, run_id=run_id, clock=Clock(100000. + t, t, 'boot'), authorization_sha256='auth')
+        events.append(event); return event
+
+    def test_early_success_charges_measured_not_reserved(self):
+        events = []
+        self._run(events, 'a', 900, 200, finish_after=90, category='evaluation', name='n', justification='j')
+        settled = self._settle(events, 'a', 300)
+        self.assertEqual((settled['charged_seconds'], settled['reservation_seconds'], settled['released_reservation_seconds']), (90., 900., 810.))
+        account = session_accounting(measured_authorization(), events)
+        self.assertEqual((account['charged_completed_seconds'], account['active_reservation_seconds'], account['reserved_history_seconds']), (90., 0., 900.))
+
+    def test_early_failure_and_timeout_charge_their_measured_runtime(self):
+        events = []
+        self._run(events, 'a', 300, 200, finish_after=40, status='FAIL'); self._settle(events, 'a', 250)
+        self._run(events, 'b', 300, 300, finish_after=300, status='WATCHDOG_STOPPED'); self._settle(events, 'b', 610)
+        account = session_accounting(measured_authorization(), events)
+        self.assertEqual(account['charged_completed_seconds'], 340.); self.assertEqual(account['active_reservation_seconds'], 0.)
+
+    def test_cap_counts_charged_plus_active_reservations(self):
+        a = measured_authorization(cap=1000.); events = []
+        first = dict(admission(a, events, seconds=300, clock=Clock(100200., 200., 'boot')), run_id='a', event='ADMITTED'); events.append(first)
+        events.append(dict(first, event='FINISHED', status='PASS', utc=100260., monotonic=260., cleanup_verified=True))
+        # finished but not reconciled: the full 300 s reservation is still active
+        self.assertEqual(session_accounting(a, events)['active_reservation_seconds'], 300.)
+        second = dict(admission(a, events, seconds=300, clock=Clock(100300., 300., 'boot')), run_id='b', event='ADMITTED'); events.append(second)
+        events.append(dict(second, event='FINISHED', status='PASS', utc=100400., monotonic=400., cleanup_verified=True))
+        events.append(reconcile(a, events, run_id='a', clock=Clock(100401., 401., 'boot'), authorization_sha256='auth'))   # charged 60
+        # charged 60 + active 300 (b) + new 300 = 660 <= 1000 admits; 60 + 300 + 700 > 1000 refuses
+        self.assertEqual(admission(a, events, seconds=300, clock=Clock(100402., 402., 'boot'))['allocation_seconds'], 300)
+        with self.assertRaisesRegex(AdmissionError, 'measured launcher allowance'):
+            admission(a, events, seconds=700, clock=Clock(100402., 402., 'boot'), category='evaluation', name='n', justification='j')
+        events.append(reconcile(a, events, run_id='b', clock=Clock(100403., 403., 'boot'), authorization_sha256='auth'))   # charged 100
+        self.assertEqual(admission(a, events, seconds=800, clock=Clock(100404., 404., 'boot'), category='evaluation', name='n', justification='j')['allocation_seconds'], 800)
+        with self.assertRaises(AdmissionError):
+            admission(a, events, seconds=841, clock=Clock(100404., 404., 'boot'), category='evaluation', name='n', justification='j')
+
+    def test_missing_receipt_holds_reservation_and_blocks(self):
+        events = []; self._run(events, 'a', 300, 200)
+        with self.assertRaisesRegex(AdmissionError, 'No terminal receipt'): self._settle(events, 'a', 600)
+        with self.assertRaisesRegex(AdmissionError, 'lacks a terminal receipt'): admission(measured_authorization(), events, clock=Clock(100600., 600., 'boot'))
+        self.assertEqual(session_accounting(measured_authorization(), events)['active_reservation_seconds'], 300.)
+        events.append({'session_id': 'session', 'authorization_sha256': 'auth', 'run_id': 'a', 'event': 'FINISHED', 'status': 'FAIL', 'utc': 100500., 'monotonic': 500., 'boot_id': 'boot', 'cleanup_verified': False})
+        with self.assertRaisesRegex(AdmissionError, 'without verified cleanup'): self._settle(events, 'a', 600)
+
+    def test_crash_restart_reconciles_from_durable_ledger_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Path(tmp) / 'ledger.jsonl'; a = measured_authorization()
+            job = dict(admission(a, [], seconds=300, clock=Clock(100200., 200., 'boot')), run_id='a', event='ADMITTED'); ledger_event(ledger, job)
+            ledger_event(ledger, dict(job, event='FINISHED', status='PASS', utc=100250., monotonic=250., cleanup_verified=True))
+            # launcher died before reconciling; a later process reconciles from the durable ledger
+            settled = reconcile(a, read_ledger(ledger), run_id='a', clock=Clock(100900., 900., 'boot'), authorization_sha256='auth'); ledger_event(ledger, settled)
+            self.assertEqual(settled['charged_seconds'], 50.)
+            with self.assertRaisesRegex(AdmissionError, 'already reconciled'):
+                reconcile(a, read_ledger(ledger), run_id='a', clock=Clock(100901., 901., 'boot'), authorization_sha256='auth')
+            ledger_event(ledger, settled)   # a duplicate line on disk is detected, never double charged silently
+            with self.assertRaisesRegex(AdmissionError, 'Duplicate reconciliation'): session_accounting(a, read_ledger(ledger))
+
+    def test_double_admission_refused_while_job_active(self):
+        events = []; self._run(events, 'a', 300, 200)
+        with self.assertRaises(AdmissionError): admission(measured_authorization(), events, clock=Clock(100201., 201., 'boot'))
+
+    def test_expired_deadline_refuses_admission(self):
+        a = measured_authorization()
+        with self.assertRaises(AdmissionError): admission(a, [], seconds=300, clock=Clock(126800., 26800., 'boot'))
+        with self.assertRaises(AdmissionError): admission(a, [], seconds=300, clock=Clock(127001., 27001., 'boot'))
+
+    def test_negative_and_nonfinite_durations_refused(self):
+        events = []; job = self._run(events, 'a', 300, 200)
+        events.append(dict(job, event='FINISHED', status='PASS', utc=100100., monotonic=100., cleanup_verified=True))   # ends before it started
+        with self.assertRaisesRegex(AdmissionError, 'Negative measured runtime'): self._settle(events, 'a', 600)
+        events[-1] = dict(job, event='FINISHED', status='PASS', utc=float('nan'), monotonic=260., cleanup_verified=True)
+        with self.assertRaises(AdmissionError): self._settle(events, 'a', 600)
+        bad = dict(job, event='ADMITTED', run_id='b', allocation_seconds=float('inf'))
+        with self.assertRaises(AdmissionError): session_accounting(measured_authorization(), events[:1] + [bad])
+
+    def test_owner_mismatch_refused(self):
+        events = []; self._run(events, 'a', 300, 200, finish_after=30)
+        with self.assertRaisesRegex(AdmissionError, 'Owner mismatch'):
+            reconcile(measured_authorization(), events, run_id='a', clock=Clock(100600., 600., 'boot'), authorization_sha256='other')
+        foreign = [dict(e, session_id='other-session') for e in events]
+        with self.assertRaises(AdmissionError):
+            reconcile(measured_authorization(), foreign, run_id='a', clock=Clock(100600., 600., 'boot'), authorization_sha256='auth')
+        self.assertEqual(session_accounting(measured_authorization(), foreign)['admitted_runs'], 0)
+
+    def test_stale_active_session_pointer_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); (root / 'sessions' / 'session').mkdir(parents=True)
+            a = measured_authorization(); atomic_json(root / 'sessions' / 'session' / 'authorization.json', a)
+            atomic_json(root / 'ACTIVE_SESSION.json', {'authorization': 'sessions/session/authorization.json', 'session_id': 'session'})
+            self.assertEqual(active_session(root, Clock(100100., 100., 'boot'))[1]['session_id'], 'session')
+            with self.assertRaisesRegex(AdmissionError, 'final deadline'): active_session(root, Clock(128800., 28800., 'boot'))
+            with self.assertRaisesRegex(AdmissionError, 'another boot'): active_session(root, Clock(100100., 100., 'reboot'))
+            atomic_json(root / 'ACTIVE_SESSION.json', {'authorization': 'sessions/session/authorization.json', 'session_id': 'other'})
+            with self.assertRaisesRegex(AdmissionError, 'disagrees'): active_session(root, Clock(100100., 100., 'boot'))
+            atomic_json(root / 'ACTIVE_SESSION.json', {'authorization': 'sessions/gone/authorization.json', 'session_id': 'gone'})
+            with self.assertRaises(AdmissionError): active_session(root, Clock(100100., 100., 'boot'))
+
+    def test_overrun_is_charged_in_full_and_training_is_not_authorized(self):
+        events = []; self._run(events, 'a', 300, 200, finish_after=330, status='FAIL')
+        settled = self._settle(events, 'a', 600)
+        self.assertEqual((settled['charged_seconds'], settled['overrun_seconds'], settled['released_reservation_seconds']), (330., 30., 0.))
+        prereq = {k: 'x' for k in ['working_environment', 'controller_gap', 'evaluation_criterion', 'checkpoint_plan']}
+        with self.assertRaisesRegex(AdmissionError, 'not authorized'):
+            admission(measured_authorization(), events, category='training', seconds=100, name='t', justification='j', training_prerequisites=prereq, clock=Clock(100700., 700., 'boot'))
+
+    def test_schema_v2_requires_a_declared_allowance(self):
+        a = measured_authorization(); a['limits']['maximum_session_measured_launcher_seconds'] = None
+        with self.assertRaises(AdmissionError): admission(a)
+        a['limits']['maximum_session_measured_launcher_seconds'] = 27001.
+        with self.assertRaises(AdmissionError): admission(a)
