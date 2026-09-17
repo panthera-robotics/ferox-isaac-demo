@@ -168,8 +168,8 @@ assert all(v.count == 1 for v in views.values())
 
 # Cameras: two external views and the policy camera on the torso at the donor URDF d435 mount.
 cameras = {}
-closeup = config.get('closeup_camera', {'position': [0.85, -0.85, 1.2], 'target': [0.2, -0.2, 0.92]})   # right-hand workspace close-up (world-fixed camera view, not a bilateral trial)
-for label, position, target in [('front', (2.4, -2.4, 1.7), (0, 0, 1.0)), ('side', (-.3, 3.2, 1.6), (0, 0, 1.0)), ('closeup_right_hand', tuple(closeup['position']), tuple(closeup['target']))]:
+closeup = config.get('closeup_camera', {'offset': [0.42, -0.30, 0.28]})   # right-hand close-up: diagnostic camera re-aimed at the measured right palm every frame (follows the hand); not a policy input, not a bilateral trial
+for label, position, target in [('front', (2.4, -2.4, 1.7), (0, 0, 1.0)), ('side', (-.3, 3.2, 1.6), (0, 0, 1.0)), ('closeup_right_hand', (0.85, -0.85, 1.2), (0.2, -0.2, 0.92))]:
     camera = Camera('/World/' + label + 'Camera', resolution=(640, 640)); camera.initialize(); camera.set_clipping_range(.01, 10.)
     x = UsdGeom.Xformable(camera.prim); x.ClearXformOpOrder(); x.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*position), Gf.Vec3d(*target), Gf.Vec3d(0, 0, 1)).GetInverse())
     cameras[label] = camera; (out / 'frames' / label).mkdir(parents=True)
@@ -230,6 +230,10 @@ for tick in range(steps):
         aborted = {'sequence': tick, 'reason': 'source_envelope_abort', 'joint_limit_violations_rad': violated, 'joint_velocity_violations_rad_s': overspeed}; break
     if (tick + 1) % frame_every == 0:
         frame = (tick + 1) // frame_every - 1; files_ = {}
+        palm = np.asarray(poses['right_base_link'][:3]); eye = palm + np.asarray(closeup['offset'])
+        xc = UsdGeom.Xformable(cameras['closeup_right_hand'].prim); xc.ClearXformOpOrder()
+        xc.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*eye.tolist()), Gf.Vec3d(*palm.tolist()), Gf.Vec3d(0, 0, 1)).GetInverse())
+        world.render()   # re-render after re-aiming the diagnostic close-up (policy/external cameras unchanged)
         for label, camera in cameras.items():
             pixels = camera.get_rgba(); extra = 0
             while (pixels is None or pixels.size == 0) and extra < 3:
@@ -237,7 +241,8 @@ for tick in range(steps):
             assert pixels is not None and pixels.ndim == 3, label
             f = f'frames/{label}/{frame:06d}.png'; Image.fromarray(pixels[..., :3].astype(np.uint8) if label == 'policy' else pixels.astype(np.uint8)).save(out / f); files_[label] = f
         frame_file.write(json.dumps({'frame': frame, 'sequence': tick, 'physics_s': world.current_time, 'wall_s': time.monotonic() - loop_wall_start, 'phase': phase, 'source_row': None if row is None else row['row'],
-                                     'captured_after_same_step_render': True, 'views': files_, 'policy_camera': 'RGB 640x480 nominal D435 mount (NOT the dataset stereo camera)'}) + '\n')
+                                     'captured_after_same_step_render': True, 'views': files_, 'policy_camera': 'RGB 640x480 nominal D435 mount (NOT the dataset stereo camera)',
+                                     'closeup_camera': {'eye_world_m': eye.tolist(), 'target_world_m': palm.tolist(), 'follows': 'right_base_link (diagnostic view)'}}) + '\n')
 loop_wall = time.monotonic() - loop_wall_start
 state_file.close(); contact_file.close(); frame_file.close(); command_file.close()
 
