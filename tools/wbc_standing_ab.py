@@ -53,8 +53,12 @@ class StandingABConfig:
     # ramp_end_step the rig target is re-anchored to the current pelvis pose so the residual PD does
     # not fight the settled stance. history_priming=True fills the policy history from the current
     # state at hand-over (Isaac Lab reset semantics) instead of the baseline's zero history.
+    # band_off_end_step (optional, > policy_warmup_steps and <= supported_settle_steps): after the policy
+    # takes over, the residual rig ramps linearly to ZERO by this step (the SONIC W1 "band-off" idea),
+    # so the policy's own reset transient is damped by a fading support and the recorded release then
+    # removes an already-zero wrench. None = residual held until release (rev4 behaviour).
     handover: dict = field(default_factory=lambda: {'ramp_start_step': 100, 'ramp_end_step': 250, 'residual_scale': 0.15,
-                                                    'history_priming': True})
+                                                    'history_priming': True, 'band_off_end_step': None})
     # Optional locomotion schedule AFTER release: [[start_s, vx, vy, wz], ...] in the base-heading
     # frame the checkpoint was trained with (heading_command false); commands are held until the
     # next entry. Empty = zero command (standing). With a schedule the drift gates are replaced by
@@ -107,8 +111,11 @@ class StandingABConfig:
         if type(obj.policy_warmup_steps) is not int or not 0 <= obj.policy_warmup_steps < obj.supported_settle_steps:
             raise ValueError('policy_warmup_steps must be an integer below supported_settle_steps')
         h = obj.handover
-        if set(h) != {'ramp_start_step', 'ramp_end_step', 'residual_scale', 'history_priming'} or not finite_tree({k: v for k, v in h.items() if k != 'history_priming'}):
-            raise ValueError('handover must declare ramp_start_step, ramp_end_step, residual_scale, history_priming')
+        if set(h) != {'ramp_start_step', 'ramp_end_step', 'residual_scale', 'history_priming', 'band_off_end_step'} or not finite_tree({k: v for k, v in h.items() if k not in ('history_priming', 'band_off_end_step')}):
+            raise ValueError('handover must declare ramp_start_step, ramp_end_step, residual_scale, history_priming, band_off_end_step')
+        b = h['band_off_end_step']
+        if b is not None and (type(b) is not int or not obj.policy_warmup_steps < b <= obj.supported_settle_steps):
+            raise ValueError('band_off_end_step must be an integer in (policy_warmup_steps, supported_settle_steps]')
         if type(h['history_priming']) is not bool or type(h['ramp_start_step']) is not int or type(h['ramp_end_step']) is not int:
             raise ValueError('handover fields have the wrong types')
         if not (0 <= h['ramp_start_step'] < h['ramp_end_step'] <= obj.policy_warmup_steps):
@@ -251,14 +258,21 @@ def rig_stability_margins(cfg, pelvis_mass_kg, pelvis_inertia_min_kg_m2, dt=None
 
 
 def rig_scale_at(cfg, step):
-    """Rig scale (feed-forward and PD) at a settle step: 1 before the ramp, residual after."""
+    """Rig scale (feed-forward and PD) at a settle step: 1 before the ramp, residual after the
+    ramp, and — with band_off_end_step — residual fading linearly to 0 after the policy takes over."""
     h = cfg.handover
     if step < h['ramp_start_step']:
         return 1.0
-    if step >= h['ramp_end_step']:
+    if step < h['ramp_end_step']:
+        w = (step - h['ramp_start_step']) / float(h['ramp_end_step'] - h['ramp_start_step'])
+        return 1.0 + w * (h['residual_scale'] - 1.0)
+    b = h.get('band_off_end_step')
+    if b is None or step < cfg.policy_warmup_steps:
         return h['residual_scale']
-    w = (step - h['ramp_start_step']) / float(h['ramp_end_step'] - h['ramp_start_step'])
-    return 1.0 + w * (h['residual_scale'] - 1.0)
+    if step >= b:
+        return 0.0
+    w = (step - cfg.policy_warmup_steps) / float(b - cfg.policy_warmup_steps)
+    return h['residual_scale'] * (1.0 - w)
 
 
 def rig_wrench(cfg, pose_xyzw, linear_velocity, angular_velocity, target_xyzw, body_mass_kg=0.0):
