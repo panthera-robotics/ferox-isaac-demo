@@ -12,6 +12,7 @@ with evidence labels, what the **donor asset** is — never what the installed h
 | `load_record.py` | machine-readable load record (hand / wrist adapter / tool) in the wrist frame; unknown components stay `null` and never compose as zero |
 | `nominal_reference.py` | RH56E2 manual Figure 5 angle definitions and product-page mass, datum-reconciled comparison rows |
 | `measurement_intake.py` | intake validation of installed-measurement files (evidence class, split, finiteness, non-negative uncertainty, units, repeat agreement, vector dimensions, evidence-file sha256, coverage) |
+| `candidate_invalidation.py` | what a candidate asset edit (widened coupled-joint lower limits, mirrored base_link inertial) does to the manifest's bound qualifications — on a temporary copy; the active asset and manifest are never written |
 | `report.py` | builds `HAND_FIDELITY_DELTA.json` for both hands |
 
 ## Reproduce

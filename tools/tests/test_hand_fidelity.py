@@ -264,3 +264,36 @@ class MeasurementIntakeTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+@unittest.skipUnless(DONOR_URDF.exists(), 'donor URDF not in this checkout')
+class CandidateInvalidationTests(unittest.TestCase):
+    """Item 7: a candidate profile change must mark the dependent qualifications STALE, computed on a temp copy only."""
+    LIVE = {'support': 'FIXED_PELVIS', 'physics_dt_s': '0.005', 'solver': 'TGS_32_8', 'hand_drive_gains': 'kp=2.0;kd=0.5',
+            'grasp_sha256': 'e80befb00b34cae04d2ab4ba8b750b41d94138689c5534b24831a94f9e31ce88', 'source_image': 'sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54',
+            'tool_frame': 'measured in sF-writer-contact-15-v13-measure (simulator, invalidated by grasp/mount/asset change)', 'controller': 'implicit_biased_drive_v1 replay controller (package-hashed gains)',
+            'probe_config_sha256': '7052810259bd935a0477c48c6481b90b75e7b239fe097cce27b758e3a7b38c9c'}
+
+    def test_widened_coupled_limits_change_the_coupling_map_and_stale_every_bound_claim(self):
+        from hand_fidelity.candidate_invalidation import invalidation_report, widen_coupled_lower_limits
+        r = invalidation_report(MANIFEST, DONOR_URDF, widen_coupled_lower_limits(0.02), live_extra=self.LIVE)
+        self.assertEqual(r['changed_dependencies'], ['coupling_map_sha256', 'urdf_sha256'])
+        self.assertEqual(r['original']['mechanism_checks'], 'ACTIVE_COMPATIBLE')
+        for name, status in r['candidate'].items():
+            if r['original'][name] != 'NOT_APPLICABLE':
+                self.assertEqual(status, 'STALE', name)
+        self.assertEqual(r['transforms_candidate']['right.wrist_to_hand'], 'INVALID')   # bound to urdf_sha256 as well
+
+    def test_mirrored_base_link_inertial_changes_only_the_urdf_hash_but_still_stales_claims(self):
+        from hand_fidelity.candidate_invalidation import invalidation_report, mirror_base_link_inertial
+        r = invalidation_report(MANIFEST, DONOR_URDF, mirror_base_link_inertial(), live_extra=self.LIVE)
+        self.assertEqual(r['changed_dependencies'], ['urdf_sha256'])
+        self.assertTrue(all(s == 'STALE' for n, s in r['candidate'].items() if r['original'][n] != 'NOT_APPLICABLE'))
+
+    def test_active_asset_and_manifest_are_untouched(self):
+        import hashlib
+        from hand_fidelity.candidate_invalidation import invalidation_report, widen_coupled_lower_limits
+        before = hashlib.sha256(DONOR_URDF.read_bytes()).hexdigest(), hashlib.sha256(MANIFEST.read_bytes()).hexdigest()
+        invalidation_report(MANIFEST, DONOR_URDF, widen_coupled_lower_limits(0.05), live_extra=self.LIVE)
+        after = hashlib.sha256(DONOR_URDF.read_bytes()).hexdigest(), hashlib.sha256(MANIFEST.read_bytes()).hexdigest()
+        self.assertEqual(before, after)
