@@ -24,6 +24,7 @@ def main():
     sys.path[:0] = ['/workspace/ferox_tools', '/workspace/sim-source', '/workspace/ferox_isaac']
     from assembled_balance import GATES, FEET, GROUND, source_foot_spheres, initial_height, roll_pitch, finite_tree, safe_json, source_adjacency
     from wbc_standing_ab import ARMS, StandingABConfig, config_sha256, perturbed_initial, rig_wrench, evaluate_standing
+    from wbc_runtime_guard import GuardRefused, RuntimeOwnershipGuard
     cfg = StandingABConfig.from_dict(json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text()))
     arm = ARMS[cfg.arm]
     sys.path.insert(0, cfg.locomotion_path)
@@ -125,8 +126,24 @@ def main():
                     drive.CreateMaxForceAttr(facts['joint_limits'][name]['effort']); drive.CreateTargetPositionAttr(math.degrees(default[name]))
                 elif name in hand_names:
                     drive = UsdPhysics.DriveAPI.Apply(prim, 'angular'); drive.CreateTargetPositionAttr(math.degrees(cfg.hand_margin_rad))
+        diagnostic_record = {'disable_hand_collisions': [], 'lock_hand_joints': []}
+        if cfg.diagnostics['disable_hand_collisions']:
+            hand_links = {n for n in facts['physical_link_mass_kg'] if any(k in n for k in ('_base_link', 'thumb', 'index', 'middle', 'ring', 'little', 'palm'))}
+            for prim in stage.Traverse():
+                if prim.HasAPI(UsdPhysics.CollisionAPI) and any('/' + n + '/' in str(prim.GetPath()) + '/' for n in hand_links):
+                    UsdPhysics.CollisionAPI(prim).GetCollisionEnabledAttr().Set(False)
+                    diagnostic_record['disable_hand_collisions'].append(str(prim.GetPath()))
+        if cfg.diagnostics['lock_hand_joints']:
+            for prim in stage.Traverse():
+                name = prim.GetName()
+                if prim.IsA(UsdPhysics.RevoluteJoint) and name in hand_names:
+                    drive = UsdPhysics.DriveAPI.Apply(prim, 'angular')
+                    drive.CreateStiffnessAttr(200.); drive.CreateDampingAttr(2.)
+                    diagnostic_record['lock_hand_joints'].append(name)
         stage.GetRootLayer().Save()
         write('initialization_frame_corrections.json', {n: t.tolist() for n, t in corrections.items()})
+        write('diagnostics_applied.json', {'config': cfg.diagnostics, 'applied': diagnostic_record,
+                                           'scope': 'NONQUALIFYING_DIAGNOSTIC' if cfg.nonqualifying else 'none'})
         world = World(stage_units_in_meters=1., physics_dt=.005, rendering_dt=.005)
         scene = next(p for p in world.stage.Traverse() if p.IsA(UsdPhysics.Scene))
         physics = PhysxSchema.PhysxSceneAPI.Apply(scene)
@@ -165,7 +182,8 @@ def main():
         contact_file = (out / 'contacts.jsonl').open('w', buffering=1)
         state_file = (out / 'state.jsonl').open('w', buffering=1)
         frame_file = (out / 'frames.jsonl').open('w', buffering=1)
-        event_file = (out / 'support_events.jsonl').open('w', buffering=1); streams += [contact_file, state_file, frame_file, event_file]
+        event_file = (out / 'support_events.jsonl').open('w', buffering=1)
+        journal_file = (out / 'ownership_journal.jsonl').open('w', buffering=1); streams += [contact_file, state_file, frame_file, event_file, journal_file]
         def on_contacts(headers, data):
             try:
                 for header in headers:
@@ -235,6 +253,14 @@ def main():
         if not all(integrity.values()): raise ValueError('Initialization failed immutable admission gates')
         body_names = list(contract.policy_names)
         indices = np.asarray([names.index(n) for n in body_names + hand_names], dtype=np.int32)
+        # Enforced ownership boundary: one body owner, one hand owner, declared support,
+        # named 29-joint commands, fresh finite state, journaled role/support changes.
+        guard = RuntimeOwnershipGuard(body_names=body_names, hand_names=hand_names,
+                                      limits={n: facts['joint_limits'][n] for n in body_names + hand_names},
+                                      physics_dt=.005, decimation=policy._decimation, hand_margin_rad=cfg.hand_margin_rad,
+                                      max_target_step_rad=1.0, journal=journal_file)
+        guard.claim_body('probe_default_pose_warmup'); guard.claim_hands('probe_margin_hold'); guard.declare_support('RIG_WRENCH')
+        default_targets = {n: float(default[n]) for n in body_names}
         kp = np.asarray([policy_receipt['live_stiffness_by_name'][n] for n in names])
         kd = np.asarray([policy_receipt['live_damping_by_name'][n] for n in names])
         caps = np.asarray([policy_receipt['live_drive_effort_caps_by_name'][n] for n in names])
@@ -254,38 +280,68 @@ def main():
         for sequence in range(total_steps):
             step_contacts.clear()
             supported = sequence <= release_sequence
-            if sequence == release_sequence + 1:
-                phase = 'unsupported'
-                events.append({'sequence': release_sequence, 'physics_s': float(world.current_time), 'name': 'support_release',
-                               'detail': 'rig wrench zeroed from this step on; no constraint or force acts on the body afterwards'})
-                event_file.write(json.dumps(events[-1]) + '\n')
-            inference = policy._policy_counter % policy._decimation == 0
-            if inference:
-                observation_sequence = sequence - 1
-                observation_physics_s = float(world.current_time)
-            targets = policy.forward(.005, [0., 0., 0.])
+            try:
+                guard.begin_step(sequence, float(world.current_time))
+                if sequence == release_sequence + 1:
+                    phase = 'unsupported'
+                    guard.release_support()
+                    events.append({'sequence': release_sequence, 'physics_s': float(world.current_time), 'name': 'support_release',
+                                   'detail': 'rig wrench zeroed from this step on; no constraint or force acts on the body afterwards'})
+                    event_file.write(json.dumps(events[-1]) + '\n')
+            except GuardRefused as exc:
+                abort = {'sequence': sequence, 'reason': 'guard_refused: ' + str(exc), 'phase': phase}; break
+            warmup = sequence < cfg.policy_warmup_steps
+            if warmup:
+                # Pre-policy hold: the drives hold the policy default pose under the rig while the
+                # articulation settles; the policy's history buffer is not fed synthetic data.
+                inference = False
+                owner = 'probe_default_pose_warmup'
+                targets = default_targets
+            else:
+                if sequence == cfg.policy_warmup_steps:
+                    try:
+                        guard.claim_body('named_policy_single_writer')
+                    except GuardRefused as exc:
+                        abort = {'sequence': sequence, 'reason': 'guard_refused: ' + str(exc), 'phase': phase}; break
+                owner = 'named_policy_single_writer'
+                inference = policy._policy_counter % policy._decimation == 0
+                if inference:
+                    observation_sequence = sequence - 1
+                    observation_physics_s = float(world.current_time)
+                targets = policy.forward(.005, [0., 0., 0.])
             assert set(targets) == set(body_names)
             command = np.asarray([targets[n] for n in body_names] + hand_command, dtype=np.float32)
-            # The only runtime actuator writer. No state or base pose setters.
-            robot.apply_action(ArticulationAction(joint_positions=command, joint_indices=indices))
             if supported:
                 pose = np.asarray(pelvis_view.get_transforms())[0].tolist()
                 vel = np.asarray(pelvis_view.get_velocities())[0].tolist()
-                force, torque = rig_wrench(cfg, pose, vel[:3], vel[3:], rig_target)
+                force, torque = rig_wrench(cfg, pose, vel[:3], vel[3:], rig_target, body_mass_kg=facts['source_physical_mass_kg'])
                 # Applied at the pelvis link transform in the world frame (is_global=True); one body in the view.
                 pelvis_view.apply_forces_and_torques_at_position(np.asarray([force], dtype=np.float32), np.asarray([torque], dtype=np.float32),
                                                                  None, np.asarray([0], dtype=np.uint32), True)
                 support = {'kind': 'RIG_WRENCH', 'force_n': force, 'torque_nm': torque, 'target_xyzw': rig_target}
             else:
                 support = {'kind': 'NONE', 'force_n': [0., 0., 0.], 'torque_nm': [0., 0., 0.]}
+            try:
+                guard.assert_support_row(support)
+                guard.admit_body_command(owner, body_names, [float(targets[n]) for n in body_names])
+                guard.admit_hand_command('probe_margin_hold', hand_names, hand_command)
+            except GuardRefused as exc:
+                abort = {'sequence': sequence, 'reason': 'guard_refused: ' + str(exc), 'phase': phase}; break
+            # The only runtime actuator writer. No state or base pose setters.
+            robot.apply_action(ArticulationAction(joint_positions=command, joint_indices=indices))
             world.step(render=False)
             row = read_state(); last = row
+            try:
+                guard.observe_state(names, row['q_rad'], row['dq_rad_s'])
+            except GuardRefused as exc:
+                abort = {'sequence': sequence, 'reason': 'guard_refused: ' + str(exc), 'phase': phase}; rows.append(row); break
             row.update(sequence=sequence, phase=phase, support=support, command_velocity=[0., 0., 0.],
-                body_command_owner='named_policy_single_writer', body_command_names=body_names,
+                body_command_owner=owner, body_command_names=body_names,
                 body_command_rad=[float(targets[n]) for n in body_names], hand_command_names=hand_names, hand_command_rad=hand_command,
-                policy_inference_this_step=inference, policy_observation=policy.last_observation.tolist(),
+                policy_inference_this_step=inference,
+                policy_observation=([] if warmup else policy.last_observation.tolist()),
                 policy_observation_source_sequence=observation_sequence, policy_observation_physics_s=observation_physics_s,
-                policy_action=policy.action.tolist(), contacts=list(step_contacts))
+                policy_action=([] if warmup else policy.action.tolist()), contacts=list(step_contacts))
             if not finite_tree(row):
                 write('nonfinite_state.json', row); abort = {'sequence': sequence, 'reason': 'nonfinite_state'}; break
             q = np.asarray(row['q_rad']); dq = np.asarray(row['dq_rad_s'])
@@ -301,6 +357,7 @@ def main():
             if violated or overspeed or contact_faults or (not supported and (pelvis[2] < .65 or max(abs(roll), abs(pitch)) > .35)):
                 abort = {'sequence': sequence, 'reason': 'fall_or_source_envelope_abort', 'phase': phase, 'joint_limit_violations': violated,
                          'overspeed': overspeed, 'contact_faults': contact_faults}
+                guard.fault('fall_or_source_envelope_abort')
                 break
             if (sequence + 1) % cfg.frame_every == 0:
                 before = float(world.current_time); world.render(); assert float(world.current_time) == before
@@ -313,7 +370,9 @@ def main():
         integrity['contact_instrumentation_valid'] = not contact_faults
         result = evaluate_standing(rows, events, cfg, joint_count=arm['joint_count'], limits=facts['joint_limits'],
                                    mimics=facts['mimic_map'], source_mass_kg=facts['source_physical_mass_kg'],
-                                   integrity_checks=integrity, abort=abort, adjacent_pairs=source_adjacency(out / 'assembled_physical.urdf'))
+                                   integrity_checks=integrity, abort=abort, adjacent_pairs=source_adjacency(out / 'assembled_physical.urdf'),
+                                   guard_entries=guard.entries)
+        result['ownership_guard'] = guard.summary()
         result.update(initial_pelvis_height_m=initial['link_poses_world_xyzw']['pelvis'][2], actual_contact_points=len(contacts),
             controller_receipt='controller_receipt.json', source_property_audit='live_inertia_audit.json', support_events=events)
         receipt(result)

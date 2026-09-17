@@ -36,9 +36,19 @@ class StandingABConfig:
     supported_settle_steps: int = 400
     unsupported_steps: int = 2000
     perturbation: dict = field(default_factory=lambda: {'joint_rad': 0.0, 'pelvis_xy_m': 0.0, 'pelvis_yaw_rad': 0.0})
-    rig: dict = field(default_factory=lambda: {'kp_n_m': 4000.0, 'kd_n_s_m': 400.0, 'kr_nm_rad': 400.0, 'kdr_nm_s_rad': 40.0,
-                                               'max_force_n': 800.0, 'max_torque_nm': 200.0})
+    # Rev2 rig: carries the body weight (gravity feed-forward on the pelvis) with stiff PD, so the
+    # assembly is actually held during settling. Rev1 (kp 4000, no feed-forward) held 39 N of a 341 N
+    # body and the assembly fell onto its feet at the first policy step (sK-standing-ab-02-donor-smoke).
+    rig: dict = field(default_factory=lambda: {'kp_n_m': 20000.0, 'kd_n_s_m': 2000.0, 'kr_nm_rad': 2000.0, 'kdr_nm_s_rad': 200.0,
+                                               'max_force_n': 1200.0, 'max_torque_nm': 400.0, 'gravity_feedforward': True})
+    # Before the policy is consulted, the drives hold the policy default pose under the rig for this
+    # many steps (the policy's 5-frame history buffer starts at zero; its first actions jerked the legs
+    # at up to 2.35 rad/s in rev1 and drove a coupled hand joint at the 0.02 rad margin past its envelope).
+    policy_warmup_steps: int = 100
     frame_every: int = 20
+    # Explicitly NONQUALIFYING diagnostics that isolate one hand effect at a time while keeping
+    # the real donor mass/COM/inertia. A run with any diagnostic on can never PASS.
+    diagnostics: dict = field(default_factory=lambda: {'disable_hand_collisions': False, 'lock_hand_joints': False})
     execution_label: str = 'UNSUPPORTED_STANDING_AB'
 
     @classmethod
@@ -70,15 +80,26 @@ class StandingABConfig:
         if not (0 <= p['joint_rad'] <= 0.05 and 0 <= p['pelvis_xy_m'] <= 0.05 and 0 <= p['pelvis_yaw_rad'] <= 0.2):
             raise ValueError('perturbation magnitudes outside the declared envelope')
         r = obj.rig
-        if set(r) != {'kp_n_m', 'kd_n_s_m', 'kr_nm_rad', 'kdr_nm_s_rad', 'max_force_n', 'max_torque_nm'} or not finite_tree(r):
+        if set(r) != {'kp_n_m', 'kd_n_s_m', 'kr_nm_rad', 'kdr_nm_s_rad', 'max_force_n', 'max_torque_nm', 'gravity_feedforward'} or not finite_tree(r):
             raise ValueError('rig gains must be complete and finite')
-        if any(v <= 0 for v in r.values()):
-            raise ValueError('rig gains and caps must be positive')
+        if type(r['gravity_feedforward']) is not bool or any(v <= 0 for k, v in r.items() if k != 'gravity_feedforward'):
+            raise ValueError('rig gains and caps must be positive; gravity_feedforward must be a boolean')
+        if type(obj.policy_warmup_steps) is not int or not 0 <= obj.policy_warmup_steps < obj.supported_settle_steps:
+            raise ValueError('policy_warmup_steps must be an integer below supported_settle_steps')
+        d = obj.diagnostics
+        if set(d) != {'disable_hand_collisions', 'lock_hand_joints'} or any(type(v) is not bool for v in d.values()):
+            raise ValueError('diagnostics must declare disable_hand_collisions and lock_hand_joints as booleans')
+        if any(d.values()) and obj.arm != 'donor':
+            raise ValueError('hand diagnostics apply to the donor arm only')
         if type(obj.frame_every) is not int or not 8 <= obj.frame_every <= 100:
             raise ValueError('frame_every must be an integer in [8, 100]')
         if obj.execution_label != 'UNSUPPORTED_STANDING_AB':
             raise ValueError('execution_label is fixed for this probe')
         return obj
+
+    @property
+    def nonqualifying(self):
+        return any(self.diagnostics.values())
 
     @property
     def unsupported_seconds(self):
@@ -113,17 +134,20 @@ def perturbed_initial(default_q, limits, cfg):
     return q, pelvis
 
 
-def rig_wrench(cfg, pose_xyzw, linear_velocity, angular_velocity, target_xyzw):
+def rig_wrench(cfg, pose_xyzw, linear_velocity, angular_velocity, target_xyzw, body_mass_kg=0.0):
     """PD wrench holding the pelvis at the target pose; capped; returned in world frame.
 
-    Orientation error uses the small-angle vector part of q_err = q_target * conj(q).
+    With rig.gravity_feedforward the wrench carries the full body weight (m*g up) so the PD
+    term only corrects the residual. Orientation error uses the small-angle vector part of
+    q_err = q_target * conj(q).
     """
     r = cfg.rig
     px, py, pz = pose_xyzw[:3]
     tx, ty, tz = target_xyzw[:3]
+    ff = body_mass_kg * G if r.get('gravity_feedforward') else 0.0
     force = [r['kp_n_m'] * (tx - px) - r['kd_n_s_m'] * linear_velocity[0],
              r['kp_n_m'] * (ty - py) - r['kd_n_s_m'] * linear_velocity[1],
-             r['kp_n_m'] * (tz - pz) - r['kd_n_s_m'] * linear_velocity[2]]
+             r['kp_n_m'] * (tz - pz) - r['kd_n_s_m'] * linear_velocity[2] + ff]
     x, y, z, w = pose_xyzw[3:]
     tx_, ty_, tz_, tw_ = target_xyzw[3:]
     # q_err = q_t * conj(q)
@@ -152,7 +176,7 @@ def foot_ground_load(contacts):
 
 
 def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_mass_kg, integrity_checks,
-                      abort=None, adjacent_pairs=()):
+                      abort=None, adjacent_pairs=(), guard_entries=None):
     """Score the unsupported interval; reconstruct the first causal events.
 
     rows: campaign state rows extended with 'phase' and 'support'. events: list of
@@ -172,6 +196,14 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
               'hand_coupling_within_gate': True, 'controller_active_throughout': True,
               'no_sustained_drive_saturation': True, 'no_overspeed': True, 'no_abort': abort is None}
     checks.update({'initialization_' + k: bool(v) for k, v in integrity_checks.items()})
+    if guard_entries is not None:
+        kinds = [e.get('kind') for e in guard_entries]
+        releases = [e for e in guard_entries if e.get('kind') == 'support_release']
+        owners = [e.get('owner') for e in guard_entries if e.get('kind') == 'body_owner']
+        checks['ownership_journal_consistent'] = (kinds[:3] == ['body_owner', 'hand_owner', 'support'] and len(releases) == 1
+                                                  and owners[-1] == 'named_policy_single_writer' and len(owners) <= 2
+                                                  and not any(k == 'refused' for k in kinds)
+                                                  and (not release or releases[0].get('sequence') == release[0]['sequence'] + 1))
     peak = {'pelvis_xy_drift_m': 0., 'abs_roll_pitch_rad': 0., 'joint_limit_violation_rad': 0., 'coupling_error_rad': 0.,
             'foot_xy_drift_m': {n: 0. for n in FEET}, 'foot_height_rise_m': {n: 0. for n in FEET},
             'support_force_after_release_n': 0., 'max_abs_joint_velocity_rad_s': 0., 'drive_near_cap_steps': 0,
@@ -204,9 +236,13 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
             q, dq = row['q_rad'], row['dq_rad_s']
             if len(q) != joint_count or len(dq) != joint_count:
                 raise ValueError('Incomplete measured coordinates')
-            if len(row['policy_observation']) != 480 or len(row['policy_action']) != 29:
+            warmup = row['phase'] == 'supported_settle' and seq < cfg.policy_warmup_steps
+            expected_owner = 'probe_default_pose_warmup' if warmup else 'named_policy_single_writer'
+            if not warmup and (len(row['policy_observation']) != 480 or len(row['policy_action']) != 29):
                 raise ValueError('Missing actual policy computation')
-            if (row['command_velocity'] != [0., 0., 0.] or row['body_command_owner'] != 'named_policy_single_writer'
+            if warmup and (row['policy_observation'] or row['policy_action'] or row.get('policy_inference_this_step')):
+                raise ValueError('warm-up rows must carry no policy computation')
+            if (row['command_velocity'] != [0., 0., 0.] or row['body_command_owner'] != expected_owner
                     or len(row['body_command_names']) != 29 or len(set(row['body_command_names'])) != 29
                     or not set(row['body_command_names']).issubset(names) or len(row['body_command_rad']) != 29):
                 checks['single_body_owner_named_policy'] = False
@@ -304,7 +340,7 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
     checks['both_feet_have_measured_loaded_contact'] = unsupported > 0 and all(contact_steps[n] >= unsupported - 1 for n in FEET)
     checks['source_joint_limits_within_gate'] = peak['joint_limit_violation_rad'] <= GATES['maximum_joint_limit_violation_rad']
     checks['hand_coupling_within_gate'] = peak['coupling_error_rad'] <= GATES['maximum_coupling_error_rad']
-    expected_inferences = math.ceil(len(rows) / 4)
+    expected_inferences = math.ceil(max(0, len(rows) - cfg.policy_warmup_steps) / 4)
     checks['controller_active_throughout'] = inference_steps >= expected_inferences - 1
     checks['no_sustained_drive_saturation'] = (peak['drive_near_cap_steps'] <= 0.05 * max(1, len(rows))
                                                and peak['drive_near_cap_consecutive_max'] <= 20)
@@ -312,6 +348,8 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
     peak['mean_foot_ground_load_n'] = mean_load_n
     peak['body_weight_n'] = source_mass_kg * G
     checks['feet_carry_body_weight_after_release'] = unsupported > 0 and mean_load_n >= 0.9 * source_mass_kg * G
+    if cfg.nonqualifying:
+        checks['no_nonqualifying_diagnostic'] = False
     status = 'PASS' if all(checks.values()) else 'FAIL'
     events_out.sort(key=lambda e: e['sequence'])
     return {'status': status, 'checks': checks, 'peaks': peak, 'steps': len(rows), 'unsupported_steps': unsupported,
@@ -321,5 +359,7 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
             'abort': abort, 'arm': cfg.arm, 'arm_label': ARMS[cfg.arm]['label'], 'seed': cfg.seed,
             'hand_margin_rad': cfg.hand_margin_rad, 'execution_label': cfg.execution_label,
             'controller_mode': 'policy', 'source_mass_kg': source_mass_kg, 'physics_dt': dt,
+            'diagnostics': dict(cfg.diagnostics), 'nonqualifying_diagnostic': cfg.nonqualifying,
+            'verdict_scope': ('NONQUALIFYING_DIAGNOSTIC: isolates one hand effect; cannot be the delivered twin' if cfg.nonqualifying else 'candidate for adoption if PASS'),
             'material_self_penetrations': self_pen[:20], 'gates': GATES,
             'scope': 'UNSUPPORTED after a recorded rig release; %s; no support after release; PhysX twin' % ARMS[cfg.arm]['label']}

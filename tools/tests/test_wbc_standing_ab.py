@@ -28,7 +28,7 @@ CAMPAIGN_STATE = Path('/home/ubuntu/panthera/sim-workspace/campaign-20260913/evi
 
 
 def cfg(**over):
-    base = dict(arm='bare', seed=0, supported_settle_steps=100, unsupported_steps=2000)
+    base = dict(arm='bare', seed=0, supported_settle_steps=100, unsupported_steps=2000, policy_warmup_steps=20)
     base.update(over)
     return StandingABConfig.from_dict(base)
 
@@ -46,6 +46,7 @@ def rows_for(c, *, topple_after=None, hidden_support=False, weight_fraction=1.0,
     per_foot = 0.5 * weight_fraction * MASS * 9.81 * GATES['physics_dt_s']
     for seq in range(total):
         supported = seq <= release
+        warmup = seq < c.policy_warmup_steps
         if seq == release + 1:
             events.append({'sequence': release, 'name': 'support_release'})
         pitch = 0.0
@@ -57,9 +58,9 @@ def rows_for(c, *, topple_after=None, hidden_support=False, weight_fraction=1.0,
                'link_poses_world_xyzw': {'pelvis': [0., 0., z, 0., math.sin(pitch / 2), 0., math.cos(pitch / 2)],
                                          'torso_link': [0., 0., z + .3, 0., 0., 0., 1.],
                                          FEET[0]: [0., .1, .03, 0., 0., 0., 1.], FEET[1]: [0., -.1, .03, 0., 0., 0., 1.]},
-               'command_velocity': [0., 0., 0.], 'body_command_owner': 'named_policy_single_writer', 'body_command_names': BODY,
+               'command_velocity': [0., 0., 0.], 'body_command_owner': 'probe_default_pose_warmup' if warmup else 'named_policy_single_writer', 'body_command_names': BODY,
                'body_command_rad': [0.0] * 29, 'hand_command_names': [], 'hand_command_rad': [],
-               'policy_inference_this_step': seq % 4 == 0, 'policy_observation': [0.0] * 480, 'policy_action': [0.0] * 29,
+               'policy_inference_this_step': (not warmup) and seq % 4 == 0, 'policy_observation': [] if warmup else [0.0] * 480, 'policy_action': [] if warmup else [0.0] * 29,
                'contacts': [contact(FEET[0], per_foot), contact(FEET[1], per_foot)],
                'drive_estimate_near_cap_names': (['left_knee_joint'] if near_cap_from is not None and seq >= near_cap_from else []),
                'support': ({'kind': 'RIG_WRENCH', 'force_n': [0., 0., 10.], 'torque_nm': [0., 0., 0.]} if supported or hidden_support
@@ -85,6 +86,8 @@ class ConfigTests(unittest.TestCase):
         self.assertNotEqual(config_sha256(c), config_sha256(cfg(seed=1)))
 
     def test_refusals(self):
+        with self.assertRaisesRegex(ValueError, 'policy_warmup_steps'):
+            cfg(policy_warmup_steps=100)
         with self.assertRaisesRegex(ValueError, 'arm must be'):
             cfg(arm='thumbchain2')
         with self.assertRaisesRegex(ValueError, 'exact-open zero margin'):
@@ -119,8 +122,11 @@ class RigTests(unittest.TestCase):
         target = [0., 0., 0.8, 0., 0., 0., 1.]
         f, t = rig_wrench(c, [0., 0., 0.79, 0., 0., 0., 1.], [0., 0., 0.], [0., 0., 0.], target)
         self.assertGreater(f[2], 0.)
-        self.assertAlmostEqual(f[2], 4000 * 0.01)
+        self.assertAlmostEqual(f[2], c.rig['kp_n_m'] * 0.01)
         self.assertEqual(t, [0., 0., 0.])
+        # gravity feed-forward carries the weight at zero error
+        f, t = rig_wrench(c, target, [0., 0., 0.], [0., 0., 0.], target, body_mass_kg=34.7577)
+        self.assertAlmostEqual(f[2], 34.7577 * 9.81)
         f, t = rig_wrench(c, [0., 0., 0.0, 0., 0., 0., 1.], [0., 0., 0.], [0., 0., 0.], target)
         self.assertAlmostEqual(math.sqrt(sum(v * v for v in f)), c.rig['max_force_n'])
         # pitched forward: restoring torque about -y (small-angle vector part)
@@ -196,6 +202,36 @@ class EvaluatorTests(unittest.TestCase):
         m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
         self.assertFalse(m['checks']['single_body_owner_named_policy'])
 
+    def test_ownership_journal_consistency_gate(self):
+        c = cfg()
+        rows, events = rows_for(c)
+        good = [{'kind': 'body_owner', 'sequence': None, 'owner': 'probe_default_pose_warmup'}, {'kind': 'hand_owner', 'sequence': None}, {'kind': 'support', 'sequence': None},
+                {'kind': 'body_owner_handover', 'sequence': 20}, {'kind': 'body_owner', 'sequence': 20, 'owner': 'named_policy_single_writer'},
+                {'kind': 'support_release', 'sequence': 100}]
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS,
+                              integrity_checks=INTEGRITY, guard_entries=good)
+        self.assertTrue(m['checks']['ownership_journal_consistent'])
+        self.assertEqual(m['status'], 'PASS')
+        bad = good + [{'kind': 'refused', 'sequence': 500, 'reason': 'x'}]
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS,
+                              integrity_checks=INTEGRITY, guard_entries=bad)
+        self.assertFalse(m['checks']['ownership_journal_consistent'])
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS,
+                              integrity_checks=INTEGRITY, guard_entries=good[:3] + [{'kind': 'support_release', 'sequence': 7}])
+        self.assertFalse(m['checks']['ownership_journal_consistent'])
+
+    def test_nonqualifying_diagnostic_can_never_pass(self):
+        with self.assertRaisesRegex(ValueError, 'donor arm only'):
+            cfg(arm='bare', diagnostics={'disable_hand_collisions': True, 'lock_hand_joints': False})
+        c = cfg(arm='donor', diagnostics={'disable_hand_collisions': True, 'lock_hand_joints': False})
+        self.assertTrue(c.nonqualifying)
+        rows, events = rows_for(c)
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertEqual(m['status'], 'FAIL')
+        self.assertFalse(m['checks']['no_nonqualifying_diagnostic'])
+        self.assertTrue(m['nonqualifying_diagnostic'])
+        self.assertTrue(all(v for k, v in m['checks'].items() if k != 'no_nonqualifying_diagnostic'))
+
     def test_integrity_failure_blocks_pass(self):
         c = cfg()
         rows, events = rows_for(c)
@@ -208,13 +244,13 @@ class EvaluatorTests(unittest.TestCase):
     def test_ingests_the_real_campaign_balance_02_trace(self):
         """Real PhysX rows (donor, 53 joints, no support phase) flow through the evaluator; verdict FAIL is expected."""
         rows = [json.loads(line) for line in CAMPAIGN_STATE.read_text().splitlines() if line.strip()]
+        c = cfg(arm='donor', policy_warmup_steps=0)
         limits = json.loads((CAMPAIGN_STATE.parent / 'assembled_asset.json').read_text())['joint_limits']
         mimics = json.loads((CAMPAIGN_STATE.parent / 'assembled_asset.json').read_text())['mimic_map']
         for r in rows:
             r['phase'] = 'unsupported'
             r['support'] = {'kind': 'NONE', 'force_n': [0., 0., 0.], 'torque_nm': [0., 0., 0.]}
         events = [{'sequence': -1, 'name': 'support_release'}]
-        c = cfg(arm='donor')
         m = evaluate_standing(rows, events, c, joint_count=53, limits=limits, mimics=mimics, source_mass_kg=34.7577,
                               integrity_checks=INTEGRITY, abort={'sequence': 40, 'reason': 'fall_or_source_envelope_abort'})
         self.assertEqual(m['status'], 'FAIL')
