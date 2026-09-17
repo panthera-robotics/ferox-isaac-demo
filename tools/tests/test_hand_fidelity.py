@@ -555,3 +555,21 @@ class AbAnalysisTests(unittest.TestCase):
             self.assertAlmostEqual(c['phases']['hold']['measured_end_rad_B_minus_A']['right_index_1_joint'], 0.2003, 3)
             self.assertGreater(abs(c['phases']['hold']['fingertip_B_minus_A_m']['index_tip_sensor'][2]), 0.01)
             self.assertEqual(c['task_eval']['A']['overall'], 'FAIL'); self.assertEqual(c['task_eval']['B']['overall'], 'PASS')
+
+
+class MediaTests(unittest.TestCase):
+    def test_charts_render_when_pillow_is_available(self):
+        try:
+            import PIL  # noqa: F401
+        except Exception:
+            self.skipTest('Pillow not installed')
+        from hand_fidelity.media import actuator_angle_chart, import_policy_chart, load_diagram
+        with tempfile.TemporaryDirectory() as tmp:
+            nom = {'finger_alpha_open_deg': 170.0, 'finger_alpha_closed_deg': 91.5, 'thumb_beta_open_deg': 170.0, 'thumb_beta_closed_deg': 75.0}
+            ang = {'finger_index': {'alpha_open_deg': 174.0, 'alpha_closed_deg': 91.9}, 'thumb_rotation': {'beta_open_tip_line_deg': 166.8, 'beta_closed_tip_line_deg': 100.1}}
+            p1 = actuator_angle_chart(Path(tmp) / 'a.png', nom, ang); p2 = import_policy_chart(Path(tmp) / 'b.png')
+            rec = {'driver_hardware_feedforward_assumption': {'right': {'effective_com_m_wrist_yaw': [0.0844, 0, 0], 'first_moment_kg_m': {'donor_open': 0.1212, 'assumption': 0.0667}, 'gravity_moment_difference_N_m_at_horizontal_extension': 0.534}, 'left': {'gravity_moment_difference_N_m_at_horizontal_extension': 0.598}},
+                   'records': {'right': {'open': {'components': {'hand': {'com_m': [0.138, 0, 0]}}}, 'closed': {'components': {'hand': {'com_m': [0.1316, 0, 0]}}}}, 'left': {'open': {'components': {'hand': {'com_m': [0.1454, 0, 0]}}}}}}
+            p3 = load_diagram(Path(tmp) / 'c.png', rec)
+            for p in (p1, p2, p3):
+                self.assertGreater(Path(p).stat().st_size, 5000)

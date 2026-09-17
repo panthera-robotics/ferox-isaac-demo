@@ -17,6 +17,7 @@ with evidence labels, what the **donor asset** is — never what the installed h
 | `conversion_profile.py` | opt-in typed conversion profile: distinct value types, bound kinds, per-axis evidence, refusals (side/order/type/dimension/non-finite/range/provenance), operating margin, raw-to-effective trace, coupled-joint consistency, dependency hashes; qualified profiles fail closed on unresolved semantics |
 | `load_contract.py` | `hand_load_contract_v1`: validation of a HAND_LOAD_RECORD bundle (frames, units, SPD + triangle inequality, parallel-axis and rigid re-expression round trips, totals vs components, null-never-zero), consumer rules against double counting, donor load at an actual configuration vs the open/closed samples |
 | `ab_analysis.py` | compares two command-replay evidence directories (measured vs commanded hand joints per replayed stage, coupled error, fingertip positions in the palm frame, streamed hand-object contact sets, object-in-palm offsets, evaluator verdicts) |
+| `media.py` | small labelled PNG diagrams (Pillow only): nominal-vs-donor angle curves, the A/B import-policy map, the wrist-frame load/COM diagram — CPU diagrams, never runtime evidence |
 | `report.py` | builds `HAND_FIDELITY_DELTA.json` for both hands |
 
 ## Reproduce
