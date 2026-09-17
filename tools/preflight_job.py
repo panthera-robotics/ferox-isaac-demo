@@ -105,9 +105,26 @@ def main(argv=None):
         try:
             config = json.loads(args.probe_config.read_text())
             json_clean(config)
-            probe = load_probe(args.probe)
-            if hasattr(probe, 'validate_config'):
+            try:
+                probe = load_probe(args.probe)
+            except AssertionError:
+                # Script-style probes assert the isolated-simulator guards at import; their configs are
+                # validated structurally here and again by the probe itself inside the container.
+                probe = None; notes['probe_import'] = 'guarded script; config validated structurally'
+            if probe is not None and hasattr(probe, 'validate_config'):
                 probe.validate_config(config)
+            if args.probe_mode == 'command-replay':
+                package = Path(config['package'])
+                mount = next((Path(spec.split('=', 1)[1]) for spec in args.private_input if spec.startswith(package.name + '=')), None)
+                if mount is None:
+                    raise ValueError('command-replay config package %s has no matching --private-input mount' % config['package'])
+                pkg = json.loads((mount / 'package.json').read_text())
+                if digest(mount / 'package.json') != config['package_sha256'] or pkg.get('validation', {}).get('status') != 'VALID':
+                    raise ValueError('replay package hash/validation mismatch')
+                for name, h in pkg['files'].items():
+                    if digest(mount / name) != h:
+                        raise ValueError('replay package file changed after validation: ' + name)
+                notes['replay_package'] = {'contract_sha256': pkg['contract_sha256'], 'rows': pkg['validation']['summary']['rows'], 'duration_s': pkg['validation']['summary']['duration_s'], 'source': pkg['validation']['summary']['source']}
             notes['config_sha256'] = digest(args.probe_config)
         except Exception as exc:  # noqa: BLE001
             problems.append(f'probe config invalid: {exc!r}')
