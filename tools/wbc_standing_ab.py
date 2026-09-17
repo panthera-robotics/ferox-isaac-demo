@@ -73,6 +73,12 @@ class StandingABConfig:
     # Explicitly NONQUALIFYING diagnostics that isolate one hand effect at a time while keeping
     # the real donor mass/COM/inertia. A run with any diagnostic on can never PASS.
     diagnostics: dict = field(default_factory=lambda: {'disable_hand_collisions': False, 'lock_hand_joints': False})
+    # Actuator/contact model for the twin's drives. 'asset': drive caps = URDF effort, no armature,
+    # PhysX defaults (every run so far). 'checkpoint_training_env': the model the checkpoint trained
+    # with, read from its own env.yaml — drive caps min(asset, effort_limit_sim) (ankles/waist roll+pitch
+    # 25 N*m instead of the URDF's 35), joint armature 0.01 kg*m^2, max_depenetration_velocity 1 m/s,
+    # solver iterations 8/4. Asset masses/inertias/limits are untouched; recorded per joint.
+    actuator_profile: str = 'asset'
     execution_label: str = 'UNSUPPORTED_STANDING_AB'
 
     @classmethod
@@ -162,6 +168,8 @@ class StandingABConfig:
             raise ValueError('hand diagnostics apply to the donor arm only')
         if type(obj.frame_every) is not int or not 8 <= obj.frame_every <= 100:
             raise ValueError('frame_every must be an integer in [8, 100]')
+        if obj.actuator_profile not in ('asset', 'checkpoint_training_env'):
+            raise ValueError('actuator_profile must be asset or checkpoint_training_env')
         if obj.execution_label != 'UNSUPPORTED_STANDING_AB':
             raise ValueError('execution_label is fixed for this probe')
         return obj
@@ -573,7 +581,7 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
             'abort': abort, 'arm': cfg.arm, 'arm_label': ARMS[cfg.arm]['label'], 'seed': cfg.seed,
             'hand_margin_rad': cfg.hand_margin_rad, 'execution_label': cfg.execution_label,
             'controller_mode': 'policy', 'source_mass_kg': source_mass_kg, 'physics_dt': dt,
-            'diagnostics': dict(cfg.diagnostics), 'nonqualifying_diagnostic': cfg.nonqualifying,
+            'diagnostics': dict(cfg.diagnostics), 'nonqualifying_diagnostic': cfg.nonqualifying, 'actuator_profile': cfg.actuator_profile,
             'verdict_scope': ('NONQUALIFYING_DIAGNOSTIC: isolates one hand effect; cannot be the delivered twin' if cfg.nonqualifying
                               else ('EXPERIMENTAL_COMBINED_CONTROLLER (arm override v0): not a qualified WBC; candidate only' if cfg.arm_override['enabled']
                                     else 'candidate for adoption if PASS')),

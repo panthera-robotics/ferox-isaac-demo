@@ -134,6 +134,22 @@ def main():
                     drive.CreateMaxForceAttr(facts['joint_limits'][name]['effort']); drive.CreateTargetPositionAttr(math.degrees(default[name]))
                 elif name in hand_names:
                     drive = UsdPhysics.DriveAPI.Apply(prim, 'angular'); drive.CreateTargetPositionAttr(math.degrees(cfg.hand_margin_rad))
+        training_caps = None
+        actuator_record = {'profile': cfg.actuator_profile}
+        if cfg.actuator_profile == 'checkpoint_training_env':
+            from g1_policy.provenance import TrainingProvenance
+            table = TrainingProvenance.load(cfg.policy_path).actuator_table(list(contract.sdk_names))
+            training_caps = {n: v['effort_limit_sim'] for n, v in table.items()}
+            actuator_record.update(table=table, armature_applied=[], depenetration_applied=[], solver_iterations=[8, 4])
+            for prim in stage.Traverse():
+                name = prim.GetName()
+                if prim.IsA(UsdPhysics.RevoluteJoint) and name in table:
+                    PhysxSchema.PhysxJointAPI.Apply(prim).CreateArmatureAttr(float(table[name]['armature']))
+                    actuator_record['armature_applied'].append(name)
+                if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+                    PhysxSchema.PhysxRigidBodyAPI.Apply(prim).CreateMaxDepenetrationVelocityAttr(1.0)
+                    actuator_record['depenetration_applied'].append(str(prim.GetPath()))
+        write('actuator_profile_applied.json', actuator_record)
         diagnostic_record = {'disable_hand_collisions': [], 'lock_hand_joints': []}
         if cfg.diagnostics['disable_hand_collisions']:
             hand_links = {n for n in facts['physical_link_mass_kg'] if any(k in n for k in ('_base_link', 'thumb', 'index', 'middle', 'ring', 'little', 'palm'))}
@@ -172,7 +188,8 @@ def main():
         for prim in world.stage.Traverse():
             if prim.HasAPI(PhysxSchema.PhysxArticulationAPI):
                 api = PhysxSchema.PhysxArticulationAPI(prim)
-                api.CreateSolverPositionIterationCountAttr(32); api.CreateSolverVelocityIterationCountAttr(8); api.CreateSleepThresholdAttr(0.)
+                pos_it, vel_it = (8, 4) if cfg.actuator_profile == 'checkpoint_training_env' else (32, 8)
+                api.CreateSolverPositionIterationCountAttr(pos_it); api.CreateSolverVelocityIterationCountAttr(vel_it); api.CreateSleepThresholdAttr(0.)
             if prim.HasAPI(UsdPhysics.CollisionAPI):
                 UsdShade.MaterialBindingAPI.Apply(prim).Bind(material, UsdShade.Tokens.weakerThanDescendants, 'physics')
             if prim.HasAPI(UsdPhysics.RigidBodyAPI):
@@ -212,7 +229,7 @@ def main():
         world.reset(); robot.initialize()
         names = list(robot.dof_names); assert len(names) == arm['joint_count'] and set(names) == set(facts['joint_limits'])
         policy = named_policy_class(G1VelocityPolicy)(robot=robot, policy_dir=cfg.policy_path, source_urdf=source, physics_dt=.005)
-        policy_receipt = policy.initialize(initialize_articulation=False)
+        policy_receipt = policy.initialize(initialize_articulation=False, training_effort_caps=training_caps)
         policy_receipt['additional_source_sha256'] = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
             for p in (Path(adapter_module.__file__), Path(cfg.policy_path) / 'exported/policy.pt', Path(__file__), source)}
         write('controller_receipt.json', policy_receipt)

@@ -110,6 +110,15 @@ class ConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unknown standing'):
             StandingABConfig.from_dict({'arm': 'bare', 'extra': 1})
 
+    def test_actuator_profile_is_declared(self):
+        with self.assertRaisesRegex(ValueError, 'actuator_profile'):
+            cfg(actuator_profile='tuned')
+        c = cfg(actuator_profile='checkpoint_training_env')
+        rows, events = rows_for(c)
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertEqual(m['actuator_profile'], 'checkpoint_training_env')
+        self.assertEqual(m['status'], 'PASS')
+
     def test_seeded_perturbation_is_deterministic_and_clipped(self):
         default = {n: 0.0 for n in BODY}
         limits = dict(LIMITS, left_knee_joint={'lower': -0.001, 'upper': 0.001, 'effort': 25., 'velocity': 30.})
