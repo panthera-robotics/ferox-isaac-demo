@@ -19,6 +19,7 @@ with evidence labels, what the **donor asset** is — never what the installed h
 | `ab_analysis.py` | compares two command-replay evidence directories (measured vs commanded hand joints per replayed stage, coupled error, fingertip positions in the palm frame, streamed hand-object contact sets, object-in-palm offsets, evaluator verdicts) |
 | `media.py` | small labelled PNG diagrams (Pillow only): nominal-vs-donor angle curves, the A/B import-policy map, the wrist-frame load/COM diagram — CPU diagrams, never runtime evidence |
 | `collision_volume.py` | per-link closed-mesh volume vs single convex-hull volume (bound on what a convex collider adds), visual-vs-collision file identity, mean density check |
+| `uncertainty.py` | `|r|+U<=T` / `max(0,|r|-U)>T` decision for one simulator-vs-measured quantity, refused unless unit and datum match exactly |
 | `report.py` | builds `HAND_FIDELITY_DELTA.json` for both hands |
 
 ## Reproduce

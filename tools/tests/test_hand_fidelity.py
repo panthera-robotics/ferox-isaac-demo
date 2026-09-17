@@ -597,3 +597,35 @@ class CollisionVolumeTests(unittest.TestCase):
         s = summary(h)
         self.assertTrue(s['all_visual_equal_collision_file'])
         self.assertGreater(s['links']['right_base_link']['hull_over_mesh'], 2.0); self.assertLess(s['links']['right_index_2']['hull_over_mesh'], 1.5)
+
+
+class UncertaintyRuleTests(unittest.TestCase):
+    def test_rule_and_refusals(self):
+        from hand_fidelity.uncertainty import IncompatibleComparison, compatible_compare
+        kw = dict(tolerance=3.0, unit_sim='mm', unit_measured='mm', datum_sim='palm thickness at the marker pocket, caliper across the palm faces', datum_measured='palm thickness at the marker pocket, caliper across the palm faces', quantity='palm_thickness_mm')
+        self.assertEqual(compatible_compare(58.6, 57.0, uncertainty=0.5, **kw)['status'], 'PASS')
+        self.assertEqual(compatible_compare(58.6, 54.0, uncertainty=0.5, **kw)['status'], 'FAIL')
+        self.assertEqual(compatible_compare(58.6, 56.0, uncertainty=1.0, **kw)['status'], 'INDETERMINATE')
+        with self.assertRaises(IncompatibleComparison):
+            compatible_compare(58.6, 57.0, uncertainty=-0.1, **kw)
+        with self.assertRaises(IncompatibleComparison):
+            compatible_compare(58.6, 57.0, uncertainty=float('nan'), **kw)
+        with self.assertRaises(IncompatibleComparison):
+            compatible_compare(58.6, 5.7, uncertainty=0.5, **dict(kw, unit_measured='cm'))
+        with self.assertRaises(IncompatibleComparison):
+            compatible_compare(65.4, 57.0, uncertainty=0.5, **dict(kw, datum_sim='mesh band extent along the flexion normal (root x-z band 0.09-0.15 m)'))
+
+
+class LeftHandProfileTests(unittest.TestCase):
+    def test_left_profile_mirrors_the_right_numbers_and_refuses_right_values(self):
+        from hand_fidelity.conversion_profile import ConversionProfile, PISTON_ROUTE_PROVENANCE
+        m = EmbodimentManifest.load(MANIFEST)
+        pl = ConversionProfile(profile_id='piston-closure-left-v1', side='left', source_convention='unitree_inspire_hand_urdf_radians_v1', manifest=m, provenance=PISTON_ROUTE_PROVENANCE, urdf_sha256='63097d73')
+        pr = ConversionProfile(profile_id='piston-closure-right-v1', side='right', source_convention='unitree_inspire_hand_urdf_radians_v1', manifest=m, provenance=PISTON_ROUTE_PROVENANCE, urdf_sha256='63097d73')
+        raw = [1.3, 1.3, 1.3, 1.3, 0.0, -0.1]
+        tl, tr = pl.apply(raw, side='left'), pr.apply(raw, side='right')
+        for a in ('index', 'middle', 'ring', 'little', 'thumb_bend', 'thumb_rotation'):
+            self.assertAlmostEqual(tl['effective_rad'][m.hand_actuator('left', a)['joint']], tr['effective_rad'][m.hand_actuator('right', a)['joint']], 9)
+        with self.assertRaises(ContractError):
+            pl.apply(raw, side='right')
+        self.assertNotEqual(pl.sha256, pr.sha256)
