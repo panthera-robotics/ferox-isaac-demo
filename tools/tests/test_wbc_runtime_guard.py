@@ -139,6 +139,21 @@ class GuardTests(unittest.TestCase):
         with self.assertRaisesRegex(GuardRefused, 'precede the first step'):
             g2.declare_never_supported('a')
 
+    def test_training_reset_probe_call_sequence(self):
+        """The exact guard call order the probe makes with training_reset=True for the first steps."""
+        g = guard(); g.claim_body('probe_default_pose_warmup'); g.claim_hands('probe_margin_hold')
+        g.declare_never_supported('named_policy_single_writer')
+        for seq in range(3):
+            g.begin_step(seq, (seq + 1) * 0.005)
+            # no release_support() call in this mode (release journaled at -1)
+            g.assert_support_row({'kind': 'NONE', 'force_n': [0., 0., 0.], 'torque_nm': [0., 0., 0.]})
+            g.admit_body_command('named_policy_single_writer', BODY, [0.0] * 29)
+            g.admit_hand_command('probe_margin_hold', HANDS, [0.02, 0.02])
+            g.observe_state(BODY + HANDS, [0.0] * 31, [0.0] * 31)
+        self.assertEqual(g.summary()['state'], 'unsupported')
+        with self.assertRaisesRegex(GuardRefused, 'requires an active supported settle'):
+            g.release_support()   # what the r3 first attempt did at step 0
+
     def test_fault_is_terminal(self):
         g = guard(); g.claim_body('a'); g.begin_step(0, 0.005); g.fault('body_dq guard')
         with self.assertRaisesRegex(GuardRefused, 'faulted'):
