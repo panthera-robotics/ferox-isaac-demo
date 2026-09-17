@@ -18,6 +18,9 @@ config_path = Path(os.environ['PANTHERA_PROBE_CONFIG']); config = json.loads(con
 out = Path('/evidence'); sys.path[:0] = ['/workspace/ferox_tools', '/workspace/ferox_isaac/twin']
 from inspire.embodiment import ContractError, EmbodimentManifest, ReplaySequence, canonical_sha256, dependency_values_from_urdf  # noqa: E402
 from inspire.body_feedforward import bounded_gravity_feedforward  # noqa: E402
+from inspire import loop_ipc  # noqa: E402
+from inspire.model_action_adapter import validate_piston_chunk, PISTON_DIMS, PISTON_HAND_ORDER  # noqa: E402
+from inspire.embodiment import HandCommandAdapter, HAND_ACTUATORS  # noqa: E402
 
 started_wall = time.monotonic()
 package = Path(config['package'])
@@ -40,6 +43,20 @@ maximum_steps = int(config.get('maximum_steps', 4000)); assert 100 <= maximum_st
 lead_in_s = float(config.get('lead_in_s', 0.5)); assert 0.0 <= lead_in_s <= 5.0
 dt = .005
 steps = min(maximum_steps, int(round((lead_in_s + sequence.duration_s) / dt)) + 1)
+# Closed-loop mode (sprint K K4): the package's single row is the START pose; after the lead-in the probe publishes fresh
+# observations to a co-admitted model sidecar over private file IPC and executes a short validated prefix of each
+# returned chunk through the same controller. Physics pauses while inferring (non-real-time closed-loop simulation).
+closed_loop = config.get('closed_loop')
+if closed_loop:
+    assert closed_loop.get('schema') == 'closed_loop_v1' and closed_loop['control_source'] in ('MODEL_CLOSED_LOOP', 'HYBRID_MODEL_ARMS_SCRIPTED_HANDS')
+    cl_model_ticks = int(round(float(closed_loop.get('model_step_s', 0.02)) / dt)); assert cl_model_ticks >= 1
+    cl_prefix = int(closed_loop['prefix_steps']); cl_iters = int(closed_loop['iterations']); assert 1 <= cl_prefix <= 30 and 1 <= cl_iters <= 200
+    cl_tail_ticks = int(round(float(closed_loop.get('tail_hold_s', 0.0)) / dt))
+    steps = min(maximum_steps, int(round(lead_in_s / dt)) + cl_iters * cl_prefix * cl_model_ticks + cl_tail_ticks + 1)
+    cl_token = os.environ['PANTHERA_SIM_RUN_ID']; assert len(cl_token) >= 8   # the admitted run id; the launcher gives the sidecar the same token
+    cl_ipc = loop_ipc.layout(out / 'ipc'); cl_timeout_first = float(closed_loop.get('inference_timeout_first_s', 90.0)); cl_timeout = float(closed_loop.get('inference_timeout_s', 20.0))
+    cl_arm_names = [n for side in ('left', 'right') for n in ('%s_shoulder_pitch_joint' % side, '%s_shoulder_roll_joint' % side, '%s_shoulder_yaw_joint' % side, '%s_elbow_joint' % side, '%s_wrist_roll_joint' % side, '%s_wrist_pitch_joint' % side, '%s_wrist_yaw_joint' % side)]
+    cl_state = {'iteration': 0, 'chunk': None, 'chunk_pos': 0, 'model_tick': 0, 'records': [], 'refusals': [], 'hand_phase': 'open', 'close_started_tick': None, 'obs_count': 0}
 
 from isaacsim import SimulationApp  # noqa: E402
 app = SimulationApp({'headless': True, 'renderer': 'RaytracedLighting'})
@@ -250,6 +267,45 @@ cameras['policy'] = policy; (out / 'frames' / 'policy').mkdir(parents=True)
 frame_file = (out / 'frames.jsonl').open('w', buffering=1); state_file = (out / 'state.jsonl').open('w', buffering=1)
 command_file = (out / 'commands.jsonl').open('w', buffering=1)
 phase = 'lead_in'; aborted = None; rejections = []; applied_rows = set(); lead_in_steps = int(round(lead_in_s / dt))
+if closed_loop:
+    _limits = {a: manifest.hand_actuator('right', a)['closed_rad'] for a in HAND_ACTUATORS}
+    _radian_contract = {'axis_order': list(PISTON_HAND_ORDER), 'open_value': 0.0, 'closed_value': 1.0, 'per_axis_endpoints': {a: {'open_value': 0.0, 'closed_value': _limits[a]} for a in HAND_ACTUATORS}, 'saturation_policy': 'clip_declared'}
+    cl_adapters = {sd: HandCommandAdapter(manifest, sd, _radian_contract) for sd in ('left', 'right')}
+    cl_hybrid = closed_loop.get('hybrid') if closed_loop['control_source'] == 'HYBRID_MODEL_ARMS_SCRIPTED_HANDS' else None
+    if cl_hybrid:
+        _closure_contract = {'axis_order': list(HAND_ACTUATORS), 'open_value': 0.0, 'closed_value': 1.0, 'saturation_policy': 'reject'}
+        cl_hand_script = HandCommandAdapter(manifest, 'right', _closure_contract)
+        cl_open_targets = np.array([first_hand[n] for n in hand_names], dtype=np.float32)   # the package's first-row hand targets (open margin)
+        _closed_targets_dict, _ = cl_hand_script.to_joint_targets([float(v) for v in cl_hybrid['closure']])
+        cl_closed_targets = cl_open_targets.copy()
+        for n_, v_ in _closed_targets_dict.items():
+            cl_closed_targets[hand_names.index(n_)] = v_
+    def cl_sidecar_alive():
+        return not (cl_ipc / 'EXIT').exists()
+    def cl_observe(tick):
+        world.render(); pixels = cameras['policy'].get_rgba(); extra = 0
+        while (pixels is None or pixels.size == 0) and extra < 3:
+            world.render(); extra += 1; pixels = cameras['policy'].get_rgba()
+        import io
+        buf = io.BytesIO(); Image.fromarray(pixels[..., :3].astype(np.uint8)).save(buf, format='PNG'); png = buf.getvalue()
+        q_ = np.ravel(robot.get_joint_positions()); qd = dict(zip(names, q_.tolist()))
+        hand_of = lambda side: [qd[manifest.hand_actuator(side, a)['joint']] for a in PISTON_HAND_ORDER]   # dataset order pinky..thumb_yaw, donor radians (identity, declared)
+        state = {'left_arm': [qd[n] for n in cl_arm_names[:7]], 'right_arm': [qd[n] for n in cl_arm_names[7:]], 'left_hand': hand_of('left'), 'right_hand': hand_of('right'), 'waist': [qd['waist_yaw_joint'], qd['waist_roll_joint'], qd['waist_pitch_joint']]}
+        k = cl_state['obs_count']; cl_state['obs_count'] += 1
+        loop_ipc.write_observation(cl_ipc, k, cl_token, {'state': state, 'instruction': closed_loop['instruction'], 'physics_s': world.current_time, 'tick': tick, 'camera': 'policy_head_d435_color_nominal 640x480 RGB'}, image_bytes=png)
+        (out / 'frames' / 'policy' / ('obs%06d.png' % k)).write_bytes(png)
+        return k, hashlib.sha256(png).hexdigest(), state
+    def cl_request_chunk(tick):
+        k, png_sha, state = cl_observe(tick); t_wait = time.monotonic()
+        act = loop_ipc.wait_for_action(cl_ipc, k, run_token=cl_token, dims=PISTON_DIMS, timeout_s=cl_timeout_first if k == 0 else cl_timeout, sidecar_alive=cl_sidecar_alive)
+        msg = json.loads((cl_ipc / 'act' / ('%06d.json' % k)).read_text())
+        rep = validate_piston_chunk(manifest, act, hand_adapters=cl_adapters, prefix_steps=cl_prefix)
+        rec = {'iteration': cl_state['iteration'], 'obs_id': k, 'tick': tick, 'physics_s': world.current_time, 'image_sha256': png_sha, 'state_sent': state, 'inference_id': msg.get('inference_id'), 'latency_s': msg.get('latency_s'), 'wall_wait_s': time.monotonic() - t_wait,
+               'raw_first_step': {kk: act[kk][0] for kk in act}, 'adapter': {kk: rep[kk] for kk in ('executable', 'rejected', 'interventions', 'prefix_steps', 'horizon') if kk in rep}, 'preprocessing': msg.get('preprocessing')}
+        if not rep['executable']:
+            rec['refused'] = rep.get('refusal'); cl_state['records'].append(rec); cl_state['refusals'].append(rec['refused']); return None
+        rec['decoded_rows'] = rep['rows']; rec['hand_outputs_used'] = 'MODEL' if not cl_hybrid else 'UNUSED (scripted hand owns the grasp); raw values logged'
+        cl_state['records'].append(rec); return rep['rows']
 body_target = np.array([initial_body[n] for n in body_names], dtype=np.float32)
 hand_open = np.array([open_hand[n] for n in hand_names], dtype=np.float32); hand_first = np.array([first_hand[n] for n in hand_names], dtype=np.float32)
 hand_target = hand_first.copy() if hand_init_applied else hand_open.copy()
@@ -258,10 +314,43 @@ loop_wall_start = time.monotonic()
 for tick in range(steps):
     t_source = (tick - lead_in_steps) * dt + sequence.converted[0]['t_s']
     row = sequence.active_row(t_source) if tick >= lead_in_steps else None
+    if closed_loop and tick >= lead_in_steps:
+        phase = 'replay'
+        if (tick - lead_in_steps) % cl_model_ticks == 0:
+            if cl_state['chunk'] is None or cl_state['chunk_pos'] >= cl_prefix:
+                if cl_state['iteration'] < cl_iters:
+                    rows_ = cl_request_chunk(tick)
+                    if rows_ is None:
+                        aborted = {'sequence': tick, 'reason': 'model_chunk_refused', 'detail': cl_state['refusals'][-1]}; break
+                    cl_state['chunk'] = rows_; cl_state['chunk_pos'] = 0; cl_state['iteration'] += 1
+                else:
+                    cl_state['chunk'] = None   # tail hold: keep the last targets
+            if cl_state['chunk'] is not None:
+                mrow = cl_state['chunk'][cl_state['chunk_pos']]; cl_state['chunk_pos'] += 1; cl_state['model_tick'] += 1
+                for n_, v_ in mrow['body_q_rad'].items():
+                    if n_ in cl_arm_names:
+                        body_target[body_names.index(n_)] = v_
+                if not cl_hybrid:
+                    for sd, vals in mrow['hands'].items():
+                        tg, _ = cl_adapters[sd].to_joint_targets(vals)
+                        for n_, v_ in tg.items():
+                            hand_target[hand_names.index(n_)] = v_
+                command_file.write(json.dumps({'sequence': tick, 'physics_s': world.current_time, 'wall_s': time.monotonic() - loop_wall_start, 'source': 'model_chunk', 'iteration': cl_state['iteration'], 'chunk_pos': cl_state['chunk_pos'] - 1, 'body_targets_rad': {n_: v_ for n_, v_ in mrow['body_q_rad'].items() if n_ in cl_arm_names}}, allow_nan=False) + '\n')
+        if cl_hybrid:
+            palm_now = np.asarray(views['right_base_link'].get_transforms())[0][:3]
+            if cl_state['hand_phase'] == 'open' and np.linalg.norm(palm_now - np.asarray(cl_hybrid['close_trigger']['palm_target_world'])) <= cl_hybrid['close_trigger']['radius_m']:
+                cl_state['hand_phase'] = 'closing'; cl_state['close_started_tick'] = tick
+            if cl_state['hand_phase'] == 'closing':
+                alpha = min(1.0, (tick - cl_state['close_started_tick'] + 1) * dt / float(cl_hybrid['close_duration_s']))
+                hand_target = (1.0 - alpha) * cl_open_targets + alpha * cl_closed_targets
+                if alpha >= 1.0:
+                    cl_state['hand_phase'] = 'closed'
+        row = {'row': cl_state['model_tick'], 't_s': world.current_time, 'body_targets_rad': {}, 'hands': {}}
+        applied_rows.add(0)
     if row is None and lead_in_steps > 0 and not hand_init_applied:
         alpha = min(1.0, (tick + 1) / lead_in_steps)
         hand_target = (1.0 - alpha) * hand_open + alpha * hand_first
-    if row is not None:
+    if row is not None and not closed_loop:
         phase = 'replay'
         if row['row'] not in applied_rows:
             applied_rows.add(row['row'])
@@ -326,6 +415,9 @@ for tick in range(steps):
                                      'captured_after_same_step_render': True, 'views': files_, 'policy_camera': 'RGB 640x480 nominal D435 mount (NOT the dataset stereo camera)',
                                      'closeup_camera': {'eye_world_m': eye.tolist(), 'target_world_m': palm.tolist(), 'follows': 'right_base_link (diagnostic view)'}}) + '\n')
 loop_wall = time.monotonic() - loop_wall_start
+if closed_loop:
+    (out / 'closed_loop_iterations.json').write_text(json.dumps(cl_state['records'], indent=1, allow_nan=False))
+    (cl_ipc / 'STOP').write_text('stop')
 state_file.close(); contact_file.close(); frame_file.close(); command_file.close()
 if object_file is not None:
     object_file.close()
@@ -359,6 +451,9 @@ metrics = {'status': 'PASS' if all(checks.values()) else 'FAIL', 'checks': check
            'real_time_factor_loop': (len(trace) * dt) / loop_wall if loop_wall > 0 else None, 'offline_replay': True, 'wall_since_probe_start_s': time.monotonic() - started_wall,
            'runtime_names': names, 'commanded_body_joints': commanded_body, 'commanded_hand_joints': commanded_hand, 'tracking_abs_error_rad': tracking,
            'rows_applied': len(applied_rows), 'rows_total': len(sequence.converted), 'clipped_rows': sequence.clipped_rows, 'rejections': rejections, 'abort': aborted,
+           'closed_loop': ({'schema': 'closed_loop_v1', 'control_source': closed_loop['control_source'], 'timing': 'non-real-time closed-loop simulation (physics paused while inferring)', 'iterations_completed': cl_state['iteration'], 'iterations_planned': cl_iters, 'prefix_steps': cl_prefix, 'model_step_s': cl_model_ticks * dt,
+                            'observations_published': cl_state['obs_count'], 'distinct_image_hashes': len({r['image_sha256'] for r in cl_state['records']}), 'refusals': cl_state['refusals'], 'hand_phase_final': cl_state['hand_phase'], 'close_started_tick': cl_state['close_started_tick'],
+                            'instruction': closed_loop['instruction'], 'sidecar_ready': (cl_ipc / 'READY').exists(), 'sidecar_exit': json.loads((cl_ipc / 'EXIT').read_text()) if (cl_ipc / 'EXIT').exists() else None} if closed_loop else None),
            'contact_points_during_replay': len(self_contacts), 'contact_pairs': sorted({tuple(sorted((c['actor0'], c['actor1']))) for c in self_contacts})[:40],
            'coupling_error_max_rad': max_coupling, 'fixed_base': True, 'support_constraints': ['pelvis_fixed_to_world_1m_above_origin'], 'ground_present': False, 'objects_present': False,
            'hardware_authorized': False, 'exact_asset_qualified': False, 'source_model': 'Unitree_FTP_G1_provisional_donor', 'manifest_id': manifest.data['manifest_id'], 'manifest_sha256': manifest.sha256,

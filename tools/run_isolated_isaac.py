@@ -74,6 +74,7 @@ def main():
     parser.add_argument('--workspace-lock', type=Path, required=True)
     parser.add_argument('--probe-mode', default='default', help='Bounded mode identifier, validated semantically by the selected probe')
     parser.add_argument('--probe-config', type=Path, help='Private JSON copied and mounted read-only as /probe-config.json')
+    parser.add_argument('--sidecar-spec', type=Path, help='Private JSON for ONE co-admitted model sidecar container sharing a job-private IPC directory (sprint K K4): {image, python, script, mounts:{name:path}, large:[names], env:{...}, idle_timeout_s}. Same isolation (network none, private IPC, uid 1234, GPU); counted inside this job.')
     args = parser.parse_args()
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,95}', args.probe_mode):
         parser.error('Probe mode must be a simple bounded identifier')
@@ -262,6 +263,29 @@ def main():
         manifest['isolation'] = {key: host[key] for key in ['NetworkMode', 'IpcMode', 'Privileged', 'Devices', 'PortBindings', 'CapAdd', 'CapDrop', 'SecurityOpt']}
         manifest['container_id'] = cid
         save()
+        sidecar_id = None
+        if args.sidecar_spec:
+            spec = json.loads(args.sidecar_spec.read_text())
+            ipc_dir = output / 'ipc'; ipc_dir.mkdir(mode=0o777, exist_ok=True); ipc_dir.chmod(0o777)
+            sc_image = json.loads(command('docker', 'image', 'inspect', spec['image'], timeout=10))[0]
+            sc_script = Path(spec['script']).resolve(); sc_script_copy = control / 'sidecar-script.py'; sc_script_copy.write_bytes(sc_script.read_bytes()); sc_script_copy.chmod(0o444)
+            sc_create = ['docker', 'create', '--name', name + '_sidecar', '--label', 'panthera.run_token=' + job['run_token'], '--label', 'panthera.session_id=' + job['session_id'], '--label', 'panthera.sidecar_of=' + name,
+                         '--gpus', 'all', '--user', '1234:1234', '--network', 'none', '--ipc', 'private', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--shm-size', spec.get('shm', '8g'), '--memory', spec.get('memory', '40g'),
+                         '-e', 'PANTHERA_INFERENCE_AUTHORIZED=1', '-e', 'HF_HUB_OFFLINE=1', '-e', 'TRANSFORMERS_OFFLINE=1', '-e', 'HOME=/tmp', '-e', 'PYTHONDONTWRITEBYTECODE=1', '-e', 'PANTHERA_LOOP_TOKEN=' + name, '-e', 'PANTHERA_SIDECAR_IDLE_S=' + str(int(spec.get('idle_timeout_s', 600)))]
+            for k_, v_ in (spec.get('env') or {}).items():
+                sc_create += ['-e', '%s=%s' % (k_, v_)]
+            sc_mounts = [(Path(pth).resolve(), '/mnt/' + nm, 'ro') for nm, pth in spec['mounts'].items()] + [(sc_script_copy, '/job/script.py', 'ro'), (ipc_dir, '/ipc', 'rw')]
+            for path, target, mode in sc_mounts:
+                if ',' in str(path):
+                    raise AdmissionError('Comma in sidecar mount path is unsupported')
+                sc_create += ['--mount', f'type=bind,source={path},target={target}' + (',readonly' if mode == 'ro' else '')]
+            sc_create += ['--entrypoint', '/usr/bin/timeout', sc_image['Id'], '--signal=TERM', '--kill-after=5', str(max(1, int(remaining_execution(job, Clock.now())))), spec.get('python', '/mnt/env/bin/python'), '/job/script.py']
+            sidecar_id = command(*sc_create, timeout=15); job['sidecar_container_id'] = sidecar_id; atomic_json(control / 'job.json', job)
+            sc_ins = json.loads(command('docker', 'inspect', sidecar_id, timeout=5))[0]; sc_host = sc_ins['HostConfig']
+            if sc_host['NetworkMode'] != 'none' or sc_host['IpcMode'] != 'private' or sc_host['Privileged'] or sc_host['Devices'] or sc_host['CapDrop'] != ['ALL'] or sc_ins['Config']['User'] != '1234:1234':
+                raise AdmissionError('Sidecar isolation readback failed')
+            manifest['sidecar'] = {'container_id': sidecar_id, 'image_id': sc_image['Id'], 'image_digests': sc_image.get('RepoDigests', []), 'script_sha256': digest(sc_script_copy), 'mounts': [(str(a_), b_, c_) for a_, b_, c_ in sc_mounts], 'isolation': {key: sc_host[key] for key in ['NetworkMode', 'IpcMode', 'Privileged', 'Devices', 'CapDrop', 'SecurityOpt']}, 'ipc_dir': str(ipc_dir)}
+            command('docker', 'start', sidecar_id, timeout=15); save()
         with (control / 'watchdog.log').open('w') as log:
             watchdog = subprocess.Popen([sys.executable, str(source / 'tools/sim_watchdog.py'),
                                          '--job', str(control / 'job.json'), '--lock-fd', str(lock.fileno())],
@@ -279,6 +303,11 @@ def main():
             result = subprocess.run(['docker', 'start', '--attach', cid], stdout=log, stderr=subprocess.STDOUT,
                                     timeout=remaining).returncode
         manifest['container_exit'] = json.loads(command('docker', 'inspect', cid, timeout=5))[0]['State']['ExitCode']
+        if sidecar_id:
+            subprocess.run(['docker', 'stop', '-t', '15', sidecar_id], capture_output=True, text=True, timeout=40)
+            with (output / 'sidecar.log').open('w') as sl:
+                subprocess.run(['docker', 'logs', sidecar_id], stdout=sl, stderr=subprocess.STDOUT, timeout=30)
+            manifest['sidecar']['exit_code'] = json.loads(command('docker', 'inspect', sidecar_id, timeout=5))[0]['State']['ExitCode']
         result = result or manifest['container_exit']
         if (output / 'probe.json').is_file():
             manifest['probe'] = validate_receipt(output)
@@ -298,6 +327,10 @@ def main():
         result = result or 1
     finally:
         errors = cleanup_container(job) if created else []
+        if job.get('sidecar_container_id'):
+            sc_rm = subprocess.run(['docker', 'rm', '-f', job['sidecar_container_id']], capture_output=True, text=True, timeout=40)
+            if sc_rm.returncode and 'No such container' not in sc_rm.stderr:
+                errors.append('sidecar cleanup failed: ' + sc_rm.stderr.strip())
         if errors:
             manifest['cleanup_errors'] = errors; result = result or 1
         if (control / 'watchdog.json').exists():
