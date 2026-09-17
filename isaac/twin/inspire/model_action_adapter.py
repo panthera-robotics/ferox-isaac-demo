@@ -115,3 +115,70 @@ def mock_chunk(manifest: EmbodimentManifest, horizon: int = 40, *, label='MOCK')
 
 
 __all__ = ['ADAPTER_VERSION', 'validate_chunk', 'mock_chunk', 'BODY_JOINT_ORDER_UNITREE_29']
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Version 2: GR00T N1.6 fine-tune "g1-inspire-piston" (birbirll) action space -> the twin contract.
+#   keys: left_arm(7) right_arm(7) [absolute joint targets after the policy API's own relative->absolute decode],
+#         left_hand(6) right_hand(6) [absolute joint radians, order pinky, ring, middle, index, thumb_pitch, thumb_yaw],
+#         base_height(1) navigate_command(3) [whole-body commands: consumable on a fixed pelvis ONLY when neutral].
+# ---------------------------------------------------------------------------------------------------------------
+PISTON_ADAPTER_VERSION = 'gr00t_n16_piston_inspire_to_contract_v2'
+PISTON_DIMS = {'left_arm': 7, 'right_arm': 7, 'left_hand': 6, 'right_hand': 6, 'base_height': 1, 'navigate_command': 3}
+PISTON_HAND_ORDER = ('little', 'ring', 'middle', 'index', 'thumb_bend', 'thumb_rotation')   # dataset names pinky, ring, middle, index, thumb_pitch, thumb_yaw
+NEUTRAL_BASE = {'base_height_m': (0.70, 0.80), 'navigate_abs_max': 0.05}
+
+
+def validate_piston_chunk(manifest, actions, *, hand_adapters, sample_interval_s=0.02, prefix_steps=None):
+    """Validate one piston-checkpoint chunk and convert it to replay rows (validate-only; nothing is sent).
+
+    hand_adapters: {side: HandCommandAdapter} built with per-axis radian endpoints (identity mapping to the donor joints,
+    declared clipping for thumb_yaw below the donor limit). Returns a report with rows (t_s, body_q_rad, hands) usable by
+    ReplaySequence, per-key classification, interventions (clips) and refusals. A non-neutral base request refuses the chunk.
+    """
+    report = {'adapter': PISTON_ADAPTER_VERSION, 'accepted': {}, 'rejected': {}, 'interventions': [], 'executable': False, 'MOCK': False}
+    missing = [k for k in PISTON_DIMS if k not in actions]; unexpected = [k for k in actions if k not in PISTON_DIMS]
+    if missing or unexpected:
+        raise ContractError('piston action keys mismatch: missing %s, unexpected %s' % (missing, unexpected))
+    chunks = {k: _rows(v) for k, v in actions.items()}
+    horizons = {len(v) for v in chunks.values()}
+    if len(horizons) != 1:
+        raise ContractError('all keys must share one horizon; got %s' % sorted(horizons))
+    H = horizons.pop(); report['horizon'] = H
+    for k, dim in PISTON_DIMS.items():
+        if any(len(r) != dim for r in chunks[k]):
+            raise ContractError('%s rows must have %d entries' % (k, dim))
+        for r in chunks[k]:
+            for x in r:
+                if isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x):
+                    raise ContractError('%s contains a non-finite or non-numeric value' % k)
+    n = H if prefix_steps is None else min(H, int(prefix_steps))
+    rows = []
+    for h in range(n):
+        bh = chunks['base_height'][h][0]; nav = chunks['navigate_command'][h]
+        if not (NEUTRAL_BASE['base_height_m'][0] <= bh <= NEUTRAL_BASE['base_height_m'][1]) or max(abs(v) for v in nav) > NEUTRAL_BASE['navigate_abs_max']:
+            report['rejected']['base'] = 'non-neutral base request at step %d (height %.3f, navigate %s): no whole-body controller on FIXED_PELVIS' % (h, bh, nav)
+            report['refusal'] = report['rejected']['base']; return report
+        body = {}
+        for side in ('left', 'right'):
+            for j, name in enumerate(ARM_ORDER):
+                joint = '%s_%s_joint' % (side, name); lo, hi = manifest.body_limit(joint); v = float(chunks['%s_arm' % side][h][j])
+                if not lo <= v <= hi:
+                    report['rejected']['%s_arm' % side] = 'joint %s target %.3f outside [%.3f, %.3f] at step %d' % (joint, v, lo, hi, h); report['refusal'] = report['rejected']['%s_arm' % side]; return report
+                body[joint] = v
+        hands = {}
+        for side in ('left', 'right'):
+            ad = hand_adapters[side]
+            values = [float(v) for v in chunks['%s_hand' % side][h]]
+            try:
+                targets, info = ad.to_joint_targets(values)
+            except ContractError as exc:
+                report['rejected']['%s_hand' % side] = str(exc); report['refusal'] = str(exc); return report
+            if info['clipped_axes']:
+                report['interventions'].append({'step': h, 'side': side, 'clipped_axes': info['clipped_axes'], 'values': values})
+            hands[side] = values
+        rows.append({'t_s': round(h * sample_interval_s, 6), 'body_q_rad': body, 'hands': hands})
+    report['accepted'] = {'left_arm': 'absolute joint targets by name', 'right_arm': 'absolute joint targets by name', 'left_hand': 'absolute joint radians by name (per-axis endpoints)', 'right_hand': 'absolute joint radians by name (per-axis endpoints)',
+                          'base_height': 'REDUNDANT_WITH_CONSISTENCY_CHECK (neutral on a fixed pelvis)', 'navigate_command': 'REDUNDANT_WITH_CONSISTENCY_CHECK (must be ~0)'}
+    report['rows'] = rows; report['executable'] = True; report['prefix_steps'] = n; report['clipped_steps'] = len(report['interventions'])
+    return report
