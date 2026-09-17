@@ -52,7 +52,10 @@ if closed_loop:
     cl_model_ticks = int(round(float(closed_loop.get('model_step_s', 0.02)) / dt)); assert cl_model_ticks >= 1
     cl_prefix = int(closed_loop['prefix_steps']); cl_iters = int(closed_loop['iterations']); assert 1 <= cl_prefix <= 30 and 1 <= cl_iters <= 200
     cl_tail_ticks = int(round(float(closed_loop.get('tail_hold_s', 0.0)) / dt))
-    steps = min(maximum_steps, int(round(lead_in_s / dt)) + cl_iters * cl_prefix * cl_model_ticks + cl_tail_ticks + 1)
+    # Optional scripted prefix: the package rows are replayed for handover_after_s after the lead-in (e.g. a proven
+    # approach to a hover pose), then the model takes over from the last scripted targets. 0 = hand over at the lead-in end.
+    cl_handover_ticks = int(round(float(closed_loop.get('handover_after_s', 0.0)) / dt)); assert 0 <= cl_handover_ticks
+    steps = min(maximum_steps, int(round(lead_in_s / dt)) + cl_handover_ticks + cl_iters * cl_prefix * cl_model_ticks + cl_tail_ticks + 1)
     cl_token = os.environ['PANTHERA_SIM_RUN_ID']; assert len(cl_token) >= 8   # the admitted run id; the launcher gives the sidecar the same token
     cl_ipc = loop_ipc.layout(out / 'ipc'); cl_timeout_first = float(closed_loop.get('inference_timeout_first_s', 90.0)); cl_timeout = float(closed_loop.get('inference_timeout_s', 20.0))
     cl_arm_names = [n for side in ('left', 'right') for n in ('%s_shoulder_pitch_joint' % side, '%s_shoulder_roll_joint' % side, '%s_shoulder_yaw_joint' % side, '%s_elbow_joint' % side, '%s_wrist_roll_joint' % side, '%s_wrist_pitch_joint' % side, '%s_wrist_yaw_joint' % side)]
@@ -267,6 +270,7 @@ cameras['policy'] = policy; (out / 'frames' / 'policy').mkdir(parents=True)
 frame_file = (out / 'frames.jsonl').open('w', buffering=1); state_file = (out / 'state.jsonl').open('w', buffering=1)
 command_file = (out / 'commands.jsonl').open('w', buffering=1)
 phase = 'lead_in'; aborted = None; rejections = []; applied_rows = set(); lead_in_steps = int(round(lead_in_s / dt))
+cl_start = lead_in_steps + (cl_handover_ticks if closed_loop else 0)
 if closed_loop:
     _limits = {a: manifest.hand_actuator('right', a)['closed_rad'] for a in HAND_ACTUATORS}
     _radian_contract = {'axis_order': list(PISTON_HAND_ORDER), 'open_value': 0.0, 'closed_value': 1.0, 'per_axis_endpoints': {a: {'open_value': 0.0, 'closed_value': _limits[a]} for a in HAND_ACTUATORS}, 'saturation_policy': 'clip_declared'}
@@ -314,9 +318,9 @@ loop_wall_start = time.monotonic()
 for tick in range(steps):
     t_source = (tick - lead_in_steps) * dt + sequence.converted[0]['t_s']
     row = sequence.active_row(t_source) if tick >= lead_in_steps else None
-    if closed_loop and tick >= lead_in_steps:
+    if closed_loop and tick >= cl_start:
         phase = 'replay'
-        if (tick - lead_in_steps) % cl_model_ticks == 0:
+        if (tick - cl_start) % cl_model_ticks == 0:
             if cl_state['chunk'] is None or cl_state['chunk_pos'] >= cl_prefix:
                 if cl_state['iteration'] < cl_iters:
                     rows_ = cl_request_chunk(tick)
@@ -362,8 +366,8 @@ for tick in range(steps):
     if row is None and lead_in_steps > 0 and not hand_init_applied:
         alpha = min(1.0, (tick + 1) / lead_in_steps)
         hand_target = (1.0 - alpha) * hand_open + alpha * hand_first
-    if row is not None and not closed_loop:
-        phase = 'replay'
+    if row is not None and (not closed_loop or tick < cl_start):
+        phase = 'scripted_prefix' if closed_loop else 'replay'
         if row['row'] not in applied_rows:
             applied_rows.add(row['row'])
             for n, v in row['body_targets_rad'].items():
