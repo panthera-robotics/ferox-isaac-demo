@@ -131,6 +131,7 @@ def main(argv=None):
     ap.add_argument('--support', default='FIXED_PELVIS'); ap.add_argument('--controller-descriptor', default='implicit_biased_drive_v1 replay controller (package-hashed gains)')
     ap.add_argument('--require-verified-hand-semantics', action='store_true', help='qualified route: refuse hand axes whose direction/order/scale are not VERIFIED in the source contract')
     ap.add_argument('--scene', type=Path, help='authored scene JSON (table/object/destination) embedded into the probe config; the object is a free rigid body')
+    ap.add_argument('--hand-init', default='urdf_open', choices=['urdf_open', 'first_row_if_nearly_open'], help='probe hand initialisation: at the URDF open pose with a ramp (default) or at the first row when it is an observed nearly-open hand (<= 0.15 rad on every joint)')
     ap.add_argument('--execution-label', default='COMMAND REPLAY', choices=['COMMAND REPLAY', 'SCRIPTED BASELINE', 'MODEL ACTION REPLAY', 'CLOSED LOOP', 'FAILED DIAGNOSTIC', 'DIAGNOSTIC'])
     a = ap.parse_args(argv)
     manifest = EmbodimentManifest.load(a.manifest)
@@ -160,7 +161,7 @@ def main(argv=None):
                'observed_file': 'observed.json' if spec.get('observed') else None}
     (a.out / 'package.json').write_text(json.dumps(package, indent=1) + '\n')
     probe_config = {'package': '/workspace/' + a.mount_name, 'frame_every': a.frame_every, 'lead_in_s': a.lead_in_s, 'maximum_steps': a.maximum_steps,
-                    'package_sha256': sha(a.out / 'package.json'), 'execution_label': a.execution_label}
+                    'package_sha256': sha(a.out / 'package.json'), 'execution_label': a.execution_label, 'hand_init': a.hand_init}
     if a.scene is not None:
         scene = json.loads(a.scene.read_text()); probe_config['scene'] = scene; probe_config['scene_sha256'] = sha(a.scene)
     (a.out / 'probe-config.json').write_text(json.dumps(probe_config, indent=1) + '\n')

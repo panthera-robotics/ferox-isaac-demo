@@ -195,6 +195,19 @@ for side, block in first['hands'].items():
     first_hand.update(block['targets_rad'])
 if any(abs(v) > 1e-9 for v in first_hand.values()):
     assert lead_in_s >= 0.5, 'a closed first hand command needs a lead-in of at least 0.5 s to be reached physically'
+# Optional (config hand_init = 'first_row_if_nearly_open'): when every first-row hand target is within 0.15 rad of the
+# URDF open pose (an OBSERVED nearly-open hand, no interpenetration possible), the actuated hand joints and their
+# coupled joints start AT the first row instead of at the 0 rad hard stop; the sprint I model-action run 01 aborted
+# in its lead-in on the chained-mimic thumb chattering at that stop with the arm at the observed pose.
+hand_init = config.get('hand_init', 'urdf_open'); assert hand_init in ('urdf_open', 'first_row_if_nearly_open')
+hand_init_applied = False
+if hand_init == 'first_row_if_nearly_open' and all(abs(v) <= 0.15 for v in first_hand.values()):
+    for n, v in first_hand.items():
+        q0[names.index(n)] = v
+    for side in ('left', 'right'):
+        for child, spec in manifest.data['hands'][side]['coupled_joints'].items():   # parent-first order in the manifest
+            q0[names.index(child)] = spec['multiplier'] * q0[names.index(spec['parent'])] + spec.get('offset', 0.0)
+    hand_init_applied = True
 robot.set_joint_positions(q0); robot.set_joint_velocities(np.zeros(53, dtype=np.float32))
 views = {n: SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/G1/' + n) for n in ['pelvis', 'torso_link', 'right_wrist_yaw_link', 'left_wrist_yaw_link', 'right_base_link', 'left_base_link']}
 assert all(v.count == 1 for v in views.values())
@@ -226,12 +239,12 @@ command_file = (out / 'commands.jsonl').open('w', buffering=1)
 phase = 'lead_in'; aborted = None; rejections = []; applied_rows = set(); lead_in_steps = int(round(lead_in_s / dt))
 body_target = np.array([initial_body[n] for n in body_names], dtype=np.float32)
 hand_open = np.array([open_hand[n] for n in hand_names], dtype=np.float32); hand_first = np.array([first_hand[n] for n in hand_names], dtype=np.float32)
-hand_target = hand_open.copy()
+hand_target = hand_first.copy() if hand_init_applied else hand_open.copy()
 loop_wall_start = time.monotonic()
 for tick in range(steps):
     t_source = (tick - lead_in_steps) * dt + sequence.converted[0]['t_s']
     row = sequence.active_row(t_source) if tick >= lead_in_steps else None
-    if row is None and lead_in_steps > 0:
+    if row is None and lead_in_steps > 0 and not hand_init_applied:
         alpha = min(1.0, (tick + 1) / lead_in_steps)
         hand_target = (1.0 - alpha) * hand_open + alpha * hand_first
     if row is not None:
@@ -312,7 +325,7 @@ metrics = {'status': 'PASS' if all(checks.values()) else 'FAIL', 'checks': check
            'qualification_validity': qualification_validity, 'live_dependencies': live_dependencies,
            'controller': {'type': manifest.data['controller']['type'], 'provenance': controller.get('provenance'), 'hand_kp_nm_rad': hand_kp, 'hand_kd_nm_s_rad': hand_kd,
                           'body_gains_sha256': canonical_sha256({'kp': kp_body, 'kd': kd_body, 'home': home})},
-           'initialization': {'body': 'first row targets where named, else controller home (written once)', 'hands': 'URDF open pose written once; targets ramped open -> first row over the lead-in', 'lead_in_s': lead_in_s},
+           'initialization': {'body': 'first row targets where named, else controller home (written once)', 'hands': ('first-row (observed, nearly open) pose written once with consistent coupled joints; targets held at the first row' if hand_init_applied else 'URDF open pose written once; targets ramped open -> first row over the lead-in'), 'hand_init': hand_init, 'lead_in_s': lead_in_s},
            'steps': len(trace), 'physics_dt': dt, 'lead_in_s': lead_in_s, 'simulated_s': len(trace) * dt, 'loop_wall_s': loop_wall,
            'real_time_factor_loop': (len(trace) * dt) / loop_wall if loop_wall > 0 else None, 'offline_replay': True, 'wall_since_probe_start_s': time.monotonic() - started_wall,
            'runtime_names': names, 'commanded_body_joints': commanded_body, 'commanded_hand_joints': commanded_hand, 'tracking_abs_error_rad': tracking,
