@@ -36,6 +36,14 @@ def fixed_joint_matrix(root, parent, child):
     raise SystemExit('no fixed joint %s -> %s' % (parent, child))
 
 
+def fixed_joint_origin(root, parent, child):
+    for j in root.findall('joint'):
+        if j.get('type') == 'fixed' and j.find('parent').get('link') == parent and j.find('child').get('link') == child:
+            o = j.find('origin')
+            return {'parent_link': parent, 'child_link': child, 'xyz_m': [float(v) for v in (o.get('xyz') or '0 0 0').split()], 'rpy_rad': [float(v) for v in (o.get('rpy') or '0 0 0').split()]}
+    raise SystemExit('no fixed joint %s -> %s' % (parent, child))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--urdf', type=Path, required=True); ap.add_argument('--out', type=Path, required=True)
@@ -93,7 +101,7 @@ def main(argv=None):
                        'gains_provenance': 'declared per replay package (hashed); NOT hardware firmware gains', 'rate_hz': 200.0,
                        'latency_assumption': 'zero-order hold of the source command at simulator time; no transport latency modelled',
                        'clock_domains': {'physics': 'simulator physics time (5 ms steps)', 'wall': 'host monotonic (watchdogs only)', 'source': 'recording timestamps mapped to physics time from the first row'}},
-        'cameras': {'policy_head_d435_color_nominal': {'mount_frame': 'd435_link (torso_link fixed joint from the donor URDF)', 'image_format': 'RGB8 640x480',
+        'cameras': {'policy_head_d435_color_nominal': {'mount_frame': 'd435_link (torso_link fixed joint from the donor URDF)', 'mount': fixed_joint_origin(root, 'torso_link', 'd435_link'), 'image_format': 'RGB8 640x480',
                                                        'calibration': {'status': 'NOMINAL_NOT_MEASURED', 'horizontal_fov_deg': 69.0, 'source': 'Intel D435 colour datasheet nominal'},
                                                        'timestamp_domain': 'physics time of the rendered step'},
                     'external_front': {'mount_frame': 'world', 'image_format': 'RGBA8 640x640', 'calibration': {'status': 'simulator_only'}, 'timestamp_domain': 'physics time'},

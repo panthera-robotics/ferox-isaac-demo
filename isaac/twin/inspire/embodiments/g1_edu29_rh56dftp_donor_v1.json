@@ -563,6 +563,20 @@
   "cameras": {
     "policy_head_d435_color_nominal": {
       "mount_frame": "d435_link (torso_link fixed joint from the donor URDF)",
+      "mount": {
+        "parent_link": "torso_link",
+        "child_link": "d435_link",
+        "xyz_m": [
+          0.0576235,
+          0.01753,
+          0.42987
+        ],
+        "rpy_rad": [
+          0.0,
+          0.8307767239493009,
+          0.0
+        ]
+      },
       "image_format": "RGB8 640x480",
       "calibration": {
         "status": "NOMINAL_NOT_MEASURED",
