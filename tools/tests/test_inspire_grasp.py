@@ -170,3 +170,17 @@ class ThumbDriveGainTests(unittest.TestCase):
         for bad in (dict(thumb_stiffness_nm_rad=11.), dict(thumb_damping_nm_s_rad=2.), dict(finger_damping_nm_s_rad=1.5), dict(thumb_stiffness_nm_rad=float('nan'))):
             with self.assertRaises(ValueError): GraspConfig(**bad)
         self.assertEqual(GraspConfig.from_dict(json.loads(json.dumps(h.__dict__))).drive_gains('right_thumb_1_joint'), (5., .5))
+
+
+class PerFingerClosingIncrementTests(unittest.TestCase):
+    def test_per_finger_increments_override_shared_value_and_are_bounded(self):
+        from inspire_grasp import GraspConfig
+        limits={n:(0.,1.4381) for n in ['right_index_1_joint','right_middle_1_joint','right_ring_1_joint','right_little_1_joint']}
+        limits.update(right_thumb_1_joint=(0.,1.1641),right_thumb_2_joint=(0.,.5864))
+        g=GraspConfig(finger_closing_increment_rad=.2,finger_closing_increment_rad_per_finger=(.05,.2,.2,.2))
+        closed=g.closed_targets(limits);init=g.initial_targets()
+        self.assertAlmostEqual(closed['right_index_1_joint']-init['right_index_1_joint'],.05)
+        self.assertAlmostEqual(closed['right_middle_1_joint']-init['right_middle_1_joint'],.2)
+        self.assertNotEqual(g.sha256,GraspConfig(finger_closing_increment_rad=.2).sha256)
+        for bad in ((.05,.2,.2),(.3,.2,.2,.2),(float('nan'),0,0,0),'x'):
+            with self.assertRaises(ValueError): GraspConfig(finger_closing_increment_rad_per_finger=bad)

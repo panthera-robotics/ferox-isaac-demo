@@ -25,6 +25,8 @@ class GraspConfig:
     thumb_yaw_initial_rad: float = 1.0900916230524766
     thumb_flexion_initial_rad: float = .4752747391137899
     finger_closing_increment_rad: float = .12
+    # Optional per-finger closing increments (index, middle, ring, little); None = the shared value.
+    finger_closing_increment_rad_per_finger: tuple = None
     thumb_closing_increment_rad: float = .05
     finger_stiffness_nm_rad: float = 1.
     finger_damping_nm_s_rad: float = .05
@@ -61,6 +63,12 @@ class GraspConfig:
         for f in fields(self):
             if f.name in {'schema_version','palm_candidate_id','holder_center_palm_m','holder_orientation_palm_qwxyz','finger_initial_rad'}:continue
             if f.name in {'thumb_stiffness_nm_rad','thumb_damping_nm_s_rad'} and getattr(self,f.name) is None:continue
+            if f.name=='finger_closing_increment_rad_per_finger':
+                v=getattr(self,f.name)
+                if v is None:continue
+                if not isinstance(v,(tuple,list)) or len(v)!=4 or any(type(x) not in (int,float) or not math.isfinite(x) or not 0<=x<=.20 for x in v):
+                    raise ValueError('Per-finger closing increments must be four finite values in 0..0.20 rad')
+                continue
             if f.name in {'solver_position_iterations','solver_velocity_iterations'}:
                 if type(getattr(self,f.name)) is not int or not 1<=getattr(self,f.name)<=255:raise ValueError('Solver iterations must be integers in 1..255')
                 continue
@@ -97,8 +105,14 @@ class GraspConfig:
         result.update(right_thumb_1_joint=self.thumb_yaw_initial_rad,right_thumb_2_joint=self.thumb_flexion_initial_rad)
         return result
 
+    def closing_increment(self,name):
+        if 'thumb' in name:return self.thumb_closing_increment_rad
+        if self.finger_closing_increment_rad_per_finger is not None:
+            return self.finger_closing_increment_rad_per_finger[['index','middle','ring','little'].index(name.split('_')[1])]
+        return self.finger_closing_increment_rad
+
     def closed_targets(self,limits):
-        return {n:min(limits[n][1],q+(self.thumb_closing_increment_rad if 'thumb' in n else self.finger_closing_increment_rad))
+        return {n:min(limits[n][1],q+self.closing_increment(n))
                 for n,q in self.initial_targets().items()}
 
 
