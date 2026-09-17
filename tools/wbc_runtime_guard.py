@@ -22,7 +22,7 @@ def _finite(v):
 
 class RuntimeOwnershipGuard:
     def __init__(self, *, body_names, hand_names, limits, physics_dt, decimation, hand_margin_rad,
-                 max_target_step_rad=0.5, journal=None):
+                 max_target_step_rad=0.5, journal=None, target_limit_excursion_rad=0.5):
         body = tuple(body_names)
         hands = tuple(hand_names)
         if len(body) != 29 or len(set(body)) != 29:
@@ -41,6 +41,11 @@ class RuntimeOwnershipGuard:
         self.body, self.hands, self.limits = body, hands, {n: dict(l) for n, l in limits.items()}
         self.dt, self.decimation, self.margin = float(physics_dt), decimation, float(hand_margin_rad)
         self.max_step = float(max_target_step_rad)
+        # A position-drive target beyond the joint limit is what the checkpoint was trained with
+        # (Isaac Lab JointPositionAction clip=null; PhysX limits stop the joint). It is journaled,
+        # not refused, unless the excursion is gross.
+        self.target_limit_excursion = float(target_limit_excursion_rad)
+        self.targets_beyond_limit = 0
         self.body_owner = None
         self.hand_owner = None
         self.support = 'NONE'
@@ -150,10 +155,16 @@ class RuntimeOwnershipGuard:
             self._refuse('body command names must be exactly the 29 body joints in the declared order')
         if len(targets) != 29 or not all(_finite(v) for v in targets):
             self._refuse('body targets must be 29 finite values')
+        beyond = []
         for n, v in zip(self.body, targets):
             lo, hi = self.limits[n]['lower'], self.limits[n]['upper']
+            if v < lo - self.target_limit_excursion or v > hi + self.target_limit_excursion:
+                self._refuse('target %s=%.4f is more than %.2f rad beyond [%.4f, %.4f]' % (n, v, self.target_limit_excursion, lo, hi))
             if not lo <= v <= hi:
-                self._refuse('target %s=%.4f outside [%.4f, %.4f]' % (n, v, lo, hi))
+                beyond.append((n, round(v, 4)))
+        if beyond:
+            self.targets_beyond_limit += 1
+            self._log('target_beyond_limit', joints=beyond[:6])
         if self.last_targets is not None:
             worst = max(abs(a - b) for a, b in zip(targets, self.last_targets))
             if worst > self.max_step:
@@ -183,4 +194,5 @@ class RuntimeOwnershipGuard:
 
     def summary(self):
         return {'state': self.state, 'body_owner': self.body_owner, 'hand_owner': self.hand_owner, 'support': self.support,
-                'release_sequence': self.release_sequence, 'fault_reason': self.fault_reason, 'journal_entries': len(self.entries)}
+                'release_sequence': self.release_sequence, 'fault_reason': self.fault_reason, 'journal_entries': len(self.entries),
+                'steps_with_targets_beyond_limit': self.targets_beyond_limit}

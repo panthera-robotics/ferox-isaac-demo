@@ -29,7 +29,8 @@ CAMPAIGN_STATE = Path('/home/ubuntu/panthera/sim-workspace/campaign-20260913/evi
 
 
 def cfg(**over):
-    base = dict(arm='bare', seed=0, supported_settle_steps=100, unsupported_steps=2000, policy_warmup_steps=20)
+    base = dict(arm='bare', seed=0, supported_settle_steps=100, unsupported_steps=2000, policy_warmup_steps=20,
+                handover={'ramp_start_step': 5, 'ramp_end_step': 20, 'residual_scale': 0.15, 'history_priming': True})
     base.update(over)
     return StandingABConfig.from_dict(base)
 
@@ -89,7 +90,11 @@ class ConfigTests(unittest.TestCase):
 
     def test_refusals(self):
         with self.assertRaisesRegex(ValueError, 'policy_warmup_steps'):
-            cfg(policy_warmup_steps=100)
+            cfg(policy_warmup_steps=100, handover={'ramp_start_step': 5, 'ramp_end_step': 20, 'residual_scale': 0.15, 'history_priming': True})
+        with self.assertRaisesRegex(ValueError, 'ramp must complete'):
+            cfg(handover={'ramp_start_step': 5, 'ramp_end_step': 30, 'residual_scale': 0.15, 'history_priming': True})
+        d = StandingABConfig.from_dict({'arm': 'bare'})
+        self.assertEqual((d.policy_warmup_steps, d.handover['ramp_end_step']), (250, 250))
         with self.assertRaisesRegex(ValueError, 'arm must be'):
             cfg(arm='thumbchain2')
         with self.assertRaisesRegex(ValueError, 'exact-open zero margin'):
@@ -149,6 +154,29 @@ class RigStabilityTests(unittest.TestCase):
         m = rig_stability_margins(rev3, self.PELVIS_M, self.PELVIS_I)
         self.assertTrue(m['stable'])
         self.assertLess(max(m['kd_dt_over_m'], m['kdr_dt_over_I'], m['kp_dt2_over_m'], m['kr_dt2_over_I']), 0.7)
+
+
+class HandoverTests(unittest.TestCase):
+    def test_rig_scale_ramp(self):
+        from wbc_standing_ab import rig_scale_at
+        c = cfg()
+        self.assertEqual(rig_scale_at(c, 0), 1.0)
+        self.assertEqual(rig_scale_at(c, 4), 1.0)
+        self.assertAlmostEqual(rig_scale_at(c, 12), 1.0 + (7 / 15) * (0.15 - 1.0))
+        self.assertEqual(rig_scale_at(c, 20), 0.15)
+        self.assertEqual(rig_scale_at(c, 99), 0.15)
+
+    def test_feet_must_be_loaded_at_handover(self):
+        c = cfg()
+        rows, events = rows_for(c)
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertTrue(m['checks']['feet_loaded_at_policy_handover'])
+        self.assertGreater(m['peaks']['handover_foot_load_n'], 0.8 * MASS * 9.81)
+        rows, events = rows_for(c)
+        rows[c.policy_warmup_steps - 1]['contacts'] = []          # hanging at hand-over
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertFalse(m['checks']['feet_loaded_at_policy_handover'])
+        self.assertEqual(m['status'], 'FAIL')
 
 
 class EvaluatorTests(unittest.TestCase):
@@ -322,7 +350,7 @@ class EvaluatorTests(unittest.TestCase):
     def test_ingests_the_real_campaign_balance_02_trace(self):
         """Real PhysX rows (donor, 53 joints, no support phase) flow through the evaluator; verdict FAIL is expected."""
         rows = [json.loads(line) for line in CAMPAIGN_STATE.read_text().splitlines() if line.strip()]
-        c = cfg(arm='donor', policy_warmup_steps=0)
+        c = cfg(arm='donor', policy_warmup_steps=1, handover={'ramp_start_step': 0, 'ramp_end_step': 1, 'residual_scale': 0.0, 'history_priming': False})
         limits = json.loads((CAMPAIGN_STATE.parent / 'assembled_asset.json').read_text())['joint_limits']
         mimics = json.loads((CAMPAIGN_STATE.parent / 'assembled_asset.json').read_text())['mimic_map']
         for r in rows:

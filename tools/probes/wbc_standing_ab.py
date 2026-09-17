@@ -24,7 +24,7 @@ def main():
     sys.path[:0] = ['/workspace/ferox_tools', '/workspace/sim-source', '/workspace/ferox_isaac']
     from assembled_balance import GATES, FEET, GROUND, source_foot_spheres, initial_height, roll_pitch, finite_tree, safe_json, source_adjacency
     from wbc_standing_ab import (ARMS, ARM_JOINTS, EXPERIMENTAL_OWNER, StandingABConfig, config_sha256, perturbed_initial, rig_wrench,
-                                 evaluate_standing, command_at, arm_reference_at, guarded_state_view, rig_stability_margins)
+                                 evaluate_standing, command_at, arm_reference_at, guarded_state_view, rig_stability_margins, rig_scale_at)
     from wbc_runtime_guard import GuardRefused, RuntimeOwnershipGuard
     cfg = StandingABConfig.from_dict(json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text()))
     arm = ARMS[cfg.arm]
@@ -317,6 +317,11 @@ def main():
                         guard.claim_body(run_owner)
                     except GuardRefused as exc:
                         abort = {'sequence': sequence, 'reason': 'guard_refused: ' + str(exc), 'phase': phase}; break
+                    if cfg.handover['history_priming']:
+                        primed = policy.prime_history_from_current([0., 0., 0.])
+                        events.append({'sequence': sequence, 'physics_s': float(world.current_time), 'name': 'policy_history_primed',
+                                       'detail': 'all history slots filled from the current measured state; last_action zero'})
+                        event_file.write(json.dumps(events[-1]) + '\n')
                 owner = run_owner
                 inference = policy._policy_counter % policy._decimation == 0
                 if inference:
@@ -336,11 +341,18 @@ def main():
             if supported:
                 pose = np.asarray(pelvis_view.get_transforms())[0].tolist()
                 vel = np.asarray(pelvis_view.get_velocities())[0].tolist()
+                scale = rig_scale_at(cfg, sequence)
+                if sequence == cfg.handover['ramp_end_step']:
+                    rig_target = list(pose)   # re-anchor: the residual PD holds the settled stance, not the hanging pose
+                    events.append({'sequence': sequence, 'physics_s': float(world.current_time), 'name': 'rig_retargeted_to_settled_pose',
+                                   'detail': {'pelvis_xyzw': rig_target, 'scale': scale}})
+                    event_file.write(json.dumps(events[-1]) + '\n')
                 force, torque = rig_wrench(cfg, pose, vel[:3], vel[3:], rig_target, body_mass_kg=facts['source_physical_mass_kg'])
+                force = [scale * v for v in force]; torque = [scale * v for v in torque]
                 # Applied at the pelvis link transform in the world frame (is_global=True); one body in the view.
                 pelvis_view.apply_forces_and_torques_at_position(np.asarray([force], dtype=np.float32), np.asarray([torque], dtype=np.float32),
                                                                  None, np.asarray([0], dtype=np.uint32), True)
-                support = {'kind': 'RIG_WRENCH', 'force_n': force, 'torque_nm': torque, 'target_xyzw': rig_target}
+                support = {'kind': 'RIG_WRENCH', 'force_n': force, 'torque_nm': torque, 'target_xyzw': rig_target, 'scale': scale}
             else:
                 support = {'kind': 'NONE', 'force_n': [0., 0., 0.], 'torque_nm': [0., 0., 0.]}
             try:

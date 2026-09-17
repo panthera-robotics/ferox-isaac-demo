@@ -45,7 +45,16 @@ class StandingABConfig:
     # Before the policy is consulted, the drives hold the policy default pose under the rig for this
     # many steps (the policy's 5-frame history buffer starts at zero; its first actions jerked the legs
     # at up to 2.35 rad/s in rev1 and drove a coupled hand joint at the 0.02 rad margin past its envelope).
-    policy_warmup_steps: int = 100
+    policy_warmup_steps: int = 250
+    # Rev4 hand-over protocol. Between ramp_start_step and ramp_end_step (both < policy_warmup_steps)
+    # the rig's gravity feed-forward AND PD are scaled linearly from 1 to residual_scale while the
+    # drives hold the policy default pose, so the feet take the body weight and the policy is
+    # first consulted standing on the ground (its training distribution), not hanging. At
+    # ramp_end_step the rig target is re-anchored to the current pelvis pose so the residual PD does
+    # not fight the settled stance. history_priming=True fills the policy history from the current
+    # state at hand-over (Isaac Lab reset semantics) instead of the baseline's zero history.
+    handover: dict = field(default_factory=lambda: {'ramp_start_step': 100, 'ramp_end_step': 250, 'residual_scale': 0.15,
+                                                    'history_priming': True})
     # Optional locomotion schedule AFTER release: [[start_s, vx, vy, wz], ...] in the base-heading
     # frame the checkpoint was trained with (heading_command false); commands are held until the
     # next entry. Empty = zero command (standing). With a schedule the drift gates are replaced by
@@ -97,6 +106,15 @@ class StandingABConfig:
             raise ValueError('rig gains and caps must be positive; gravity_feedforward must be a boolean')
         if type(obj.policy_warmup_steps) is not int or not 0 <= obj.policy_warmup_steps < obj.supported_settle_steps:
             raise ValueError('policy_warmup_steps must be an integer below supported_settle_steps')
+        h = obj.handover
+        if set(h) != {'ramp_start_step', 'ramp_end_step', 'residual_scale', 'history_priming'} or not finite_tree({k: v for k, v in h.items() if k != 'history_priming'}):
+            raise ValueError('handover must declare ramp_start_step, ramp_end_step, residual_scale, history_priming')
+        if type(h['history_priming']) is not bool or type(h['ramp_start_step']) is not int or type(h['ramp_end_step']) is not int:
+            raise ValueError('handover fields have the wrong types')
+        if not (0 <= h['ramp_start_step'] < h['ramp_end_step'] <= obj.policy_warmup_steps):
+            raise ValueError('rig ramp must complete before the policy is consulted (ramp_end_step <= policy_warmup_steps)')
+        if not (0.0 <= h['residual_scale'] <= 1.0):
+            raise ValueError('residual_scale must be in [0, 1]')
         last = -1.0
         for entry in obj.command_schedule:
             if not (isinstance(entry, list) and len(entry) == 4 and finite_tree(entry)):
@@ -230,6 +248,17 @@ def rig_stability_margins(cfg, pelvis_mass_kg, pelvis_inertia_min_kg_m2, dt=None
     m['stable'] = all(v < 1.0 for v in m.values())
     m['pelvis_mass_kg'], m['pelvis_inertia_min_kg_m2'], m['dt_s'] = pelvis_mass_kg, pelvis_inertia_min_kg_m2, dt
     return m
+
+
+def rig_scale_at(cfg, step):
+    """Rig scale (feed-forward and PD) at a settle step: 1 before the ramp, residual after."""
+    h = cfg.handover
+    if step < h['ramp_start_step']:
+        return 1.0
+    if step >= h['ramp_end_step']:
+        return h['residual_scale']
+    w = (step - h['ramp_start_step']) / float(h['ramp_end_step'] - h['ramp_start_step'])
+    return 1.0 + w * (h['residual_scale'] - 1.0)
 
 
 def rig_wrench(cfg, pose_xyzw, linear_velocity, angular_velocity, target_xyzw, body_mass_kg=0.0):
@@ -408,6 +437,10 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
                 t = math.sqrt(sum(v * v for v in sup['torque_nm']))
                 peak['settle_rig_force_peak_n'] = max(peak['settle_rig_force_peak_n'], f)
                 peak['settle_rig_torque_peak_nm'] = max(peak['settle_rig_torque_peak_nm'], t)
+                if seq == cfg.policy_warmup_steps - 1:
+                    load = foot_ground_load(row['contacts'])
+                    peak['handover_foot_load_n'] = sum(load.values()) / dt
+                    peak['handover_rig_force_n'] = f
                 continue
             if row['phase'] != 'unsupported':
                 raise ValueError('unknown phase ' + repr(row['phase']))
@@ -470,6 +503,9 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
     peak['mean_foot_ground_load_n'] = mean_load_n
     peak['body_weight_n'] = source_mass_kg * G
     checks['feet_carry_body_weight_after_release'] = unsupported > 0 and mean_load_n >= 0.9 * source_mass_kg * G
+    if 'handover_foot_load_n' in peak:
+        # the policy must be consulted standing on the ground: the feet carry most of the weight at hand-over
+        checks['feet_loaded_at_policy_handover'] = peak['handover_foot_load_n'] >= (1.0 - cfg.handover['residual_scale'] - 0.15) * source_mass_kg * G
     if cfg.command_schedule and reference is not None and rows:
         # R4 measurements over the scheduled interval: travel in the commanded heading, lateral drift,
         # yaw change, and speed after the final stop command. Standing drift gates are not applied to

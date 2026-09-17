@@ -81,8 +81,12 @@ class GuardTests(unittest.TestCase):
         g.admit_body_command('a', BODY, [0.0] * 29)
         with self.assertRaisesRegex(GuardRefused, 'target step'):
             g.admit_body_command('a', BODY, [0.6] + [0.0] * 28)
-        with self.assertRaisesRegex(GuardRefused, 'outside'):
-            g.admit_body_command('a', BODY, [2.5] + [0.0] * 28)
+        g2 = guard(max_target_step_rad=5.0); g2.claim_body('a'); g2.begin_step(0, 0.005)
+        g2.admit_body_command('a', BODY, [2.3] + [0.0] * 28)      # beyond the 2.0 limit: journaled, not refused
+        self.assertEqual(g2.entries[-1]['kind'], 'target_beyond_limit')
+        self.assertEqual(g2.summary()['steps_with_targets_beyond_limit'], 1)
+        with self.assertRaisesRegex(GuardRefused, 'beyond'):
+            g2.admit_body_command('a', BODY, [2.7] + [0.0] * 28)  # gross excursion (> 0.5 rad past the limit)
 
     def test_stale_or_out_of_order_state(self):
         g = guard(); g.claim_body('a')
