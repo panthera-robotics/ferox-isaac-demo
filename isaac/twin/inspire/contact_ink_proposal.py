@@ -64,9 +64,12 @@ def evaluate_v2(strokes, samples, rule=MarkingRule(), proposal=PenUpProposal()):
         if s.pen_down:
             last_stroke = s.stroke_id; last_pen_up_time = None; last_pen_down = s
         elif last_pen_down is not None and last_pen_up_time is None:
-            last_pen_up_time = s.physics_time_s
+            # the pen-up flag time is the first physics step after the last pen-down sample, not the first observed mark
+            last_pen_up_time = last_pen_down.physics_time_s + last_pen_down.physics_dt_s
         if marked and not s.pen_down:
-            step = rule.ink_width_m if previous is None or not previous.nib_board_contact else math.dist(previous.nib_position_board_m[:2], s.nib_position_board_m[:2])
+            # a first pen-up mark is a dot of at least one ink width; later contiguous marks add their travel
+            fresh = previous is None or not previous.nib_board_contact or previous.pen_down
+            step = rule.ink_width_m if fresh else math.dist(previous.nib_position_board_m[:2], s.nib_position_board_m[:2])
             allowed = False
             if last_stroke is not None and last_pen_up_time is not None:
                 end = _endpoint(strokes, last_stroke, start=False)
@@ -86,7 +89,7 @@ def evaluate_v2(strokes, samples, rule=MarkingRule(), proposal=PenUpProposal()):
                 else:
                     leakage_v2 += step
         previous = s
-    accepted_v2 = bool(report.get('valid')) and not ({'incomplete_segment_coverage', 'path_error_exceeds_target', 'no_pen_down_samples', 'contact_force_out_of_range', 'nib_bottomed_out'} & set(report.get('failure_reasons', []))) \
+    accepted_v2 = bool(report.get('valid')) and not ((set(report.get('failure_reasons', [])) - {'pen_up_ink_leakage', 'unintended_contact_bridge'})) \
         and leakage_v2 <= rule.allowed_pen_up_leakage_m and bridge_v2 <= rule.allowed_unintended_bridge_m
     report['proposal'] = {'version': PROPOSAL_VERSION, 'status': STATUS, 'parameters': {f.name: getattr(proposal, f.name) for f in fields(proposal)},
                           'allowed_unloading_ink_m': allowed_unloading, 'allowed_prepress_ink_m': allowed_prepress,
