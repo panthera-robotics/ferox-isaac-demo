@@ -50,8 +50,13 @@ def prepare_source(source, output):
         'exact_RH56E2_equivalence_verified': False}
 
 
-def import_body(source, output_dir, *, fixed_base, palm_builder, left_thumb_builder=None):
-    """Called after SimulationApp startup; palm_builder owns candidate generation."""
+def import_body(source, output_dir, *, fixed_base, palm_builder, left_thumb_builder=None, hands_expected=True):
+    """Called after SimulationApp startup; palm_builder owns candidate generation.
+
+    hands_expected=False imports the bare 29-joint G1 reference (no Inspire subtree):
+    the same importer settings, inertial handling and frame ownership, no palm/thumb
+    collider candidates. Body links and joints are asserted to be the same names.
+    """
     import numpy as np
     import omni.kit.commands
     from pxr import Gf, PhysxSchema, Sdf, Usd, UsdGeom, UsdPhysics
@@ -104,7 +109,10 @@ def import_body(source, output_dir, *, fixed_base, palm_builder, left_thumb_buil
     joints={j.get('name'):j for j in root.findall('joint') if j.get('type')=='revolute'}
     hand_joints={n:j for n,j in joints.items() if any('_'+finger+'_' in n for finger in ['thumb','index','middle','ring','little'])}
     hand_independent={n:j for n,j in hand_joints.items() if j.find('mimic') is None}
-    assert len(joints)==53 and len(hand_joints)==24 and len(hand_independent)==12
+    if hands_expected:
+        assert len(joints)==53 and len(hand_joints)==24 and len(hand_independent)==12
+    else:
+        assert len(joints)==29 and not hand_joints, 'bare reference must carry exactly the 29 body joints'
     usd_joints={p.GetName():p for p in stage.Traverse() if p.IsA(UsdPhysics.RevoluteJoint)}
     assert set(usd_joints)==set(joints)
     for name,prim in usd_joints.items():
@@ -139,13 +147,13 @@ def import_body(source, output_dir, *, fixed_base, palm_builder, left_thumb_buil
         wrapper.RemoveAPI(UsdPhysics.CollisionAPI);wrapper.RemoveAPI(UsdPhysics.MeshCollisionAPI)
         relocations.append({'from':str(wrapper.GetPath()),'to':str(mesh.GetPath()),'approximation':approximation})
     candidates={}
-    for side in ['right','left']:
+    for side in (['right','left'] if hands_expected else []):
         palm=prefix+'/'+side+'_base_link'
         meshes=[p for p in Usd.PrimRange(stage.GetPrimAtPath(palm)) if p.IsA(UsdGeom.Mesh) and p.HasAPI(UsdPhysics.CollisionAPI)]
         assert len(meshes)==1
         candidates[side]=palm_builder(stage,str(meshes[0].GetPath()),palm,side)
     thumbs={}
-    if left_thumb_builder is not None:
+    if left_thumb_builder is not None and hands_expected:
         body=prefix+'/left_thumb_2'
         meshes=[p for p in Usd.PrimRange(stage.GetPrimAtPath(body)) if p.IsA(UsdGeom.Mesh) and p.HasAPI(UsdPhysics.CollisionAPI)]
         assert len(meshes)==1
@@ -158,7 +166,9 @@ def import_body(source, output_dir, *, fixed_base, palm_builder, left_thumb_buil
         mimic_map={n:{'parent':j.find('mimic').get('joint'),'multiplier':float(j.find('mimic').get('multiplier',1)),
             'offset':float(j.find('mimic').get('offset',0))} for n,j in hand_joints.items() if j.find('mimic') is not None},
         joint_limits={n:{k:float(j.find('limit').get(k)) for k in ['lower','upper','effort','velocity']} for n,j in joints.items()},
-        parameter_provenance='public_pinned_Unitree_FTP_donor_plus_declared_provisional_collider',hardware_calibration_verified=False)
+        hands_expected=hands_expected,
+        parameter_provenance=('public_pinned_Unitree_FTP_donor_plus_declared_provisional_collider' if hands_expected
+            else 'public_pinned_Unitree_bare_g1_29dof_rev_1_0_reference'),hardware_calibration_verified=False)
     stage.GetRootLayer().Save()
     (out/'assembled_asset.json').write_text(json.dumps(facts,indent=2,allow_nan=False))
     return dest,facts
