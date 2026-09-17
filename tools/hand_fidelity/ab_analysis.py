@@ -166,3 +166,38 @@ def compare(summary_a, summary_b):
             d['object_in_palm_B_minus_A_m'] = (np.array(b['object_in_palm_m']) - np.array(a['object_in_palm_m'])).round(4).tolist()
         out['phases'][ph] = d
     return out
+
+
+def timeseries(evidence_dir, hand: HandUrdf, *, side='right', joints=None, every=4):
+    """(t, {joint: measured}, {joint: commanded}, object_height_above_table or None) decimated for plotting."""
+    ev = Path(evidence_dir)
+    st = load_state(ev / 'state.jsonl', side)
+    joints = joints or [hand.actuators['index'], hand.actuators['thumb_bend'], hand.actuators['thumb_rotation']]
+    t = st['t'][::every]
+    meas = {j: [st['q'][i][j] for i in range(0, len(st['t']), every)] for j in joints}
+    cmd = {j: [st['cmd'][i].get(j, float('nan')) for i in range(0, len(st['t']), every)] for j in joints}
+    obj = load_object(ev / 'object.jsonl')
+    height = None
+    if obj:
+        height = (np.array([o[0] for o in obj])[::every], np.array([o[1][2] for o in obj])[::every])
+    return t, meas, cmd, height
+
+
+def plot_ab(path, runs, hand: HandUrdf, *, table_top_z=1.19, label_a='A closure_preserving', label_b='B radian_identity'):
+    """Two-run overlay: right index_1 measured vs commanded and the object centre height (world z) vs physics time. Pillow only."""
+    from .media import Chart
+    (ta, ma, ca, ha), (tb, mb, cb, hb) = [timeseries(r, hand) for r in runs]
+    j = hand.actuators['index']
+    tmax = float(max(ta.max(), tb.max()))
+    c = Chart(title='hand-map A/B — right index_1 measured (solid) vs commanded (dashed) and object height — RUNTIME traces (DIAGNOSTIC, fixed pelvis, donor)',
+              xlabel='physics time [s]', ylabel='index_1 [rad]  |  object CENTRE z above the table top [m x 10]', xr=(0, tmax), yr=(0, 1.6),
+              footer='Traces from the immutable evidence directories; object centre height shown as 10 x (z_world - table top); a 6 cm rod at rest reads 0.3. No model in the loop; scripted rows with EXPLORATORY contracts.')
+    c.line(list(zip(ta, ma[j])), (0, 120, 200), label_a + ' index_1 measured')
+    c.line(list(zip(ta, ca[j])), (0, 120, 200), None, width=1, dash=True)
+    c.line(list(zip(tb, mb[j])), (200, 40, 40), label_b + ' index_1 measured')
+    c.line(list(zip(tb, cb[j])), (200, 40, 40), None, width=1, dash=True)
+    if ha is not None:
+        c.line([(t, max(0.0, min(1.6, 10 * (z - table_top_z)))) for t, z in zip(*ha)], (0, 150, 80), label_a + ' object height x10')
+    if hb is not None:
+        c.line([(t, max(0.0, min(1.6, 10 * (z - table_top_z)))) for t, z in zip(*hb)], (230, 130, 0), label_b + ' object height x10')
+    return c.save(path)
