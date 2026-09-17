@@ -573,3 +573,27 @@ class MediaTests(unittest.TestCase):
             p3 = load_diagram(Path(tmp) / 'c.png', rec)
             for p in (p1, p2, p3):
                 self.assertGreater(Path(p).stat().st_size, 5000)
+
+
+class CollisionVolumeTests(unittest.TestCase):
+    def test_closed_cube_volume_and_hull_ratio(self):
+        import struct
+        from hand_fidelity.collision_volume import hull_volume_m3, mesh_volume_m3, read_stl_triangles
+        # unit cube (12 triangles, outward normals via consistent winding)
+        v = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]], float)
+        faces = [(0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7), (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5), (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7)]
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / 'cube.stl'
+            p.write_bytes(b'\0' * 80 + struct.pack('<I', len(faces)) + b''.join(struct.pack('<3f', 0, 0, 0) + b''.join(struct.pack('<3f', *v[i]) for i in f) + b'\0\0' for f in faces))
+            tris = read_stl_triangles(p)
+        self.assertAlmostEqual(mesh_volume_m3(tris), 1.0, 9); self.assertAlmostEqual(hull_volume_m3(tris.reshape(-1, 3)), 1.0, 9)
+
+    @unittest.skipUnless(DONOR_URDF.exists(), 'donor URDF not in this checkout')
+    def test_donor_links_visual_equals_collision_and_concave_links_are_bounded(self):
+        from hand_fidelity.collision_volume import summary
+        h = HandUrdf(DONOR_URDF, 'right')
+        if not h.meshes_available():
+            self.skipTest('meshes absent')
+        s = summary(h)
+        self.assertTrue(s['all_visual_equal_collision_file'])
+        self.assertGreater(s['links']['right_base_link']['hull_over_mesh'], 2.0); self.assertLess(s['links']['right_index_2']['hull_over_mesh'], 1.5)
