@@ -274,5 +274,19 @@ class ReplaySequenceTests(unittest.TestCase):
         self.assertEqual(base, again)
 
 
+
+class ModelGeneratedSourceKind(unittest.TestCase):
+    def test_model_generated_requires_model_observation_and_adapter_refs(self):
+        m = EmbodimentManifest.load(MANIFEST_PATH)
+        contracts = {'right': {'axis_order': list(HAND_ACTUATORS), 'open_value': 0.0, 'closed_value': 1.0, 'saturation_policy': 'reject'}}
+        rows = [{'t_s': 0.0, 'body_q_rad': {'right_elbow_joint': 0.1}, 'hands': {'right': [0.0] * 6}}]
+        with self.assertRaises(ContractError):
+            ReplaySequence(m, rows, hand_contracts=contracts, source={'source_id': 'x', 'kind': 'model_generated', 'provenance': 'p'})
+        seq = ReplaySequence(m, rows, hand_contracts=contracts, source={'source_id': 'x', 'kind': 'model_generated', 'provenance': 'p', 'model_id': 'm', 'observation_ref': 'o', 'adapter': 'a'})
+        self.assertEqual(seq.source['kind'], 'model_generated')
+        with self.assertRaises(ContractError):
+            ReplaySequence(m, rows, hand_contracts=contracts, source={'source_id': 'x', 'kind': 'recording', 'provenance': 'p'})
+
+
 if __name__ == '__main__':
     unittest.main()

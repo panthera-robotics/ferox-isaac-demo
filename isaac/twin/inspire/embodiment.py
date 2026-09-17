@@ -32,6 +32,7 @@ BODY_JOINT_ORDER_UNITREE_29 = (
 HAND_ACTUATORS = ('index', 'middle', 'ring', 'little', 'thumb_bend', 'thumb_rotation')
 SIDES = ('left', 'right')
 SATURATION_POLICIES = ('reject', 'clip_declared')
+SOURCE_KINDS = ('real_recording', 'simulator_recording', 'synthetic_test_sequence', 'model_generated')   # model outputs are never relabelled as recordings
 
 
 class ContractError(ValueError):
@@ -362,8 +363,10 @@ class ReplaySequence:
         for k in ('source_id', 'kind', 'provenance'):
             if k not in source:
                 raise ContractError('source.%s required' % k)
-        if source['kind'] not in ('real_recording', 'simulator_recording', 'synthetic_test_sequence'):
-            raise ContractError('source.kind must be real_recording, simulator_recording or synthetic_test_sequence')
+        if source['kind'] not in SOURCE_KINDS:
+            raise ContractError('source.kind must be one of %s' % (SOURCE_KINDS,))
+        if source['kind'] == 'model_generated' and not all(k in source for k in ('model_id', 'observation_ref', 'adapter')):
+            raise ContractError('model_generated sources must name model_id, observation_ref and adapter')
         self.manifest, self.source = manifest, dict(source)
         self.adapters = {s: HandCommandAdapter(manifest, s, c) for s, c in hand_contracts.items()}
         self.rows, self.converted, self.clipped_rows = list(rows), [], []
