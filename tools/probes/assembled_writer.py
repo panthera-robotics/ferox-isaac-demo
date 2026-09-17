@@ -82,7 +82,7 @@ def validate_config(config):
     if config['workflow_mode'] not in ('complete', 'prefix_cancel'):
         raise ValueError('one explicit workflow required')
     finite(config['letter_height_m'], 'letter_height_m', .005, .08)
-    finite(config['maximum_wall_s'], 'maximum_wall_s', 10., 600.)
+    finite(config['maximum_wall_s'], 'maximum_wall_s', 10., 1700.)   # probe's own stop; the admitted launcher deadline (<= 1800 s batch) still governs
     if type(config['maximum_steps']) is not int or not 200 <= config['maximum_steps'] <= 120000:
         raise ValueError('bounded maximum_steps required')
     for key in ('gain_provenance', 'feedforward_provenance'):
