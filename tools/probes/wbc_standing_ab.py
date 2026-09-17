@@ -304,8 +304,8 @@ def main():
         assert float(world.current_time) == initial['physics_s']
         rig_target = list(initial['link_poses_world_xyzw']['pelvis'])
         release_sequence = -1 if cfg.training_reset else cfg.supported_settle_steps - 1
-        total_steps = (0 if cfg.training_reset else cfg.supported_settle_steps) + cfg.unsupported_steps
-        phase = 'unsupported' if cfg.training_reset else 'supported_settle'
+        total_steps = (cfg.landing_steps if cfg.training_reset else cfg.supported_settle_steps) + cfg.unsupported_steps
+        phase = ('landing' if cfg.landing_steps > 0 else 'unsupported') if cfg.training_reset else 'supported_settle'
         if cfg.training_reset:
             # Never supported: declare it so, prime the history as at an Isaac Lab reset, own the body from step 0.
             guard.declare_never_supported(EXPERIMENTAL_OWNER if cfg.arm_override['enabled'] else 'named_policy_single_writer')
@@ -330,6 +330,11 @@ def main():
                     event_file.write(json.dumps(events[-1]) + '\n')
             except GuardRefused as exc:
                 abort = {'sequence': sequence, 'reason': 'guard_refused: ' + str(exc), 'phase': phase}; break
+            if cfg.training_reset and sequence == cfg.landing_steps and phase == 'landing':
+                phase = 'unsupported'
+                events.append({'sequence': sequence, 'physics_s': float(world.current_time), 'name': 'landing_window_end',
+                               'detail': 'standing gates scored from this row (declared landing_settle_s)'})
+                event_file.write(json.dumps(events[-1]) + '\n')
             warmup = (not cfg.training_reset) and sequence < cfg.policy_warmup_steps
             command_velocity = [0., 0., 0.]
             arm_reference = None

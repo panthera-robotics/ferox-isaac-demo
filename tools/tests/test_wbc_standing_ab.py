@@ -119,8 +119,35 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(m['actuator_profile'], 'checkpoint_training_env')
         self.assertEqual(m['status'], 'PASS')
 
+    def test_training_reset_landing_window(self):
+        c = cfg(training_reset=True, landing_settle_s=1.0)
+        self.assertEqual(c.landing_steps, 200)
+        with self.assertRaisesRegex(ValueError, 'training_reset runs only'):
+            cfg(landing_settle_s=1.0)
+        rows, events = rows_for(c)
+        rows = [r for r in rows if r['phase'] == 'unsupported']
+        rows = rows + [json.loads(json.dumps(rows[-1])) for _ in range(200)]      # 2200 rows: 200 landing + 2000 scored
+        for i, r in enumerate(rows):
+            r['sequence'] = i
+            r['physics_s'] = (i + 1) * 0.005
+            r['policy_inference_this_step'] = i % 4 == 0
+            if i < 200:
+                r['phase'] = 'landing'
+                r['contacts'] = [] if i < 90 else r['contacts']          # airborne, then landing
+                r['link_poses_world_xyzw']['pelvis'][0] = 0.06 * min(i, 30) / 30.0   # 6 cm slide during landing
+        events = [{'sequence': -1, 'name': 'support_release'}]
+        journal = [{'kind': 'body_owner', 'owner': 'probe_default_pose_warmup'}, {'kind': 'hand_owner'}, {'kind': 'body_owner_handover'},
+                   {'kind': 'body_owner', 'owner': 'named_policy_single_writer'}, {'kind': 'support_release', 'never_supported': True, 'sequence': -1}]
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY, guard_entries=journal)
+        self.assertEqual(m['status'], 'PASS', m['first_failed_gate'])       # the landing slide is not scored; the stance after it is
+        self.assertEqual(m['unsupported_steps'], 2000)
+        self.assertTrue(m['checks']['ownership_journal_consistent'])
+        rows[5]['phase'] = 'unsupported'                                    # mislabelled landing row
+        with_bad = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertFalse(with_bad['checks']['finite_complete_measured_state'])
+
     def test_training_reset_mode(self):
-        c = cfg(training_reset=True)
+        c = cfg(training_reset=True, landing_settle_s=0.0)
         self.assertEqual(c.training_reset_z, 0.8)
         with self.assertRaisesRegex(ValueError, 'training_reset'):
             cfg(training_reset=True, training_reset_z=1.5)

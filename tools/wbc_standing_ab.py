@@ -85,6 +85,14 @@ class StandingABConfig:
     # run is 'unsupported' and the recorded release is declared at sequence -1 (never supported).
     training_reset: bool = False
     training_reset_z: float = 0.8
+    # Landing window for training_reset runs: rows with physics time < landing_settle_s are labelled
+    # 'landing' — the policy's learned landing from the spawn height (unsupported, safety gates apply:
+    # limits, overspeed, non-foot contact, abort) — and scoring of the standing gates (drift, height,
+    # foot contact, weight on feet, saturation) starts at the first row at/after it. Declared before the
+    # trial; the scored interval is unsupported_steps long AFTER the window. The run sK-standing-ab-01-
+    # bare-smoke-training-reset-g landed (right foot slid 6.4 cm, pelvis 6.3 cm by step 27) and then held
+    # a steady stance; measured from 1.0 s its drift was 2.6 mm pelvis / < 1 mm feet.
+    landing_settle_s: float = 0.0
     execution_label: str = 'UNSUPPORTED_STANDING_AB'
 
     @classmethod
@@ -178,11 +186,19 @@ class StandingABConfig:
             raise ValueError('training_reset must be a boolean and training_reset_z in [0.6, 1.0] m')
         if obj.training_reset and obj.supported_settle_steps != 100:
             raise ValueError('training_reset ignores the settle; declare supported_settle_steps=100 (the minimum) for accounting')
+        if not (isinstance(obj.landing_settle_s, (int, float)) and 0.0 <= obj.landing_settle_s <= 3.0):
+            raise ValueError('landing_settle_s must be in [0, 3] s')
+        if not obj.training_reset and obj.landing_settle_s != 0.0:
+            raise ValueError('landing_settle_s applies to training_reset runs only')
         if obj.actuator_profile not in ('asset', 'checkpoint_training_env'):
             raise ValueError('actuator_profile must be asset or checkpoint_training_env')
         if obj.execution_label != 'UNSUPPORTED_STANDING_AB':
             raise ValueError('execution_label is fixed for this probe')
         return obj
+
+    @property
+    def landing_steps(self):
+        return int(round(self.landing_settle_s / GATES['physics_dt_s'])) if self.training_reset else 0
 
     @property
     def nonqualifying(self):
@@ -373,10 +389,12 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
         releases = [e for e in guard_entries if e.get('kind') == 'support_release']
         owners = [e.get('owner') for e in guard_entries if e.get('kind') == 'body_owner']
         run_owner = EXPERIMENTAL_OWNER if cfg.arm_override['enabled'] else 'named_policy_single_writer'
-        checks['ownership_journal_consistent'] = (kinds[:3] == ['body_owner', 'hand_owner', 'support'] and len(releases) == 1
+        head_ok = (kinds[:3] == ['body_owner', 'hand_owner', 'support']) if not cfg.training_reset else (
+            kinds[:2] == ['body_owner', 'hand_owner'] and 'support' not in kinds and bool(releases) and releases[0].get('never_supported') is True)
+        checks['ownership_journal_consistent'] = (head_ok and len(releases) == 1
                                                   and owners[-1] == run_owner and len(owners) <= 2
                                                   and not any(k == 'refused' for k in kinds)
-                                                  and (not release or releases[0].get('sequence') == release[0]['sequence'] + 1))
+                                                  and (not release or cfg.training_reset or releases[0].get('sequence') == release[0]['sequence'] + 1))
     peak = {'pelvis_xy_drift_m': 0., 'abs_roll_pitch_rad': 0., 'joint_limit_violation_rad': 0., 'coupling_error_rad': 0.,
             'foot_xy_drift_m': {n: 0. for n in FEET}, 'foot_height_rise_m': {n: 0. for n in FEET},
             'support_force_after_release_n': 0., 'max_abs_joint_velocity_rad_s': 0., 'drive_near_cap_steps': 0,
@@ -476,8 +494,19 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
                     peak['handover_foot_load_n'] = sum(load.values()) / dt
                     peak['handover_rig_force_n'] = f
                 continue
+            if row['phase'] == 'landing':
+                if not cfg.training_reset or seq >= cfg.landing_steps:
+                    raise ValueError('landing rows only in training_reset runs, before landing_settle_s')
+                if sup.get('kind') != 'NONE':
+                    checks['no_support_after_release'] = False
+                    event(seq, 'hidden_support_after_release', {'kind': sup.get('kind')})
+                if other:
+                    checks['no_loaded_nonfoot_ground_contact'] = False
+                continue
             if row['phase'] != 'unsupported':
                 raise ValueError('unknown phase ' + repr(row['phase']))
+            if cfg.training_reset and seq < cfg.landing_steps:
+                raise ValueError('rows inside the landing window must be labelled landing')
             if release_seq is None or seq <= release_seq:
                 raise ValueError('unsupported row without a preceding recorded release')
             if sup.get('kind') != 'NONE' or any(v != 0. for v in sup['force_n']) or any(v != 0. for v in sup['torque_nm']):
@@ -529,7 +558,7 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
     checks['both_feet_have_measured_loaded_contact'] = unsupported > 0 and all(contact_steps[n] >= unsupported - 1 for n in FEET)
     checks['source_joint_limits_within_gate'] = peak['joint_limit_violation_rad'] <= GATES['maximum_joint_limit_violation_rad']
     checks['hand_coupling_within_gate'] = peak['coupling_error_rad'] <= GATES['maximum_coupling_error_rad']
-    expected_inferences = math.ceil(max(0, len(rows) - cfg.policy_warmup_steps) / 4)
+    expected_inferences = math.ceil(max(0, len(rows) - (0 if cfg.training_reset else cfg.policy_warmup_steps)) / 4)
     checks['controller_active_throughout'] = inference_steps >= expected_inferences - 1
     checks['no_sustained_drive_saturation'] = (peak['drive_near_cap_steps'] <= 0.05 * max(1, len(rows))
                                                and peak['drive_near_cap_consecutive_max'] <= 20)
@@ -594,7 +623,7 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
             'hand_margin_rad': cfg.hand_margin_rad, 'execution_label': cfg.execution_label,
             'controller_mode': 'policy', 'source_mass_kg': source_mass_kg, 'physics_dt': dt,
             'diagnostics': dict(cfg.diagnostics), 'nonqualifying_diagnostic': cfg.nonqualifying, 'actuator_profile': cfg.actuator_profile,
-            'training_reset': cfg.training_reset,
+            'training_reset': cfg.training_reset, 'landing_settle_s': cfg.landing_settle_s if cfg.training_reset else None,
             'verdict_scope': ('NONQUALIFYING_DIAGNOSTIC: isolates one hand effect; cannot be the delivered twin' if cfg.nonqualifying
                               else ('EXPERIMENTAL_COMBINED_CONTROLLER (arm override v0): not a qualified WBC; candidate only' if cfg.arm_override['enabled']
                                     else 'candidate for adoption if PASS')),
