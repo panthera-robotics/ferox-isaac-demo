@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Post-hoc error chain of one contact-writing run, link by link, in the board frame (u, v, n):
 
-  A  planned board path (approved job 'tip')            -> FK(approved q) with the declared tool tip   [IK/plan residual]
+  W  FK(approved arm q, planned fixed waist)            -> FK(approved arm q, measured waist)          [waist deflection]
+  A  planned board path (approved job 'tip')            -> FK(approved q, planned fixed waist)         [IK/plan residual]
   B  approved q at the streamed index                   -> effective actuator reference q              [streamer clamp/lag]
   C  effective reference q                              -> measured q                                  [joint tracking]
   D  FK(measured q) with the declared tool tip          -> measured nib tip (PhysX body)               [tool frame + grip slip + spring]
@@ -25,7 +26,6 @@ from urdf_kinematics import UrdfKinematics  # noqa: E402
 
 ARM_JOINTS = ['left_shoulder_pitch_joint', 'left_shoulder_roll_joint', 'left_shoulder_yaw_joint', 'left_elbow_joint', 'left_wrist_roll_joint', 'left_wrist_pitch_joint', 'left_wrist_yaw_joint',
               'right_shoulder_pitch_joint', 'right_shoulder_roll_joint', 'right_shoulder_yaw_joint', 'right_elbow_joint', 'right_wrist_roll_joint', 'right_wrist_pitch_joint', 'right_wrist_yaw_joint']
-WRIST_T_RUBBER = np.eye(4); WRIST_T_RUBBER[:3, 3] = [0.0415, -0.003, 0.]   # right_rubber_hand on right_wrist_yaw_link (G1 URDF)
 
 
 def stats(rows):
@@ -41,7 +41,7 @@ def main(argv=None):
     ap.add_argument('--run', type=Path, required=True); ap.add_argument('--fixture', type=Path, required=True); ap.add_argument('--out', type=Path)
     a = ap.parse_args(argv)
     run = a.run
-    k = UrdfKinematics(run / 'assembled_physical.urdf')
+    k = UrdfKinematics(a.fixture / 'planner_donor_open_hands.urdf')   # the planner's own model: FK consistent with the approved plan
     tb = yaml.safe_load((a.fixture / 'scene_tool_board.yaml').read_text())
     U, V, N = [np.asarray(tb['board'][key], dtype=float) for key in ('u_axis_unit', 'v_axis_unit', 'normal_unit')]
     O = np.asarray(tb['board']['origin_xyz_m'], dtype=float) + np.array([0., 0., 1.])   # pelvis fixed 1 m above the origin
@@ -57,11 +57,13 @@ def main(argv=None):
         r = json.loads(line); refs[r['physics_sequence']] = r['joints']
     to_board = lambda p: np.array([(p - O) @ U, (p - O) @ V, (p - O) @ N])
 
+    fixed_waist = job['model']['fixed_joint_positions_rad']
+
     def fk_tip(q_named, compression):
-        W = k.transforms(q_named, pelvis)['right_wrist_yaw_link'] @ WRIST_T_RUBBER
+        W = k.transforms(q_named, pelvis)['right_rubber_hand']
         return (W @ np.append(tip_w - compression * axis_w, 1.))[:3]
 
-    chain = {'A_plan_minus_fk_plan': {}, 'B_fk_plan_minus_fk_reference': {}, 'C_fk_reference_minus_fk_measured': {}, 'D_fk_measured_minus_nib': {}, 'total_plan_minus_nib': {}, 'E_nib_minus_contact': {}}
+    chain = {'A_plan_minus_fk_plan': {}, 'W_waist_deflection': {}, 'B_fk_plan_minus_fk_reference': {}, 'C_fk_reference_minus_fk_measured': {}, 'D_fk_measured_minus_nib': {}, 'total_plan_minus_nib': {}, 'E_nib_minus_contact': {}}
     per = {key: {} for key in chain}
     tangential = {}
     samples = []
@@ -74,19 +76,21 @@ def main(argv=None):
         q_plan = dict(zip(ARM_JOINTS, sample['q']))
         base = dict(zip(state[seq]['runtime_names'], state[seq]['q_rad']))          # measured
         q_plan_full = dict(base, **q_plan)
+        q_plan_fixed = dict(q_plan_full, **fixed_waist)
         q_ref_full = dict(base, **{n: refs[seq][n]['implicit_target_rad'] - refs[seq][n]['feedforward_bias_rad'] for n in ARM_JOINTS if n in refs[seq]})
         comp = float(r['spring_compression_m']) if r['spring_compression_m'] is not None else 0.
         planned = np.asarray(sample['tip'], dtype=float) + np.array([0., 0., 1.])
-        fk_plan = fk_tip(q_plan_full, compression_nominal)      # the planner places the nominally compressed tip on the plane
+        fk_plan_fixed = fk_tip(q_plan_fixed, compression_nominal)   # the planner places the nominally compressed tip on the plane
+        fk_plan = fk_tip(q_plan_full, compression_nominal)          # same arm targets through the MEASURED (deflected) waist
         fk_ref = fk_tip(q_ref_full, comp)
         fk_meas = fk_tip(base, comp)
         nib = np.asarray(r['tip_world_m'], dtype=float)
         contact = np.asarray(r['position_board_m'], dtype=float) if r['nib_board_contact'] else None
-        row = {'A': to_board(planned) - to_board(fk_plan), 'B': to_board(fk_plan) - to_board(fk_ref), 'C': to_board(fk_ref) - to_board(fk_meas),
+        row = {'A': to_board(planned) - to_board(fk_plan_fixed), 'W': to_board(fk_plan_fixed) - to_board(fk_plan), 'B': to_board(fk_plan) - to_board(fk_ref), 'C': to_board(fk_ref) - to_board(fk_meas),
                'D': to_board(fk_meas) - to_board(nib), 'T': to_board(planned) - to_board(nib)}
         if contact is not None:
             row['E'] = to_board(nib) - contact
-        for key, name in (('A', 'A_plan_minus_fk_plan'), ('B', 'B_fk_plan_minus_fk_reference'), ('C', 'C_fk_reference_minus_fk_measured'), ('D', 'D_fk_measured_minus_nib'), ('T', 'total_plan_minus_nib'), ('E', 'E_nib_minus_contact')):
+        for key, name in (('A', 'A_plan_minus_fk_plan'), ('W', 'W_waist_deflection'), ('B', 'B_fk_plan_minus_fk_reference'), ('C', 'C_fk_reference_minus_fk_measured'), ('D', 'D_fk_measured_minus_nib'), ('T', 'total_plan_minus_nib'), ('E', 'E_nib_minus_contact')):
             if key in row:
                 per[name].setdefault(phase, []).append(row[key].tolist())
         # tangential vs geometric split of the total error along the planned stroke direction (pen-down only)
@@ -103,12 +107,15 @@ def main(argv=None):
     report = {'schema_version': 1, 'kind': 'writer_error_chain', 'run': str(run), 'fixture': str(a.fixture), 'board_axes': 'u, v, n of the fixture board frame (mm)', 'samples': len(samples),
               'declared_tool_tip_wrist_m': tip_w.tolist(), 'compression_nominal_m': compression_nominal,
               'chain_by_phase': chain, 'tangential_vs_geometric_pen_down': tangential_stats,
-              'reading': 'A: IK/plan residual; B: streamer/reference lag (approved q vs effective reference at the same physics step); C: joint tracking; D: tool frame + grip slip + spring geometry; E: nib body vs contact point. Total = A+B+C+D per sample. Along-stroke error is phase lag, across-stroke error is geometric path error.'}
+              'reading': 'A: IK/plan residual (planner model); W: fixed-waist deflection; B: streamer/reference lag (approved q vs effective reference at the same physics step); C: joint tracking; D: tool frame + grip slip + spring geometry; E: nib body vs contact point. Total = A+W+B+C+D per sample. Along-stroke error is phase lag, across-stroke error is geometric path error.'}
     out = a.out or (run / 'error_chain.json')
     out.write_text(json.dumps(report, indent=2))
     (run / 'error_chain_samples.jsonl').write_text('\n'.join(json.dumps(s) for s in samples) + '\n')
-    print(json.dumps({'samples': len(samples), 'pen_down_total': chain['total_plan_minus_nib'].get('pen_down'), 'pen_down_C_tracking': chain['C_fk_reference_minus_fk_measured'].get('pen_down'),
-                      'pen_down_B_reference_lag': chain['B_fk_plan_minus_fk_reference'].get('pen_down'), 'pen_down_D_tool': chain['D_fk_measured_minus_nib'].get('pen_down'), 'tangential': tangential_stats}, indent=1))
+    summary = {'samples': len(samples), 'tangential_vs_geometric_pen_down': tangential_stats}
+    for name, value in chain.items():
+        if value.get('pen_down'):
+            summary[name + '_pen_down'] = {'mean_mm': value['pen_down']['mean_mm'], 'p95_abs_mm': value['pen_down']['p95_abs_mm']}
+    print(json.dumps(summary, indent=1))
 
 
 if __name__ == '__main__':
