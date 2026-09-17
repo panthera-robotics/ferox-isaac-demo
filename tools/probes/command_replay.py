@@ -112,6 +112,39 @@ key = UsdLux.DistantLight.Define(world.stage, '/World/Key'); key.CreateIntensity
 UsdGeom.Xformable(key).AddRotateXYZOp().Set(Gf.Vec3f(-35, -25, -40))
 add_reference_to_stage(str(asset), '/World/G1')
 root = UsdGeom.Xformable(world.stage.GetPrimAtPath('/World/G1')); root.ClearXformOpOrder(); root.AddTranslateOp().Set(Gf.Vec3d(0, 0, 1.))
+scene = config.get('scene')
+scene_facts = None
+if scene:
+    # Authored diagnostic manipulation scene (pelvis frame at (0,0,1)): static table, ONE free rigid object (retained holder dimensions),
+    # a visual destination disk. The object is a genuine rigid body: no weld, attachment, kinematic hold or external force at any time.
+    from pxr import UsdShade
+    pz = 1.0
+    def material(path, static, dynamic):
+        obj = UsdShade.Material.Define(world.stage, path); api = UsdPhysics.MaterialAPI.Apply(obj.GetPrim())
+        api.CreateStaticFrictionAttr(static); api.CreateDynamicFrictionAttr(dynamic); api.CreateRestitutionAttr(0.); return obj
+    mat = material('/World/Scene/ContactMaterial', float(scene.get('static_friction', .7)), float(scene.get('dynamic_friction', .6)))
+    def collide(prim):
+        UsdPhysics.CollisionAPI.Apply(prim); capi = PhysxSchema.PhysxCollisionAPI.Apply(prim); capi.CreateContactOffsetAttr(.001); capi.CreateRestOffsetAttr(0.)
+        UsdShade.MaterialBindingAPI.Apply(prim).Bind(mat, UsdShade.Tokens.weakerThanDescendants, 'physics')
+    t = scene['table']   # {"center_xy_m": [x, y], "size_m": [sx, sy, thickness], "top_z_pelvis_m": z}
+    table = UsdGeom.Cube.Define(world.stage, '/World/Scene/Table'); table.CreateSizeAttr(1.)
+    table.AddTranslateOp().Set(Gf.Vec3d(t['center_xy_m'][0], t['center_xy_m'][1], pz + t['top_z_pelvis_m'] - t['size_m'][2] / 2.)); table.AddScaleOp().Set(Gf.Vec3f(*t['size_m']))
+    table.CreateDisplayColorAttr([Gf.Vec3f(.92, .92, .9)]); collide(table.GetPrim())   # static collider (no RigidBodyAPI)
+    o = scene['object']  # {"center_pelvis_m": [x,y,z], "radius_m": r, "length_m": L, "mass_kg": m}
+    obj_x = UsdGeom.Xform.Define(world.stage, '/World/Scene/Object'); obj_x.AddTranslateOp().Set(Gf.Vec3d(o['center_pelvis_m'][0], o['center_pelvis_m'][1], pz + o['center_pelvis_m'][2]))
+    obj_prim = obj_x.GetPrim(); UsdPhysics.RigidBodyAPI.Apply(obj_prim).CreateKinematicEnabledAttr(False)
+    massapi = UsdPhysics.MassAPI.Apply(obj_prim); massapi.CreateMassAttr(float(o['mass_kg']))
+    r_, L_, m_ = float(o['radius_m']), float(o['length_m']), float(o['mass_kg'])
+    massapi.CreateDiagonalInertiaAttr(Gf.Vec3f(m_ * (3 * r_ * r_ + L_ * L_) / 12., m_ * (3 * r_ * r_ + L_ * L_) / 12., m_ * r_ * r_ / 2.)); massapi.CreatePrincipalAxesAttr(Gf.Quatf(1.))
+    PhysxSchema.PhysxContactReportAPI.Apply(obj_prim).CreateThresholdAttr(0.); PhysxSchema.PhysxRigidBodyAPI.Apply(obj_prim).CreateSleepThresholdAttr(0.)
+    cyl = UsdGeom.Cylinder.Define(world.stage, '/World/Scene/Object/Body'); cyl.CreateAxisAttr('Z'); cyl.CreateRadiusAttr(r_); cyl.CreateHeightAttr(L_)
+    cyl.CreateDisplayColorAttr([Gf.Vec3f(.15, .15, .18)]); collide(cyl.GetPrim())
+    d = scene['destination']  # {"center_xy_m": [x, y], "radius_m": r}
+    disk = UsdGeom.Cylinder.Define(world.stage, '/World/Scene/DestinationMarker'); disk.CreateAxisAttr('Z'); disk.CreateRadiusAttr(float(d['radius_m'])); disk.CreateHeightAttr(.002)
+    disk.AddTranslateOp().Set(Gf.Vec3d(d['center_xy_m'][0], d['center_xy_m'][1], pz + t['top_z_pelvis_m'] + .001)); disk.CreateDisplayColorAttr([Gf.Vec3f(.2, .6, .9)])   # visual only, no collision
+    scene_facts = {'table_top_z_world_m': pz + t['top_z_pelvis_m'], 'object_center_world_m': [o['center_pelvis_m'][0], o['center_pelvis_m'][1], pz + o['center_pelvis_m'][2]], 'object': o, 'table': t, 'destination': d,
+                   'object_prim': '/World/Scene/Object', 'object_is_free_rigid_body': True, 'attachments_or_welds': None, 'material': {'static': float(scene.get('static_friction', .7)), 'dynamic': float(scene.get('dynamic_friction', .6))},
+                   'floor_present': False, 'support': 'pelvis fixed to the world at z = 1.0 m (shown in all views)'}
 for p in world.stage.Traverse():
     if p.HasAPI(PhysxSchema.PhysxArticulationAPI):
         api = PhysxSchema.PhysxArticulationAPI(p); api.CreateSolverPositionIterationCountAttr(32); api.CreateSolverVelocityIterationCountAttr(8)
@@ -165,6 +198,10 @@ if any(abs(v) > 1e-9 for v in first_hand.values()):
 robot.set_joint_positions(q0); robot.set_joint_velocities(np.zeros(53, dtype=np.float32))
 views = {n: SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/G1/' + n) for n in ['pelvis', 'torso_link', 'right_wrist_yaw_link', 'left_wrist_yaw_link', 'right_base_link', 'left_base_link']}
 assert all(v.count == 1 for v in views.values())
+object_view = SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/Scene/Object') if scene else None
+if object_view is not None:
+    assert object_view.count == 1
+object_file = (out / 'object.jsonl').open('w', buffering=1) if scene else None
 
 # Cameras: two external views and the policy camera on the torso at the donor URDF d435 mount.
 cameras = {}
@@ -224,6 +261,10 @@ for tick in range(steps):
          'body_command_names': body_names, 'body_command_rad': body_target.tolist(), 'hand_command_names': hand_names, 'hand_command_rad': hand_target.tolist(),
          'link_poses_world_xyzw': poses, 'coupling_error_rad': coupling}
     trace.append(r); state_file.write(json.dumps(r, allow_nan=False) + '\n')
+    if object_view is not None:
+        op = np.asarray(object_view.get_transforms())[0].tolist(); ov = np.asarray(object_view.get_velocities())[0].tolist()
+        object_file.write(json.dumps({'sequence': tick, 'physics_s': world.current_time, 'phase': phase, 'source_row': None if row is None else row['row'], 'pose_world_xyzw': op, 'linear_velocity_m_s': ov[:3], 'angular_velocity_rad_s': ov[3:],
+                                      'right_palm_pose_world_xyzw': poses['right_base_link']}, allow_nan=False) + '\n')
     violated = {n: float(q[i]) for i, n in enumerate(names) if q[i] < facts['joint_limits'][n]['lower'] - .1 or q[i] > facts['joint_limits'][n]['upper'] + .1}
     overspeed = {n: float(dq[i]) for i, n in enumerate(names) if abs(dq[i]) > 2 * facts['joint_limits'][n]['velocity']}
     if violated or overspeed:
@@ -245,6 +286,8 @@ for tick in range(steps):
                                      'closeup_camera': {'eye_world_m': eye.tolist(), 'target_world_m': palm.tolist(), 'follows': 'right_base_link (diagnostic view)'}}) + '\n')
 loop_wall = time.monotonic() - loop_wall_start
 state_file.close(); contact_file.close(); frame_file.close(); command_file.close()
+if object_file is not None:
+    object_file.close()
 
 # Tracking: commanded target vs measured position per commanded joint (replay phase only).
 replay_rows = [r for r in trace if r['phase'] == 'replay']
@@ -278,9 +321,9 @@ metrics = {'status': 'PASS' if all(checks.values()) else 'FAIL', 'checks': check
            'coupling_error_max_rad': max_coupling, 'fixed_base': True, 'support_constraints': ['pelvis_fixed_to_world_1m_above_origin'], 'ground_present': False, 'objects_present': False,
            'hardware_authorized': False, 'exact_asset_qualified': False, 'source_model': 'Unitree_FTP_G1_provisional_donor', 'manifest_id': manifest.data['manifest_id'], 'manifest_sha256': manifest.sha256,
            'grasp_qualification': 'NOT_RUN', 'writing_qualification': 'NOT_RUN', 'standing_qualification': 'NOT_RUN', 'real_data_agreement': 'NOT_TESTED_IN_PROBE (host-side comparison only)',
-           'media_labels': {'fixture': 'FIXED PELVIS - COMMAND REPLAY (no ground, no object)', 'embodiment': 'PROVISIONAL G1 + bilateral FTP donor hands',
+           'media_labels': {'fixture': 'FIXED PELVIS - %s%s' % (config.get('execution_label', 'COMMAND REPLAY'), ': free rigid object on a table (no floor)' if scene else ' (no ground, no object)'), 'embodiment': 'PROVISIONAL G1 + bilateral FTP donor hands',
                             'source': '%s: %s' % (sequence.source['kind'], sequence.source['source_id']), 'qualification': 'Software/physics integration only; no grasp, writing, standing or real-data agreement qualification'},
-           'source_property_audit': 'live_inertia_audit.json'}
+           'source_property_audit': 'live_inertia_audit.json', 'scene': scene_facts, 'task_evaluation': 'host-side (tools/task_eval.py) against the frozen criteria; not computed in the probe'}
 (out / 'metrics.json').write_text(json.dumps(metrics, indent=2, allow_nan=False))
 world.stage.GetRootLayer().Export(str(out / 'assembled_scene.usda'))
 artifacts = [str(p.relative_to(out)) for p in out.rglob('*') if p.is_file() and p.name not in ['run.json', 'probe.json', 'console.log', 'executed_probe.py', 'executed_launcher.py', 'uncommitted.patch']]
