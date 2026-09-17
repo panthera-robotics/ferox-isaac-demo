@@ -254,6 +254,18 @@ def main(argv=None):
         fig.suptitle(f'Grasp candidate pose: {json.dumps({k: (round(v, 4) if isinstance(v, float) else v) for k, v in q.items()})}\nholder centre (palm) {c} r=12 mm; resolved coupled joints: ' +
                      ', '.join(f'{k.replace("right_","")}={vals[k]:.3f}' for k in coupled), fontsize=7)
         fig.tight_layout(); fig.savefig(a.out / 'task_pose_views.png', dpi=150); plt.close(fig)
+        # Visible (visual mesh, grey) versus URDF collision mesh (red) overlay at the open pose and the task pose.
+        # The PhysX cooked hulls are a further convex decomposition of the collision mesh (recorded per run in
+        # backend_shapes.json / collision_candidate.json); this overlay shows the source collision geometry only.
+        cv_open = world_vertices(cmeshes, fk(joints, {}, a.root_link)[0]); vv_open = world_vertices(meshes, fk(joints, {}, a.root_link)[0])
+        cv_task = world_vertices(cmeshes, fr)
+        fig, axes = plt.subplots(2, 2, figsize=(11, 11))
+        for row, (vv, cv, label) in enumerate(((vv_open, cv_open, 'open pose'), (tv, cv_task, 'task pose'))):
+            for ax, plane in zip(axes[row], ('yz', 'xz')):
+                project(ax, vv, plane, labels=False, color_by={n: '0.6' for n in vv}, title=f'{label} ({plane}): visual grey, URDF collision red')
+                project(ax, cv, plane, labels=False, color_by={n: 'tab:red' for n in cv}, scale_bar=False)
+        fig.suptitle('Same right hand, both panes: visible mesh vs source collision mesh (PhysX cooked convex hulls not shown; see per-run backend_shapes.json)', fontsize=8)
+        fig.tight_layout(); fig.savefig(a.out / 'visual_vs_collision_overlay.png', dpi=150); plt.close(fig)
         ledger['task_pose'] = {'independent_rad': q, 'coupled_rad': {k: vals[k] for k in coupled}}
         (a.out / 'hand_geometry_ledger.json').write_text(json.dumps(ledger, indent=2))
     print(json.dumps({'chirality': ledger['chirality']['verdict'], 'envelope_extent_m': ledger['open_hand_envelope_root_m']['extent'], 'segments': seg, 'independent': independent}, indent=1))
