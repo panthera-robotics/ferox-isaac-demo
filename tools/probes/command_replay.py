@@ -56,7 +56,7 @@ if closed_loop:
     cl_token = os.environ['PANTHERA_SIM_RUN_ID']; assert len(cl_token) >= 8   # the admitted run id; the launcher gives the sidecar the same token
     cl_ipc = loop_ipc.layout(out / 'ipc'); cl_timeout_first = float(closed_loop.get('inference_timeout_first_s', 90.0)); cl_timeout = float(closed_loop.get('inference_timeout_s', 20.0))
     cl_arm_names = [n for side in ('left', 'right') for n in ('%s_shoulder_pitch_joint' % side, '%s_shoulder_roll_joint' % side, '%s_shoulder_yaw_joint' % side, '%s_elbow_joint' % side, '%s_wrist_roll_joint' % side, '%s_wrist_pitch_joint' % side, '%s_wrist_yaw_joint' % side)]
-    cl_state = {'iteration': 0, 'chunk': None, 'chunk_pos': 0, 'model_tick': 0, 'records': [], 'refusals': [], 'hand_phase': 'open', 'close_started_tick': None, 'obs_count': 0}
+    cl_state = {'iteration': 0, 'chunk': None, 'chunk_pos': 0, 'model_tick': 0, 'records': [], 'refusals': [], 'hand_phase': 'open', 'close_started_tick': None, 'obs_count': 0, 'interventions': [], 'ramp_to': None}
 
 from isaacsim import SimulationApp  # noqa: E402
 app = SimulationApp({'headless': True, 'renderer': 'RaytracedLighting'})
@@ -327,9 +327,21 @@ for tick in range(steps):
                     cl_state['chunk'] = None   # tail hold: keep the last targets
             if cl_state['chunk'] is not None:
                 mrow = cl_state['chunk'][cl_state['chunk_pos']]; cl_state['chunk_pos'] += 1; cl_state['model_tick'] += 1
+                cl_state['ramp_from'] = body_target.copy(); cl_state['ramp_to'] = body_target.copy(); cl_state['ramp_tick0'] = tick
                 for n_, v_ in mrow['body_q_rad'].items():
                     if n_ in cl_arm_names:
-                        body_target[body_names.index(n_)] = v_
+                        i_ = body_names.index(n_); prev_ = float(body_target[i_]); lim_ = float(closed_loop.get('max_step_rad', 1e9))
+                        v_lim = min(max(v_, prev_ - lim_), prev_ + lim_)
+                        if abs(v_lim - v_) > 1e-9:
+                            cl_state['interventions'].append({'tick': tick, 'physics_s': world.current_time, 'axis': n_, 'kind': 'rate_limit', 'requested_rad': v_, 'applied_rad': v_lim, 'max_step_rad': lim_})
+                        cl_state['ramp_to'][i_] = v_lim
+        if cl_state.get('ramp_to') is not None and closed_loop.get('interpolate_within_step', True):
+            a_ = min(1.0, (tick - cl_state['ramp_tick0'] + 1) / cl_model_ticks)
+            for n_ in cl_arm_names:
+                i_ = body_names.index(n_); body_target[i_] = (1.0 - a_) * cl_state['ramp_from'][i_] + a_ * cl_state['ramp_to'][i_]
+        elif cl_state.get('ramp_to') is not None:
+            for n_ in cl_arm_names:
+                i_ = body_names.index(n_); body_target[i_] = cl_state['ramp_to'][i_]
                 if not cl_hybrid:
                     for sd, vals in mrow['hands'].items():
                         tg, _ = cl_adapters[sd].to_joint_targets(vals)
@@ -417,6 +429,7 @@ for tick in range(steps):
 loop_wall = time.monotonic() - loop_wall_start
 if closed_loop:
     (out / 'closed_loop_iterations.json').write_text(json.dumps(cl_state['records'], indent=1, allow_nan=False))
+    (out / 'closed_loop_interventions.json').write_text(json.dumps(cl_state['interventions'], indent=1, allow_nan=False))
     (cl_ipc / 'STOP').write_text('stop')
 state_file.close(); contact_file.close(); frame_file.close(); command_file.close()
 if object_file is not None:
@@ -452,7 +465,7 @@ metrics = {'status': 'PASS' if all(checks.values()) else 'FAIL', 'checks': check
            'runtime_names': names, 'commanded_body_joints': commanded_body, 'commanded_hand_joints': commanded_hand, 'tracking_abs_error_rad': tracking,
            'rows_applied': len(applied_rows), 'rows_total': len(sequence.converted), 'clipped_rows': sequence.clipped_rows, 'rejections': rejections, 'abort': aborted,
            'closed_loop': ({'schema': 'closed_loop_v1', 'control_source': closed_loop['control_source'], 'timing': 'non-real-time closed-loop simulation (physics paused while inferring)', 'iterations_completed': cl_state['iteration'], 'iterations_planned': cl_iters, 'prefix_steps': cl_prefix, 'model_step_s': cl_model_ticks * dt,
-                            'observations_published': cl_state['obs_count'], 'distinct_image_hashes': len({r['image_sha256'] for r in cl_state['records']}), 'refusals': cl_state['refusals'], 'hand_phase_final': cl_state['hand_phase'], 'close_started_tick': cl_state['close_started_tick'],
+                            'observations_published': cl_state['obs_count'], 'distinct_image_hashes': len({r['image_sha256'] for r in cl_state['records']}), 'refusals': cl_state['refusals'], 'interventions': {'count': len(cl_state['interventions']), 'by_axis': {a_: sum(1 for i_ in cl_state['interventions'] if i_['axis'] == a_) for a_ in {i_['axis'] for i_ in cl_state['interventions']}}, 'max_step_rad': closed_loop.get('max_step_rad'), 'interpolate_within_step': closed_loop.get('interpolate_within_step', True)}, 'hand_phase_final': cl_state['hand_phase'], 'close_started_tick': cl_state['close_started_tick'],
                             'instruction': closed_loop['instruction'], 'sidecar_ready': (cl_ipc / 'READY').exists(), 'sidecar_exit': json.loads((cl_ipc / 'EXIT').read_text()) if (cl_ipc / 'EXIT').exists() else None} if closed_loop else None),
            'contact_points_during_replay': len(self_contacts), 'contact_pairs': sorted({tuple(sorted((c['actor0'], c['actor1']))) for c in self_contacts})[:40],
            'coupling_error_max_rad': max_coupling, 'fixed_base': True, 'support_constraints': ['pelvis_fixed_to_world_1m_above_origin'], 'ground_present': False, 'objects_present': False,
