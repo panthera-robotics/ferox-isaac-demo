@@ -262,3 +262,17 @@ class EvaluatorTests(unittest.TestCase):
 if __name__ == '__main__':
     os.environ.setdefault('OMP_NUM_THREADS', '2')
     unittest.main(verbosity=1)
+
+
+class GuardedStateView(unittest.TestCase):
+    def test_mimic_joints_are_projected_out_by_name(self):
+        from wbc_standing_ab import guarded_state_view
+        names = BODY + ['right_index_1_joint', 'right_index_2_joint', 'left_thumb_1_joint']
+        q = list(range(len(names))); dq = [float(-i) for i in range(len(names))]
+        n, qq, dd = guarded_state_view(names, q, dq, BODY + ['left_thumb_1_joint', 'right_index_1_joint'])
+        self.assertEqual(n[-2:], ['left_thumb_1_joint', 'right_index_1_joint'])
+        self.assertEqual(qq[-2:], [len(names) - 1, len(names) - 3]); self.assertEqual(dd[-1], -(len(names) - 3))
+        with self.assertRaises(ValueError):
+            guarded_state_view(names, q[:-1], dq, BODY)
+        with self.assertRaises(ValueError):
+            guarded_state_view(names, q, dq, BODY + ['missing_joint'])

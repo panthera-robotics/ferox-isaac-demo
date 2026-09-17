@@ -169,6 +169,17 @@ def rig_wrench(cfg, pose_xyzw, linear_velocity, angular_velocity, target_xyzw, b
     return force, torque
 
 
+def guarded_state_view(names, q, dq, guarded_names):
+    """Project the full runtime state (body + independent + mimic hand joints) onto the joints the
+    ownership guard owns (body + independent hand joints), by name. Mimic joints are never commanded,
+    so the guard does not own them; the evaluator still checks every runtime joint against its limits."""
+    names = list(names)
+    if len(q) != len(names) or len(dq) != len(names):
+        raise ValueError('runtime state width mismatch')
+    idx = [names.index(n) for n in guarded_names]
+    return [names[i] for i in idx], [q[i] for i in idx], [dq[i] for i in idx]
+
+
 def foot_ground_load(contacts):
     """|impulse| of loaded foot-ground contacts (N*s) per step, by foot."""
     feet, _ = ground_contacts(contacts)

@@ -23,7 +23,7 @@ def main():
     assert os.environ.get('PANTHERA_PROBE_MODE') == 'wbc-standing-ab'
     sys.path[:0] = ['/workspace/ferox_tools', '/workspace/sim-source', '/workspace/ferox_isaac']
     from assembled_balance import GATES, FEET, GROUND, source_foot_spheres, initial_height, roll_pitch, finite_tree, safe_json, source_adjacency
-    from wbc_standing_ab import ARMS, StandingABConfig, config_sha256, perturbed_initial, rig_wrench, evaluate_standing
+    from wbc_standing_ab import ARMS, StandingABConfig, config_sha256, perturbed_initial, rig_wrench, evaluate_standing, guarded_state_view
     from wbc_runtime_guard import GuardRefused, RuntimeOwnershipGuard
     cfg = StandingABConfig.from_dict(json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text()))
     arm = ARMS[cfg.arm]
@@ -332,9 +332,13 @@ def main():
             world.step(render=False)
             row = read_state(); last = row
             try:
-                guard.observe_state(names, row['q_rad'], row['dq_rad_s'])
+                guard.observe_state(*guarded_state_view(names, row['q_rad'], row['dq_rad_s'], body_names + hand_names))
             except GuardRefused as exc:
-                abort = {'sequence': sequence, 'reason': 'guard_refused: ' + str(exc), 'phase': phase}; rows.append(row); break
+                abort = {'sequence': sequence, 'reason': 'guard_refused: ' + str(exc), 'phase': phase}
+                row.update(sequence=sequence, phase=phase, support=support, command_velocity=[0., 0., 0.],
+                    body_command_owner=owner, body_command_names=body_names,
+                    body_command_rad=[float(targets[n]) for n in body_names], hand_command_names=hand_names, hand_command_rad=hand_command)
+                rows.append(row); break
             row.update(sequence=sequence, phase=phase, support=support, command_velocity=[0., 0., 0.],
                 body_command_owner=owner, body_command_names=body_names,
                 body_command_rad=[float(targets[n]) for n in body_names], hand_command_names=hand_names, hand_command_rad=hand_command,
