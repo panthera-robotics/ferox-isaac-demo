@@ -13,6 +13,8 @@ with evidence labels, what the **donor asset** is — never what the installed h
 | `nominal_reference.py` | RH56E2 manual Figure 5 angle definitions and product-page mass, datum-reconciled comparison rows |
 | `measurement_intake.py` | intake validation of installed-measurement files (evidence class, split, finiteness, non-negative uncertainty, units, repeat agreement, vector dimensions, evidence-file sha256, coverage) |
 | `candidate_invalidation.py` | what a candidate asset edit (widened coupled-joint lower limits, mirrored base_link inertial) does to the manifest's bound qualifications — on a temporary copy; the active asset and manifest are never written |
+| `ab_source_specs.py` | paired replay source specs (identical rows, closure-preserving vs radian-identity contracts) for the hand-map import-policy diagnostic; free-sweep row builder |
+| `conversion_profile.py` | opt-in typed conversion profile: distinct value types, bound kinds, per-axis evidence, refusals (side/order/type/dimension/non-finite/range/provenance), operating margin, raw-to-effective trace, coupled-joint consistency, dependency hashes; qualified profiles fail closed on unresolved semantics |
 | `report.py` | builds `HAND_FIDELITY_DELTA.json` for both hands |
 
 ## Reproduce

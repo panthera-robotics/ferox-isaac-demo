@@ -19,6 +19,7 @@ from hand_fidelity.load_record import load_record, validate_load_record
 from hand_fidelity.measurement_intake import IntakeError, validate_intake
 from isaac.twin.inspire.embodiment import ContractError, EmbodimentManifest, HandCommandAdapter, ReplaySequence
 CARD = ("index", "middle", "ring", "little", "thumb_bend", "thumb_rotation")
+import hand_fidelity.command_semantics as cs
 
 ROOT = Path(__file__).resolve().parents[2]
 # donor assets live outside the repository (campaign generated/ftp_donor); override with HAND_FIDELITY_DONOR_DIR
@@ -369,3 +370,83 @@ class AbSourceSpecTests(unittest.TestCase):
         m = EmbodimentManifest.load(MANIFEST)
         for spec in pair.values():
             self.assertEqual(ReplaySequence(m, spec['rows'], hand_contracts=spec['hand_contracts'], source=spec['source'], maximum_step_s=spec['maximum_step_s']).summary()['clipped_rows'], [])
+
+
+class ConversionProfileTests(unittest.TestCase):
+    """Opt-in typed conversion profile: types, bounds kinds, evidence, refusals, margins, trace, dependencies."""
+
+    def _profile(self, **kw):
+        from hand_fidelity.conversion_profile import ConversionProfile, PISTON_ROUTE_PROVENANCE
+        m = EmbodimentManifest.load(MANIFEST)
+        args = dict(profile_id='piston-closure-v1', side='right', source_convention='unitree_inspire_hand_urdf_radians_v1', manifest=m, policy='closure_preserving',
+                    operating_margin_rad=0.02, provenance=PISTON_ROUTE_PROVENANCE, urdf_sha256='63097d73')
+        args.update(kw)
+        return ConversionProfile(**args)
+
+    def test_trace_types_bounds_evidence_and_margin(self):
+        p = self._profile()
+        tr = p.apply([1.3, 1.3, 1.3, 1.3, 0.0, -0.1], side='right', declared_order=cs.NATIVE_ORDER, declared_type='radians')
+        self.assertEqual(tr['raw_type'], 'radians'); self.assertEqual(tr['clipped_axes'], []); self.assertEqual(tr['interventions'], [])
+        self.assertAlmostEqual(tr['closure']['thumb_rotation'], 0.0, 9)                                       # -0.1 is that model's open endpoint
+        self.assertAlmostEqual(tr['target_rad_unmargined']['right_thumb_1_joint'], 0.0, 9)
+        self.assertAlmostEqual(tr['effective_rad']['right_thumb_1_joint'], 0.02, 9)                           # operating margin applied at the open end
+        self.assertAlmostEqual(tr['margin_applied']['right_thumb_1_joint'], 0.02, 9)
+        self.assertAlmostEqual(tr['effective_rad']['right_index_1_joint'], 1.3 / 1.7 * 1.4381, 9)
+        self.assertIn('coordinate_endpoint', tr['bounds']['index']['target_bound_kind']); self.assertIn('operating_margin', tr['bounds']['index']['margin_kind'])
+        self.assertEqual(tr['evidence']['thumb_rotation']['direction'], 'VERIFIED_SOURCE'); self.assertEqual(tr['evidence']['index']['scale'], 'UNRESOLVED')   # datum identity unverified
+
+    def test_refusals_side_order_type_dimension_nonfinite_range(self):
+        p = self._profile()
+        good = [0.5, 0.5, 0.5, 0.5, 0.1, 0.3]
+        with self.assertRaises(ContractError):
+            p.apply(good, side='left')
+        with self.assertRaises(ContractError):
+            p.apply(good, side='right', declared_order=cs.CARD_ORDER)
+        with self.assertRaises(ContractError):
+            p.apply(good, side='right', declared_type='closure')
+        with self.assertRaises(ContractError):
+            p.apply(good[:5], side='right')
+        with self.assertRaises(ContractError):
+            p.apply([float('nan')] + good[1:], side='right')
+        with self.assertRaises(ContractError):
+            p.apply([1.8, 0.5, 0.5, 0.5, 0.1, 0.3], side='right')                        # above the source range under a reject policy
+        with self.assertRaises(ContractError):
+            self._profile(require_verified=True)                                          # scale UNRESOLVED -> a qualified profile cannot be built
+        with self.assertRaises(ContractError):
+            self._profile(policy='radian_identity', exploratory=False, declared_clip_tolerance=0.1)   # a clip needs an exploratory profile
+
+    def test_radian_identity_profile_refuses_the_dataset_thumb_yaw_unless_a_clip_is_declared(self):
+        pid = self._profile(profile_id='piston-identity-v1', policy='radian_identity')
+        with self.assertRaises(ContractError):
+            pid.apply([1.3, 1.3, 1.3, 1.3, 0.0, -0.1], side='right')
+        clip = self._profile(profile_id='piston-identity-clip-v1', policy='radian_identity', declared_clip_tolerance=0.1)
+        tr = clip.apply([1.3, 1.3, 1.3, 1.3, 0.0, -0.1], side='right')
+        self.assertEqual(tr['clipped_axes'], ['thumb_rotation']); self.assertEqual(tr['interventions'][0]['kind'], 'declared_clip')
+        self.assertAlmostEqual(tr['effective_rad']['right_index_1_joint'], 1.3, 9); self.assertAlmostEqual(tr['effective_rad']['right_thumb_1_joint'], 0.02, 9)
+        self.assertNotEqual(pid.sha256, clip.sha256)
+
+    def test_monotone_round_trip_and_endpoints(self):
+        p = self._profile()
+        last = -1.0
+        for q in (0.0, 0.3, 0.85, 1.3, 1.7):
+            eff = p.apply([q] * 4 + [0.0, -0.1], side='right')['effective_rad']['right_index_1_joint']
+            self.assertGreater(eff, last); last = eff
+        self.assertAlmostEqual(p.apply([1.7] * 4 + [0.5, 1.3], side='right')['target_rad_unmargined']['right_index_1_joint'], 1.4381, 9)
+        c, _ = cs.to_closure('unitree_inspire_hand_urdf_radians_v1', [0.85] * 4 + [0.25, 0.6])
+        back = cs.from_closure('unitree_inspire_hand_urdf_radians_v1', c)
+        self.assertTrue(all(abs(a - b) < 1e-12 for a, b in zip(back, [0.85] * 4 + [0.25, 0.6])))
+
+    @unittest.skipUnless(DONOR_URDF.exists(), 'donor URDF not in this checkout')
+    def test_coupled_joints_stay_inside_their_limits_with_the_margin(self):
+        p = self._profile()
+        tr = p.apply([1.7, 1.7, 1.7, 1.7, 0.5, 1.3], side='right')
+        cc = p.coupled_consistency(tr, DONOR_URDF)
+        self.assertEqual(len(cc), 6); self.assertTrue(all(v['inside'] for v in cc.values()), cc)
+        tr0 = p.apply([0.0, 0.0, 0.0, 0.0, 0.0, -0.1], side='right'); cc0 = p.coupled_consistency(tr0, DONOR_URDF)
+        self.assertTrue(all(v['margin_to_lower_rad'] > 0.015 for v in cc0.values()), cc0)   # margin keeps the coupled joints off their lower limits
+
+    def test_dependencies_and_profile_hash_change_with_policy_and_margin(self):
+        a = self._profile(); b = self._profile(operating_margin_rad=0.03); c = self._profile(policy='radian_identity')
+        self.assertEqual(len({a.sha256, b.sha256, c.sha256}), 3)
+        d = a.dependencies(); self.assertEqual(d['manifest_sha256'], a.manifest.sha256); self.assertIn('invalidates_when_changed', d)
+        self.assertEqual(a.describe()['axis_order'], list(cs.NATIVE_ORDER))
