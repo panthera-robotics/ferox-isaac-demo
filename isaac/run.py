@@ -27,6 +27,7 @@ if _os.environ.get("CAPTURE_FULLSCREEN", "").strip().lower() in ("1", "true", "y
 simulation_app = SimulationApp(_sim_cfg)
 
 import argparse
+import json
 import logging
 import os
 import time
@@ -72,6 +73,11 @@ G1_POLICY_JOINT_SEAM = os.environ.get("G1_POLICY_JOINT_SEAM", "").strip().lower(
 # PhysX DOF order of the training/deployment USD g1_29dof_rev_1_0 (cfed730b...) as published on /joint_states by this
 # runtime (2026-09-18, run panthera_ext_4a1dc56eb69b42fc) = the order of deploy.yaml default_joint_pos / joint_ids_map
 # targets / the policy action vector.
+# PANTHERA (Sprint M, wb-cand-M02): optional scripted ARM target schedule for the stationary stand -> reach test. Off unless
+# G1_ARM_SCHEDULE=<json> is set. The JSON holds {"joints": [names], "keyframes": [{"t": s, "q": [rad,...]}, ...]}; targets
+# are linearly interpolated in sim time since robot.initialize() and REPLACE the policy's position targets for exactly
+# those joints (the policy keeps observing the true joint states and its own last action). Nothing else changes.
+G1_ARM_SCHEDULE = os.environ.get("G1_ARM_SCHEDULE", "").strip()
 G1_29DOF_SIM_ORDER = [
     "left_hip_pitch_joint", "right_hip_pitch_joint", "waist_yaw_joint", "left_hip_roll_joint", "right_hip_roll_joint",
     "waist_roll_joint", "left_hip_yaw_joint", "right_hip_yaw_joint", "waist_pitch_joint", "left_knee_joint",
@@ -457,6 +463,14 @@ class Go2VelocityPolicy(PolicyController):
             self._previous_action = self.action.copy()
 
         target_pos = self._action_offset + (self._action_scale * self.action)
+        if self._arm_schedule is not None:
+            self._sim_time_since_init += float(dt)
+            sch = self._arm_schedule
+            q = np.stack(
+                [np.interp(self._sim_time_since_init, sch["t"], sch["q"][:, j]) for j in range(sch["q"].shape[1])]
+            ).astype(np.float32)
+            target_pos = target_pos.copy()
+            target_pos[sch["idx"]] = q
         if self._body_idx is not None:
             action = ArticulationAction(joint_positions=target_pos, joint_indices=self._body_idx)
         else:
@@ -711,6 +725,29 @@ class G1VelocityPolicy(PolicyController):
             self._obs_term_histories[term_name] = [
                 np.zeros(size, dtype=np.float32) for _ in range(self._history_length)
             ]
+
+        self._arm_schedule = None
+        self._sim_time_since_init = 0.0
+        if G1_ARM_SCHEDULE:
+            with open(G1_ARM_SCHEDULE, "r", encoding="utf-8") as fh:
+                sched = json.load(fh)
+            names = list(self.robot.dof_names)
+            policy_order = G1_29DOF_SIM_ORDER if self._body_idx is not None else names
+            idx = [policy_order.index(n) for n in sched["joints"]]
+            keys = sorted(sched["keyframes"], key=lambda k: float(k["t"]))
+            for k in keys:
+                if len(k["q"]) != len(idx):
+                    raise ValueError("[G1 arm schedule] keyframe length mismatch")
+            self._arm_schedule = {
+                "idx": np.array(idx, dtype=np.int64),
+                "t": np.array([float(k["t"]) for k in keys], dtype=np.float64),
+                "q": np.array([[float(v) for v in k["q"]] for k in keys], dtype=np.float32),
+            }
+            print(
+                f"[G1 arm schedule] ON: {sched['joints']} -> policy indices {idx}, "
+                f"{len(keys)} keyframes, t {self._arm_schedule['t'][0]:.2f}..{self._arm_schedule['t'][-1]:.2f} s",
+                flush=True,
+            )
 
         total_obs_size = sum(
             term_sizes[name] * self._history_length for name in self._obs_term_names
