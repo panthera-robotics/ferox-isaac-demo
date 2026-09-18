@@ -24,13 +24,55 @@ def finite(value, name, low=None, high=None):
     return float(value)
 
 
+
+DEFAULT_CAMERAS = [{'label': 'front', 'position_m': [2.2, -2.3, 1.8], 'look_at_m': [.1, 0., 1.05]},
+                   {'label': 'side', 'position_m': [-.3, 2.9, 1.65], 'look_at_m': [.1, 0., 1.05]}]
+TRACK_TARGETS = ('right_base_link', 'right_wrist_yaw_link', 'nib', 'holder')
+
+
+def validate_presentation(pres):
+    """Sprint M M1: declared external camera placement (static or link-tracking) and visual-only ink decals.
+    Cameras never touch physics (held-physics captures as before); a tracking camera follows a named live link
+    pose read back from PhysX at capture time. Ink decals are render-only prims at the ACTUAL nib-panel contact
+    points of the PhysX contact report, pushed out of the face by a fraction of a millimetre; no collision, no mass."""
+    if pres is None:
+        return
+    if not isinstance(pres, dict) or not set(pres) <= {'cameras', 'ink_decals', 'note'}:
+        raise ValueError('presentation: cameras / ink_decals / note only')
+    cams = pres.get('cameras', DEFAULT_CAMERAS)
+    if not isinstance(cams, list) or not 1 <= len(cams) <= 6:
+        raise ValueError('presentation.cameras: 1..6 cameras')
+    labels = set()
+    for c in cams:
+        if not isinstance(c, dict) or not isinstance(c.get('label'), str) or not c['label'].isidentifier() or c['label'] in labels:
+            raise ValueError('presentation.cameras: unique identifier labels')
+        labels.add(c['label'])
+        res = c.get('resolution', [640, 640])
+        if not (isinstance(res, list) and len(res) == 2 and all(type(v) is int and 160 <= v <= 1280 for v in res)):
+            raise ValueError('presentation.cameras.resolution: two ints 160..1280')
+        for key in ('position_m', 'look_at_m', 'offset_m'):
+            if key in c and not (isinstance(c[key], list) and len(c[key]) == 3 and all(isinstance(v, (int, float)) and math.isfinite(v) and abs(v) < 10. for v in c[key])):
+                raise ValueError('presentation.cameras.%s: three finite metres' % key)
+        if 'track' in c:
+            if c['track'] not in TRACK_TARGETS or 'offset_m' not in c:
+                raise ValueError('presentation.cameras.track: one of %s with offset_m' % (TRACK_TARGETS,))
+            if 'look_at_m' in c or 'position_m' in c:
+                raise ValueError('a tracking camera is placed by offset_m from its target only')
+        elif 'position_m' not in c or 'look_at_m' not in c:
+            raise ValueError('a static camera needs position_m and look_at_m')
+        if 'focal_length_mm' in c and not (isinstance(c['focal_length_mm'], (int, float)) and 4. <= c['focal_length_mm'] <= 200.):
+            raise ValueError('presentation.cameras.focal_length_mm: 4..200')
+    if 'ink_decals' in pres and type(pres['ink_decals']) is not bool:
+        raise ValueError('presentation.ink_decals: bool')
+
 def validate_config(config):
     required = {'schema_version', 'hardware_authorized', 'private_driver_path',
         'private_dependency_path', 'private_profile_path', 'planner_frames_path',
         'planner_frames_sha256', 'body_home_rad', 'kp_nm_rad', 'kd_nm_s_rad',
         'tau_ff_nm', 'gain_provenance', 'feedforward_provenance', 'workflow_mode',
         'letter_height_m', 'maximum_steps', 'maximum_wall_s'}
-    optional = {'actuation_backend', 'maximum_wall_age_s', 'hand_hold_kp_nm_rad', 'hand_hold_kd_nm_s_rad', 'contact_writing', 'job_text'}
+    optional = {'actuation_backend', 'maximum_wall_age_s', 'hand_hold_kp_nm_rad', 'hand_hold_kd_nm_s_rad', 'contact_writing', 'job_text', 'presentation'}
+    validate_presentation(config.get('presentation'))
     text = config.get('job_text', 'I')
     if not isinstance(text, str) or not 1 <= len(text) <= 12 or text != text.strip() or any(c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ' for c in text):
         raise ValueError('job_text must be 1-12 upper-case letters/digits/spaces without surrounding whitespace')
@@ -578,14 +620,39 @@ def main():
         if stats['numTriMeshShapes'] != 0:
             raise ValueError('unexpected live triangle collision shapes')
         (out/'backend_shapes.json').write_text(json.dumps(shapes, indent=2))
-        cameras = {}
-        for label, position in [('front',(2.2,-2.3,1.8)),('side',(-.3,2.9,1.65))]:
-            camera = Camera('/World/'+label+'AirCamera', resolution=(640,640))
+        cameras = {}; camera_specs = {}; camera_ops = {}
+        presentation = cfg.get('presentation') or {}
+        for spec in presentation.get('cameras', DEFAULT_CAMERAS):
+            label = spec['label']; resolution = tuple(spec.get('resolution', [640, 640]))
+            camera = Camera('/World/'+label+'AirCamera', resolution=resolution)
             camera.initialize(); camera.set_clipping_range(.01,10.)
+            if 'focal_length_mm' in spec:
+                camera.prim.GetAttribute('focalLength').Set(float(spec['focal_length_mm']))   # USD units: same as the prim default 24 (with aperture 20.955)
             camera_x=UsdGeom.Xformable(camera.prim); camera_x.ClearXformOpOrder()
-            camera_x.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*position),Gf.Vec3d(.1,0,1.05),Gf.Vec3d(0,0,1)).GetInverse())
+            camera_ops[label] = camera_x.AddTransformOp()
+            if 'track' not in spec:
+                camera_ops[label].Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*spec['position_m']),Gf.Vec3d(*spec['look_at_m']),Gf.Vec3d(0,0,1)).GetInverse())
             (out/'frames'/label).mkdir(parents=True)
-            cameras[label]=camera
+            cameras[label]=camera; camera_specs[label] = dict(spec, resolution=list(resolution))
+        metrics['presentation'] = {'cameras': camera_specs, 'ink_decals': bool(presentation.get('ink_decals', False)) and contact_mode,
+            'note': 'cameras are external render-only prims (static or following a live link pose read back at capture time); ink decals are render-only prims at actual PhysX nib-panel contact points; neither touches physics or the robot'}
+        ink_decal_points = []; ink_instancer = None
+        if metrics['presentation']['ink_decals']:
+            ink_instancer = UsdGeom.PointInstancer.Define(world.stage, '/World/InkDecals')
+            proto = UsdGeom.Sphere.Define(world.stage, '/World/InkDecals/Dot'); proto.CreateRadiusAttr(float(scene_cfg.holder.nib_radius_m))
+            proto.CreateDisplayColorAttr([Gf.Vec3f(.05, .05, .08)])
+            ink_instancer.CreatePrototypesRel().SetTargets([proto.GetPath()]); ink_instancer.CreateProtoIndicesAttr([]); ink_instancer.CreatePositionsAttr([])
+        def place_tracking_cameras():
+            for label, spec in camera_specs.items():
+                if 'track' not in spec:
+                    continue
+                target = spec['track']
+                if target in ('nib', 'holder'):
+                    pose = np.asarray(marker_views[target].get_transforms())[0].astype(float)
+                else:
+                    pose = np.asarray(views[target].get_transforms())[0].astype(float)
+                eye = pose[:3] + np.asarray(spec['offset_m'], dtype=float)
+                camera_ops[label].Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*eye.tolist()), Gf.Vec3d(*pose[:3].tolist()), Gf.Vec3d(0,0,1)).GetInverse())
         # Allocate the annotators before starting the independently timed ROS
         # writer. Render warm-up must not advance the measured physics clock.
         camera_warmup_time = float(world.current_time)
@@ -702,6 +769,11 @@ def main():
                 hand_contacts = [c for c in step_contacts if any(a.startswith('/World/G1/right_') for a in (c['actor0'], c['actor1'])) and any(a.startswith('/World/Marker') for a in (c['actor0'], c['actor1'])) and sum(v*v for v in c['impulse_ns']) > 1e-20]
                 board_contacts = [c for c in step_contacts if any(a.startswith('/World/Whiteboard') for a in (c['actor0'], c['actor1']))]
                 nonnib_board = [c for c in board_contacts if {c['collider0'], c['collider1']} != {marker['tip_collider'], marker['board_collider']}]
+                if ink_instancer is not None:
+                    for c in board_contacts:
+                        if {c['collider0'], c['collider1']} == {marker['tip_collider'], marker['board_collider']} and len(ink_decal_points) < 20000:
+                            # actual PhysX contact point, lifted 0.3 mm off the face along the FIXTURE board normal (render only)
+                            ink_decal_points.append((np.asarray(c['position_world_m'], dtype=float) + .0003 * board_n).tolist())
                 sample = ContactSample(physics_sequence=sample_number, physics_time_s=sim_time, physics_dt_s=.005,
                     nib_position_board_m=observation['position_board_m'], nib_board_contact=observation['nib_board_contact'],
                     pen_down=pen_down, spring_compression_m=max(0., geometric_q), stroke_id=stroke_id,
@@ -808,23 +880,29 @@ def main():
             if (sample_number+1) % 20 == 0:
                 # Same held-physics capture interval as the balance probe: the
                 # first frame follows 20 controlled steps, never the first 5ms.
-                capture_time = float(world.current_time); world.render()
+                capture_time = float(world.current_time)
+                if any('track' in spec for spec in camera_specs.values()):
+                    place_tracking_cameras()
+                if ink_instancer is not None and ink_decal_points:
+                    ink_instancer.GetPositionsAttr().Set([Gf.Vec3f(*pt) for pt in ink_decal_points]); ink_instancer.GetProtoIndicesAttr().Set([0]*len(ink_decal_points))
+                world.render()
                 frame = (sample_number+1)//20-1
                 frame_views = {}
                 for label, camera in cameras.items():
+                    shape = (camera_specs[label]['resolution'][1], camera_specs[label]['resolution'][0], 4)
                     pixels = camera.get_rgba(); extra_renders = 0
-                    while (pixels is None or pixels.shape != (640,640,4)) and extra_renders < 3:
+                    while (pixels is None or pixels.shape != shape) and extra_renders < 3:
                         world.render(); extra_renders += 1; pixels = camera.get_rgba()
                     if float(world.current_time) != capture_time:
                         raise ValueError('camera capture advanced physics')
                     metrics['camera_extra_held_renders'] = max(metrics.get('camera_extra_held_renders', 0), extra_renders)
-                    if pixels is None or pixels.shape != (640,640,4):
+                    if pixels is None or pixels.shape != shape:
                         raise ValueError('actual camera frame absent after bounded held renders: '+label)
                     filename='frames/%s/%06d.png'%(label,frame)
                     Image.fromarray(pixels.astype(np.uint8)).save(out/filename)
                     frame_views[label]=filename
                 frame_file.write(json.dumps({'frame':frame, 'sequence':sample_number, 'physics_s':sim_time,
-                    'phase':record['phase'], 'captured_after_same_step_render':True, 'views':frame_views})+'\n')
+                    'phase':record['phase'], 'captured_after_same_step_render':True, 'views':frame_views, 'ink_decal_points':len(ink_decal_points)})+'\n')
             metrics.update(max_source_fk_position_error_m=maximum_error, max_source_fk_rotation_error_rad=maximum_rotation,
                 coupling_error_max_rad=maximum_coupling, fixed_waist_l1_error_max_rad=maximum_waist,
                 actual_contact_points=contact_count, workflow=workflow)
