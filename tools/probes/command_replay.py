@@ -19,6 +19,7 @@ out = Path('/evidence'); sys.path[:0] = ['/workspace/ferox_tools', '/workspace/f
 from inspire.embodiment import ContractError, EmbodimentManifest, ReplaySequence, canonical_sha256, dependency_values_from_urdf  # noqa: E402
 from inspire.body_feedforward import bounded_gravity_feedforward  # noqa: E402
 from inspire import loop_ipc  # noqa: E402
+from inspire.closed_loop_targets import ClosedLoopTargets, TargetError  # noqa: E402
 from inspire.model_action_adapter import validate_piston_chunk, PISTON_DIMS, PISTON_HAND_ORDER  # noqa: E402
 from inspire.embodiment import HandCommandAdapter, HAND_ACTUATORS  # noqa: E402
 
@@ -275,6 +276,7 @@ frame_file = (out / 'frames.jsonl').open('w', buffering=1); state_file = (out / 
 command_file = (out / 'commands.jsonl').open('w', buffering=1)
 phase = 'lead_in'; aborted = None; rejections = []; applied_rows = set(); lead_in_steps = int(round(lead_in_s / dt))
 cl_start = lead_in_steps + (cl_handover_ticks if closed_loop else 0)
+cl_targets = None   # ClosedLoopTargets, created at the first model row (sprint L C1)
 if closed_loop:
     _limits = {a: manifest.hand_actuator('right', a)['closed_rad'] for a in HAND_ACTUATORS}
     _radian_contract = {'axis_order': list(PISTON_HAND_ORDER), 'open_value': 0.0, 'closed_value': 1.0, 'per_axis_endpoints': {a: {'open_value': 0.0, 'closed_value': _limits[a]} for a in HAND_ACTUATORS}, 'saturation_policy': 'clip_declared'}
@@ -341,27 +343,31 @@ for tick in range(steps):
                     cl_state['chunk'] = None   # tail hold: keep the last targets
             if cl_state['chunk'] is not None:
                 mrow = cl_state['chunk'][cl_state['chunk_pos']]; cl_state['chunk_pos'] += 1; cl_state['model_tick'] += 1
-                cl_state['ramp_from'] = body_target.copy(); cl_state['ramp_to'] = body_target.copy(); cl_state['ramp_tick0'] = tick
-                for n_, v_ in mrow['body_q_rad'].items():
-                    if n_ in cl_arm_names:
-                        i_ = body_names.index(n_); prev_ = float(body_target[i_]); lim_ = float(closed_loop.get('max_step_rad', 1e9))
-                        v_lim = min(max(v_, prev_ - lim_), prev_ + lim_)
-                        if abs(v_lim - v_) > 1e-9:
-                            cl_state['interventions'].append({'tick': tick, 'physics_s': world.current_time, 'axis': n_, 'kind': 'rate_limit', 'requested_rad': v_, 'applied_rad': v_lim, 'max_step_rad': lim_})
-                        cl_state['ramp_to'][i_] = v_lim
-        if cl_state.get('ramp_to') is not None and closed_loop.get('interpolate_within_step', True):
-            a_ = min(1.0, (tick - cl_state['ramp_tick0'] + 1) / cl_model_ticks)
+                if cl_targets is None:   # first model row: the tracker starts from the targets held at the hand-over
+                    cl_targets = ClosedLoopTargets(arm_names=cl_arm_names, hand_names=hand_names,
+                                                   initial_arm={n_: float(body_target[body_names.index(n_)]) for n_ in cl_arm_names},
+                                                   initial_hand={n_: float(hand_target[hand_names.index(n_)]) for n_ in hand_names},
+                                                   model_ticks=cl_model_ticks, max_step_rad=closed_loop.get('max_step_rad'),
+                                                   interpolate=closed_loop.get('interpolate_within_step', True),
+                                                   hand_owner='SCRIPTED' if cl_hybrid else 'MODEL',
+                                                   hand_decoder=(None if cl_hybrid else (lambda sd_, vals_: cl_adapters[sd_].to_joint_targets(vals_)[0])))
+                try:
+                    chunk_rec = cl_targets.begin_row(tick=tick, physics_s=world.current_time, body_q_rad=mrow['body_q_rad'], hands=mrow.get('hands'),
+                                                     iteration=cl_state['iteration'], chunk_pos=cl_state['chunk_pos'] - 1, obs_id=cl_state['obs_count'] - 1)
+                except TargetError as exc_:
+                    aborted = {'sequence': tick, 'reason': 'model_row_refused', 'detail': str(exc_)}; break
+                chunk_rec['wall_s'] = time.monotonic() - loop_wall_start
+                command_file.write(json.dumps(chunk_rec, allow_nan=False) + '\n')   # exactly once per model row, outside any joint loop
+            elif cl_targets is not None:
+                cl_targets.ramp_from = dict(cl_targets.ramp_to)   # tail hold: no new row
+        if cl_targets is not None:
+            applied_rec = cl_targets.advance(tick=tick, physics_s=world.current_time)   # arm interpolation on the declared axes only; hands untouched here
             for n_ in cl_arm_names:
-                i_ = body_names.index(n_); body_target[i_] = (1.0 - a_) * cl_state['ramp_from'][i_] + a_ * cl_state['ramp_to'][i_]
-        elif cl_state.get('ramp_to') is not None:
-            for n_ in cl_arm_names:
-                i_ = body_names.index(n_); body_target[i_] = cl_state['ramp_to'][i_]
-                if not cl_hybrid:
-                    for sd, vals in mrow['hands'].items():
-                        tg, _ = cl_adapters[sd].to_joint_targets(vals)
-                        for n_, v_ in tg.items():
-                            hand_target[hand_names.index(n_)] = v_
-                command_file.write(json.dumps({'sequence': tick, 'physics_s': world.current_time, 'wall_s': time.monotonic() - loop_wall_start, 'source': 'model_chunk', 'iteration': cl_state['iteration'], 'chunk_pos': cl_state['chunk_pos'] - 1, 'body_targets_rad': {n_: v_ for n_, v_ in mrow['body_q_rad'].items() if n_ in cl_arm_names}}, allow_nan=False) + '\n')
+                body_target[body_names.index(n_)] = applied_rec['arm_targets_rad'][n_]
+            if not cl_hybrid:
+                for n_ in hand_names:
+                    hand_target[hand_names.index(n_)] = applied_rec['hand_targets_rad'][n_]
+            cl_state['interventions'] = cl_targets.interventions
         if cl_hybrid:
             palm_now = np.asarray(views['right_base_link'].get_transforms())[0][:3]
             if cl_state['hand_phase'] == 'open' and np.linalg.norm(palm_now - np.asarray(cl_hybrid['close_trigger']['palm_target_world'])) <= cl_hybrid['close_trigger']['radius_m']:
@@ -369,8 +375,13 @@ for tick in range(steps):
             if cl_state['hand_phase'] == 'closing':
                 alpha = min(1.0, (tick - cl_state['close_started_tick'] + 1) * dt / float(cl_hybrid['close_duration_s']))
                 hand_target = (1.0 - alpha) * cl_open_targets + alpha * cl_closed_targets
+                if cl_targets is not None:
+                    cl_targets.set_scripted_hand({n_: float(hand_target[hand_names.index(n_)]) for n_ in hand_names})
                 if alpha >= 1.0:
                     cl_state['hand_phase'] = 'closed'
+        if cl_targets is not None:   # the applied record carries what is actually commanded this tick (hybrid: the scripted hand targets)
+            applied_rec['hand_targets_rad'] = {n_: float(hand_target[hand_names.index(n_)]) for n_ in hand_names}
+            command_file.write(json.dumps(applied_rec, allow_nan=False) + '\n')   # exactly once per physics tick
         row = {'row': cl_state['model_tick'], 't_s': world.current_time, 'body_targets_rad': {}, 'hands': {}}
         applied_rows.add(0)
     if row is None and lead_in_steps > 0 and not hand_init_applied:
@@ -478,7 +489,7 @@ metrics = {'status': 'PASS' if all(checks.values()) else 'FAIL', 'checks': check
            'real_time_factor_loop': (len(trace) * dt) / loop_wall if loop_wall > 0 else None, 'offline_replay': True, 'wall_since_probe_start_s': time.monotonic() - started_wall,
            'runtime_names': names, 'commanded_body_joints': commanded_body, 'commanded_hand_joints': commanded_hand, 'tracking_abs_error_rad': tracking,
            'rows_applied': len(applied_rows), 'rows_total': len(sequence.converted), 'clipped_rows': sequence.clipped_rows, 'rejections': rejections, 'abort': aborted,
-           'closed_loop': ({'schema': 'closed_loop_v1', 'control_source': closed_loop['control_source'], 'timing': 'non-real-time closed-loop simulation (physics paused while inferring)', 'iterations_completed': cl_state['iteration'], 'iterations_planned': cl_iters, 'arm_state_datum': cl_datum_mode, 'datum_offset_rad': cl_state.get('datum'), 'handover_after_s': closed_loop.get('handover_after_s', 0.0), 'prefix_steps': cl_prefix, 'model_step_s': cl_model_ticks * dt,
+           'closed_loop': ({'schema': 'closed_loop_v1', 'control_source': closed_loop['control_source'], 'timing': 'non-real-time closed-loop simulation (physics paused while inferring)', 'iterations_completed': cl_state['iteration'], 'iterations_planned': cl_iters, 'target_component': {'module': 'isaac/twin/inspire/closed_loop_targets.py', 'sha256': hashlib.sha256(Path(sys.modules['inspire.closed_loop_targets'].__file__).read_bytes()).hexdigest(), 'hand_owner': ('SCRIPTED' if cl_hybrid else 'MODEL'), 'model_rows_applied': (cl_targets.rows if cl_targets else 0), 'applied_records': (cl_targets.applied_records if cl_targets else 0)}, 'arm_state_datum': cl_datum_mode, 'datum_offset_rad': cl_state.get('datum'), 'handover_after_s': closed_loop.get('handover_after_s', 0.0), 'prefix_steps': cl_prefix, 'model_step_s': cl_model_ticks * dt,
                             'observations_published': cl_state['obs_count'], 'distinct_image_hashes': len({r['image_sha256'] for r in cl_state['records']}), 'refusals': cl_state['refusals'], 'interventions': {'count': len(cl_state['interventions']), 'by_axis': {a_: sum(1 for i_ in cl_state['interventions'] if i_['axis'] == a_) for a_ in {i_['axis'] for i_ in cl_state['interventions']}}, 'max_step_rad': closed_loop.get('max_step_rad'), 'interpolate_within_step': closed_loop.get('interpolate_within_step', True)}, 'hand_phase_final': cl_state['hand_phase'], 'close_started_tick': cl_state['close_started_tick'],
                             'instruction': closed_loop['instruction'], 'sidecar_ready': (cl_ipc / 'READY').exists(), 'sidecar_exit': json.loads((cl_ipc / 'EXIT').read_text()) if (cl_ipc / 'EXIT').exists() else None} if closed_loop else None),
            'contact_points_during_replay': len(self_contacts), 'contact_pairs': sorted({tuple(sorted((c['actor0'], c['actor1']))) for c in self_contacts})[:40],
