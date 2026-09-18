@@ -225,6 +225,25 @@ robot._articulation_view.set_gains(kp, kd)
 got = robot.get_articulation_controller().get_gains(); assert np.allclose(np.ravel(got[0]), kp) and np.allclose(np.ravel(got[1]), kd)
 gain_readback = {'body': {n: [float(kp[names.index(n)]), float(kd[names.index(n)])] for n in body_names}, 'hand': {n: [float(kp[names.index(n)]), float(kd[names.index(n)])] for n in hand_names}}
 (out / 'implicit_gain_readback.json').write_text(json.dumps(gain_readback, indent=2))
+# Pure readback (sprint L, hand-an-04): the URDF velocity field of every hand joint (1.0 rad/s) is suspected to act as the PhysX
+# joint velocity limit (driven joints' reported velocity saturates at exactly 1.000). Record what the stage and the view hold;
+# never fail the run on it.
+hand_velocity_limit_readback = {'usd_physxJoint_maxJointVelocity': {}, 'usd_unit': 'PhysX USD convention: degrees/s for revolute joints', 'urdf_velocity_field_rad_s': {n: facts['joint_limits'][n]['velocity'] for n in facts['joint_limits'] if n in hand_names or n in facts['mimic_map']}, 'articulation_view_max_joint_velocities': None, 'errors': []}
+try:
+    _hand_all = set(hand_names) | set(facts['mimic_map'])
+    for _prim in world.stage.Traverse():
+        if _prim.IsA(UsdPhysics.RevoluteJoint) and _prim.GetName() in _hand_all:
+            _attr = _prim.GetAttribute('physxJoint:maxJointVelocity')
+            hand_velocity_limit_readback['usd_physxJoint_maxJointVelocity'][_prim.GetName()] = (float(_attr.Get()) if _attr and _attr.HasValue() else None)
+except Exception as _exc:   # noqa: BLE001 - readback only
+    hand_velocity_limit_readback['errors'].append('usd: %r' % (_exc,))
+try:
+    _mv = robot._articulation_view.get_max_joint_velocities()
+    _mv = np.ravel(np.asarray(_mv.cpu() if hasattr(_mv, 'cpu') else _mv, dtype=float))
+    hand_velocity_limit_readback['articulation_view_max_joint_velocities'] = {n: float(_mv[names.index(n)]) for n in names if n in _hand_all} if _mv.size == len(names) else {'raw_size': int(_mv.size)}
+except Exception as _exc:   # noqa: BLE001 - readback only (API may not exist in this Isaac version)
+    hand_velocity_limit_readback['errors'].append('view: %r' % (_exc,))
+(out / 'hand_velocity_limit_readback.json').write_text(json.dumps(hand_velocity_limit_readback, indent=2))
 
 # Initial episode state, written ONCE: body home overridden by the first row's body targets where it
 # names them (a recorded pose of the real robot); every hand joint at the URDF open pose. A closed first
@@ -504,7 +523,7 @@ metrics = {'status': 'PASS' if all(checks.values()) else 'FAIL', 'checks': check
                             'observations_published': cl_state['obs_count'], 'distinct_image_hashes': len({r['image_sha256'] for r in cl_state['records']}), 'refusals': cl_state['refusals'], 'interventions': {'count': len(cl_state['interventions']), 'by_axis': {a_: sum(1 for i_ in cl_state['interventions'] if i_['axis'] == a_) for a_ in {i_['axis'] for i_ in cl_state['interventions']}}, 'max_step_rad': closed_loop.get('max_step_rad'), 'interpolate_within_step': closed_loop.get('interpolate_within_step', True)}, 'hand_phase_final': cl_state['hand_phase'], 'close_started_tick': cl_state['close_started_tick'],
                             'instruction': closed_loop['instruction'], 'sidecar_ready': (cl_ipc / 'READY').exists(), 'sidecar_exit': json.loads((cl_ipc / 'EXIT').read_text()) if (cl_ipc / 'EXIT').exists() else None} if closed_loop else None),
            'contact_points_during_replay': len(self_contacts), 'contact_pairs': sorted({tuple(sorted((c['actor0'], c['actor1']))) for c in self_contacts})[:40],
-           'coupling_error_max_rad': max_coupling, 'fixed_base': True, 'support_constraints': ['pelvis_fixed_to_world_1m_above_origin'], 'ground_present': False, 'objects_present': False,
+           'coupling_error_max_rad': max_coupling, 'hand_velocity_limit_readback': hand_velocity_limit_readback, 'fixed_base': True, 'support_constraints': ['pelvis_fixed_to_world_1m_above_origin'], 'ground_present': False, 'objects_present': False,
            'hardware_authorized': False, 'exact_asset_qualified': False, 'source_model': 'Unitree_FTP_G1_provisional_donor', 'manifest_id': manifest.data['manifest_id'], 'manifest_sha256': manifest.sha256,
            'grasp_qualification': 'NOT_RUN', 'writing_qualification': 'NOT_RUN', 'standing_qualification': 'NOT_RUN', 'real_data_agreement': 'NOT_TESTED_IN_PROBE (host-side comparison only)',
            'media_labels': {'fixture': 'FIXED PELVIS - %s%s' % (config.get('execution_label', 'COMMAND REPLAY'), ': free rigid object on a table (no floor)' if scene else ' (no ground, no object)'), 'embodiment': 'PROVISIONAL G1 + bilateral FTP donor hands',
