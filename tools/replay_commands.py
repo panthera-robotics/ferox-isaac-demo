@@ -144,7 +144,13 @@ def main(argv=None):
     ap.add_argument('--scene', type=Path, help='authored scene JSON (table/object/destination) embedded into the probe config; the object is a free rigid body')
     ap.add_argument('--hand-init', default='urdf_open', choices=['urdf_open', 'first_row_if_nearly_open'], help='probe hand initialisation: at the URDF open pose with a ramp (default) or at the first row when it is an observed nearly-open hand (<= 0.15 rad on every joint)')
     ap.add_argument('--execution-label', default='COMMAND REPLAY', choices=['COMMAND REPLAY', 'SCRIPTED BASELINE', 'MODEL ACTION REPLAY', 'CLOSED LOOP', 'FAILED DIAGNOSTIC', 'DIAGNOSTIC'])
+    ap.add_argument('--physics-dt-s', type=float, default=None, help='DIAGNOSTIC only: physics step for the probe (default 0.005 = the bound qualification value; any other value must divide 0.005 and stales every bound claim)')
     a = ap.parse_args(argv)
+    if a.physics_dt_s is not None:
+        if not (0.001 <= a.physics_dt_s <= 0.005 and abs(round(0.005 / a.physics_dt_s) * a.physics_dt_s - 0.005) < 1e-9):
+            ap.error('--physics-dt-s must be within [0.001, 0.005] and divide 0.005')
+        if a.execution_label != 'DIAGNOSTIC':
+            ap.error('a physics step other than the bound 0.005 s is DIAGNOSTIC only')
     manifest = EmbodimentManifest.load(a.manifest)
     controller = json.loads(a.controller.read_text())
     spec = synthetic_hand_open_close(controller['body_home_rad']) if a.synthetic else json.loads(a.source_spec.read_text())
@@ -173,6 +179,8 @@ def main(argv=None):
     (a.out / 'package.json').write_text(json.dumps(package, indent=1) + '\n')
     probe_config = {'package': '/workspace/' + a.mount_name, 'frame_every': a.frame_every, 'lead_in_s': a.lead_in_s, 'maximum_steps': a.maximum_steps,
                     'package_sha256': sha(a.out / 'package.json'), 'execution_label': a.execution_label, 'hand_init': a.hand_init}
+    if a.physics_dt_s is not None:
+        probe_config['physics_dt_s'] = float(a.physics_dt_s); probe_config['physics_dt_note'] = 'DIAGNOSTIC refinement: differs from the manifest-bound physics_dt_s 0.005; no qualification claim'
     if a.scene is not None:
         scene = json.loads(a.scene.read_text()); probe_config['scene'] = scene; probe_config['scene_sha256'] = sha(a.scene)
     (a.out / 'probe-config.json').write_text(json.dumps(probe_config, indent=1) + '\n')

@@ -42,7 +42,9 @@ controller = json.loads((package / 'controller.json').read_text())
 frame_every = int(config.get('frame_every', 8)); assert 1 <= frame_every <= 40
 maximum_steps = int(config.get('maximum_steps', 4000)); assert 100 <= maximum_steps <= 20000
 lead_in_s = float(config.get('lead_in_s', 0.5)); assert 0.0 <= lead_in_s <= 5.0
-dt = .005
+# Declared physics step: the manifest binds physics_dt_s = 0.005 for every qualification; any other value is a DIAGNOSTIC
+# refinement (hand-req-02 F7 convergence check) and stales the bound claims by construction (recorded in metrics['physics_dt']).
+dt = float(config.get('physics_dt_s', 0.005)); assert 0.001 <= dt <= 0.005 and abs(round(0.005 / dt) * dt - 0.005) < 1e-9, 'physics_dt_s must divide 0.005 s'
 steps = min(maximum_steps, int(round((lead_in_s + sequence.duration_s) / dt)) + 1)
 # Closed-loop mode (sprint K K4): the package's single row is the START pose; after the lead-in the probe publishes fresh
 # observations to a co-admitted model sidecar over private file IPC and executes a short validated prefix of each
