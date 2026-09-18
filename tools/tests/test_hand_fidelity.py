@@ -632,24 +632,37 @@ class LeftHandProfileTests(unittest.TestCase):
 
 
 class AppliedConversionDependencyGapTests(unittest.TestCase):
-    """Documents a dependency gap on the ACTUAL manifest: the bound claims do not include the hand command contract, so a
-    changed applied conversion (a different contract hash) leaves command_replay_integration ACTIVE_COMPATIBLE. The
-    package itself carries contract_sha256, but a qualification that should depend on the conversion needs the key."""
+    """Sprint K documented a dependency gap on the ACTUAL manifest (the bound claims did not include the hand command contract);
+    the sprint L binding (f1e5b06: hand_contract_sha256 / arm_datum / live physics dt) closes it: on the v1 manifest, which does
+    not bind the applied profile, command_replay_integration can no longer read ACTIVE_COMPATIBLE — it is `unbound`
+    (UNVERIFIED) whatever contract is applied; on a manifest that binds the profile, changing only the contract stales it."""
 
-    def test_changing_only_the_hand_contract_does_not_stale_any_manifest_claim(self):
-        from hand_fidelity.ab_source_specs import contract
-        m = EmbodimentManifest.load(MANIFEST)
-        a = HandCommandAdapter(m, 'right', contract('closure_preserving')); b = HandCommandAdapter(m, 'right', contract('radian_identity'))
-        self.assertNotEqual(a.contract_sha256, b.contract_sha256)
-        live = {'urdf_sha256': m.data['source_asset']['urdf_sha256'], 'coupling_map_sha256': m.data['qualification']['claims']['mechanism_checks']['configuration']['coupling_map_sha256'],
+    def live_values(self, m):
+        return {'urdf_sha256': m.data['source_asset']['urdf_sha256'], 'coupling_map_sha256': m.data['qualification']['claims']['mechanism_checks']['configuration']['coupling_map_sha256'],
                 'collision_cooking': m.data['qualification']['claims']['mechanism_checks']['configuration']['collision_cooking'], 'wrist_mount_sha256': m.data['qualification']['claims']['mechanism_checks']['configuration']['wrist_mount_sha256'],
                 'physics_dt_s': '0.005', 'solver': 'TGS_32_8', 'support': 'FIXED_PELVIS', 'camera_mount_sha256': m.data['qualification']['claims']['command_replay_integration']['configuration']['camera_mount_sha256'],
-                'controller': 'implicit_biased_drive_v1 replay controller (package-hashed gains)'}
+                'controller': 'implicit_biased_drive_v1 replay controller (package-hashed gains)', 'arm_datum': 'body_q_rad:urdf_absolute'}
+
+    def test_unbound_manifest_never_reads_active_and_a_bound_one_stales_on_the_contract_alone(self):
+        from hand_fidelity.ab_source_specs import contract
+        from isaac.twin.inspire.embodiment import hand_contract_descriptor
+        m = EmbodimentManifest.load(MANIFEST)
+        a = HandCommandAdapter(m, 'right', contract('closure_preserving')); b = HandCommandAdapter(m, 'right', contract('radian_identity'))
+        self.assertNotEqual(a.contract_sha256, b.contract_sha256); self.assertNotEqual(a.profile_sha256, b.profile_sha256)
+        live = self.live_values(m)
+        self.assertNotIn('hand_contract_sha256', m.data['qualification']['claims']['command_replay_integration']['configuration'])   # v1 manifest: still unbound
         for adapter in (a, b):
-            r = m.check_validity(dict(live, hand_contract_sha256=adapter.contract_sha256))
-            self.assertEqual(r['claims']['command_replay_integration']['active_compatibility'], 'ACTIVE_COMPATIBLE')   # the gap: the contract is not a bound key
-        keys = set(m.data['qualification']['claims']['command_replay_integration']['configuration'])
-        self.assertNotIn('hand_contract_sha256', keys)   # proposal: bind hand_contract_sha256 in the next manifest revision (coordinator's call)
+            r = m.check_validity(dict(live, hand_contract_sha256=hand_contract_descriptor({'right': adapter})))
+            self.assertEqual(r['claims']['command_replay_integration']['active_compatibility'], 'UNVERIFIED')     # never ACTIVE on an unbound revision
+            self.assertEqual(r['claims']['command_replay_integration']['unbound'], ['hand_contract_sha256', 'arm_datum'])
+        data = json.loads(MANIFEST.read_text())
+        data['qualification']['claims']['command_replay_integration']['configuration'].update(hand_contract_sha256=hand_contract_descriptor({'right': b}), arm_datum='body_q_rad:urdf_absolute')
+        bound = EmbodimentManifest(data)
+        ok = bound.check_validity(dict(live, hand_contract_sha256=hand_contract_descriptor({'right': b})))
+        self.assertEqual(ok['claims']['command_replay_integration']['active_compatibility'], 'ACTIVE_COMPATIBLE')
+        stale = bound.check_validity(dict(live, hand_contract_sha256=hand_contract_descriptor({'right': a})))
+        self.assertEqual(stale['claims']['command_replay_integration']['active_compatibility'], 'STALE')             # the applied conversion alone stales the claim
+        self.assertEqual(stale['claims']['mechanism_checks']['active_compatibility'], 'ACTIVE_COMPATIBLE')        # unrelated evidence untouched
 
 
 class MountedToolInclusionTests(unittest.TestCase):
