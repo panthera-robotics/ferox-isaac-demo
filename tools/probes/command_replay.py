@@ -210,6 +210,16 @@ def on_contact(headers, data):
             contacts.append(r); contact_file.write(json.dumps(r, allow_nan=False) + '\n')
 
 
+# DIAGNOSTIC only (sprint L C4): declared self-collision pair filters, e.g. the donor torso vs the right upper arm, to test
+# reachability of a recorded posture that the twin's own collision meshes block. Non-qualifying by construction: refused
+# unless the execution label is DIAGNOSTIC; every applied pair is recorded in metrics['diagnostic_collision_filters'].
+diagnostic_collision_filters = config.get('diagnostic_collision_filters') or []
+if diagnostic_collision_filters:
+    assert config.get('execution_label') == 'DIAGNOSTIC', 'diagnostic_collision_filters is DIAGNOSTIC-only'
+    for a_, b_ in diagnostic_collision_filters:
+        pa_, pb_ = world.stage.GetPrimAtPath('/World/G1/' + a_), world.stage.GetPrimAtPath('/World/G1/' + b_)
+        assert pa_.IsValid() and pb_.IsValid(), 'unknown link in diagnostic_collision_filters: %s / %s' % (a_, b_)
+        UsdPhysics.FilteredPairsAPI.Apply(pa_).CreateFilteredPairsRel().AddTarget(pb_.GetPath())
 subscription = get_physx_simulation_interface().subscribe_contact_report_events(on_contact)
 robot = SingleArticulation('/World/G1', name='provisional_assembled_g1')
 world.reset(); robot.initialize()
@@ -526,7 +536,7 @@ metrics = {'status': 'PASS' if all(checks.values()) else 'FAIL', 'checks': check
            'coupling_error_max_rad': max_coupling, 'hand_velocity_limit_readback': hand_velocity_limit_readback, 'fixed_base': True, 'support_constraints': ['pelvis_fixed_to_world_1m_above_origin'], 'ground_present': False, 'objects_present': False,
            'hardware_authorized': False, 'exact_asset_qualified': False, 'source_model': 'Unitree_FTP_G1_provisional_donor', 'manifest_id': manifest.data['manifest_id'], 'manifest_sha256': manifest.sha256,
            'grasp_qualification': 'NOT_RUN', 'writing_qualification': 'NOT_RUN', 'standing_qualification': 'NOT_RUN', 'real_data_agreement': 'NOT_TESTED_IN_PROBE (host-side comparison only)',
-           'media_labels': {'fixture': 'FIXED PELVIS - %s%s' % (config.get('execution_label', 'COMMAND REPLAY'), ': free rigid object on a table (no floor)' if scene else ' (no ground, no object)'), 'embodiment': 'PROVISIONAL G1 + bilateral FTP donor hands',
+           'diagnostic_collision_filters': diagnostic_collision_filters, 'media_labels': {'fixture': 'FIXED PELVIS - %s%s%s' % (config.get('execution_label', 'COMMAND REPLAY'), (' [SELF-COLLISION PAIRS FILTERED: %s — NON-QUALIFYING]' % '; '.join('%s/%s' % tuple(x) for x in diagnostic_collision_filters)) if diagnostic_collision_filters else '', ': free rigid object on a table (no floor)' if scene else ' (no ground, no object)'), 'embodiment': 'PROVISIONAL G1 + bilateral FTP donor hands',
                             'source': '%s: %s' % (sequence.source['kind'], sequence.source['source_id']), 'qualification': 'Software/physics integration only; no grasp, writing, standing or real-data agreement qualification'},
            'source_property_audit': 'live_inertia_audit.json', 'scene': scene_facts, 'task_evaluation': 'host-side (tools/task_eval.py) against the frozen criteria; not computed in the probe'}
 (out / 'metrics.json').write_text(json.dumps(metrics, indent=2, allow_nan=False))
