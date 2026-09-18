@@ -13,6 +13,14 @@ with evidence labels, what the **donor asset** is — never what the installed h
 | `nominal_reference.py` | RH56E2 manual Figure 5 angle definitions and product-page mass, datum-reconciled comparison rows |
 | `measurement_intake.py` | intake validation of installed-measurement files (evidence class, split, finiteness, non-negative uncertainty, units, repeat agreement, vector dimensions, evidence-file sha256, coverage) |
 | `candidate_invalidation.py` | what a candidate asset edit (widened coupled-joint lower limits, mirrored base_link inertial) does to the manifest's bound qualifications — on a temporary copy; the active asset and manifest are never written |
+| `ab_source_specs.py` | paired replay source specs (identical rows, closure-preserving vs radian-identity contracts) for the hand-map import-policy diagnostic; free-sweep row builder |
+| `conversion_profile.py` | opt-in typed conversion profile: distinct value types, bound kinds, per-axis evidence, refusals (side/order/type/dimension/non-finite/range/provenance), operating margin, raw-to-effective trace, coupled-joint consistency, dependency hashes; qualified profiles fail closed on unresolved semantics |
+| `load_contract.py` | `hand_load_contract_v1`: validation of a HAND_LOAD_RECORD bundle (frames, units, SPD + triangle inequality, parallel-axis and rigid re-expression round trips, totals vs components, null-never-zero), consumer rules against double counting, donor load at an actual configuration vs the open/closed samples |
+| `ab_analysis.py` | compares two command-replay evidence directories (measured vs commanded hand joints per replayed stage, coupled error, fingertip positions in the palm frame, streamed hand-object contact sets, object-in-palm offsets, evaluator verdicts) |
+| `media.py` | small labelled PNG diagrams (Pillow only): nominal-vs-donor angle curves, the A/B import-policy map, the wrist-frame load/COM diagram — CPU diagrams, never runtime evidence |
+| `collision_volume.py` | per-link closed-mesh volume vs single convex-hull volume (bound on what a convex collider adds), visual-vs-collision file identity, mean density check |
+| `uncertainty.py` | `|r|+U<=T` / `max(0,|r|-U)>T` decision for one simulator-vs-measured quantity, refused unless unit and datum match exactly |
+| `piston_route.py` | opt-in `hand_adapters`/profiles for the cached piston route built from `ConversionProfile` (closure_preserving or radian_identity with every clip recorded), usable with the existing `validate_piston_chunk` unchanged |
 | `report.py` | builds `HAND_FIDELITY_DELTA.json` for both hands |
 
 ## Reproduce

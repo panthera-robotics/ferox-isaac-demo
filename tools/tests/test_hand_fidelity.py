@@ -17,7 +17,9 @@ from hand_fidelity.coupling import compose, coupling_table, equivalent_layouts, 
 from hand_fidelity.donor_profile import HandUrdf, read_stl
 from hand_fidelity.load_record import load_record, validate_load_record
 from hand_fidelity.measurement_intake import IntakeError, validate_intake
-from isaac.twin.inspire.embodiment import ContractError, EmbodimentManifest, HandCommandAdapter
+from isaac.twin.inspire.embodiment import ContractError, EmbodimentManifest, HandCommandAdapter, ReplaySequence
+CARD = ("index", "middle", "ring", "little", "thumb_bend", "thumb_rotation")
+import hand_fidelity.command_semantics as cs
 
 ROOT = Path(__file__).resolve().parents[2]
 # donor assets live outside the repository (campaign generated/ftp_donor); override with HAND_FIDELITY_DONOR_DIR
@@ -308,3 +310,396 @@ class UnitScalingTests(unittest.TestCase):
         e = h.mesh_extents()
         self.assertEqual(e['units_check']['status'], 'METRES_PLAUSIBLE'); self.assertEqual(e['mesh_scale_attributes'], ['1 1 1'])
         self.assertAlmostEqual(e['open_length_along_fingers_m'], 0.25, delta=0.02)
+
+
+class AbSourceSpecTests(unittest.TestCase):
+    """Paired hand-map import-policy specs: identical rows, two contracts, predictable converted endpoints, refusals."""
+
+    def _admitted(self):
+        # synthetic donor-closure schedule in the admitted card order: open margin -> plateau 0.9 -> open margin (like rod30 v2)
+        mo = [0.013907, 0.013907, 0.013907, 0.013907, 0.034106, 0.017181]
+        rows = []
+        for i, (stage, c) in enumerate([('retract', mo), ('close', [0.45, 0.45, 0.45, 0.45, 0.034106, 0.017181]), ('close', [0.9, 0.9, 0.9, 0.9, 0.55, 0.5]),
+                                        ('hold', [0.9, 0.9, 0.9, 0.9, 0.55, 0.5]), ('open', [0.45, 0.45, 0.45, 0.45, 0.275, 0.25]), ('open', mo)]):
+            rows.append({'t_s': round(i / 30.0, 6), 'stage': stage, 'body_q_rad': {'right_elbow_joint': 0.5}, 'hands': {'right': c, 'left': None}})
+        return {'source': {'source_id': 'synthetic-admitted', 'kind': 'synthetic_test_sequence', 'provenance': 'unit test'},
+                'hand_contracts': {'right': {'axis_order': list(CARD), 'open_value': 0.0, 'closed_value': 1.0, 'saturation_policy': 'reject'}}, 'rows': rows, 'maximum_step_s': 0.2}
+
+    def test_pair_rows_identical_and_converted_finger_difference_is_0p20_rad(self):
+        from hand_fidelity.ab_source_specs import build_pair, expected_converted
+        pair, deriv = build_pair(self._admitted(), source_label='t')
+        a, b = pair['closure_preserving'], pair['radian_identity']
+        self.assertEqual(json.dumps(a['rows'], sort_keys=True), json.dumps(b['rows'], sort_keys=True))
+        self.assertEqual(a['rows'][2]['hands']['right'][:4], [1.3] * 4)                      # plateau = the piston dataset grasp value
+        m = EmbodimentManifest.load(MANIFEST)
+        ta, _ = expected_converted(a, m, at_row=2); tb, _ = expected_converted(b, m, at_row=2)
+        self.assertAlmostEqual(tb['right_index_1_joint'] - ta['right_index_1_joint'], 1.3 - 1.3 / 1.7 * 1.4381, 6)   # 0.2003 rad
+        self.assertAlmostEqual(tb['right_index_1_joint'], 1.3, 9); self.assertAlmostEqual(ta['right_index_1_joint'], 1.0997, 4)
+        self.assertAlmostEqual(tb['right_thumb_2_joint'], 0.55 * 0.5864, 6); self.assertAlmostEqual(tb['right_thumb_1_joint'], 0.5 * 1.1641, 6)   # B reproduces the admitted thumb exactly
+        oa, _ = expected_converted(a, m, at_row=0); ob, _ = expected_converted(b, m, at_row=0)
+        for t in (oa, ob):
+            for j, q in t.items():
+                self.assertGreaterEqual(q, 0.02 - 1e-9, j)                                        # operating margin respected under both policies
+        for spec in (a, b):
+            seq = ReplaySequence(m, spec['rows'], hand_contracts=spec['hand_contracts'], source=spec['source'], maximum_step_s=spec['maximum_step_s'])
+            self.assertEqual(seq.summary()['clipped_rows'], [])
+        self.assertEqual(deriv['finger_source_plateau_rad'], 1.3); self.assertGreaterEqual(deriv['finger_source_open_rad'], 0.02)
+
+    def test_identity_contract_refuses_the_dataset_thumb_yaw_open_endpoint_and_closure_contract_maps_it_to_open(self):
+        from hand_fidelity.ab_source_specs import contract
+        m = EmbodimentManifest.load(MANIFEST)
+        row = [0.5, 0.5, 0.5, 0.5, 0.0, -0.1]
+        with self.assertRaises(ContractError):
+            HandCommandAdapter(m, 'right', contract('radian_identity')).to_joint_targets(row)
+        t, info = HandCommandAdapter(m, 'right', contract('closure_preserving')).to_joint_targets(row)
+        self.assertAlmostEqual(t['right_thumb_1_joint'], 0.0, 9); self.assertEqual(info['clipped_axes'], []); self.assertAlmostEqual(info['closure']['thumb_rotation'], 0.0, 9)
+
+    def test_free_sweep_rows_hold_the_arm_and_replay_close_then_open(self):
+        from hand_fidelity.ab_source_specs import free_sweep_rows
+        rows = free_sweep_rows(self._admitted()['rows'], rate_hz=30.0, open_hold_s=0.1, plateau_hold_s=0.1, tail_hold_s=0.1)
+        stages = [r['stage'] for r in rows]
+        self.assertEqual(stages[:3], ['hold_open'] * 3); self.assertIn('close', stages); self.assertIn('open', stages); self.assertEqual(stages[-1], 'hold_open_end')
+        self.assertTrue(all(r['body_q_rad'] == {'right_elbow_joint': 0.5} for r in rows))
+        ts = [r['t_s'] for r in rows]; self.assertTrue(all(b > a for a, b in zip(ts, ts[1:])))
+
+    @unittest.skipUnless(os.environ.get('HAND_FIDELITY_ADMITTED_SPEC'), 'private admitted spec not provided')
+    def test_private_admitted_spec_pair_is_valid(self):
+        from hand_fidelity.ab_source_specs import build_pair
+        adm = json.loads(Path(os.environ['HAND_FIDELITY_ADMITTED_SPEC']).read_text())
+        pair, _ = build_pair({k: adm[k] for k in ('source', 'hand_contracts', 'rows', 'maximum_step_s')}, source_label='t')
+        m = EmbodimentManifest.load(MANIFEST)
+        for spec in pair.values():
+            self.assertEqual(ReplaySequence(m, spec['rows'], hand_contracts=spec['hand_contracts'], source=spec['source'], maximum_step_s=spec['maximum_step_s']).summary()['clipped_rows'], [])
+
+
+class ConversionProfileTests(unittest.TestCase):
+    """Opt-in typed conversion profile: types, bounds kinds, evidence, refusals, margins, trace, dependencies."""
+
+    def _profile(self, **kw):
+        from hand_fidelity.conversion_profile import ConversionProfile, PISTON_ROUTE_PROVENANCE
+        m = EmbodimentManifest.load(MANIFEST)
+        args = dict(profile_id='piston-closure-v1', side='right', source_convention='unitree_inspire_hand_urdf_radians_v1', manifest=m, policy='closure_preserving',
+                    operating_margin_rad=0.02, provenance=PISTON_ROUTE_PROVENANCE, urdf_sha256='63097d73')
+        args.update(kw)
+        return ConversionProfile(**args)
+
+    def test_trace_types_bounds_evidence_and_margin(self):
+        p = self._profile()
+        tr = p.apply([1.3, 1.3, 1.3, 1.3, 0.0, -0.1], side='right', declared_order=cs.NATIVE_ORDER, declared_type='radians')
+        self.assertEqual(tr['raw_type'], 'radians'); self.assertEqual(tr['clipped_axes'], []); self.assertEqual(tr['interventions'], [])
+        self.assertAlmostEqual(tr['closure']['thumb_rotation'], 0.0, 9)                                       # -0.1 is that model's open endpoint
+        self.assertAlmostEqual(tr['target_rad_unmargined']['right_thumb_1_joint'], 0.0, 9)
+        self.assertAlmostEqual(tr['effective_rad']['right_thumb_1_joint'], 0.02, 9)                           # operating margin applied at the open end
+        self.assertAlmostEqual(tr['margin_applied']['right_thumb_1_joint'], 0.02, 9)
+        self.assertAlmostEqual(tr['effective_rad']['right_index_1_joint'], 1.3 / 1.7 * 1.4381, 9)
+        self.assertIn('coordinate_endpoint', tr['bounds']['index']['target_bound_kind']); self.assertIn('operating_margin', tr['bounds']['index']['margin_kind'])
+        self.assertEqual(tr['evidence']['thumb_rotation']['direction'], 'VERIFIED_SOURCE'); self.assertEqual(tr['evidence']['index']['scale'], 'UNRESOLVED')   # datum identity unverified
+
+    def test_refusals_side_order_type_dimension_nonfinite_range(self):
+        p = self._profile()
+        good = [0.5, 0.5, 0.5, 0.5, 0.1, 0.3]
+        with self.assertRaises(ContractError):
+            p.apply(good, side='left')
+        with self.assertRaises(ContractError):
+            p.apply(good, side='right', declared_order=cs.CARD_ORDER)
+        with self.assertRaises(ContractError):
+            p.apply(good, side='right', declared_type='closure')
+        with self.assertRaises(ContractError):
+            p.apply(good[:5], side='right')
+        with self.assertRaises(ContractError):
+            p.apply([float('nan')] + good[1:], side='right')
+        with self.assertRaises(ContractError):
+            p.apply([1.8, 0.5, 0.5, 0.5, 0.1, 0.3], side='right')                        # above the source range under a reject policy
+        with self.assertRaises(ContractError):
+            self._profile(require_verified=True)                                          # scale UNRESOLVED -> a qualified profile cannot be built
+        with self.assertRaises(ContractError):
+            self._profile(policy='radian_identity', exploratory=False, declared_clip=True)   # a clip needs an exploratory profile
+
+    def test_radian_identity_profile_refuses_the_dataset_thumb_yaw_unless_a_clip_is_declared(self):
+        pid = self._profile(profile_id='piston-identity-v1', policy='radian_identity')
+        with self.assertRaises(ContractError):
+            pid.apply([1.3, 1.3, 1.3, 1.3, 0.0, -0.1], side='right')
+        clip = self._profile(profile_id='piston-identity-clip-v1', policy='radian_identity', declared_clip=True)
+        tr = clip.apply([1.3, 1.3, 1.3, 1.3, 0.0, -0.1], side='right')
+        self.assertEqual(tr['clipped_axes'], ['thumb_rotation']); self.assertEqual(tr['interventions'][0]['kind'], 'declared_clip')
+        self.assertAlmostEqual(tr['effective_rad']['right_index_1_joint'], 1.3, 9); self.assertAlmostEqual(tr['effective_rad']['right_thumb_1_joint'], 0.02, 9)
+        self.assertNotEqual(pid.sha256, clip.sha256)
+
+    def test_monotone_round_trip_and_endpoints(self):
+        p = self._profile()
+        last = -1.0
+        for q in (0.0, 0.3, 0.85, 1.3, 1.7):
+            eff = p.apply([q] * 4 + [0.0, -0.1], side='right')['effective_rad']['right_index_1_joint']
+            self.assertGreater(eff, last); last = eff
+        self.assertAlmostEqual(p.apply([1.7] * 4 + [0.5, 1.3], side='right')['target_rad_unmargined']['right_index_1_joint'], 1.4381, 9)
+        c, _ = cs.to_closure('unitree_inspire_hand_urdf_radians_v1', [0.85] * 4 + [0.25, 0.6])
+        back = cs.from_closure('unitree_inspire_hand_urdf_radians_v1', c)
+        self.assertTrue(all(abs(a - b) < 1e-12 for a, b in zip(back, [0.85] * 4 + [0.25, 0.6])))
+
+    @unittest.skipUnless(DONOR_URDF.exists(), 'donor URDF not in this checkout')
+    def test_coupled_joints_stay_inside_their_limits_with_the_margin(self):
+        p = self._profile()
+        tr = p.apply([1.7, 1.7, 1.7, 1.7, 0.5, 1.3], side='right')
+        cc = p.coupled_consistency(tr, DONOR_URDF)
+        self.assertEqual(len(cc), 6); self.assertTrue(all(v['inside'] for v in cc.values()), cc)
+        tr0 = p.apply([0.0, 0.0, 0.0, 0.0, 0.0, -0.1], side='right'); cc0 = p.coupled_consistency(tr0, DONOR_URDF)
+        self.assertTrue(all(v['margin_to_lower_rad'] > 0.015 for v in cc0.values()), cc0)   # margin keeps the coupled joints off their lower limits
+
+    def test_dependencies_and_profile_hash_change_with_policy_and_margin(self):
+        a = self._profile(); b = self._profile(operating_margin_rad=0.03); c = self._profile(policy='radian_identity')
+        self.assertEqual(len({a.sha256, b.sha256, c.sha256}), 3)
+        d = a.dependencies(); self.assertEqual(d['manifest_sha256'], a.manifest.sha256); self.assertIn('invalidates_when_changed', d)
+        self.assertEqual(a.describe()['axis_order'], list(cs.NATIVE_ORDER))
+
+
+class LoadContractTests(unittest.TestCase):
+    def _bundle(self):
+        import numpy as np
+        def hand(side, x, y):
+            I = [[6.6e-4, 0, 0], [0, 2.1e-3, 0], [0, 0, 2.6e-3]]
+            return {'mass_kg': 0.8783, 'com_m': [x, y, 0.005], 'inertia_about_com_kg_m2': I, 'provenance': 'URDF', 'frame': side + '_wrist_yaw_link'}
+        recs = {}
+        for side, y in (('right', 0.0012), ('left', -0.0008)):
+            recs[side] = {}
+            for cfg, x in (('open', 0.138 if side == 'right' else 0.1454), ('closed', 0.1316 if side == 'right' else 0.139)):
+                h = hand(side, x, y)
+                recs[side][cfg] = {'frame': side + '_wrist_yaw_link', 'components': {'hand': h, 'wrist_adapter': None, 'tool': None},
+                                   'totals': {'hand_only': {'mass_kg': h['mass_kg'], 'com_m': h['com_m'], 'inertia_about_com_kg_m2': h['inertia_about_com_kg_m2']}, 'hand_and_adapter': None, 'hand_and_tool': None, 'hand_adapter_and_tool': None}}
+        return {'schema': 'hand_load_record_bundle_v1', 'records': recs}
+
+    def test_valid_bundle_reports_sides_and_asymmetry(self):
+        from hand_fidelity.load_contract import validate_bundle
+        r = validate_bundle(self._bundle())
+        self.assertEqual(r['sides']['right']['open']['mass_kg'], 0.8783); self.assertAlmostEqual(r['sides']['right']['open']['gravity_moment_at_horizontal_extension_N_m'], 9.81 * 0.8783 * 0.138, 3)
+        self.assertIn('ASYMMETRIC', r['mirror_consistency']['open']['status']); self.assertIn('never_add_when', r['consumer_rules'])
+
+    def test_parallel_axis_and_reexpression_round_trips(self):
+        import numpy as np
+        from hand_fidelity.load_contract import parallel_axis, reexpress
+        I = np.diag([1e-3, 2e-3, 2.5e-3]); m, r = 0.8, np.array([0.1, 0.02, -0.01])
+        Io = parallel_axis(I, m, r)
+        self.assertTrue(np.allclose(Io - m * ((r @ r) * np.eye(3) - np.outer(r, r)), I))
+        th = 0.3; R = np.array([[np.cos(th), 0, np.sin(th)], [0, 1, 0], [-np.sin(th), 0, np.cos(th)]])
+        self.assertTrue(np.allclose(reexpress(reexpress(I, R), R.T), I)); self.assertTrue(np.allclose(np.linalg.eigvalsh(reexpress(I, R)), np.linalg.eigvalsh(I)))
+
+    def test_rejections(self):
+        from hand_fidelity.load_contract import LoadContractError, validate_bundle
+        b = self._bundle(); b['records']['right']['open']['components']['hand']['inertia_about_com_kg_m2'] = [[1e-3, 0, 0], [0, 1e-3, 0], [0, 0, 3e-3]]   # triangle inequality
+        with self.assertRaises(LoadContractError):
+            validate_bundle(b)
+        b = self._bundle(); b['records']['right']['open']['components']['wrist_adapter'] = {'mass_kg': 0.05, 'com_m': [0.02, 0, 0], 'inertia_about_com_kg_m2': None, 'provenance': 'assumed', 'frame': 'right_wrist_yaw_link'}
+        with self.assertRaises(LoadContractError):
+            validate_bundle(b)
+        b = self._bundle(); b['records']['left']['closed']['components']['hand']['mass_kg'] = 0.9
+        with self.assertRaises(LoadContractError):
+            validate_bundle(b)   # open/closed are samples of one rigid body
+        b = self._bundle(); b['records']['right']['open']['totals']['hand_and_tool'] = b['records']['right']['open']['totals']['hand_only']
+        with self.assertRaises(LoadContractError):
+            validate_bundle(b)   # a total that needs an unknown component must be null
+
+    @unittest.skipUnless(DONOR_URDF.exists(), 'donor URDF not in this checkout')
+    def test_actual_configuration_load_sits_between_the_samples_for_finger_closure(self):
+        from hand_fidelity.load_contract import compare_with_samples, load_at_configuration
+        h = HandUrdf(DONOR_URDF, 'right')
+        b = self._bundle()
+        for side in ('right', 'left'):
+            hh = HandUrdf(DONOR_URDF, side)
+            for cfg, c in (('open', 0.0), ('closed', 1.0)):
+                mp = hh.mass_properties(hh.actuator_command({a: c for a in hh.actuators}), in_wrist_frame=True)
+                b['records'][side][cfg]['components']['hand'].update(mass_kg=mp['mass_kg'], com_m=mp['com_m'], inertia_about_com_kg_m2=mp['inertia_about_com_kg_m2'])
+                b['records'][side][cfg]['totals']['hand_only'] = {'mass_kg': mp['mass_kg'], 'com_m': mp['com_m'], 'inertia_about_com_kg_m2': mp['inertia_about_com_kg_m2']}
+        from hand_fidelity.load_contract import validate_bundle
+        validate_bundle(b)
+        half = load_at_configuration(h, h.actuator_command({a: 0.5 for a in ('index', 'middle', 'ring', 'little')}))
+        self.assertTrue(compare_with_samples(b, 'right', half)['between_samples'])
+
+
+@unittest.skipUnless(DONOR_URDF.exists(), 'donor URDF not in this checkout')
+class AbAnalysisTests(unittest.TestCase):
+    """The A/B trace comparator on a tiny synthetic evidence pair: aligned stages, measured/commanded deltas, contact sets, object-in-palm."""
+
+    def _evidence(self, tmp, name, finger_rad, contact_links):
+        from hand_fidelity.donor_profile import HandUrdf
+        h = HandUrdf(DONOR_URDF, 'right')
+        d = Path(tmp) / name; d.mkdir()
+        names = h.hand_joints + ['right_shoulder_pitch_joint']
+        rows, cmds, objs, cons = [], [], [], []
+        for i in range(12):
+            t = 0.005 * (i + 1); stage_row = 0 if i < 6 else 1
+            q = h.joint_values({h.actuators['index']: finger_rad, h.actuators['middle']: finger_rad, h.actuators['ring']: finger_rad, h.actuators['little']: finger_rad})
+            qv = [q[n] if n in q else 0.0 for n in names]
+            rows.append({'sequence': i, 'physics_s': t, 'wall_s': t, 'phase': 'replay', 'source_row': stage_row, 'source_t_s': stage_row * 0.03, 'runtime_names': names, 'q_rad': qv, 'dq_rad_s': [0.0] * len(names),
+                         'measured_generalized_effort_nm': [0.01] * len(names), 'body_command_names': [], 'body_command_rad': [],
+                         'hand_command_names': [h.actuators[a] for a in ('index', 'middle', 'ring', 'little', 'thumb_bend', 'thumb_rotation')], 'hand_command_rad': [finger_rad] * 4 + [0.02, 0.02],
+                         'link_poses_world_xyzw': {'right_base_link': [0.2, -0.15, 1.1, 0, 0, 0, 1]}, 'coupling_error_rad': {'right_index_2_joint': 0.001}, 'body_feedforward': {}})
+            objs.append({'sequence': i, 'physics_s': t, 'phase': 'replay', 'source_row': stage_row, 'pose_world_xyzw': [0.23, -0.12, 1.2, 0, 0, 0, 1], 'linear_velocity_m_s': [0, 0, 0], 'angular_velocity_rad_s': [0, 0, 0], 'right_palm_pose_world_xyzw': [0.2, -0.15, 1.1, 0, 0, 0, 1]})
+            for link in contact_links:
+                cons.append({'sequence': i, 'physics_s': t, 'phase': 'replay', 'actor0': '/World/Scene/Object', 'actor1': '/World/G1/' + link, 'position_world_m': [0, 0, 0], 'normal_world': [0, 0, 1], 'impulse_ns': [0, 0, 0.1], 'separation_m': 0.0, 'source': 'simulated_proxy'})
+        for sr in (0, 1):
+            cmds.append({'sequence': sr, 'physics_s': 0.005 * (1 + 6 * sr), 'source_row': sr, 'source_t_s': sr * 0.03, 'body_targets_rad': {}, 'hand_targets_rad': {'right': {}}, 'hand_closure': {'right': {}}, 'clipped_axes': {'right': []}})
+        (d / 'state.jsonl').write_text('\n'.join(json.dumps(r) for r in rows) + '\n'); (d / 'commands.jsonl').write_text('\n'.join(json.dumps(c) for c in cmds) + '\n')
+        (d / 'object.jsonl').write_text('\n'.join(json.dumps(o) for o in objs) + '\n'); (d / 'contacts.jsonl').write_text('\n'.join(json.dumps(c) for c in cons) + '\n')
+        (d / 'task_eval_v2.json').write_text(json.dumps({'C1_grasp': {'pass': True}, 'C2_lift_retention': {'pass': name == 'B'}, 'C3_place': {'pass': True}, 'C4_release': {'pass': True}, 'C5_prohibited': {'pass': True}, 'overall': 'PASS' if name == 'B' else 'FAIL'}))
+        spec = d / 'spec.json'; spec.write_text(json.dumps({'rows': [{'stage': 'close'}, {'stage': 'hold'}]}))
+        return d, spec, h
+
+    def test_compare_reports_measured_delta_contacts_and_object_offset(self):
+        from hand_fidelity.ab_analysis import compare, summarize_run
+        with tempfile.TemporaryDirectory() as tmp:
+            a, spec, h = self._evidence(tmp, 'A', 1.0997, ['right_base_link'])
+            b, _, _ = self._evidence(tmp, 'B', 1.3, ['right_base_link', 'right_index_2', 'right_middle_2'])
+            sa, sb = summarize_run(a, h, source_spec=spec), summarize_run(b, h, source_spec=spec)
+            self.assertEqual(sa['phases'], ['close', 'hold']); self.assertEqual(sa['contact_links_in_hold'], ['right_base_link']); self.assertEqual(len(sb['contact_links_in_hold']), 3)
+            self.assertEqual(sa['per_phase']['hold']['object_in_palm_m'], [0.03, 0.03, 0.1])
+            c = compare(sa, sb)
+            self.assertAlmostEqual(c['phases']['hold']['measured_end_rad_B_minus_A']['right_index_1_joint'], 0.2003, 3)
+            self.assertGreater(abs(c['phases']['hold']['fingertip_B_minus_A_m']['index_tip_sensor'][2]), 0.01)
+            self.assertEqual(c['task_eval']['A']['overall'], 'FAIL'); self.assertEqual(c['task_eval']['B']['overall'], 'PASS')
+
+
+class MediaTests(unittest.TestCase):
+    def test_charts_render_when_pillow_is_available(self):
+        try:
+            import PIL  # noqa: F401
+        except Exception:
+            self.skipTest('Pillow not installed')
+        from hand_fidelity.media import actuator_angle_chart, import_policy_chart, load_diagram
+        with tempfile.TemporaryDirectory() as tmp:
+            nom = {'finger_alpha_open_deg': 170.0, 'finger_alpha_closed_deg': 91.5, 'thumb_beta_open_deg': 170.0, 'thumb_beta_closed_deg': 75.0}
+            ang = {'finger_index': {'alpha_open_deg': 174.0, 'alpha_closed_deg': 91.9}, 'thumb_rotation': {'beta_open_tip_line_deg': 166.8, 'beta_closed_tip_line_deg': 100.1}}
+            p1 = actuator_angle_chart(Path(tmp) / 'a.png', nom, ang); p2 = import_policy_chart(Path(tmp) / 'b.png')
+            rec = {'driver_hardware_feedforward_assumption': {'right': {'effective_com_m_wrist_yaw': [0.0844, 0, 0], 'first_moment_kg_m': {'donor_open': 0.1212, 'assumption': 0.0667}, 'gravity_moment_difference_N_m_at_horizontal_extension': 0.534}, 'left': {'gravity_moment_difference_N_m_at_horizontal_extension': 0.598}},
+                   'records': {'right': {'open': {'components': {'hand': {'com_m': [0.138, 0, 0]}}}, 'closed': {'components': {'hand': {'com_m': [0.1316, 0, 0]}}}}, 'left': {'open': {'components': {'hand': {'com_m': [0.1454, 0, 0]}}}}}}
+            p3 = load_diagram(Path(tmp) / 'c.png', rec)
+            for p in (p1, p2, p3):
+                self.assertGreater(Path(p).stat().st_size, 5000)
+
+
+class CollisionVolumeTests(unittest.TestCase):
+    def test_closed_cube_volume_and_hull_ratio(self):
+        import struct
+        from hand_fidelity.collision_volume import hull_volume_m3, mesh_volume_m3, read_stl_triangles
+        # unit cube (12 triangles, outward normals via consistent winding)
+        v = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]], float)
+        faces = [(0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7), (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5), (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7)]
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / 'cube.stl'
+            p.write_bytes(b'\0' * 80 + struct.pack('<I', len(faces)) + b''.join(struct.pack('<3f', 0, 0, 0) + b''.join(struct.pack('<3f', *v[i]) for i in f) + b'\0\0' for f in faces))
+            tris = read_stl_triangles(p)
+        self.assertAlmostEqual(mesh_volume_m3(tris), 1.0, 9); self.assertAlmostEqual(hull_volume_m3(tris.reshape(-1, 3)), 1.0, 9)
+
+    @unittest.skipUnless(DONOR_URDF.exists(), 'donor URDF not in this checkout')
+    def test_donor_links_visual_equals_collision_and_concave_links_are_bounded(self):
+        from hand_fidelity.collision_volume import summary
+        h = HandUrdf(DONOR_URDF, 'right')
+        if not h.meshes_available():
+            self.skipTest('meshes absent')
+        s = summary(h)
+        self.assertTrue(s['all_visual_equal_collision_file'])
+        self.assertGreater(s['links']['right_base_link']['hull_over_mesh'], 2.0); self.assertLess(s['links']['right_index_2']['hull_over_mesh'], 1.5)
+
+
+class UncertaintyRuleTests(unittest.TestCase):
+    def test_rule_and_refusals(self):
+        from hand_fidelity.uncertainty import IncompatibleComparison, compatible_compare
+        kw = dict(tolerance=3.0, unit_sim='mm', unit_measured='mm', datum_sim='palm thickness at the marker pocket, caliper across the palm faces', datum_measured='palm thickness at the marker pocket, caliper across the palm faces', quantity='palm_thickness_mm')
+        self.assertEqual(compatible_compare(58.6, 57.0, uncertainty=0.5, **kw)['status'], 'PASS')
+        self.assertEqual(compatible_compare(58.6, 54.0, uncertainty=0.5, **kw)['status'], 'FAIL')
+        self.assertEqual(compatible_compare(58.6, 56.0, uncertainty=1.0, **kw)['status'], 'INDETERMINATE')
+        with self.assertRaises(IncompatibleComparison):
+            compatible_compare(58.6, 57.0, uncertainty=-0.1, **kw)
+        with self.assertRaises(IncompatibleComparison):
+            compatible_compare(58.6, 57.0, uncertainty=float('nan'), **kw)
+        with self.assertRaises(IncompatibleComparison):
+            compatible_compare(58.6, 5.7, uncertainty=0.5, **dict(kw, unit_measured='cm'))
+        with self.assertRaises(IncompatibleComparison):
+            compatible_compare(65.4, 57.0, uncertainty=0.5, **dict(kw, datum_sim='mesh band extent along the flexion normal (root x-z band 0.09-0.15 m)'))
+
+
+class LeftHandProfileTests(unittest.TestCase):
+    def test_left_profile_mirrors_the_right_numbers_and_refuses_right_values(self):
+        from hand_fidelity.conversion_profile import ConversionProfile, PISTON_ROUTE_PROVENANCE
+        m = EmbodimentManifest.load(MANIFEST)
+        pl = ConversionProfile(profile_id='piston-closure-left-v1', side='left', source_convention='unitree_inspire_hand_urdf_radians_v1', manifest=m, provenance=PISTON_ROUTE_PROVENANCE, urdf_sha256='63097d73')
+        pr = ConversionProfile(profile_id='piston-closure-right-v1', side='right', source_convention='unitree_inspire_hand_urdf_radians_v1', manifest=m, provenance=PISTON_ROUTE_PROVENANCE, urdf_sha256='63097d73')
+        raw = [1.3, 1.3, 1.3, 1.3, 0.0, -0.1]
+        tl, tr = pl.apply(raw, side='left'), pr.apply(raw, side='right')
+        for a in ('index', 'middle', 'ring', 'little', 'thumb_bend', 'thumb_rotation'):
+            self.assertAlmostEqual(tl['effective_rad'][m.hand_actuator('left', a)['joint']], tr['effective_rad'][m.hand_actuator('right', a)['joint']], 9)
+        with self.assertRaises(ContractError):
+            pl.apply(raw, side='right')
+        self.assertNotEqual(pl.sha256, pr.sha256)
+
+
+class AppliedConversionDependencyGapTests(unittest.TestCase):
+    """Sprint K documented a dependency gap on the ACTUAL manifest (the bound claims did not include the hand command contract);
+    the sprint L binding (f1e5b06: hand_contract_sha256 / arm_datum / live physics dt) closes it: on the v1 manifest, which does
+    not bind the applied profile, command_replay_integration can no longer read ACTIVE_COMPATIBLE — it is `unbound`
+    (UNVERIFIED) whatever contract is applied; on a manifest that binds the profile, changing only the contract stales it."""
+
+    def live_values(self, m):
+        return {'urdf_sha256': m.data['source_asset']['urdf_sha256'], 'coupling_map_sha256': m.data['qualification']['claims']['mechanism_checks']['configuration']['coupling_map_sha256'],
+                'collision_cooking': m.data['qualification']['claims']['mechanism_checks']['configuration']['collision_cooking'], 'wrist_mount_sha256': m.data['qualification']['claims']['mechanism_checks']['configuration']['wrist_mount_sha256'],
+                'physics_dt_s': '0.005', 'solver': 'TGS_32_8', 'support': 'FIXED_PELVIS', 'camera_mount_sha256': m.data['qualification']['claims']['command_replay_integration']['configuration']['camera_mount_sha256'],
+                'controller': 'implicit_biased_drive_v1 replay controller (package-hashed gains)', 'arm_datum': 'body_q_rad:urdf_absolute'}
+
+    def test_unbound_manifest_never_reads_active_and_a_bound_one_stales_on_the_contract_alone(self):
+        from hand_fidelity.ab_source_specs import contract
+        from isaac.twin.inspire.embodiment import hand_contract_descriptor
+        m = EmbodimentManifest.load(MANIFEST)
+        a = HandCommandAdapter(m, 'right', contract('closure_preserving')); b = HandCommandAdapter(m, 'right', contract('radian_identity'))
+        self.assertNotEqual(a.contract_sha256, b.contract_sha256); self.assertNotEqual(a.profile_sha256, b.profile_sha256)
+        live = self.live_values(m)
+        self.assertNotIn('hand_contract_sha256', m.data['qualification']['claims']['command_replay_integration']['configuration'])   # v1 manifest: still unbound
+        for adapter in (a, b):
+            r = m.check_validity(dict(live, hand_contract_sha256=hand_contract_descriptor({'right': adapter})))
+            self.assertEqual(r['claims']['command_replay_integration']['active_compatibility'], 'UNVERIFIED')     # never ACTIVE on an unbound revision
+            self.assertEqual(r['claims']['command_replay_integration']['unbound'], ['hand_contract_sha256', 'arm_datum'])
+        data = json.loads(MANIFEST.read_text())
+        data['qualification']['claims']['command_replay_integration']['configuration'].update(hand_contract_sha256=hand_contract_descriptor({'right': b}), arm_datum='body_q_rad:urdf_absolute')
+        bound = EmbodimentManifest(data)
+        ok = bound.check_validity(dict(live, hand_contract_sha256=hand_contract_descriptor({'right': b})))
+        self.assertEqual(ok['claims']['command_replay_integration']['active_compatibility'], 'ACTIVE_COMPATIBLE')
+        stale = bound.check_validity(dict(live, hand_contract_sha256=hand_contract_descriptor({'right': a})))
+        self.assertEqual(stale['claims']['command_replay_integration']['active_compatibility'], 'STALE')             # the applied conversion alone stales the claim
+        self.assertEqual(stale['claims']['mechanism_checks']['active_compatibility'], 'ACTIVE_COMPATIBLE')        # unrelated evidence untouched
+
+
+class MountedToolInclusionTests(unittest.TestCase):
+    def test_declared_tool_composes_and_wrist_total_refuses_double_counting(self):
+        from hand_fidelity.load_contract import LoadContractError, declared_tool_component, hand_and_tool
+        hand = {'mass_kg': 0.8783, 'com_m': [0.138, 0.001, 0.005], 'inertia_about_com_kg_m2': (np.eye(3) * 1e-3).tolist(), 'provenance': 'URDF', 'frame': 'right_wrist_yaw_link'}
+        holder = declared_tool_component(mass_kg=0.088, com_m=[0.20, 0.0, 0.0], frame='right_wrist_yaw_link', note='holder + marker declared per job')
+        t = hand_and_tool(hand, holder)
+        self.assertAlmostEqual(t['mass_kg'], 0.9663, 9); self.assertAlmostEqual(t['com_m'][0], (0.8783 * 0.138 + 0.088 * 0.20) / 0.9663, 9); self.assertIsNone(t['inertia_about_com_kg_m2'])
+        total = declared_tool_component(mass_kg=0.95, com_m=[0.15, 0, 0], frame='right_wrist_yaw_link', replaces_hand=True, note='tool_board tool.mass_kg semantics')
+        with self.assertRaises(LoadContractError):
+            hand_and_tool(hand, total)
+        with self.assertRaises(LoadContractError):
+            declared_tool_component(mass_kg=0.088, com_m=None, frame='right_wrist_yaw_link')
+        with self.assertRaises(LoadContractError):
+            declared_tool_component(mass_kg=0.088, com_m=[0.2, 0, 0], frame='left_wrist_yaw_link', provenance='assumed')
+
+
+class PistonRouteTests(unittest.TestCase):
+    """The existing validate_piston_chunk accepts the profile adapters unchanged: both policies convert the same chunk, differing by 0.2003 rad."""
+
+    def _chunk(self, H=3):
+        z7, z6 = [0.0] * 7, [1.3, 1.3, 1.3, 1.3, 0.0, -0.1]
+        return {'left_arm': [z7] * H, 'right_arm': [z7] * H, 'left_hand': [[0.0] * 5 + [-0.1]] * H, 'right_hand': [z6] * H, 'base_height': [[0.76]] * H, 'navigate_command': [[0.0, 0.0, 0.0]] * H}
+
+    def test_both_policies_through_the_existing_validator(self):
+        from isaac.twin.inspire.model_action_adapter import validate_piston_chunk
+        from hand_fidelity.piston_route import hand_adapters, route_record
+        m = EmbodimentManifest.load(MANIFEST)
+        ra = validate_piston_chunk(m, self._chunk(), hand_adapters=hand_adapters(m, policy='closure_preserving'))
+        rb = validate_piston_chunk(m, self._chunk(), hand_adapters=hand_adapters(m, policy='radian_identity'))
+        self.assertTrue(ra.get('rows') and rb.get('rows'), (ra.get('refusal'), rb.get('refusal')))
+        qa = ra['rows'][0]['hands']['right']; qb = rb['rows'][0]['hands']['right']
+        # rows carry the SOURCE values for the package contract; the converted targets differ through the contract
+        self.assertEqual(qa, qb)
+        ta, _ = hand_adapters(m, policy='closure_preserving')['right'].to_joint_targets(qa); tb, _ = hand_adapters(m, policy='radian_identity')['right'].to_joint_targets(qb)
+        self.assertAlmostEqual(tb['right_index_1_joint'] - ta['right_index_1_joint'], 0.2003, 3)
+        self.assertAlmostEqual(ta['right_thumb_1_joint'], 0.0, 9); self.assertAlmostEqual(tb['right_thumb_1_joint'], 0.0, 9)   # -0.1: open under A; clipped to the endpoint under B
+        self.assertEqual(ra['interventions'], []); self.assertTrue(rb['interventions'], 'identity must record the thumb_yaw clip')
+        rec = route_record(m, policy='closure_preserving'); self.assertTrue(rec['exploratory']); self.assertEqual(rec['profiles']['right']['evidence']['index']['scale'], 'UNRESOLVED')
