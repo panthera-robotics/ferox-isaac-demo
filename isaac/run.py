@@ -38,6 +38,7 @@ import numpy as np
 import omni.appwindow  # Contains handle to keyboard
 import sim_utils as ros_utils
 import viewport_follow  # PANTHERA: flag-gated viewport-follow for x11grab capture
+import capture_frames  # PANTHERA (Sprint M): flag-gated headless chase-camera PNG capture (G1_CAPTURE_DIR)
 import yaml
 from isaacsim.core.api import World
 from isaacsim.core.utils.prims import define_prim
@@ -1224,10 +1225,12 @@ class RobotRosRunner(object):
         Step simulation based on rendering downtime.
 
         """
+        capture_frames.setup(self._world)  # PANTHERA: no-op unless G1_CAPTURE_DIR
         while simulation_app.is_running():
             t0 = time.time()
             self._world.step(render=True)
             viewport_follow.maybe_step(self)  # PANTHERA: no-op unless VIEWPORT_FOLLOW
+            capture_frames.maybe_step(self)  # PANTHERA: no-op unless G1_CAPTURE_DIR
             if self._world.is_stopped():
                 self.needs_reset = True
             if real_time:
