@@ -24,7 +24,7 @@ def main():
     sys.path[:0] = ['/workspace/ferox_tools', '/workspace/sim-source', '/workspace/ferox_isaac']
     from assembled_balance import GATES, FEET, GROUND, source_foot_spheres, initial_height, roll_pitch, finite_tree, safe_json, source_adjacency
     from wbc_standing_ab import (ARMS, ARM_JOINTS, EXPERIMENTAL_OWNER, StandingABConfig, config_sha256, perturbed_initial, rig_wrench,
-                                 evaluate_standing, command_at, arm_reference_at, guarded_state_view, rig_stability_margins, rig_scale_at, interval_persists)
+                                 evaluate_standing, command_at, arm_reference_at, guarded_state_view, rig_stability_margins, rig_scale_at, interval_persists, online_finger_check)
     from wbc_runtime_guard import GuardRefused, RuntimeOwnershipGuard
     cfg = StandingABConfig.from_dict(json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text()))
     arm = ARMS[cfg.arm]
@@ -429,41 +429,10 @@ def main():
             row['drive_estimate_names'] = body_names + hand_names
             row['drive_estimate_near_cap_names'] = [n for n, e, cap in zip(body_names + hand_names, estimate, caps[indices]) if abs(e) >= .99 * cap]
             row['drive_estimate_scope'] = 'Unclipped PD estimate; measured generalized efforts also include constraint reactions'
-            hand_set = set(hand_names)
-            legacy_overspeed = {n: float(dq[i]) for i, n in enumerate(names) if abs(dq[i]) > 2 * facts['joint_limits'][n]['velocity']}
-            if cfg.finger_velocity_channel == 'interval':
-                # PROSPECTIVE profile (wb-cand-07 r2, hand-an-05 review): hand joints on the finite difference of position over the
-                # physics step (PHYSICS_DT; the standing probe has no pose write after the spawn, so every interval is a physics step);
-                # ONLINE abort only on >= 2 CONSECUTIVE SAME-SIGN intervals beyond 2x the field (open-stop chatter alternates sign and
-                # never persists); a single-interval exceedance is logged as interval_spike and counted, never acted on. Body joints
-                # stay on the readback. The readback verdict is logged on every row. PARENT_CAP_SOLVE witness logged, never acted on.
-                interval = ({} if prev_q_abort is None else {n: float((q[i] - prev_q_abort[i]) / PHYSICS_DT) for i, n in enumerate(names) if n in hand_set})
-                overspeed = {n: v for n, v in legacy_overspeed.items() if n not in hand_set}
-                spikes = {}
-                for n, v in interval.items():
-                    lim2 = 2 * facts['joint_limits'][n]['velocity']
-                    if abs(v) > lim2:
-                        spikes[n] = v
-                        if interval_persists(interval_persist.get(n), v, facts['joint_limits'][n]['velocity']):
-                            overspeed[n] = v   # persisted: two consecutive same-sign intervals beyond 2x
-                    interval_persist[n] = v
-                witness = {}
-                for child, m in facts['mimic_map'].items():
-                    if child not in hand_set or child not in interval:
-                        continue
-                    ci, pi = names.index(child), names.index(m['parent']); fld = facts['joint_limits'][child]['velocity']; pfld = facts['joint_limits'][m['parent']]['velocity']
-                    if abs(dq[ci]) <= fld:
-                        continue
-                    coupling = float(q[ci] - m['multiplier'] * q[pi] - m['offset'])
-                    witness[child] = {'child_readback': float(dq[ci]), 'child_interval': interval[child], 'parent': m['parent'], 'parent_readback': float(dq[pi]),
-                                      'parent_interval': interval.get(m['parent']), 'coupling_error_rad': coupling,
-                                      'parent_cap_solve': bool(abs(dq[ci]) > 2 * fld and abs(dq[pi]) >= .99 * pfld and abs(interval.get(m['parent']) or 0.) <= pfld and abs(coupling) <= .03)}
-                row['hand_dq_interval_rad_s'] = interval
-                row['legacy_finger_overspeed_readback'] = {n: v for n, v in legacy_overspeed.items() if n in hand_set}
-                row['interval_spike'] = spikes
-                row['finger_witness'] = witness
-            else:
-                overspeed = legacy_overspeed   # default: byte-identical K/L rows and decisions
+            # ONLINE source-envelope velocity check (pure function, replayable offline in the tests); default channel byte-identical
+            overspeed, extras = online_finger_check(q, dq, prev_q_abort, names, body_names, facts['joint_limits'], facts['mimic_map'],
+                                                    cfg.finger_velocity_channel, interval_persist, PHYSICS_DT)
+            row.update(extras)
             prev_q_abort = list(map(float, q))
             rows.append(row); state_file.write(json.dumps(row, allow_nan=False) + '\n')
             pelvis = row['link_poses_world_xyzw']['pelvis']; roll, pitch = roll_pitch(pelvis)
@@ -471,7 +440,7 @@ def main():
             if violated or overspeed or contact_faults or (not supported and (pelvis[2] < .65 or max(abs(roll), abs(pitch)) > .35)):
                 abort = {'sequence': sequence, 'reason': 'fall_or_source_envelope_abort', 'phase': phase, 'joint_limit_violations': violated,
                          'overspeed': overspeed, 'contact_faults': contact_faults,
-                         **({'finger_velocity_channel': 'interval', 'legacy_finger_overspeed_readback': row['legacy_finger_overspeed_readback']} if cfg.finger_velocity_channel == 'interval' else {})}
+                         **({'finger_velocity_channel': 'interval', 'legacy_finger_overspeed_readback': row.get('legacy_finger_overspeed_readback', {})} if cfg.finger_velocity_channel == 'interval' else {})}
                 guard.fault('fall_or_source_envelope_abort')
                 break
             if (sequence + 1) % cfg.frame_every == 0:

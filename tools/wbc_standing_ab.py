@@ -257,6 +257,44 @@ def interval_persists(previous_interval, interval, field):
             and (previous_interval > 0) == (interval > 0))
 
 
+def online_finger_check(q, dq, prev_q, names, body_names, limits, mimic_map, channel, persist, dt):
+    """ONLINE source-envelope velocity check of the standing probe (pure, replayable offline).
+
+    Returns (overspeed, extras). overspeed: {joint: rad/s} of joints beyond 2x their field on the channel that
+    applies to them — body joints always on the readback; hand joints (driven roots AND mimic children = every
+    name outside body_names) on the readback under 'readback', or, under 'interval', on the finite difference of
+    position over dt with the persist-2 rule (two consecutive same-sign intervals). extras: the row keys logged under
+    'interval' (hand_dq_interval_rad_s, legacy_finger_overspeed_readback, interval_spike, finger_witness); {} otherwise.
+    persist: dict joint -> previous interval, updated in place.
+    """
+    hand_set = set(names) - set(body_names)
+    legacy = {n: float(dq[i]) for i, n in enumerate(names) if abs(dq[i]) > 2 * limits[n]['velocity']}
+    if channel != 'interval':
+        return legacy, {}
+    interval = {} if prev_q is None else {n: float((q[i] - prev_q[i]) / dt) for i, n in enumerate(names) if n in hand_set}
+    overspeed = {n: v for n, v in legacy.items() if n not in hand_set}
+    spikes = {}
+    for n, v in interval.items():
+        if abs(v) > 2 * limits[n]['velocity']:
+            spikes[n] = v
+            if interval_persists(persist.get(n), v, limits[n]['velocity']):
+                overspeed[n] = v
+        persist[n] = v
+    witness = {}
+    for child, m in mimic_map.items():
+        if child not in hand_set or child not in interval:
+            continue
+        ci, pi = names.index(child), names.index(m['parent']); fld = limits[child]['velocity']; pfld = limits[m['parent']]['velocity']
+        if abs(dq[ci]) <= fld:
+            continue
+        coupling = float(q[ci] - m['multiplier'] * q[pi] - m['offset']); pint = interval.get(m['parent'])
+        witness[child] = {'child_readback': float(dq[ci]), 'child_interval': interval[child], 'parent': m['parent'], 'parent_readback': float(dq[pi]),
+                          'parent_interval': pint, 'coupling_error_rad': coupling,
+                          'parent_cap_solve': bool(abs(dq[ci]) > 2 * fld and abs(dq[pi]) >= .99 * pfld and abs(pint or 0.) <= pfld and abs(coupling) <= .03)}
+    return overspeed, {'hand_dq_interval_rad_s': interval, 'legacy_finger_overspeed_readback': {n: v for n, v in legacy.items() if n in hand_set},
+                       'interval_spike': spikes, 'finger_witness': witness}
+
+
 def arm_reference_at(cfg, default_arm, unsupported_time_s):
     """Return the 14 arm targets (ARM_JOINTS order) or None when the override is not active."""
     ao = cfg.arm_override

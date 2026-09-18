@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 
 from assembled_balance import FEET, GATES, GROUND  # noqa: E402
-from wbc_standing_ab import (interval_persists, ARMS, ARM_JOINTS, EXPERIMENTAL_OWNER, Lcg, StandingABConfig, arm_reference_at, config_sha256,  # noqa: E402
+from wbc_standing_ab import (interval_persists, online_finger_check, ARMS, ARM_JOINTS, EXPERIMENTAL_OWNER, Lcg, StandingABConfig, arm_reference_at, config_sha256,  # noqa: E402
                              evaluate_standing, perturbed_initial, rig_stability_margins, rig_wrench)
 
 BODY = ['left_hip_pitch_joint', 'left_hip_roll_joint', 'left_hip_yaw_joint', 'left_knee_joint', 'left_ankle_pitch_joint',
@@ -498,6 +498,68 @@ class IntervalPersistRuleTests(unittest.TestCase):
         m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
         rep = m['peaks']['finger_velocity_channel_report']
         self.assertEqual((rep['interval_spike_rows'], rep['parent_cap_solve_rows']), (1, 1)); self.assertEqual(m['status'], 'PASS')
+
+
+class OnlineFingerCheckReplayTests(unittest.TestCase):
+    """cand-07 r3: replay of the exact row sequence that ended sL-standing-ab-donor-hold-s1-z0787-trainlike(-interval):
+    a mimic child (right_thumb_3, driven parent right_thumb_2 pinned at -1.0 rad/s = its field) reports -2.80 rad/s
+    while its position moves 1.77 rad/s over the 5 ms step and nothing persists -> under 'interval' NO abort, the
+    legacy readback exceedance recorded; under 'readback' the legacy abort. Mimic children are hand joints."""
+
+    NAMES = BODY + ['right_thumb_2_joint', 'right_thumb_3_joint', 'right_index_1_joint', 'right_index_2_joint']
+    LIM = dict(LIMITS, **{n: {'lower': -0.1, 'upper': 1.7, 'effort': 1.0, 'velocity': 1.0} for n in NAMES[29:]})
+    MIMIC = {'right_thumb_3_joint': {'parent': 'right_thumb_2_joint', 'multiplier': 0.8024, 'offset': 0.0},
+             'right_index_2_joint': {'parent': 'right_index_1_joint', 'multiplier': 1.0843, 'offset': 0.0}}
+
+    def sequence(self):
+        # (q of thumb_2, thumb_3, index_1, index_2), (dq readbacks): rows 133..136 as recorded (values rounded)
+        q = [(0.0210, 0.0169, 0.0198, 0.0215), (0.0205, 0.0165, 0.0194, 0.0210), (0.0200, 0.0160, 0.0190, 0.0205),
+             (0.0195, 0.0072, 0.0186, 0.0140)]       # thumb_3 moves -8.8 mrad (=-1.77 rad/s), index_2 -6.5 mrad (=-1.3 rad/s)
+        dq = [(-0.10, -0.08, -0.08, -0.09), (-0.10, -0.08, -0.08, -0.09), (-0.10, -0.08, -0.08, -0.09), (-1.00, -2.80, -0.99, -2.04)]
+        return q, dq
+
+    def run_channel(self, channel):
+        q, dq = self.sequence(); persist = {}; prev = None; out = []
+        for qh, dqh in zip(q, dq):
+            qq = [0.0] * 29 + list(qh); dd = [0.0] * 29 + list(dqh)
+            over, extras = online_finger_check(qq, dd, prev, self.NAMES, BODY, self.LIM, self.MIMIC, channel, persist, 0.005)
+            out.append((over, extras)); prev = qq
+        return out
+
+    def test_readback_channel_reproduces_the_legacy_abort(self):
+        out = self.run_channel('readback')
+        self.assertEqual(set(out[-1][0]), {'right_thumb_3_joint', 'right_index_2_joint'}); self.assertEqual(out[-1][1], {})
+
+    def test_interval_channel_does_not_abort_and_records_the_legacy_verdict_and_witness(self):
+        out = self.run_channel('interval')
+        for over, _ in out:
+            self.assertEqual(over, {}, 'no persisted interval exceedance -> no online abort')
+        last = out[-1][1]
+        self.assertEqual(set(last['legacy_finger_overspeed_readback']), {'right_thumb_3_joint', 'right_index_2_joint'})
+        self.assertAlmostEqual(last['hand_dq_interval_rad_s']['right_thumb_3_joint'], -1.76, places=1)
+        self.assertEqual(last['interval_spike'], {})
+        w = last['finger_witness']['right_thumb_3_joint']
+        self.assertEqual(w['parent'], 'right_thumb_2_joint'); self.assertTrue(w['parent_cap_solve'])   # parent readback pinned at -1.00 = field, parent interval -0.1
+
+    def test_interval_channel_still_aborts_on_persisting_real_motion(self):
+        persist = {}; prev = None; names = self.NAMES; over = None
+        for k in range(3):   # thumb_3 moves -12 mrad per step (-2.4 rad/s) three times: real fast motion
+            qq = [0.0] * 29 + [0.02, 0.05 - 0.012 * k, 0.02, 0.02]; dd = [0.0] * 33
+            over, _ = online_finger_check(qq, dd, prev, names, BODY, self.LIM, self.MIMIC, 'interval', persist, 0.005); prev = qq
+        self.assertIn('right_thumb_3_joint', over)
+
+    @unittest.skipUnless(Path('/home/ubuntu/panthera/sim-workspace/parallel-20260917/wholebody/outbox/receipts/sL-standing-ab-donor-hold-s1-z0787-trainlike-interval/state.jsonl').is_file(), 'receipt not on this host')
+    def test_recorded_interval_receipt_replays_without_an_abort(self):
+        d = Path('/home/ubuntu/panthera/sim-workspace/parallel-20260917/wholebody/outbox/receipts/sL-standing-ab-donor-hold-s1-z0787-trainlike-interval')
+        rows = [json.loads(l) for l in (d / 'state.jsonl').read_text().splitlines() if l.strip()]
+        names = rows[0]['runtime_names']; body = names[:29]
+        lim = {n: {'lower': -9, 'upper': 9, 'effort': 1.0, 'velocity': (30.0 if n in body else 1.0)} for n in names}
+        persist = {}; prev = None; aborts = []
+        for r in rows:
+            over, _ = online_finger_check(r['q_rad'], r['dq_rad_s'], prev, names, body, lim, {}, 'interval', persist, 0.005)
+            if over: aborts.append((r['sequence'], over))
+            prev = r['q_rad']
+        self.assertEqual(aborts, [])
 
 
 if __name__ == '__main__':
