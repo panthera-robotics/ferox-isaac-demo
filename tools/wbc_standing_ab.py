@@ -93,6 +93,14 @@ class StandingABConfig:
     # bare-smoke-training-reset-g landed (right foot slid 6.4 cm, pelvis 6.3 cm by step 27) and then held
     # a steady stance; measured from 1.0 s its drift was 2.6 mm pelvis / < 1 mm feet.
     landing_settle_s: float = 0.0
+    # Drive targets authored at spawn. 'default' (K behaviour, unchanged): every body drive targets the
+    # policy default pose, so a perturbed initial pose is pulled toward it during the physics steps inside
+    # world.reset(), before the first observation — measured in sprint L as the source of the seed-dependent
+    # base rate (initial_state.json at t = 0.010: omega 0.08-0.20 rad/s for a +-0.01 rad draw, 0 for none).
+    # 'initial_pose': every body drive targets the joint's own authored initial position (Isaac Lab reset
+    # semantics: q == target at reset), so the perturbation reaches the policy only through joint_pos_rel.
+    # A new value is a new versioned experiment; the receipt records which was used.
+    reset_targets: str = 'default'
     execution_label: str = 'UNSUPPORTED_STANDING_AB'
 
     @classmethod
@@ -188,6 +196,10 @@ class StandingABConfig:
             raise ValueError('training_reset ignores the settle; declare supported_settle_steps=100 (the minimum) for accounting')
         if not (isinstance(obj.landing_settle_s, (int, float)) and 0.0 <= obj.landing_settle_s <= 3.0):
             raise ValueError('landing_settle_s must be in [0, 3] s')
+        if obj.reset_targets not in ('default', 'initial_pose'):
+            raise ValueError("reset_targets must be 'default' or 'initial_pose'")
+        if obj.reset_targets == 'initial_pose' and not obj.training_reset:
+            raise ValueError('reset_targets=initial_pose is defined for training_reset runs only (the rig protocol holds the default pose on purpose)')
         if not obj.training_reset and obj.landing_settle_s != 0.0:
             raise ValueError('landing_settle_s applies to training_reset runs only')
         if obj.actuator_profile not in ('asset', 'checkpoint_training_env'):
