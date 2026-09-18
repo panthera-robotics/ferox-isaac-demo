@@ -552,18 +552,7 @@ class Go2VelocityPolicy(PolicyController):
             self._previous_action = self.action.copy()
 
         target_pos = self._action_offset + (self._action_scale * self.action)
-        if self._arm_schedule is not None:
-            self._sim_time_since_init += float(dt)
-            sch = self._arm_schedule
-            q = np.stack(
-                [np.interp(self._sim_time_since_init, sch["t"], sch["q"][:, j]) for j in range(sch["q"].shape[1])]
-            ).astype(np.float32)
-            target_pos = target_pos.copy()
-            target_pos[sch["idx"]] = q
-        if self._body_idx is not None:
-            action = ArticulationAction(joint_positions=target_pos, joint_indices=self._body_idx)
-        else:
-            action = ArticulationAction(joint_positions=target_pos)
+        action = ArticulationAction(joint_positions=target_pos)
         self.robot.apply_action(action)
         self._policy_counter += 1
 
@@ -916,7 +905,18 @@ class G1VelocityPolicy(PolicyController):
             self._previous_action = self.action.copy()
 
         target_pos = self._action_offset + (self._action_scale * self.action)
-        action = ArticulationAction(joint_positions=target_pos)
+        if self._arm_schedule is not None:
+            self._sim_time_since_init += float(dt)
+            sch = self._arm_schedule
+            q = np.stack(
+                [np.interp(self._sim_time_since_init, sch["t"], sch["q"][:, j]) for j in range(sch["q"].shape[1])]
+            ).astype(np.float32)
+            target_pos = target_pos.copy()
+            target_pos[sch["idx"]] = q
+        if self._body_idx is not None:
+            action = ArticulationAction(joint_positions=target_pos, joint_indices=self._body_idx)
+        else:
+            action = ArticulationAction(joint_positions=target_pos)
         self.robot.apply_action(action)
         self._policy_counter += 1
 
