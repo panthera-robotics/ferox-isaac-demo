@@ -22,6 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'isaac' / 'twin'))
 from inspire.embodiment import ARM_DATUM_SCRIPTED, ContractError, EmbodimentManifest, ReplaySequence, runtime_dependency_values  # noqa: E402
+from inspire.spawn_clearance import check_spawn_clearance  # noqa: E402
 
 COLLISION_COOKING = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'   # the probe's declared provisional colliders
 
@@ -166,6 +167,24 @@ def main(argv=None):
                                          support=a.support, controller=a.controller_descriptor, hand_contracts=spec['hand_contracts'], arm_datum=ARM_DATUM_SCRIPTED)
     sequence, report = validate(manifest, spec, controller, live_dependencies=live, require_verified_hand_semantics=a.require_verified_hand_semantics, diagnostic=(a.execution_label == 'DIAGNOSTIC'))
     report.update(manifest_id=manifest.data['manifest_id'], manifest_sha256=manifest.sha256, validated_utc=datetime.now(timezone.utc).isoformat())
+    scene = None
+    if a.scene is not None:
+        scene = json.loads(a.scene.read_text())
+        if sequence is not None and a.source_urdf is not None:
+            # spawn-time hand/scene clearance (geometry only): the probe spawns the body at the first row's targets (else the
+            # controller home) with the hands at the URDF open pose and ramps them to the first row; a fixture inside either
+            # hand pose explodes the solver at step 0, so it is refused here, before any GPU time
+            first = sequence.converted[0]
+            body_q = {n: first['body_targets_rad'].get(n, controller['body_home_rad'][n]) for n in manifest.body_names}
+            first_hand = {}
+            for side_block in first['hands'].values():
+                first_hand.update(side_block['targets_rad'])
+            report['spawn_clearance'] = check_spawn_clearance(a.source_urdf, scene, body_q, {'urdf_open': {}, 'first_row': first_hand})
+            if report['spawn_clearance']['status'] != 'CLEAR':
+                report['problems'].append('spawn clearance: %d hand link(s) inside the scene geometry at the spawn pose (%s)' % (len(report['spawn_clearance']['overlaps']), '; '.join(sorted({'%s in %s' % (o['link'], o['box']) for o in report['spawn_clearance']['overlaps']})[:6])))
+                report['status'] = 'REJECTED'; sequence = None
+        elif sequence is not None:
+            report['spawn_clearance'] = {'status': 'NOT_CHECKED', 'reason': 'no --source-urdf: the spawn pose cannot be computed'}
     if a.validate_only or sequence is None:
         print(json.dumps(report, indent=1))
         return 0 if report['status'] == 'VALID' else 2
@@ -189,7 +208,8 @@ def main(argv=None):
     if a.physics_dt_s is not None:
         probe_config['physics_dt_s'] = float(a.physics_dt_s); probe_config['physics_dt_note'] = 'DIAGNOSTIC refinement: differs from the manifest-bound physics_dt_s 0.005; no qualification claim'
     if a.scene is not None:
-        scene = json.loads(a.scene.read_text()); probe_config['scene'] = scene; probe_config['scene_sha256'] = sha(a.scene)
+        probe_config['scene'] = scene; probe_config['scene_sha256'] = sha(a.scene)
+        probe_config['spawn_clearance'] = {k: report['spawn_clearance'].get(k) for k in ('status', 'pad_m', 'min_margin_m', 'closest', 'reason') if k in report['spawn_clearance']}
     (a.out / 'probe-config.json').write_text(json.dumps(probe_config, indent=1) + '\n')
     print(json.dumps({'package': str(a.out), 'package_sha256': probe_config['package_sha256'], 'contract_sha256': sequence.contract_sha256, 'summary': report['summary']}, indent=1))
     return 0
