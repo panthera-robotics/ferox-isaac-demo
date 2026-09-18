@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 
 from assembled_balance import FEET, GATES, GROUND  # noqa: E402
-from wbc_standing_ab import (ARMS, ARM_JOINTS, EXPERIMENTAL_OWNER, Lcg, StandingABConfig, arm_reference_at, config_sha256,  # noqa: E402
+from wbc_standing_ab import (interval_persists, ARMS, ARM_JOINTS, EXPERIMENTAL_OWNER, Lcg, StandingABConfig, arm_reference_at, config_sha256,  # noqa: E402
                              evaluate_standing, perturbed_initial, rig_stability_margins, rig_wrench)
 
 BODY = ['left_hip_pitch_joint', 'left_hip_roll_joint', 'left_hip_yaw_joint', 'left_knee_joint', 'left_ankle_pitch_joint',
@@ -424,6 +424,82 @@ class EvaluatorTests(unittest.TestCase):
         self.assertIn(m['first_causal_events'][0]['name'], ('overspeed', 'foot_drift_exceeds_gate', 'drive_near_effort_cap', 'base_tilt_exceeds_0.1rad', 'joint_limit_violation'))
 
 
+
+class FingerVelocityChannelTests(unittest.TestCase):
+    """wb-cand-07: the finger channel is declared; 'readback' is the K/L default; under 'interval' a lone readback
+    spike on a hand joint whose position barely moves no longer scores as overspeed, while the legacy verdict is
+    still reported alongside; body joints stay on the readback in both channels."""
+
+    HAND = ['left_index_1_joint', 'left_index_2_joint']
+
+    def rows_with_hand(self, c, spike_seq, spike_rad_s, move_rad_per_step):
+        rows, events = rows_for(c)
+        for r in rows:
+            r['runtime_names'] = BODY + self.HAND
+            r['q_rad'] = r['q_rad'] + [0.02, 0.02]; r['dq_rad_s'] = r['dq_rad_s'] + [0.0, 0.0]
+            r['measured_generalized_effort_nm'] = r['measured_generalized_effort_nm'] + [0.0, 0.0]
+        rows[spike_seq]['dq_rad_s'][30] = spike_rad_s
+        rows[spike_seq]['q_rad'][30] = rows[spike_seq - 1]['q_rad'][30] + move_rad_per_step
+        return rows, events
+
+    def limits(self):
+        lim = dict(LIMITS); lim.update({n: {'lower': -0.1, 'upper': 1.7, 'effort': 1.0, 'velocity': 1.0} for n in self.HAND}); return lim
+
+    def test_declared_values(self):
+        self.assertEqual(cfg().finger_velocity_channel, 'readback')
+        self.assertEqual(cfg(finger_velocity_channel='interval').finger_velocity_channel, 'interval')
+        with self.assertRaises(ValueError):
+            cfg(finger_velocity_channel='filtered')
+
+    def test_readback_default_scores_the_spike_and_reports_the_interval(self):
+        c = cfg()
+        rows, events = self.rows_with_hand(c, 600, -2.8, -0.004)   # readback -2.8 rad/s, position moved -0.8 rad/s over 5 ms
+        m = evaluate_standing(rows, events, c, joint_count=31, limits=self.limits(), mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertFalse(m['checks']['no_overspeed']); self.assertEqual(m['legacy_finger_verdict'], 'overspeed')
+        rep = m['peaks']['finger_velocity_channel_report']
+        self.assertEqual(rep['legacy_readback_samples_over_field'], 1); self.assertEqual(rep['interval_samples_over_field'], 0)
+        self.assertEqual(m['finger_velocity_channel'], 'readback')
+
+    def test_interval_channel_clears_the_lone_readback_spike_but_keeps_the_legacy_verdict(self):
+        c = cfg(finger_velocity_channel='interval')
+        rows, events = self.rows_with_hand(c, 600, -2.8, -0.004)
+        m = evaluate_standing(rows, events, c, joint_count=31, limits=self.limits(), mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertTrue(m['checks']['no_overspeed']); self.assertEqual(m['status'], 'PASS')
+        self.assertEqual(m['legacy_finger_verdict'], 'overspeed')   # reported alongside, never erased
+
+    def test_interval_channel_still_catches_real_finger_motion_and_body_readback(self):
+        c = cfg(finger_velocity_channel='interval')
+        rows, events = self.rows_with_hand(c, 600, -0.5, -0.02)     # readback small, position moved -4 rad/s over the step
+        m = evaluate_standing(rows, events, c, joint_count=31, limits=self.limits(), mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertFalse(m['checks']['no_overspeed']); self.assertEqual(m['legacy_finger_verdict'], 'no_overspeed')
+        rows, events = self.rows_with_hand(c, 600, 0.0, 0.0)
+        rows[600]['dq_rad_s'][3] = 31.0                              # body joint over its field on the readback
+        m = evaluate_standing(rows, events, c, joint_count=31, limits=self.limits(), mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        self.assertFalse(m['checks']['no_overspeed'])
+
+
+class IntervalPersistRuleTests(unittest.TestCase):
+    def test_chatter_alternating_sign_never_persists(self):
+        seq = [+1.51, -2.22, +1.08, -2.5, +2.4]   # hand-an-05 open-stop chatter shape (field 1.0 -> 2x = 2.0)
+        prev = None; fired = []
+        for v in seq:
+            fired.append(interval_persists(prev, v, 1.0)); prev = v
+        self.assertEqual(fired, [False] * 5)
+
+    def test_two_consecutive_same_sign_exceedances_persist(self):
+        self.assertTrue(interval_persists(-2.3, -2.1, 1.0)); self.assertTrue(interval_persists(2.3, 2.1, 1.0))
+        self.assertFalse(interval_persists(-2.3, -1.9, 1.0)); self.assertFalse(interval_persists(None, -2.5, 1.0))
+
+    def test_evaluator_counts_spike_and_witness_rows(self):
+        c = cfg(finger_velocity_channel='interval')
+        rows, events = rows_for(c)
+        rows[700]['interval_spike'] = {'left_index_2_joint': -2.2}
+        rows[701]['finger_witness'] = {'left_thumb_3_joint': {'parent_cap_solve': True}}
+        m = evaluate_standing(rows, events, c, joint_count=29, limits=LIMITS, mimics={}, source_mass_kg=MASS, integrity_checks=INTEGRITY)
+        rep = m['peaks']['finger_velocity_channel_report']
+        self.assertEqual((rep['interval_spike_rows'], rep['parent_cap_solve_rows']), (1, 1)); self.assertEqual(m['status'], 'PASS')
+
+
 if __name__ == '__main__':
     os.environ.setdefault('OMP_NUM_THREADS', '2')
     unittest.main(verbosity=1)
@@ -454,5 +530,3 @@ class ResetTargetsTests(unittest.TestCase):
             cfg(training_reset=True, reset_targets='zero')
         with self.assertRaises(ValueError):
             cfg(reset_targets='initial_pose')   # rig protocol holds the default pose on purpose
-
-

@@ -24,7 +24,7 @@ def main():
     sys.path[:0] = ['/workspace/ferox_tools', '/workspace/sim-source', '/workspace/ferox_isaac']
     from assembled_balance import GATES, FEET, GROUND, source_foot_spheres, initial_height, roll_pitch, finite_tree, safe_json, source_adjacency
     from wbc_standing_ab import (ARMS, ARM_JOINTS, EXPERIMENTAL_OWNER, StandingABConfig, config_sha256, perturbed_initial, rig_wrench,
-                                 evaluate_standing, command_at, arm_reference_at, guarded_state_view, rig_stability_margins, rig_scale_at)
+                                 evaluate_standing, command_at, arm_reference_at, guarded_state_view, rig_stability_margins, rig_scale_at, interval_persists)
     from wbc_runtime_guard import GuardRefused, RuntimeOwnershipGuard
     cfg = StandingABConfig.from_dict(json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text()))
     arm = ARMS[cfg.arm]
@@ -170,7 +170,8 @@ def main():
         write('initialization_frame_corrections.json', {n: t.tolist() for n, t in corrections.items()})
         write('diagnostics_applied.json', {'config': cfg.diagnostics, 'applied': diagnostic_record,
                                            'scope': 'NONQUALIFYING_DIAGNOSTIC' if cfg.nonqualifying else 'none'})
-        world = World(stage_units_in_meters=1., physics_dt=.005, rendering_dt=.005)
+        PHYSICS_DT = .005
+        world = World(stage_units_in_meters=1., physics_dt=PHYSICS_DT, rendering_dt=PHYSICS_DT)
         scene = next(p for p in world.stage.Traverse() if p.IsA(UsdPhysics.Scene))
         physics = PhysxSchema.PhysxSceneAPI.Apply(scene)
         physics.CreateSolverTypeAttr('TGS'); physics.CreateEnableExternalForcesEveryIterationAttr(True)
@@ -319,7 +320,7 @@ def main():
                 policy.prime_history_from_current([0., 0., 0.])
                 events.append({'sequence': -1, 'physics_s': float(world.current_time), 'name': 'policy_history_primed', 'detail': 'at spawn'})
                 event_file.write(json.dumps(events[-1]) + '\n')
-        observation_sequence = None; observation_physics_s = None
+        observation_sequence = None; observation_physics_s = None; prev_q_abort = None; interval_persist = {}
         for sequence in range(total_steps):
             step_contacts.clear()
             supported = sequence <= release_sequence
@@ -428,13 +429,49 @@ def main():
             row['drive_estimate_names'] = body_names + hand_names
             row['drive_estimate_near_cap_names'] = [n for n, e, cap in zip(body_names + hand_names, estimate, caps[indices]) if abs(e) >= .99 * cap]
             row['drive_estimate_scope'] = 'Unclipped PD estimate; measured generalized efforts also include constraint reactions'
+            hand_set = set(hand_names)
+            legacy_overspeed = {n: float(dq[i]) for i, n in enumerate(names) if abs(dq[i]) > 2 * facts['joint_limits'][n]['velocity']}
+            if cfg.finger_velocity_channel == 'interval':
+                # PROSPECTIVE profile (wb-cand-07 r2, hand-an-05 review): hand joints on the finite difference of position over the
+                # physics step (PHYSICS_DT; the standing probe has no pose write after the spawn, so every interval is a physics step);
+                # ONLINE abort only on >= 2 CONSECUTIVE SAME-SIGN intervals beyond 2x the field (open-stop chatter alternates sign and
+                # never persists); a single-interval exceedance is logged as interval_spike and counted, never acted on. Body joints
+                # stay on the readback. The readback verdict is logged on every row. PARENT_CAP_SOLVE witness logged, never acted on.
+                interval = ({} if prev_q_abort is None else {n: float((q[i] - prev_q_abort[i]) / PHYSICS_DT) for i, n in enumerate(names) if n in hand_set})
+                overspeed = {n: v for n, v in legacy_overspeed.items() if n not in hand_set}
+                spikes = {}
+                for n, v in interval.items():
+                    lim2 = 2 * facts['joint_limits'][n]['velocity']
+                    if abs(v) > lim2:
+                        spikes[n] = v
+                        if interval_persists(interval_persist.get(n), v, facts['joint_limits'][n]['velocity']):
+                            overspeed[n] = v   # persisted: two consecutive same-sign intervals beyond 2x
+                    interval_persist[n] = v
+                witness = {}
+                for child, m in facts['mimic_map'].items():
+                    if child not in hand_set or child not in interval:
+                        continue
+                    ci, pi = names.index(child), names.index(m['parent']); fld = facts['joint_limits'][child]['velocity']; pfld = facts['joint_limits'][m['parent']]['velocity']
+                    if abs(dq[ci]) <= fld:
+                        continue
+                    coupling = float(q[ci] - m['multiplier'] * q[pi] - m['offset'])
+                    witness[child] = {'child_readback': float(dq[ci]), 'child_interval': interval[child], 'parent': m['parent'], 'parent_readback': float(dq[pi]),
+                                      'parent_interval': interval.get(m['parent']), 'coupling_error_rad': coupling,
+                                      'parent_cap_solve': bool(abs(dq[ci]) > 2 * fld and abs(dq[pi]) >= .99 * pfld and abs(interval.get(m['parent']) or 0.) <= pfld and abs(coupling) <= .03)}
+                row['hand_dq_interval_rad_s'] = interval
+                row['legacy_finger_overspeed_readback'] = {n: v for n, v in legacy_overspeed.items() if n in hand_set}
+                row['interval_spike'] = spikes
+                row['finger_witness'] = witness
+            else:
+                overspeed = legacy_overspeed   # default: byte-identical K/L rows and decisions
+            prev_q_abort = list(map(float, q))
             rows.append(row); state_file.write(json.dumps(row, allow_nan=False) + '\n')
             pelvis = row['link_poses_world_xyzw']['pelvis']; roll, pitch = roll_pitch(pelvis)
             violated = {n: float(q[i]) for i, n in enumerate(names) if q[i] < facts['joint_limits'][n]['lower'] - .1 or q[i] > facts['joint_limits'][n]['upper'] + .1}
-            overspeed = {n: float(dq[i]) for i, n in enumerate(names) if abs(dq[i]) > 2 * facts['joint_limits'][n]['velocity']}
             if violated or overspeed or contact_faults or (not supported and (pelvis[2] < .65 or max(abs(roll), abs(pitch)) > .35)):
                 abort = {'sequence': sequence, 'reason': 'fall_or_source_envelope_abort', 'phase': phase, 'joint_limit_violations': violated,
-                         'overspeed': overspeed, 'contact_faults': contact_faults}
+                         'overspeed': overspeed, 'contact_faults': contact_faults,
+                         **({'finger_velocity_channel': 'interval', 'legacy_finger_overspeed_readback': row['legacy_finger_overspeed_readback']} if cfg.finger_velocity_channel == 'interval' else {})}
                 guard.fault('fall_or_source_envelope_abort')
                 break
             if (sequence + 1) % cfg.frame_every == 0:

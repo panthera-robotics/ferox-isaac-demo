@@ -101,6 +101,18 @@ class StandingABConfig:
     # semantics: q == target at reset), so the perturbation reaches the policy only through joint_pos_rel.
     # A new value is a new versioned experiment; the receipt records which was used.
     reset_targets: str = 'default'
+    # Finger (hand-joint) velocity channel for the source envelope. 'readback' (default, byte-identical K/L
+    # behaviour): the 2x online abort and the 1x no_overspeed score read PhysX's post-step joint velocity.
+    # 'interval' (prospective SIMULATION_DIAGNOSTIC profile, hand joints only; body joints stay on the readback):
+    # the 1x score is evaluated on the finite difference of the coupled-joint positions over the physics step; the
+    # ONLINE 2x abort needs two consecutive same-sign intervals (hand-an-05 review: open-stop chatter alternates sign),
+    # single-interval exceedances are logged as interval_spike. The raw readback is still logged on every row and its
+    # legacy verdict is reported alongside (legacy_finger_verdict); the PARENT_CAP_SOLVE witness is logged, never acted on.
+    # Basis: hand-an-05 — on every readback abort row the driven parent is pinned at exactly the URDF field (the
+    # PhysX joint velocity limit) and the mimic child reports 2-4x while its position moves <= 4 mrad per step
+    # (PARENT_CAP_SOLVE). A 5 ms interval is not a bound on instantaneous speed: this is a diagnostic profile, not
+    # a field change; position/coupling/effort/contact safeguards are unchanged.
+    finger_velocity_channel: str = 'readback'
     execution_label: str = 'UNSUPPORTED_STANDING_AB'
 
     @classmethod
@@ -196,6 +208,8 @@ class StandingABConfig:
             raise ValueError('training_reset ignores the settle; declare supported_settle_steps=100 (the minimum) for accounting')
         if not (isinstance(obj.landing_settle_s, (int, float)) and 0.0 <= obj.landing_settle_s <= 3.0):
             raise ValueError('landing_settle_s must be in [0, 3] s')
+        if obj.finger_velocity_channel not in ('readback', 'interval'):
+            raise ValueError("finger_velocity_channel must be 'readback' or 'interval'")
         if obj.reset_targets not in ('default', 'initial_pose'):
             raise ValueError("reset_targets must be 'default' or 'initial_pose'")
         if obj.reset_targets == 'initial_pose' and not obj.training_reset:
@@ -232,6 +246,15 @@ def command_at(cfg, unsupported_time_s):
 ARM_JOINTS = tuple('%s_%s_joint' % (s, j) for s in ('left', 'right')
                    for j in ('shoulder_pitch', 'shoulder_roll', 'shoulder_yaw', 'elbow', 'wrist_roll', 'wrist_pitch', 'wrist_yaw'))
 EXPERIMENTAL_OWNER = 'experimental_arm_override_v0'
+
+
+def interval_persists(previous_interval, interval, field):
+    """Online rule of the 'interval' finger channel (wb-cand-07 r2): abort only when two CONSECUTIVE SAME-SIGN
+    intervals exceed 2x the field. Open-stop chatter of a chained finger alternates sign (+1.51, -2.22, +1.08 rad/s
+    in donor_s2_z0800 rows 8-10) and never persists; a real fast motion lasts more than one 5 ms step."""
+    lim = 2 * field
+    return (previous_interval is not None and abs(previous_interval) > lim and abs(interval) > lim
+            and (previous_interval > 0) == (interval > 0))
 
 
 def arm_reference_at(cfg, default_arm, unsupported_time_s):
@@ -418,6 +441,9 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
     unsupported = 0
     arm_err_sum, arm_err_n, arm_err_peak = 0.0, 0, 0.0
     contact_steps = {n: 0 for n in FEET}
+    prev_q = None
+    finger_report = {'channel': cfg.finger_velocity_channel, 'legacy_readback_samples_over_field': 0, 'legacy_readback_peak_rad_s': 0.,
+                     'interval_samples_over_field': 0, 'interval_peak_rad_s': 0., 'interval_spike_rows': 0, 'parent_cap_solve_rows': 0}
     load_sum = 0.
     inference_steps = 0
     near_cap_run = 0
@@ -465,15 +491,36 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
                 inference_steps += 1
             sup = row['support']
             positions = dict(zip(names, q))
+            hand_set = set(names[29:])
             for n, lim in limits.items():
                 v = max(lim['lower'] - positions[n], positions[n] - lim['upper'])
                 if v > peak['joint_limit_violation_rad']:
                     peak['joint_limit_violation_rad'] = v
                 if v > GATES['maximum_joint_limit_violation_rad']:
                     event(seq, 'joint_limit_violation', {'joint': n, 'rad': v})
-                if abs(dq[names.index(n)]) > lim['velocity']:
+                i = names.index(n)
+                readback = abs(dq[i]) > lim['velocity']
+                if n in hand_set:
+                    # legacy verdict on the readback is always recorded; the scored channel follows the config
+                    if readback:
+                        finger_report['legacy_readback_samples_over_field'] += 1
+                        finger_report['legacy_readback_peak_rad_s'] = max(finger_report['legacy_readback_peak_rad_s'], abs(dq[i]))
+                    interval = None if prev_q is None else (q[i] - prev_q[i]) / dt
+                    if interval is not None and abs(interval) > lim['velocity']:
+                        finger_report['interval_samples_over_field'] += 1
+                        finger_report['interval_peak_rad_s'] = max(finger_report['interval_peak_rad_s'], abs(interval))
+                    over = readback if cfg.finger_velocity_channel == 'readback' else (interval is not None and abs(interval) > lim['velocity'])
+                    rad_s = dq[i] if cfg.finger_velocity_channel == 'readback' else interval
+                else:
+                    over, rad_s = readback, dq[i]
+                if over:
                     checks['no_overspeed'] = False
-                    event(seq, 'overspeed', {'joint': n, 'rad_s': dq[names.index(n)]})
+                    event(seq, 'overspeed', {'joint': n, 'rad_s': rad_s, 'channel': cfg.finger_velocity_channel if n in hand_set else 'readback'})
+            prev_q = list(q)
+            if row.get('interval_spike'):
+                finger_report['interval_spike_rows'] += 1
+            if any(w.get('parent_cap_solve') for w in (row.get('finger_witness') or {}).values()):
+                finger_report['parent_cap_solve_rows'] += 1
             peak['max_abs_joint_velocity_rad_s'] = max(peak['max_abs_joint_velocity_rad_s'], max(abs(v) for v in dq))
             for n, m in mimics.items():
                 peak['coupling_error_rad'] = max(peak['coupling_error_rad'], abs(positions[n] - positions[m['parent']] * m['multiplier'] - m['offset']))
@@ -625,9 +672,13 @@ def evaluate_standing(rows, events, cfg, *, joint_count, limits, mimics, source_
         checks['arm_tracking_mean_within_gate'] = (arm_err_sum / arm_err_n if arm_err_n else 1.0) <= 0.05
     if cfg.nonqualifying:
         checks['no_nonqualifying_diagnostic'] = False
+    finger_report['legacy_finger_verdict'] = 'no_overspeed' if finger_report['legacy_readback_samples_over_field'] == 0 else 'overspeed'
+    finger_report['interval_finger_verdict'] = 'no_overspeed' if finger_report['interval_samples_over_field'] == 0 else 'overspeed'
+    peak['finger_velocity_channel_report'] = finger_report
     status = 'PASS' if all(checks.values()) else 'FAIL'
     events_out.sort(key=lambda e: e['sequence'])
-    return {'status': status, 'checks': checks, 'peaks': peak, 'steps': len(rows), 'unsupported_steps': unsupported,
+    return {'status': status, 'checks': checks, 'peaks': peak, 'finger_velocity_channel': cfg.finger_velocity_channel,
+            'legacy_finger_verdict': finger_report['legacy_finger_verdict'], 'steps': len(rows), 'unsupported_steps': unsupported,
             'unsupported_seconds': unsupported * dt, 'required_unsupported_steps': required,
             'recorded_release_sequence': release_seq, 'minimum_pelvis_height_m': min_height,
             'first_causal_events': events_out[:12], 'first_failed_gate': next((k for k, v in checks.items() if not v), None),
