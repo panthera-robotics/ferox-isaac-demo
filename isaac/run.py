@@ -64,6 +64,24 @@ G1_INIT_HEIGHT = 1.05
 G1_HISTORY_LENGTH = 5
 CMD_VEL_TIMEOUT = 0.5  # seconds – stop if no new /cmd_vel received
 
+# PANTHERA (Sprint M, wb-cand-M01): optional joint seam for articulations that carry MORE DOFs than the 29-DOF policy
+# (donor hand assemblies). Off by default (G1_POLICY_JOINT_SEAM unset) -> byte-identical behaviour to 80b212c. On: the 29
+# policy joints are located BY NAME in the articulation, observations/actions/gains/default pose touch only those DOFs;
+# every other DOF (hands) keeps its USD-authored drive targets and is never written by this runtime.
+G1_POLICY_JOINT_SEAM = os.environ.get("G1_POLICY_JOINT_SEAM", "").strip().lower() in ("1", "true", "yes", "on")
+# PhysX DOF order of the training/deployment USD g1_29dof_rev_1_0 (cfed730b...) as published on /joint_states by this
+# runtime (2026-09-18, run panthera_ext_4a1dc56eb69b42fc) = the order of deploy.yaml default_joint_pos / joint_ids_map
+# targets / the policy action vector.
+G1_29DOF_SIM_ORDER = [
+    "left_hip_pitch_joint", "right_hip_pitch_joint", "waist_yaw_joint", "left_hip_roll_joint", "right_hip_roll_joint",
+    "waist_roll_joint", "left_hip_yaw_joint", "right_hip_yaw_joint", "waist_pitch_joint", "left_knee_joint",
+    "right_knee_joint", "left_shoulder_pitch_joint", "right_shoulder_pitch_joint", "left_ankle_pitch_joint",
+    "right_ankle_pitch_joint", "left_shoulder_roll_joint", "right_shoulder_roll_joint", "left_ankle_roll_joint",
+    "right_ankle_roll_joint", "left_shoulder_yaw_joint", "right_shoulder_yaw_joint", "left_elbow_joint",
+    "right_elbow_joint", "left_wrist_roll_joint", "right_wrist_roll_joint", "left_wrist_pitch_joint",
+    "right_wrist_pitch_joint", "left_wrist_yaw_joint", "right_wrist_yaw_joint",
+]
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -439,7 +457,10 @@ class Go2VelocityPolicy(PolicyController):
             self._previous_action = self.action.copy()
 
         target_pos = self._action_offset + (self._action_scale * self.action)
-        action = ArticulationAction(joint_positions=target_pos)
+        if self._body_idx is not None:
+            action = ArticulationAction(joint_positions=target_pos, joint_indices=self._body_idx)
+        else:
+            action = ArticulationAction(joint_positions=target_pos)
         self.robot.apply_action(action)
         self._policy_counter += 1
 
@@ -609,6 +630,22 @@ class G1VelocityPolicy(PolicyController):
         dof_count = len(self.robot.dof_names)
         logger.info("[G1] Articulation has %d DOFs", dof_count)
         logger.info("[G1] Joint names: %s", self.robot.dof_names)
+        print(f"[G1] Articulation DOFs: {dof_count} {list(self.robot.dof_names)}", flush=True)
+
+        self._body_idx = None
+        if G1_POLICY_JOINT_SEAM:
+            names = list(self.robot.dof_names)
+            missing = [n for n in G1_29DOF_SIM_ORDER if n not in names]
+            if missing:
+                raise ValueError(f"[G1 seam] policy joints missing from the articulation: {missing}")
+            self._body_idx = np.array([names.index(n) for n in G1_29DOF_SIM_ORDER], dtype=np.int64)
+            untouched = [n for n in names if n not in G1_29DOF_SIM_ORDER]
+            print(
+                f"[G1 seam] ON: {len(G1_29DOF_SIM_ORDER)} policy joints mapped by name -> indices "
+                f"{self._body_idx.tolist()}; {len(untouched)} DOFs left as authored: {untouched}",
+                flush=True,
+            )
+            dof_count = len(G1_29DOF_SIM_ORDER)
 
         if len(self._default_pos_sim) != dof_count:
             raise ValueError(
@@ -625,11 +662,22 @@ class G1VelocityPolicy(PolicyController):
                 if len(self._damping_sdk) == dof_count
                 else None
             )
-            self.robot._articulation_view.set_gains(stiffness_sim, damping_sim)
+            if self._body_idx is not None:
+                self.robot._articulation_view.set_gains(
+                    stiffness_sim, damping_sim, joint_indices=self._body_idx
+                )
+            else:
+                self.robot._articulation_view.set_gains(stiffness_sim, damping_sim)
             logger.info("[G1] Applied stiffness/damping from deploy.yaml")
 
-        self.robot.set_joint_positions(self.default_pos)
-        self.robot.set_joint_velocities(self.default_vel)
+        if self._body_idx is not None:
+            self.robot.set_joint_positions(self.default_pos, joint_indices=self._body_idx)
+            self.robot.set_joint_velocities(
+                np.zeros(len(self.robot.dof_names), dtype=np.float32)
+            )
+        else:
+            self.robot.set_joint_positions(self.default_pos)
+            self.robot.set_joint_velocities(self.default_vel)
         logger.info("[G1] Set initial joint positions")
 
         self._action_scale = _expand_param(
@@ -685,6 +733,9 @@ class G1VelocityPolicy(PolicyController):
 
         current_joint_pos = self.robot.get_joint_positions()
         current_joint_vel = self.robot.get_joint_velocities()
+        if self._body_idx is not None:
+            current_joint_pos = current_joint_pos[self._body_idx]
+            current_joint_vel = current_joint_vel[self._body_idx]
         joint_pos_rel = current_joint_pos - self.default_pos
 
         current_terms = {
