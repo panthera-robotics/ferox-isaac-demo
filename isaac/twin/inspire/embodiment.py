@@ -32,6 +32,12 @@ BODY_JOINT_ORDER_UNITREE_29 = (
 HAND_ACTUATORS = ('index', 'middle', 'ring', 'little', 'thumb_bend', 'thumb_rotation')
 SIDES = ('left', 'right')
 SATURATION_POLICIES = ('reject', 'clip_declared')
+# Qualification claims whose evidence was produced through a hand command conversion and an arm reference datum: they
+# must bind the applied conversion profile (`hand_contract_sha256`, manifest-independent profile hash of every applied side)
+# and the arm datum (`arm_datum`), or they can never be ACTIVE_COMPATIBLE (a hash proves identity, not physical correctness).
+HAND_COMMAND_DEPENDENT_CLAIMS = ('command_replay_integration', 'learned_policy_evaluation', 'real_data_agreement')
+HAND_COMMAND_DEPENDENCIES = ('hand_contract_sha256', 'arm_datum')
+ARM_DATUM_SCRIPTED = 'body_q_rad:urdf_absolute'    # ReplaySequence rows are absolute URDF radians
 SOURCE_KINDS = ('real_recording', 'simulator_recording', 'synthetic_test_sequence', 'model_generated')   # model outputs are never relabelled as recordings
 
 
@@ -89,6 +95,48 @@ def dependency_values_from_urdf(urdf_path, *, collision_cooking, physics_dt_s='0
             'wrist_mount_sha256': hashlib.sha256(json.dumps(fixed_joint_matrix(_fixed_joint(root, 'right_wrist_yaw_link', 'right_base_link'))).encode()).hexdigest(),
             'camera_mount_sha256': hashlib.sha256(json.dumps(_fixed_joint(root, 'torso_link', 'd435_link'), sort_keys=True).encode()).hexdigest(),
             'physics_dt_s': physics_dt_s, 'solver': solver}
+
+
+def hand_profile_sha256(side, source_contract):
+    """Manifest-independent hash of one side's applied conversion profile (axis order, endpoints, per-axis endpoints,
+    saturation policy, endpoint tolerance, side). Unlike HandCommandAdapter.contract_sha256 it does not include the manifest
+    hash, so a manifest can bind it without a circular dependency."""
+    if side not in SIDES:
+        raise ContractError('side must be left or right')
+    order = source_contract.get('axis_order')
+    if not isinstance(order, (list, tuple)) or sorted(order) != sorted(HAND_ACTUATORS):
+        raise ContractError('source axis_order must be a permutation of the six named actuators')
+    per_axis = {}
+    for axis, spec in (source_contract.get('per_axis_endpoints') or {}).items():
+        if axis not in HAND_ACTUATORS:
+            raise ContractError('per_axis_endpoints names an unknown actuator %s' % axis)
+        per_axis[axis] = [_finite(spec.get('open_value'), axis + '.open_value'), _finite(spec.get('closed_value'), axis + '.closed_value')]
+    policy = source_contract.get('saturation_policy', 'reject')
+    if policy not in SATURATION_POLICIES:
+        raise ContractError('unknown saturation policy')
+    return canonical_sha256({'axis_order': list(order), 'open_value': _finite(source_contract.get('open_value'), 'open_value'),
+                             'closed_value': _finite(source_contract.get('closed_value'), 'closed_value'), 'per_axis_endpoints': dict(sorted(per_axis.items())),
+                             'saturation_policy': policy, 'endpoint_tolerance': _finite(source_contract.get('endpoint_tolerance', 0.0), 'endpoint_tolerance', 0.0), 'side': side})
+
+
+def hand_contract_descriptor(contracts_by_side):
+    """One bindable value for the applied hand conversion: sha256 over {side: profile hash} of every applied side.
+    Accepts HandCommandAdapter objects or raw source contracts."""
+    if not contracts_by_side:
+        return 'none'      # an arm-only run applies no hand conversion; binds as the literal 'none'
+    profiles = {side: (c.profile_sha256 if hasattr(c, 'profile_sha256') else hand_profile_sha256(side, c)) for side, c in contracts_by_side.items()}
+    return canonical_sha256(dict(sorted(profiles.items())))
+
+
+def runtime_dependency_values(urdf_path, *, collision_cooking, physics_dt_s, support, controller, hand_contracts, arm_datum, solver='TGS_32_8'):
+    """The live dependency values of one run, composed the same way by the packager and the probe: asset identities from the
+    mounted URDF, the ACTUAL physics step (a DIAGNOSTIC refinement stales every dt-bound claim by construction), the support,
+    the controller descriptor, the applied hand conversion profile(s) and the arm reference datum."""
+    dt = float(physics_dt_s)
+    if not (dt > 0.0 and math.isfinite(dt)):
+        raise ContractError('physics_dt_s must be a positive finite number')
+    return dict(dependency_values_from_urdf(urdf_path, collision_cooking=collision_cooking, physics_dt_s='%g' % dt, solver=solver), support=support, controller=controller,
+                hand_contract_sha256=hand_contract_descriptor(hand_contracts), arm_datum=str(arm_datum))
 
 
 class EmbodimentManifest:
@@ -233,8 +281,10 @@ class EmbodimentManifest:
         """Compare every bound dependency with the live content hashes/descriptors.
 
         ``current`` maps dependency names (urdf_sha256, coupling_map_sha256, collision_cooking, wrist_mount_sha256,
-        hand_drive_gains, grasp_sha256, support, source_image, camera_mount_sha256, physics_dt_s, ...) to their live
-        values. Each qualification claim keeps its historical status and gets an active compatibility:
+        hand_drive_gains, grasp_sha256, support, source_image, camera_mount_sha256, physics_dt_s, hand_contract_sha256,
+        arm_datum, ...) to their live values (``runtime_dependency_values`` composes them for a run). A claim in
+        HAND_COMMAND_DEPENDENT_CLAIMS that does not bind every HAND_COMMAND_DEPENDENCIES key is reported ``unbound`` and is
+        UNVERIFIED at best: an applied conversion profile or datum it never named cannot be compatible with it. Each qualification claim keeps its historical status and gets an active compatibility:
         ACTIVE_COMPATIBLE when every bound dependency is present and equal, STALE when any differs, UNVERIFIED
         when any is missing. Transforms are checked the same way. Never mutates the manifest; never fills
         missing hashes.
@@ -257,8 +307,9 @@ class EmbodimentManifest:
             cfg = claim['configuration']
             missing = [k for k in cfg if k not in current]
             bad = {k: (current[k], v) for k, v in cfg.items() if k in current and current[k] != v}
-            active = 'ACTIVE_COMPATIBLE' if not (bad or missing) else ('STALE' if bad else 'UNVERIFIED')
-            report['claims'][name] = {'historical_status': claim['status'], 'active_compatibility': active, 'mismatched': bad, 'missing': missing}
+            unbound = [k for k in HAND_COMMAND_DEPENDENCIES if k not in cfg] if name in HAND_COMMAND_DEPENDENT_CLAIMS else []
+            active = 'ACTIVE_COMPATIBLE' if not (bad or missing or unbound) else ('STALE' if bad else 'UNVERIFIED')
+            report['claims'][name] = {'historical_status': claim['status'], 'active_compatibility': active, 'mismatched': bad, 'missing': missing, 'unbound': unbound}
             if active != 'ACTIVE_COMPATIBLE':
                 report['valid'] = False
         return report
@@ -301,6 +352,7 @@ class HandCommandAdapter:
         self.manifest, self.side, self.order = manifest, side, tuple(order)
         self.contract_sha256 = canonical_sha256({'axis_order': self.order, 'open_value': self.open_value, 'closed_value': self.closed_value, 'per_axis_endpoints': {k: list(v) for k, v in sorted(self.per_axis.items())},
                                                  'saturation_policy': policy, 'endpoint_tolerance': self.tolerance, 'manifest': manifest.sha256, 'side': side})
+        self.profile_sha256 = hand_profile_sha256(side, source_contract)   # manifest-independent, bindable by a manifest claim
 
     def endpoints(self, actuator):
         return self.per_axis.get(actuator, (self.open_value, self.closed_value))

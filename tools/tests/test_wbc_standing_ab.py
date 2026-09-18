@@ -441,3 +441,18 @@ class GuardedStateView(unittest.TestCase):
             guarded_state_view(names, q[:-1], dq, BODY)
         with self.assertRaises(ValueError):
             guarded_state_view(names, q, dq, BODY + ['missing_joint'])
+
+
+class ResetTargetsTests(unittest.TestCase):
+    def test_default_is_the_K_behaviour_and_is_recorded(self):
+        c = cfg(training_reset=True, landing_settle_s=1.0)
+        self.assertEqual(c.reset_targets, 'default')
+        self.assertEqual(cfg(training_reset=True, reset_targets='initial_pose').reset_targets, 'initial_pose')
+
+    def test_unknown_value_and_rig_protocol_are_refused(self):
+        with self.assertRaises(ValueError):
+            cfg(training_reset=True, reset_targets='zero')
+        with self.assertRaises(ValueError):
+            cfg(reset_targets='initial_pose')   # rig protocol holds the default pose on purpose
+
+

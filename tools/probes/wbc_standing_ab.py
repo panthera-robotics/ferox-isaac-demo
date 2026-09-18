@@ -131,7 +131,9 @@ def main():
                 if name in default:
                     i = contract.policy_names.index(name); drive = UsdPhysics.DriveAPI.Apply(prim, 'angular')
                     drive.CreateTypeAttr('force'); drive.CreateStiffnessAttr(contract.stiffness[i]); drive.CreateDampingAttr(contract.damping[i])
-                    drive.CreateMaxForceAttr(facts['joint_limits'][name]['effort']); drive.CreateTargetPositionAttr(math.degrees(default[name]))
+                    drive.CreateMaxForceAttr(facts['joint_limits'][name]['effort'])
+                    # spawn drive target: the default pose (K) or the joint's own authored initial position (q == target at reset)
+                    drive.CreateTargetPositionAttr(math.degrees(initial_q[name] if cfg.reset_targets == 'initial_pose' else default[name]))
                 elif name in hand_names:
                     drive = UsdPhysics.DriveAPI.Apply(prim, 'angular'); drive.CreateTargetPositionAttr(math.degrees(cfg.hand_margin_rad))
         training_caps = None
@@ -266,6 +268,7 @@ def main():
         initial['source_initial_q_error_max_rad'] = initial_error
         initial['authored_pelvis_height_m'] = spawn_z
         initial['training_reset'] = cfg.training_reset
+        initial['reset_targets'] = cfg.reset_targets
         initial['initialization_contact_count'] = len(contacts)
         write('initial_state.json', initial)
         integrity = {'source_mass_com_inertia_preserved': all(inertia['checks'].values()),
