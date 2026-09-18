@@ -7,7 +7,10 @@ import json
 import math
 import os
 
-_S = {"err": False, "tick": 0, "frame": 0, "every": 3, "annot": None, "cam": None, "f": None, "dir": None}
+_S = {"err": False, "tick": 0, "frame": 0, "every": 3, "annot": None, "cam": None, "f": None, "dir": None,
+      # chase geometry: metres behind / to the left / above the pelvis, look-at height, focal length (mm). v1 used
+      # 3.0/1.2/1.8/0.5/24 (feet cut off); G1_CAPTURE_CAM="back,left,up,target_z,focal" overrides.
+      "cam_geom": (2.8, 1.6, 1.0, 0.35, 18.0)}
 
 
 def enabled() -> bool:
@@ -22,10 +25,13 @@ def setup(world, width: int = 1280, height: int = 720) -> None:
         from pxr import Gf, UsdGeom
 
         _S["every"] = max(1, int(os.environ.get("G1_CAPTURE_EVERY", "3")))
+        geom = os.environ.get("G1_CAPTURE_CAM", "").strip()
+        if geom:
+            _S["cam_geom"] = tuple(float(v) for v in geom.split(","))
         _S["dir"] = os.path.join(os.environ["G1_CAPTURE_DIR"], "frames")
         os.makedirs(_S["dir"], exist_ok=True)
         cam = UsdGeom.Camera.Define(world.stage, "/World/ChaseCam")
-        cam.CreateFocalLengthAttr(24.0)
+        cam.CreateFocalLengthAttr(float(_S["cam_geom"][4]))
         cam.CreateClippingRangeAttr(Gf.Vec2f(0.05, 200.0))
         _S["cam"] = cam
         rp = rep.create.render_product("/World/ChaseCam", (width, height))
@@ -33,7 +39,7 @@ def setup(world, width: int = 1280, height: int = 720) -> None:
         annot.attach([rp])
         _S["annot"] = annot
         _S["f"] = open(os.path.join(os.environ["G1_CAPTURE_DIR"], "frames.jsonl"), "w", encoding="utf-8")
-        print(f"[capture] ON -> {_S['dir']} ({width}x{height}), every {_S['every']} render steps", flush=True)
+        print(f"[capture] ON -> {_S['dir']} ({width}x{height}), every {_S['every']} render steps, cam {_S['cam_geom']}", flush=True)
     except Exception as exc:  # capture is optional: report and disable
         _S["err"] = True
         print(f"[capture] setup failed, capture disabled: {exc!r}", flush=True)
@@ -69,8 +75,9 @@ def maybe_step(runner) -> None:
         yaw = math.atan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z))
         back = np.array([math.cos(yaw), math.sin(yaw), 0.0])
         left = np.array([-math.sin(yaw), math.cos(yaw), 0.0])
-        eye = pos + (-3.0) * back + 1.2 * left + np.array([0.0, 0.0, 1.8])
-        target = pos + np.array([0.0, 0.0, 0.5])
+        b, l, u, tz, _ = _S["cam_geom"]
+        eye = pos + (-b) * back + l * left + np.array([0.0, 0.0, u])
+        target = pos + np.array([0.0, 0.0, tz])
         xf = UsdGeom.Xformable(_S["cam"].GetPrim())
         xf.ClearXformOpOrder()
         xf.AddTransformOp().Set(_look_at(Gf.Vec3d(*eye.tolist()), Gf.Vec3d(*target.tolist())))
