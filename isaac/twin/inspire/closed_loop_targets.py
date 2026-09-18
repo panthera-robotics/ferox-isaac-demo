@@ -81,9 +81,12 @@ class ClosedLoopTargets:
         if self.hand_owner == 'MODEL':
             if not hands:
                 raise TargetError('hand owner is MODEL but the row carries no hand values')
-            hand_requested = {}
+            hand_requested = {}; clipped = {}
             for side, vals in hands.items():
-                targets = self.hand_decoder(side, vals)
+                decoded = self.hand_decoder(side, vals)
+                # a decoder may return {joint: rad} or ({joint: rad}, info) where info['clipped_axes'] lists declared clips
+                targets, info = (decoded if isinstance(decoded, tuple) else (decoded, {}))
+                clipped[side] = list((info or {}).get('clipped_axes', []))
                 for n, v in targets.items():
                     if n not in self.hand:
                         raise TargetError('decoded hand joint %s is not a hand target' % n)
@@ -93,11 +96,13 @@ class ClosedLoopTargets:
             # applied at the model-row cadence, independent of the arm interpolation
             for n, v in hand_requested.items():
                 self.hand[n] = v
+        else:
+            clipped = None
         self.rows += 1; self.chunk_records += 1
         return {'sequence': int(tick), 'physics_s': physics_s, 'source': 'model_chunk', 'iteration': iteration, 'chunk_pos': chunk_pos,
                 'obs_id': obs_id, 'body_targets_rad': requested, 'arm_targets_rate_limited_rad': dict(self.ramp_to),
-                'hand_owner': self.hand_owner, 'hand_targets_rad': hand_requested,
-                'model_hand_raw': hands if self.hand_owner == 'SCRIPTED' else None}
+                'hand_owner': self.hand_owner, 'hand_targets_rad': hand_requested, 'hand_clipped_axes': clipped,
+                'model_hand_raw': hands}   # the requested raw vector is recorded for both owners (H3: requested, mapped, applied)
 
     # ------------------------------------------------------------------ per physics tick
     def advance(self, *, tick, physics_s):

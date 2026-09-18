@@ -45,7 +45,7 @@ class HandOwnership(unittest.TestCase):
     def test_scripted_owner_ignores_model_hands_and_records_raw(self):
         t = make(owner='SCRIPTED')
         rec = t.begin_row(tick=0, physics_s=0.0, iteration=1, chunk_pos=0, **row())
-        self.assertIsNone(rec['hand_targets_rad']); self.assertEqual(rec['model_hand_raw'], {'left': [0.6], 'right': [0.6, 0.25]})
+        self.assertIsNone(rec['hand_targets_rad']); self.assertEqual(rec['model_hand_raw'], {'left': [0.6], 'right': [0.6, 0.25]}); self.assertIsNone(rec['hand_clipped_axes'])
         self.assertEqual(t.hand['right_index_1_joint'], 0.0)
         t.set_scripted_hand({'right_index_1_joint': 0.9}); self.assertEqual(t.hand['right_index_1_joint'], 0.9)
         t.begin_row(tick=4, physics_s=0.02, iteration=1, chunk_pos=1, **row())
