@@ -27,7 +27,7 @@ import math
 
 import numpy as np
 
-CLASSES = ('OK', 'SUSTAINED_MOTION', 'READBACK_IMPULSE', 'AMBIGUOUS', 'INVALID_SAMPLE', 'COUPLING_FAULT')
+CLASSES = ('OK', 'SUSTAINED_MOTION', 'READBACK_IMPULSE', 'AMBIGUOUS', 'INVALID_SAMPLE', 'COUPLING_FAULT', 'INTERVAL_SPIKE')
 
 
 def angle_difference(q1, q0, *, continuous=False):
@@ -44,13 +44,23 @@ class JointSpec:
         self.name, self.velocity_field, self.continuous, self.parent, self.A, self.B, self.lower, self.upper = name, float(velocity_field), bool(continuous), parent, float(A), float(B), lower, upper
 
 
-def observe(samples, joints, *, nominal_dt, persist=2, contacts=None, palm_speed=None, dt_tolerance=0.25, coupling_tol_rad=0.03):
+def observe(samples, joints, *, nominal_dt, persist=2, contacts=None, palm_speed=None, dt_tolerance=0.25, coupling_tol_rad=0.03, resets=None, coupled_field='per_joint', interval_rule='single'):
     """samples: list of dicts {sequence, physics_s, phase, q: {name: rad}, dq: {name: rad/s}} in recording order.
     joints: {name: JointSpec}. contacts: optional {sequence: set(links)} (any hand link in contact at that sample).
-    palm_speed: optional {sequence: m/s}. Returns {'rows': [...], 'events': [...], 'summary': {...}}."""
+    palm_speed: optional {sequence: m/s}. resets: optional set of sequences that are the FIRST sample after a declared
+    pose write / reset: the interval ending there is not comparable (INVALID for that sample only; every later sample is
+    evaluated normally, so a reset never excuses post-reset motion). coupled_field: 'per_joint' (legacy: every joint against
+    its own URDF field) or 'multiplier' (a mimic child against |A| x its parent's field, the ratio-aware proposal).
+    interval_rule: 'single' (one interval > 2x is real motion) or 'persist' (needs `persist` consecutive same-sign intervals
+    > 2x; a lone one that the readback does NOT also see is logged as INTERVAL_SPIKE and never aborts; bounded delay =
+    persist x dt). The readback persistence stays sign-agnostic: an out-and-back excursion that both channels see on two
+    consecutive samples is SUSTAINED — a persistence rule may delay, never erase, a fast motion seen by both channels.
+    Returns {'rows': [...], 'events': [...], 'summary': {...}}."""
     rows, events = [], []
     prev = None
     exceed_run = {n: 0 for n in joints}
+    int_run = {n: [] for n in joints}          # recent signed interval velocities beyond 2x (for the persist rule)
+    resets = set(resets or ())
     for k, s in enumerate(samples):
         seq, t, phase = s.get('sequence'), s.get('physics_s'), s.get('phase')
         valid_sample = isinstance(t, (int, float)) and math.isfinite(t)
@@ -64,6 +74,8 @@ def observe(samples, joints, *, nominal_dt, persist=2, contacts=None, palm_speed
                 reset = True                     # gap or variable step: interval velocity not comparable
             if prev.get('phase') != phase and phase in ('initialization', 'reset'):
                 reset = True
+        if seq in resets:
+            reset = True                         # declared pose write: the interval ending here is not motion
         for name, js in joints.items():
             q = s['q'].get(name); dq_rep = s['dq'].get(name)
             row = {'joint': name, 'sequence': seq, 'physics_s': t, 'phase': phase, 'sampling_phase': 'after world.step (probe records post-step state)',
@@ -76,13 +88,19 @@ def observe(samples, joints, *, nominal_dt, persist=2, contacts=None, palm_speed
             if not finite or not valid_sample:
                 row['classification'] = 'INVALID_SAMPLE'; row['explanation'] = 'non-finite or missing q/dq/time: no legacy flag evaluated, no differentiation'
                 rows.append(row); exceed_run[name] = 0; continue
-            v1, v2 = js.velocity_field, 2 * js.velocity_field
+            field = js.velocity_field
+            if coupled_field == 'multiplier' and js.parent is not None and js.parent in joints:
+                field = abs(js.A) * joints[js.parent].velocity_field       # a child at |A| x a capped parent is not an actuator overspeed
+            v1, v2 = field, 2 * field
+            row['field_rad_s'] = field
             row['legacy_score_flag_1x'] = abs(dq_rep) > v1
             row['legacy_abort_flag_2x'] = abs(dq_rep) > v2
             if prev is not None and row['q_prev'] is not None and dt is not None and not reset and math.isfinite(row['q_prev']):
                 dqi = angle_difference(q, row['q_prev'], continuous=js.continuous) / dt
                 row['dq_interval'] = dqi
                 row['interval_flag_1x'] = abs(dqi) > v1; row['interval_flag_2x'] = abs(dqi) > v2
+                if interval_rule == 'persist':
+                    int_run[name] = (int_run[name] + [dqi])[-persist:] if abs(dqi) > v2 else []
                 if abs(dqi) > 1e-6:
                     row['readback_ratio'] = dq_rep / dqi
             if js.parent is not None and js.parent in s['q']:
@@ -97,9 +115,16 @@ def observe(samples, joints, *, nominal_dt, persist=2, contacts=None, palm_speed
                 exceed_run[name] += 1
             elif row['legacy_abort_flag_2x'] or (row['interval_flag_2x'] is True):
                 exceed_run[name] += 1
+                interval_confirms = bool(row['interval_flag_2x'])
+                if interval_rule == 'persist' and interval_confirms:
+                    run = int_run[name]
+                    interval_confirms = len(run) >= persist and all((x > 0) == (run[0] > 0) for x in run)
+                    if not interval_confirms and not row['legacy_abort_flag_2x']:
+                        row['classification'] = 'INTERVAL_SPIKE'; row['explanation'] = 'one interval > 2x (%.3f rad/s) without %d consecutive same-sign exceedances: logged, never acted on (persist rule, bounded delay %.0f ms)' % (row['dq_interval'], persist, 1e3 * persist * nominal_dt)
+                        rows.append(row); events.append({k2: row[k2] for k2 in ('joint', 'sequence', 'physics_s', 'dq_reported', 'dq_interval', 'dq_expected_from_parent', 'coupling_error_rad', 'contact_links', 'legacy_score_flag_1x', 'legacy_abort_flag_2x', 'classification', 'explanation')}); continue
                 if row['dq_interval'] is None:
                     row['classification'] = 'AMBIGUOUS'; row['explanation'] = 'reported > 2x with no comparable interval (first sample, reset, gap or irregular dt): legacy decision kept'
-                elif row['interval_flag_2x'] or exceed_run[name] >= persist:
+                elif interval_confirms or exceed_run[name] >= persist:
                     row['classification'] = 'SUSTAINED_MOTION'; row['explanation'] = 'exceedance confirmed by the interval channel or persisting %d samples: real motion or fault' % exceed_run[name]
                 elif row['interval_flag_1x'] or (row['dq_expected_from_parent'] is not None and abs(row['dq_expected_from_parent']) > v1):
                     row['classification'] = 'AMBIGUOUS'; row['explanation'] = 'reported > 2x, interval or parent between 1x and 2x: cannot be resolved by one interval; legacy decision kept'
@@ -126,7 +151,7 @@ def observe(samples, joints, *, nominal_dt, persist=2, contacts=None, palm_speed
                 return {'joint': r['joint'], 'sequence': r['sequence'], 'physics_s': r['physics_s'], 'dq_reported': r['dq_reported'], 'dq_interval': r['dq_interval']}
         return None
     summary = {
-        'samples': len(samples), 'joints': len(joints), 'nominal_dt': nominal_dt, 'persist_samples': persist,
+        'samples': len(samples), 'joints': len(joints), 'nominal_dt': nominal_dt, 'persist_samples': persist, 'coupled_field': coupled_field, 'interval_rule': interval_rule, 'declared_resets': sorted(resets), 'bounded_delay_s': persist * nominal_dt,
         'legacy_score_1x': {'reported_over_1x_samples': sum(1 for r in rows if r['legacy_score_flag_1x']), 'first': first(lambda r: r['legacy_score_flag_1x'])},
         'legacy_abort_2x': {'reported_over_2x_samples': sum(1 for r in rows if r['legacy_abort_flag_2x']), 'first': first(lambda r: r['legacy_abort_flag_2x']), 'would_abort': any(r['legacy_abort_flag_2x'] for r in rows)},
         'interval_channel': {'over_1x_samples': sum(1 for r in rows if r['interval_flag_1x']), 'over_2x_samples': sum(1 for r in rows if r['interval_flag_2x']), 'max_abs_interval_rad_s': max((abs(r['dq_interval']) for r in rows if r['dq_interval'] is not None), default=0.0),

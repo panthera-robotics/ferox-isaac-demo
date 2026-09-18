@@ -127,3 +127,116 @@ class ObserverCorpus(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def ramp(rate, n, dt=DT, q0=0.02):
+    return [q0 + rate * i * dt for i in range(n)]
+
+
+class SprintMControls(unittest.TestCase):
+    """Predeclared CPU controls (sprint M H1): both signs, around-threshold with and without the multiplier-aware coupled field,
+    genuine one-sample excursion under the single and persist interval rules, driven-parent vs passive-child faults, blocked vs
+    forced motion, the recorded landing chatter as a regression, declared reset boundaries, timestamp discontinuities, and the
+    same physical motion at dt 0.005 and 0.0025 with time-to-detect in physical time."""
+
+    def first_t(self, res, joint, cls):
+        for r in res['rows']:
+            if r['joint'] == joint and r['classification'] == cls:
+                return r['physics_s']
+        return None
+
+    def test_constant_above_threshold_both_signs_detected_within_two_samples(self):
+        for sign in (+1, -1):
+            qs = [0.7 + sign * 2.5 * i * DT for i in range(40)]                        # 2.5 rad/s closing or opening, above 2x the 1.0 field
+            res = observe(make(qs), J, nominal_dt=DT)
+            self.assertEqual(classes(res, 'p')[0], 'OK')                               # first sample has no interval
+            self.assertEqual(classes(res, 'p')[1], 'SUSTAINED_MOTION', 'sign %+d' % sign)
+            self.assertLessEqual(self.first_t(res, 'p', 'SUSTAINED_MOTION') - 0.0, 2 * DT)
+            self.assertTrue(res['summary']['prospective_shadow']['would_abort'])
+
+    def test_around_threshold_per_joint_vs_multiplier_aware_coupled_field(self):
+        below = observe(make(ramp(1.9, 40)), J, nominal_dt=DT)                         # driven 1.9 (< 2x); child 1.9 x 1.0843 = 2.06 (> 2x per joint)
+        self.assertNotIn('SUSTAINED_MOTION', classes(below, 'p'))
+        self.assertIn('SUSTAINED_MOTION', classes(below, 'c'))                         # per-joint rule flags the mimic ratio (MIMIC_RATIO case)
+        below_m = observe(make(ramp(1.9, 40)), J, nominal_dt=DT, coupled_field='multiplier')
+        self.assertNotIn('SUSTAINED_MOTION', classes(below_m, 'c'))                    # child field = 1.0843 x parent field -> 2.06 < 2.17: OK
+        above = observe(make(ramp(2.1, 40)), J, nominal_dt=DT, coupled_field='multiplier')
+        self.assertIn('SUSTAINED_MOTION', classes(above, 'p')); self.assertIn('SUSTAINED_MOTION', classes(above, 'c'))   # 2.1 > 2x on both
+        self.assertEqual(below_m['summary']['coupled_field'], 'multiplier')
+
+    def test_genuine_one_sample_excursion_single_rule_aborts_persist_rule_logs_spike(self):
+        qs = [0.5] * 10 + [0.5 + 0.015] + [0.5] * 10                                  # +3.0 rad/s for exactly one interval, then back (-3.0)
+        single = observe(make(qs), J, nominal_dt=DT, interval_rule='single')
+        self.assertIn('SUSTAINED_MOTION', classes(single, 'p'))                        # declared: one interval > 2x is real motion under 'single'
+        both = observe(make(qs), J, nominal_dt=DT, interval_rule='persist', persist=2)  # readback == finite difference: BOTH channels see the excursion
+        cl = classes(both, 'p')
+        self.assertEqual(cl[10], 'AMBIGUOUS')                                          # excursion sample: interval alone does not persist yet; legacy kept
+        self.assertEqual(cl[11], 'SUSTAINED_MOTION')                                   # the return: readback > 2x on two consecutive samples (sign-agnostic) -> real fast motion, NOT erased
+        self.assertTrue(both['summary']['prospective_shadow']['would_abort'])          # bounded delay: one sample (5 ms) after the excursion
+        quiet = make(qs, dq_p=[0.0] * len(qs), dq_c=[0.0] * len(qs))                    # position moved, readback did not (chatter-like)
+        persist = observe(quiet, J, nominal_dt=DT, interval_rule='persist', persist=2)
+        self.assertEqual(classes(persist, 'p').count('INTERVAL_SPIKE'), 2)             # both intervals logged, none acted on
+        self.assertFalse(persist['summary']['prospective_shadow']['would_abort'])
+        self.assertAlmostEqual(persist['summary']['bounded_delay_s'], 0.010)          # persist x dt: the rule's delay is bounded in physical time
+        run = observe(make([0.5 + 3.0 * i * DT for i in range(6)]), J, nominal_dt=DT, interval_rule='persist', persist=2)
+        self.assertEqual(classes(run, 'p')[2], 'SUSTAINED_MOTION')                     # two consecutive same-sign exceedances -> abort at the 2nd (10 ms)
+
+    def test_driven_parent_fault_vs_passive_child_fault(self):
+        parent = observe(make(ramp(3.0, 30)), J, nominal_dt=DT)                       # parent runs away; child follows the mapping
+        self.assertIn('SUSTAINED_MOTION', classes(parent, 'p')); self.assertNotIn('COUPLING_FAULT', classes(parent, 'c'))
+        qs_p = [0.5] * 30; qs_c = [1.0843 * 0.5 + (0.004 * i) for i in range(30)]      # child drifts 4 mrad/step with a static parent
+        child = observe(make(qs_p, qs_c), J, nominal_dt=DT)
+        self.assertIn('COUPLING_FAULT', classes(child, 'c'))                           # crosses the 0.03 rad residual -> fault, never cleared
+        self.assertNotIn('SUSTAINED_MOTION', classes(child, 'p'))
+
+    def test_blocked_motion_versus_forced_motion(self):
+        blocked = [0.02 + 1.0 * i * DT for i in range(20)] + [0.12] * 20                 # closing at the cap, then stopped by an object: command keeps running but q stalls
+        res = observe(make(blocked), J, nominal_dt=DT)
+        self.assertNotIn('SUSTAINED_MOTION', classes(res, 'p')); self.assertEqual(classes(res, 'p')[-1], 'OK')
+        forced = [0.5] * 10 + [0.5 + 2.6 * i * DT for i in range(1, 8)]                 # an external push moves the joint at 2.6 rad/s (readback agrees)
+        res = observe(make(forced), J, nominal_dt=DT)
+        self.assertIn('SUSTAINED_MOTION', classes(res, 'p'))
+
+    def test_recorded_landing_chatter_regression(self):
+        # donor s2 z0.800 rows 5-12 (hand-an-05): thumb_3 positions 0.0173 -> 0.0249 -> 0.0138 -> 0.0192 with a static parent, readback small
+        qs_c = [0.0171, 0.0186, 0.0173, 0.0249, 0.0138, 0.0192, 0.0159, 0.0169]; qs_p = [0.0206] * 8
+        JT = {'p': JointSpec('p', 1.0, lower=0.0, upper=0.5864), 'c': JointSpec('c', 1.0, parent='p', A=0.8024, B=0.0, lower=0.0, upper=3.14)}
+        s = make(qs_p, qs_c, dq_p=[0.0] * 8, dq_c=[0.7, -0.29, 0.13, 0.71, -0.31, 0.04, -0.13, -0.08])
+        single = observe(s, JT, nominal_dt=DT, interval_rule='single')
+        self.assertIn('SUSTAINED_MOTION', classes(single, 'c'))                        # the -2.22 rad/s interval: the single rule aborts on the chatter (known false positive)
+        persist = observe(s, JT, nominal_dt=DT, interval_rule='persist', persist=2)
+        self.assertNotIn('SUSTAINED_MOTION', classes(persist, 'c'))                    # alternating sign never persists
+        self.assertIn('INTERVAL_SPIKE', classes(persist, 'c'))
+        self.assertFalse(any(r['legacy_abort_flag_2x'] for r in persist['rows']))     # the readback never saw it either
+        self.assertNotIn('COUPLING_FAULT', classes(persist, 'c'))                      # residual stays < 0.03 rad
+
+    def test_declared_reset_boundary_does_not_excuse_post_reset_motion(self):
+        qs = [0.2] * 5 + [1.2] + [1.2 + 3.0 * i * DT for i in range(1, 6)]              # a pose write to 1.2 at sample 5, then a real 3.0 rad/s runaway
+        dq = [0.0] * 6 + [3.0] * 5                                                      # a pose write carries no readback velocity; the runaway does
+        res = observe(make(qs, dq_p=dq, dq_c=[1.0843 * v for v in dq]), J, nominal_dt=DT, resets={5})
+        cl = classes(res, 'p')
+        self.assertEqual(cl[5], 'OK'); self.assertIsNone(res['rows'][5 * 2]['dq_interval'])   # the interval ending at the reset sample is not evaluated
+        self.assertEqual(cl[6], 'SUSTAINED_MOTION')                                   # the very next interval is judged normally
+        undeclared = observe(make(qs, dq_p=dq, dq_c=[1.0843 * v for v in dq]), J, nominal_dt=DT)
+        self.assertEqual(classes(undeclared, 'p')[5], 'SUSTAINED_MOTION')              # without the declaration the pose write reads as a 200 rad/s motion (correct: it is unexplained)
+
+    def test_timestamp_discontinuities_dropped_duplicated_reordered(self):
+        s = make(ramp(0.5, 12))
+        s[6]['physics_s'] = s[5]['physics_s']                                          # duplicated timestamp
+        s[9]['physics_s'] = s[8]['physics_s'] - 0.001                                  # reordered
+        s[10]['physics_s'] = s[8]['physics_s'] + 0.05; s[11]['physics_s'] = s[10]['physics_s'] + DT   # dropped samples (gap of 10 steps), then regular again
+        res = observe(s, J, nominal_dt=DT)
+        rows = [r for r in res['rows'] if r['joint'] == 'p']
+        self.assertIsNone(rows[6]['dq_interval']); self.assertIsNone(rows[9]['dq_interval']); self.assertIsNone(rows[10]['dq_interval'])
+        self.assertNotIn('SUSTAINED_MOTION', classes(res, 'p'))                        # no fabricated velocity across the discontinuities
+        self.assertIsNotNone(rows[11]['dq_interval'])                                  # evaluation resumes on the next regular interval
+
+    def test_two_physics_steps_same_physical_motion_time_to_detect(self):
+        for dt in (0.005, 0.0025):
+            n = int(0.2 / dt); qs = [0.5] * n + [0.5 + 2.5 * i * dt for i in range(1, n)]
+            res = observe(make(qs, dt=dt), J, nominal_dt=dt)
+            t_on = n * dt; t_det = self.first_t(res, 'p', 'SUSTAINED_MOTION')
+            self.assertIsNotNone(t_det, 'dt %g' % dt); self.assertLessEqual(t_det - t_on, 2 * dt + 1e-9)   # detected within two samples in physical time
+            res_p = observe(make(qs, dt=dt), J, nominal_dt=dt, interval_rule='persist', persist=2)
+            self.assertLessEqual(self.first_t(res_p, 'p', 'SUSTAINED_MOTION') - t_on, 3 * dt + 1e-9)       # persist adds exactly one sample of delay
+            self.assertAlmostEqual(res_p['summary']['bounded_delay_s'], 2 * dt)
