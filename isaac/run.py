@@ -27,6 +27,7 @@ if _os.environ.get("CAPTURE_FULLSCREEN", "").strip().lower() in ("1", "true", "y
 simulation_app = SimulationApp(_sim_cfg)
 
 import argparse
+import math
 import json
 import logging
 import os
@@ -129,6 +130,41 @@ def _apply_scene_overrides(stage, robot_root: str, floor_material_path: str = "/
     print(f"[scene overrides] {ov} -> {len(applied)} attributes applied", flush=True)
     for row in applied:
         print(f"[scene overrides]   {row}", flush=True)
+
+
+# PANTHERA (Sprint M, wb-cand-M05): optional probe-like STARTUP protocol for the W2 bisection (cell e1). Off unless
+# G1_STARTUP=probe_like. On: (1) the deploy default pose is authored into the robot's joint state AND drive targets before
+# World.reset() (the L probe's training_reset spawn), (2) the spawn height is G1_STARTUP_Z (default 0.787 = the probe's
+# in-contact spawn) instead of env.yaml's 0.8, (3) robot.initialize() runs immediately after World.reset() instead of in the
+# first physics callback, (4) the observation history is primed from the current state (Isaac Lab reset semantics) before
+# the first inference. Everything else unchanged.
+G1_STARTUP = os.environ.get("G1_STARTUP", "").strip().lower()
+G1_STARTUP_Z = float(os.environ.get("G1_STARTUP_Z", "0.787"))
+
+
+def _author_default_joint_state(stage, robot_root: str, default_by_name: dict) -> None:
+    from pxr import PhysxSchema, Usd, UsdPhysics
+
+    done = []
+    for prim in Usd.PrimRange(stage.GetPseudoRoot(), Usd.TraverseInstanceProxies(Usd.PrimAllPrimsPredicate)):
+        if not str(prim.GetPath()).startswith(robot_root) or not prim.IsA(UsdPhysics.RevoluteJoint):
+            continue
+        name = prim.GetName()
+        if name not in default_by_name:
+            continue
+        if prim.IsInstanceProxy():
+            raise RuntimeError(f"[startup probe_like] joint {name} is an instance proxy; cannot author its state")
+        deg = math.degrees(float(default_by_name[name]))
+        state = PhysxSchema.JointStateAPI.Apply(prim, "angular")
+        state.CreatePositionAttr(deg)
+        state.CreateVelocityAttr(0.0)
+        drive = UsdPhysics.DriveAPI.Apply(prim, "angular")
+        drive.CreateTargetPositionAttr(deg)
+        done.append(name)
+    missing = sorted(set(default_by_name) - set(done))
+    if missing:
+        raise RuntimeError(f"[startup probe_like] joints not found in the stage: {missing}")
+    print(f"[startup probe_like] authored default joint state + drive targets on {len(done)} joints", flush=True)
 
 
 G1_29DOF_SIM_ORDER = [
@@ -811,6 +847,18 @@ class G1VelocityPolicy(PolicyController):
             total_obs_size,
         )
 
+    def prime_history_from_current(self, command: np.ndarray) -> None:
+        """Fill every history slot with the CURRENT measured terms (Isaac Lab reset semantics); last_action stays zero;
+        the policy counter is reset so the next physics step runs an inference on the primed history."""
+        self._previous_action = np.zeros_like(self._previous_action)
+        self._compute_observation(np.asarray(command, dtype=np.float32))  # pushes one real frame
+        for name, frames in self._obs_term_histories.items():
+            latest = frames[-1].copy()
+            for k in range(len(frames)):
+                frames[k] = np.zeros_like(latest) if name == "last_action" else latest.copy()
+        self._policy_counter = 0
+        print("[startup probe_like] observation history primed from the current state", flush=True)
+
     def _compute_observation(self, command: np.ndarray) -> np.ndarray:
         """Compute observation with per-term history."""
         ang_vel_I = self.robot.get_angular_velocity()
@@ -978,6 +1026,9 @@ class RobotRosRunner(object):
         # old upright spawn exactly (regression-safe for dso_block_a).
         spawn_xy = world_spawn.get("xy", (0.0, 0.0))
         spawn_yaw = float(world_spawn.get("yaw", 0.0))
+        if G1_STARTUP == "probe_like":
+            print(f"[startup probe_like] spawn z {robot_z} -> {G1_STARTUP_Z}", flush=True)
+            robot_z = G1_STARTUP_Z
         init_pos = np.array(
             [float(spawn_xy[0]), float(spawn_xy[1]), robot_z], dtype=np.float32
         )
@@ -1030,6 +1081,11 @@ class RobotRosRunner(object):
                 env_path=env_path,
             )
 
+        if G1_STARTUP == "probe_like" and robot_type == ROBOT_G1:
+            _author_default_joint_state(
+                self._world.stage, robot_root,
+                dict(zip(G1_29DOF_SIM_ORDER, [float(v) for v in self._robot._default_pos_sim])),
+            )
         _apply_scene_overrides(self._world.stage, robot_root)  # PANTHERA: no-op unless G1_SCENE_OVERRIDES
 
         cmd_min, cmd_max = _resolve_command_limits(deploy_cfg, env_cfg)
@@ -1405,6 +1461,12 @@ def main():
         print("[PANTHERA-MARK] A: app.update done, calling _world.reset()", flush=True)
         runner._world.reset()
         print("[PANTHERA-MARK] B: world.reset() done", flush=True)
+        if G1_STARTUP == "probe_like":
+            # the L probe's order: world.reset(); robot.initialize(); primed history; policy from step 0
+            runner._robot.initialize()
+            runner.first_step = False
+            runner._robot.prime_history_from_current(np.zeros(3, dtype=np.float32))
+            print("[startup probe_like] robot initialized right after World.reset()", flush=True)
         simulation_app.update()
         print("[PANTHERA-MARK] C: app.update done, calling setup()", flush=True)
         runner.setup()
