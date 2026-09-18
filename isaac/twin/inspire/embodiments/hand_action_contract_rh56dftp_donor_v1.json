@@ -1,0 +1,807 @@
+{
+ "schema": "hand_action_contract_v1",
+ "contract_id": "hand_action_contract_rh56dftp_donor_v1",
+ "hardware_identity": {
+  "robot": "Unitree G1 EDU 29-DoF",
+  "right_hand": "Inspire RH56E2-2R-T1 (nameplate photo, owner)",
+  "left_hand": "Inspire RH56E2-2L-T1 (context-reported, unverified)",
+  "identity_evidence": "owner nameplate photo (private, not in this repository); left hand not photographed"
+ },
+ "twin_manifest_id": "g1_edu29_rh56dftp_donor_v1",
+ "twin_manifest_sha256": "a67e781673f49b6ca9da8006e2831ffe5e8b5f73183fe9f8763c2fa64dfc8e0d",
+ "axis_order": [
+  "index",
+  "middle",
+  "ring",
+  "little",
+  "thumb_bend",
+  "thumb_rotation"
+ ],
+ "sides": {
+  "left": {
+   "axes": {
+    "index": {
+     "twin": {
+      "joint": {
+       "value": "left_index_1_joint",
+       "status": "VERIFIED"
+      },
+      "unit": {
+       "value": "rad",
+       "status": "VERIFIED"
+      },
+      "open": {
+       "value": 0.0,
+       "status": "VERIFIED"
+      },
+      "closed": {
+       "value": 1.4381,
+       "status": "VERIFIED"
+      },
+      "closing_direction": {
+       "value": "+ (increasing joint angle closes; URDF zero = open)",
+       "status": "VERIFIED"
+      },
+      "velocity_cap_rad_s": {
+       "value": 1.0,
+       "status": "VERIFIED",
+       "evidence": "hand-req-M01 readback: physxJoint:maxJointVelocity == URDF field on the six drive joints (4.0 rad/s on the DIAG asset, 1.0 on this asset); mimic children uncapped"
+      },
+      "coupled_children": {
+       "value": [
+        {
+         "joint": "left_index_2_joint",
+         "multiplier": 1.0843,
+         "offset": 0.0
+        }
+       ],
+       "status": "VERIFIED"
+      }
+     },
+     "installed_e2": {
+      "endpoint_datum": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "owner request A1/A2 (scale-referenced photos at the extremes) or a vendor datum"
+      },
+      "travel": {
+       "value": 78.5,
+       "unit": "deg",
+       "status": "NOMINAL",
+       "source": "E2 manual / product page (nominal; not measured on the installed unit)"
+      },
+      "speed": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "vendor closing time or a timed closure video (request A3); the twin cap is NOT a hardware speed"
+      },
+      "tactile": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "E2 tactile register map + one recorded press"
+      }
+     }
+    },
+    "middle": {
+     "twin": {
+      "joint": {
+       "value": "left_middle_1_joint",
+       "status": "VERIFIED"
+      },
+      "unit": {
+       "value": "rad",
+       "status": "VERIFIED"
+      },
+      "open": {
+       "value": 0.0,
+       "status": "VERIFIED"
+      },
+      "closed": {
+       "value": 1.4381,
+       "status": "VERIFIED"
+      },
+      "closing_direction": {
+       "value": "+ (increasing joint angle closes; URDF zero = open)",
+       "status": "VERIFIED"
+      },
+      "velocity_cap_rad_s": {
+       "value": 1.0,
+       "status": "VERIFIED",
+       "evidence": "hand-req-M01 readback: physxJoint:maxJointVelocity == URDF field on the six drive joints (4.0 rad/s on the DIAG asset, 1.0 on this asset); mimic children uncapped"
+      },
+      "coupled_children": {
+       "value": [
+        {
+         "joint": "left_middle_2_joint",
+         "multiplier": 1.0843,
+         "offset": 0.0
+        }
+       ],
+       "status": "VERIFIED"
+      }
+     },
+     "installed_e2": {
+      "endpoint_datum": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "owner request A1/A2 (scale-referenced photos at the extremes) or a vendor datum"
+      },
+      "travel": {
+       "value": 78.5,
+       "unit": "deg",
+       "status": "NOMINAL",
+       "source": "E2 manual / product page (nominal; not measured on the installed unit)"
+      },
+      "speed": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "vendor closing time or a timed closure video (request A3); the twin cap is NOT a hardware speed"
+      },
+      "tactile": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "E2 tactile register map + one recorded press"
+      }
+     }
+    },
+    "ring": {
+     "twin": {
+      "joint": {
+       "value": "left_ring_1_joint",
+       "status": "VERIFIED"
+      },
+      "unit": {
+       "value": "rad",
+       "status": "VERIFIED"
+      },
+      "open": {
+       "value": 0.0,
+       "status": "VERIFIED"
+      },
+      "closed": {
+       "value": 1.4381,
+       "status": "VERIFIED"
+      },
+      "closing_direction": {
+       "value": "+ (increasing joint angle closes; URDF zero = open)",
+       "status": "VERIFIED"
+      },
+      "velocity_cap_rad_s": {
+       "value": 1.0,
+       "status": "VERIFIED",
+       "evidence": "hand-req-M01 readback: physxJoint:maxJointVelocity == URDF field on the six drive joints (4.0 rad/s on the DIAG asset, 1.0 on this asset); mimic children uncapped"
+      },
+      "coupled_children": {
+       "value": [
+        {
+         "joint": "left_ring_2_joint",
+         "multiplier": 1.0843,
+         "offset": 0.0
+        }
+       ],
+       "status": "VERIFIED"
+      }
+     },
+     "installed_e2": {
+      "endpoint_datum": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "owner request A1/A2 (scale-referenced photos at the extremes) or a vendor datum"
+      },
+      "travel": {
+       "value": 78.5,
+       "unit": "deg",
+       "status": "NOMINAL",
+       "source": "E2 manual / product page (nominal; not measured on the installed unit)"
+      },
+      "speed": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "vendor closing time or a timed closure video (request A3); the twin cap is NOT a hardware speed"
+      },
+      "tactile": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "E2 tactile register map + one recorded press"
+      }
+     }
+    },
+    "little": {
+     "twin": {
+      "joint": {
+       "value": "left_little_1_joint",
+       "status": "VERIFIED"
+      },
+      "unit": {
+       "value": "rad",
+       "status": "VERIFIED"
+      },
+      "open": {
+       "value": 0.0,
+       "status": "VERIFIED"
+      },
+      "closed": {
+       "value": 1.4381,
+       "status": "VERIFIED"
+      },
+      "closing_direction": {
+       "value": "+ (increasing joint angle closes; URDF zero = open)",
+       "status": "VERIFIED"
+      },
+      "velocity_cap_rad_s": {
+       "value": 1.0,
+       "status": "VERIFIED",
+       "evidence": "hand-req-M01 readback: physxJoint:maxJointVelocity == URDF field on the six drive joints (4.0 rad/s on the DIAG asset, 1.0 on this asset); mimic children uncapped"
+      },
+      "coupled_children": {
+       "value": [
+        {
+         "joint": "left_little_2_joint",
+         "multiplier": 1.0843,
+         "offset": 0.0
+        }
+       ],
+       "status": "VERIFIED"
+      }
+     },
+     "installed_e2": {
+      "endpoint_datum": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "owner request A1/A2 (scale-referenced photos at the extremes) or a vendor datum"
+      },
+      "travel": {
+       "value": 78.5,
+       "unit": "deg",
+       "status": "NOMINAL",
+       "source": "E2 manual / product page (nominal; not measured on the installed unit)"
+      },
+      "speed": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "vendor closing time or a timed closure video (request A3); the twin cap is NOT a hardware speed"
+      },
+      "tactile": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "E2 tactile register map + one recorded press"
+      }
+     }
+    },
+    "thumb_bend": {
+     "twin": {
+      "joint": {
+       "value": "left_thumb_2_joint",
+       "status": "VERIFIED"
+      },
+      "unit": {
+       "value": "rad",
+       "status": "VERIFIED"
+      },
+      "open": {
+       "value": 0.0,
+       "status": "VERIFIED"
+      },
+      "closed": {
+       "value": 0.5864,
+       "status": "VERIFIED"
+      },
+      "closing_direction": {
+       "value": "+ (increasing joint angle closes; URDF zero = open)",
+       "status": "VERIFIED"
+      },
+      "velocity_cap_rad_s": {
+       "value": 1.0,
+       "status": "VERIFIED",
+       "evidence": "hand-req-M01 readback: physxJoint:maxJointVelocity == URDF field on the six drive joints (4.0 rad/s on the DIAG asset, 1.0 on this asset); mimic children uncapped"
+      },
+      "coupled_children": {
+       "value": [
+        {
+         "joint": "left_thumb_3_joint",
+         "multiplier": 0.8024,
+         "offset": 0.0
+        },
+        {
+         "joint": "left_thumb_4_joint",
+         "multiplier": 0.9487,
+         "offset": 0.0,
+         "via": "left_thumb_3_joint"
+        }
+       ],
+       "status": "VERIFIED"
+      }
+     },
+     "installed_e2": {
+      "endpoint_datum": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "owner request A1/A2 (scale-referenced photos at the extremes) or a vendor datum"
+      },
+      "travel": {
+       "value": 35.5,
+       "unit": "deg",
+       "status": "NOMINAL",
+       "source": "E2 manual / product page (nominal; not measured on the installed unit)"
+      },
+      "speed": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "vendor closing time or a timed closure video (request A3); the twin cap is NOT a hardware speed"
+      },
+      "tactile": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "E2 tactile register map + one recorded press"
+      }
+     }
+    },
+    "thumb_rotation": {
+     "twin": {
+      "joint": {
+       "value": "left_thumb_1_joint",
+       "status": "VERIFIED"
+      },
+      "unit": {
+       "value": "rad",
+       "status": "VERIFIED"
+      },
+      "open": {
+       "value": 0.0,
+       "status": "VERIFIED"
+      },
+      "closed": {
+       "value": 1.1641,
+       "status": "VERIFIED"
+      },
+      "closing_direction": {
+       "value": "+ (increasing joint angle closes; URDF zero = open)",
+       "status": "VERIFIED"
+      },
+      "velocity_cap_rad_s": {
+       "value": 1.0,
+       "status": "VERIFIED",
+       "evidence": "hand-req-M01 readback: physxJoint:maxJointVelocity == URDF field on the six drive joints (4.0 rad/s on the DIAG asset, 1.0 on this asset); mimic children uncapped"
+      },
+      "coupled_children": {
+       "value": [],
+       "status": "VERIFIED"
+      }
+     },
+     "installed_e2": {
+      "endpoint_datum": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "owner request A1/A2 (scale-referenced photos at the extremes) or a vendor datum"
+      },
+      "travel": {
+       "value": 95.0,
+       "unit": "deg",
+       "status": "NOMINAL",
+       "source": "E2 manual / product page (nominal; not measured on the installed unit)"
+      },
+      "speed": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "vendor closing time or a timed closure video (request A3); the twin cap is NOT a hardware speed"
+      },
+      "tactile": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "E2 tactile register map + one recorded press"
+      }
+     }
+    }
+   }
+  },
+  "right": {
+   "axes": {
+    "index": {
+     "twin": {
+      "joint": {
+       "value": "right_index_1_joint",
+       "status": "VERIFIED"
+      },
+      "unit": {
+       "value": "rad",
+       "status": "VERIFIED"
+      },
+      "open": {
+       "value": 0.0,
+       "status": "VERIFIED"
+      },
+      "closed": {
+       "value": 1.4381,
+       "status": "VERIFIED"
+      },
+      "closing_direction": {
+       "value": "+ (increasing joint angle closes; URDF zero = open)",
+       "status": "VERIFIED"
+      },
+      "velocity_cap_rad_s": {
+       "value": 1.0,
+       "status": "VERIFIED",
+       "evidence": "hand-req-M01 readback: physxJoint:maxJointVelocity == URDF field on the six drive joints (4.0 rad/s on the DIAG asset, 1.0 on this asset); mimic children uncapped"
+      },
+      "coupled_children": {
+       "value": [
+        {
+         "joint": "right_index_2_joint",
+         "multiplier": 1.0843,
+         "offset": 0.0
+        }
+       ],
+       "status": "VERIFIED"
+      }
+     },
+     "installed_e2": {
+      "endpoint_datum": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "owner request A1/A2 (scale-referenced photos at the extremes) or a vendor datum"
+      },
+      "travel": {
+       "value": 78.5,
+       "unit": "deg",
+       "status": "NOMINAL",
+       "source": "E2 manual / product page (nominal; not measured on the installed unit)"
+      },
+      "speed": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "vendor closing time or a timed closure video (request A3); the twin cap is NOT a hardware speed"
+      },
+      "tactile": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "E2 tactile register map + one recorded press"
+      }
+     }
+    },
+    "middle": {
+     "twin": {
+      "joint": {
+       "value": "right_middle_1_joint",
+       "status": "VERIFIED"
+      },
+      "unit": {
+       "value": "rad",
+       "status": "VERIFIED"
+      },
+      "open": {
+       "value": 0.0,
+       "status": "VERIFIED"
+      },
+      "closed": {
+       "value": 1.4381,
+       "status": "VERIFIED"
+      },
+      "closing_direction": {
+       "value": "+ (increasing joint angle closes; URDF zero = open)",
+       "status": "VERIFIED"
+      },
+      "velocity_cap_rad_s": {
+       "value": 1.0,
+       "status": "VERIFIED",
+       "evidence": "hand-req-M01 readback: physxJoint:maxJointVelocity == URDF field on the six drive joints (4.0 rad/s on the DIAG asset, 1.0 on this asset); mimic children uncapped"
+      },
+      "coupled_children": {
+       "value": [
+        {
+         "joint": "right_middle_2_joint",
+         "multiplier": 1.0843,
+         "offset": 0.0
+        }
+       ],
+       "status": "VERIFIED"
+      }
+     },
+     "installed_e2": {
+      "endpoint_datum": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "owner request A1/A2 (scale-referenced photos at the extremes) or a vendor datum"
+      },
+      "travel": {
+       "value": 78.5,
+       "unit": "deg",
+       "status": "NOMINAL",
+       "source": "E2 manual / product page (nominal; not measured on the installed unit)"
+      },
+      "speed": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "vendor closing time or a timed closure video (request A3); the twin cap is NOT a hardware speed"
+      },
+      "tactile": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "E2 tactile register map + one recorded press"
+      }
+     }
+    },
+    "ring": {
+     "twin": {
+      "joint": {
+       "value": "right_ring_1_joint",
+       "status": "VERIFIED"
+      },
+      "unit": {
+       "value": "rad",
+       "status": "VERIFIED"
+      },
+      "open": {
+       "value": 0.0,
+       "status": "VERIFIED"
+      },
+      "closed": {
+       "value": 1.4381,
+       "status": "VERIFIED"
+      },
+      "closing_direction": {
+       "value": "+ (increasing joint angle closes; URDF zero = open)",
+       "status": "VERIFIED"
+      },
+      "velocity_cap_rad_s": {
+       "value": 1.0,
+       "status": "VERIFIED",
+       "evidence": "hand-req-M01 readback: physxJoint:maxJointVelocity == URDF field on the six drive joints (4.0 rad/s on the DIAG asset, 1.0 on this asset); mimic children uncapped"
+      },
+      "coupled_children": {
+       "value": [
+        {
+         "joint": "right_ring_2_joint",
+         "multiplier": 1.0843,
+         "offset": 0.0
+        }
+       ],
+       "status": "VERIFIED"
+      }
+     },
+     "installed_e2": {
+      "endpoint_datum": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "owner request A1/A2 (scale-referenced photos at the extremes) or a vendor datum"
+      },
+      "travel": {
+       "value": 78.5,
+       "unit": "deg",
+       "status": "NOMINAL",
+       "source": "E2 manual / product page (nominal; not measured on the installed unit)"
+      },
+      "speed": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "vendor closing time or a timed closure video (request A3); the twin cap is NOT a hardware speed"
+      },
+      "tactile": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "E2 tactile register map + one recorded press"
+      }
+     }
+    },
+    "little": {
+     "twin": {
+      "joint": {
+       "value": "right_little_1_joint",
+       "status": "VERIFIED"
+      },
+      "unit": {
+       "value": "rad",
+       "status": "VERIFIED"
+      },
+      "open": {
+       "value": 0.0,
+       "status": "VERIFIED"
+      },
+      "closed": {
+       "value": 1.4381,
+       "status": "VERIFIED"
+      },
+      "closing_direction": {
+       "value": "+ (increasing joint angle closes; URDF zero = open)",
+       "status": "VERIFIED"
+      },
+      "velocity_cap_rad_s": {
+       "value": 1.0,
+       "status": "VERIFIED",
+       "evidence": "hand-req-M01 readback: physxJoint:maxJointVelocity == URDF field on the six drive joints (4.0 rad/s on the DIAG asset, 1.0 on this asset); mimic children uncapped"
+      },
+      "coupled_children": {
+       "value": [
+        {
+         "joint": "right_little_2_joint",
+         "multiplier": 1.0843,
+         "offset": 0.0
+        }
+       ],
+       "status": "VERIFIED"
+      }
+     },
+     "installed_e2": {
+      "endpoint_datum": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "owner request A1/A2 (scale-referenced photos at the extremes) or a vendor datum"
+      },
+      "travel": {
+       "value": 78.5,
+       "unit": "deg",
+       "status": "NOMINAL",
+       "source": "E2 manual / product page (nominal; not measured on the installed unit)"
+      },
+      "speed": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "vendor closing time or a timed closure video (request A3); the twin cap is NOT a hardware speed"
+      },
+      "tactile": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "E2 tactile register map + one recorded press"
+      }
+     }
+    },
+    "thumb_bend": {
+     "twin": {
+      "joint": {
+       "value": "right_thumb_2_joint",
+       "status": "VERIFIED"
+      },
+      "unit": {
+       "value": "rad",
+       "status": "VERIFIED"
+      },
+      "open": {
+       "value": 0.0,
+       "status": "VERIFIED"
+      },
+      "closed": {
+       "value": 0.5864,
+       "status": "VERIFIED"
+      },
+      "closing_direction": {
+       "value": "+ (increasing joint angle closes; URDF zero = open)",
+       "status": "VERIFIED"
+      },
+      "velocity_cap_rad_s": {
+       "value": 1.0,
+       "status": "VERIFIED",
+       "evidence": "hand-req-M01 readback: physxJoint:maxJointVelocity == URDF field on the six drive joints (4.0 rad/s on the DIAG asset, 1.0 on this asset); mimic children uncapped"
+      },
+      "coupled_children": {
+       "value": [
+        {
+         "joint": "right_thumb_3_joint",
+         "multiplier": 0.8024,
+         "offset": 0.0
+        },
+        {
+         "joint": "right_thumb_4_joint",
+         "multiplier": 0.9487,
+         "offset": 0.0,
+         "via": "right_thumb_3_joint"
+        }
+       ],
+       "status": "VERIFIED"
+      }
+     },
+     "installed_e2": {
+      "endpoint_datum": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "owner request A1/A2 (scale-referenced photos at the extremes) or a vendor datum"
+      },
+      "travel": {
+       "value": 35.5,
+       "unit": "deg",
+       "status": "NOMINAL",
+       "source": "E2 manual / product page (nominal; not measured on the installed unit)"
+      },
+      "speed": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "vendor closing time or a timed closure video (request A3); the twin cap is NOT a hardware speed"
+      },
+      "tactile": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "E2 tactile register map + one recorded press"
+      }
+     }
+    },
+    "thumb_rotation": {
+     "twin": {
+      "joint": {
+       "value": "right_thumb_1_joint",
+       "status": "VERIFIED"
+      },
+      "unit": {
+       "value": "rad",
+       "status": "VERIFIED"
+      },
+      "open": {
+       "value": 0.0,
+       "status": "VERIFIED"
+      },
+      "closed": {
+       "value": 1.1641,
+       "status": "VERIFIED"
+      },
+      "closing_direction": {
+       "value": "+ (increasing joint angle closes; URDF zero = open)",
+       "status": "VERIFIED"
+      },
+      "velocity_cap_rad_s": {
+       "value": 1.0,
+       "status": "VERIFIED",
+       "evidence": "hand-req-M01 readback: physxJoint:maxJointVelocity == URDF field on the six drive joints (4.0 rad/s on the DIAG asset, 1.0 on this asset); mimic children uncapped"
+      },
+      "coupled_children": {
+       "value": [],
+       "status": "VERIFIED"
+      }
+     },
+     "installed_e2": {
+      "endpoint_datum": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "owner request A1/A2 (scale-referenced photos at the extremes) or a vendor datum"
+      },
+      "travel": {
+       "value": 95.0,
+       "unit": "deg",
+       "status": "NOMINAL",
+       "source": "E2 manual / product page (nominal; not measured on the installed unit)"
+      },
+      "speed": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "vendor closing time or a timed closure video (request A3); the twin cap is NOT a hardware speed"
+      },
+      "tactile": {
+       "value": null,
+       "status": "UNRESOLVED",
+       "what_would_resolve": "E2 tactile register map + one recorded press"
+      }
+     }
+    }
+   }
+  }
+ },
+ "model_maps": {
+  "piston_n16": {
+   "dataset_order": [
+    "little",
+    "ring",
+    "middle",
+    "index",
+    "thumb_bend",
+    "thumb_rotation"
+   ],
+   "dataset_names": [
+    "pinky",
+    "ring",
+    "middle",
+    "index",
+    "thumb_pitch",
+    "thumb_yaw"
+   ],
+   "units": "rad, absolute (the RELATIVE form exists only inside the GR00T processor)",
+   "axis_identity": {
+    "value": "dataset radians == twin joint radians (open 0, closing +); thumb_yaw pinned at -0.1 in the data -> declared clip to the twin open endpoint",
+    "status": "EXPLORATORY",
+    "evidence": "hand-req-01 B PASS on rod30 is a donor-twin result; the recorded hand model is UNRESOLVED (H2 items 15/16)"
+   },
+   "note": "radian identity, per-axis twin endpoints, clip_declared; NO +0.2 rad gain; the closure-preserving alternative (normalized to 1.7) FAILED hand-an-02-AB and is not offered"
+  }
+ },
+ "rules": [
+  "a consumer may run a route as qualified only when every field it needs is VERIFIED on its target; otherwise exploratory=True must be declared and is recorded in the declaration and hash",
+  "no contract exists for target installed_e2 while any installed field is UNRESOLVED",
+  "UNRESOLVED fields carry no value; NOMINAL values are manual/product-page figures, never measurements",
+  "the twin velocity cap (1.0 rad/s on the drive joints) is a twin property, never an installed-hand speed"
+ ]
+}
