@@ -79,6 +79,58 @@ G1_POLICY_JOINT_SEAM = os.environ.get("G1_POLICY_JOINT_SEAM", "").strip().lower(
 # are linearly interpolated in sim time since robot.initialize() and REPLACE the policy's position targets for exactly
 # those joints (the policy keeps observing the true joint states and its own last action). Nothing else changes.
 G1_ARM_SCHEDULE = os.environ.get("G1_ARM_SCHEDULE", "").strip()
+# PANTHERA (Sprint M, wb-cand-M04): optional physics-scene overrides for the W2 runtime bisection. Off unless
+# G1_SCENE_OVERRIDES='{"articulation_position_iterations": 32, "articulation_velocity_iterations": 8, "sleep_threshold": 0.0,
+# "external_forces_every_iteration": true, "bind_floor_material_to_robot": true}' (any subset). Applied to the authored
+# stage BEFORE World.reset(); every applied value is printed. Reproduces the L probe's scene settings one at a time.
+G1_SCENE_OVERRIDES = os.environ.get("G1_SCENE_OVERRIDES", "").strip()
+
+
+def _apply_scene_overrides(stage, robot_root: str, floor_material_path: str = "/World/Env/FloorMaterial") -> None:
+    if not G1_SCENE_OVERRIDES:
+        return
+    from pxr import PhysxSchema, Usd, UsdPhysics, UsdShade
+
+    ov = json.loads(G1_SCENE_OVERRIDES)
+    applied = []
+    material = UsdShade.Material(stage.GetPrimAtPath(floor_material_path)) if ov.get("bind_floor_material_to_robot") else None
+    if material is not None and not material.GetPrim().IsValid():
+        raise RuntimeError(f"[scene overrides] floor material {floor_material_path} not found")
+    for prim in Usd.PrimRange(stage.GetPseudoRoot(), Usd.TraverseInstanceProxies(Usd.PrimAllPrimsPredicate)):
+        path = str(prim.GetPath())
+        if prim.IsA(UsdPhysics.Scene) and "external_forces_every_iteration" in ov:
+            api = PhysxSchema.PhysxSceneAPI.Apply(prim)
+            api.CreateEnableExternalForcesEveryIterationAttr(bool(ov["external_forces_every_iteration"]))
+            applied.append((path, "externalForcesEveryIteration", bool(ov["external_forces_every_iteration"])))
+        if not path.startswith(robot_root):
+            continue
+        if prim.HasAPI(UsdPhysics.ArticulationRootAPI):
+            api = PhysxSchema.PhysxArticulationAPI.Apply(prim)
+            if "articulation_position_iterations" in ov:
+                api.CreateSolverPositionIterationCountAttr(int(ov["articulation_position_iterations"]))
+                applied.append((path, "solverPositionIterationCount", int(ov["articulation_position_iterations"])))
+            if "articulation_velocity_iterations" in ov:
+                api.CreateSolverVelocityIterationCountAttr(int(ov["articulation_velocity_iterations"]))
+                applied.append((path, "solverVelocityIterationCount", int(ov["articulation_velocity_iterations"])))
+            if "sleep_threshold" in ov:
+                api.CreateSleepThresholdAttr(float(ov["sleep_threshold"]))
+                applied.append((path, "sleepThreshold", float(ov["sleep_threshold"])))
+        if material is not None and prim.HasAPI(UsdPhysics.CollisionAPI) and not prim.IsInstanceProxy():
+            UsdShade.MaterialBindingAPI.Apply(prim).Bind(material, UsdShade.Tokens.weakerThanDescendants, "physics")
+            applied.append((path, "material:binding:physics", floor_material_path))
+    if material is not None:
+        # The training/deploy USD's collision prims are instance proxies (not authorable); a binding on the robot root
+        # with weakerThanDescendants reaches every descendant collider that has no physics binding of its own.
+        root_prim = stage.GetPrimAtPath(robot_root)
+        if not root_prim.IsValid():
+            raise RuntimeError(f"[scene overrides] robot root {robot_root} not found")
+        UsdShade.MaterialBindingAPI.Apply(root_prim).Bind(material, UsdShade.Tokens.weakerThanDescendants, "physics")
+        applied.append((robot_root, "material:binding:physics", floor_material_path))
+    print(f"[scene overrides] {ov} -> {len(applied)} attributes applied", flush=True)
+    for row in applied:
+        print(f"[scene overrides]   {row}", flush=True)
+
+
 G1_29DOF_SIM_ORDER = [
     "left_hip_pitch_joint", "right_hip_pitch_joint", "waist_yaw_joint", "left_hip_roll_joint", "right_hip_roll_joint",
     "waist_roll_joint", "left_hip_yaw_joint", "right_hip_yaw_joint", "waist_pitch_joint", "left_knee_joint",
@@ -977,6 +1029,8 @@ class RobotRosRunner(object):
                 policy_path=policy_path,
                 env_path=env_path,
             )
+
+        _apply_scene_overrides(self._world.stage, robot_root)  # PANTHERA: no-op unless G1_SCENE_OVERRIDES
 
         cmd_min, cmd_max = _resolve_command_limits(deploy_cfg, env_cfg)
         args_min = np.array([-vx_max, -vy_max, -wz_max], dtype=np.float32)
