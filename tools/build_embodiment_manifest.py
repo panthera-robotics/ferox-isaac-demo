@@ -15,7 +15,7 @@ from pathlib import Path
 
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'isaac' / 'twin'))
-from inspire.embodiment import dependency_values_from_urdf  # noqa: E402
+from inspire.embodiment import ARM_DATUM_SCRIPTED, dependency_values_from_urdf, hand_contract_descriptor  # noqa: E402
 
 BODY_ORDER = ('left_hip_pitch_joint', 'left_hip_roll_joint', 'left_hip_yaw_joint', 'left_knee_joint', 'left_ankle_pitch_joint', 'left_ankle_roll_joint',
               'right_hip_pitch_joint', 'right_hip_roll_joint', 'right_hip_yaw_joint', 'right_knee_joint', 'right_ankle_pitch_joint', 'right_ankle_roll_joint',
@@ -56,6 +56,8 @@ def main(argv=None):
     ap.add_argument('--hand-image', default='sha256:f3563cb2ba0c18af0b2fb321360dcb73a917b899f879e3213623d6bee484fa54')
     ap.add_argument('--claims-bound-to-urdf', type=Path, help='bind the historical qualification claims to THIS (original) URDF instead of --urdf, so that a reformulated asset reports them STALE until re-qualified (sprint J J2)')
     ap.add_argument('--replay-integration-status', default='PASS', choices=['PASS', 'PENDING_REQUALIFICATION'], help='PENDING_REQUALIFICATION leaves command_replay_integration unbound (UNVERIFIED) so the re-qualification run itself is admissible')
+    ap.add_argument('--replay-hand-contracts', type=Path, help='REQUIRED with a PASS replay status: the sequence.json / source spec of the qualification run (its hand_contracts are the applied conversion profile bound as hand_contract_sha256)')
+    ap.add_argument('--replay-arm-datum', default=ARM_DATUM_SCRIPTED, help='arm reference datum of the qualification run (scripted replay: %s)' % ARM_DATUM_SCRIPTED)
     ap.add_argument('--variant-note', default='', help='free-text note recorded under source_asset.variant_note')
     a = ap.parse_args(argv)
     root = ET.parse(a.urdf).getroot()
@@ -86,6 +88,11 @@ def main(argv=None):
             'feedback': {'independent_axes_measured': True, 'coupled_joints_measured': False,
                          'note': 'simulator returns all 12 joint positions; the real hand reports six native angle readbacks (counts), not twelve measured joint angles'}}
     collision = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'
+    replay_hand_contract = None
+    if a.replay_integration_status == 'PASS':
+        if a.replay_hand_contracts is None:
+            ap.error('--replay-hand-contracts is required when command_replay_integration is PASS (the applied conversion profile must be bound)')
+        replay_hand_contract = hand_contract_descriptor(json.loads(a.replay_hand_contracts.read_text())['hand_contracts'])
     live = dependency_values_from_urdf(a.urdf, collision_cooking=collision)
     urdf_sha, wrist_mount_sha, camera_mount_sha = live['urdf_sha256'], live['wrist_mount_sha256'], live['camera_mount_sha256']
     bound = dependency_values_from_urdf(a.claims_bound_to_urdf, collision_cooking=collision) if a.claims_bound_to_urdf else live
@@ -101,7 +108,8 @@ def main(argv=None):
         'contact_writing': {'status': 'EXECUTED_NOT_QUALIFIED', 'evidence': 'evidence/sF-writer-contact-16-v9e-G1OK55 (p95 3.53 mm, coverage 70 %)',
                             'configuration': dict(base, grasp_sha256=a.grasp_v13_sha256, tool_frame='measured in sF-writer-contact-15-v13-measure (simulator, invalidated by grasp/mount/asset change)', support='FIXED_PELVIS')},
         'command_replay_integration': ({'status': 'PASS', 'evidence': 'evidence/sG-replay-pickup-ep0-03 (121/121 rows)',
-                                        'configuration': dict(base, camera_mount_sha256=camera_mount_sha, support='FIXED_PELVIS', controller='implicit_biased_drive_v1 replay controller (package-hashed gains)')}
+                                        'configuration': dict(base, camera_mount_sha256=camera_mount_sha, support='FIXED_PELVIS', controller='implicit_biased_drive_v1 replay controller (package-hashed gains)',
+                                                              hand_contract_sha256=replay_hand_contract, arm_datum=a.replay_arm_datum)}
                                        if a.replay_integration_status == 'PASS' else {'status': 'NOT_RUN', 'evidence': 'pending re-qualification on this asset variant (sprint J J2)', 'configuration': None}),
         'standing': {'status': 'NOT_QUALIFIED', 'evidence': 'evidence/takeover-balance-implicit-03 (topples)', 'configuration': dict(base, support='NONE')},
         'real_data_agreement': {'status': 'NOT_RUN', 'evidence': None, 'configuration': None},

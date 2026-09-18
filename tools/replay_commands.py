@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'isaac' / 'twin'))
-from inspire.embodiment import ContractError, EmbodimentManifest, ReplaySequence, dependency_values_from_urdf  # noqa: E402
+from inspire.embodiment import ARM_DATUM_SCRIPTED, ContractError, EmbodimentManifest, ReplaySequence, runtime_dependency_values  # noqa: E402
 
 COLLISION_COOKING = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'   # the probe's declared provisional colliders
 
@@ -80,7 +80,7 @@ def validate_controller_gains(manifest, controller):
     return problems
 
 
-def validate(manifest, spec, controller, *, live_dependencies=None, require_verified_hand_semantics=False):
+def validate(manifest, spec, controller, *, live_dependencies=None, require_verified_hand_semantics=False, diagnostic=False):
     """Return (sequence, report). Refusals are collected as data, never as a crash."""
     problems = []
     try:
@@ -112,7 +112,7 @@ def validate(manifest, spec, controller, *, live_dependencies=None, require_veri
                 bad = [k for k in ('direction', 'order', 'scale') if st.get(k) != 'VERIFIED']
                 if bad:
                     problems.append('%s.%s semantics not VERIFIED for %s (%s)' % (side, axis, ', '.join(bad), json.dumps(st)))
-    validity = None
+    validity = None; diagnostic_stale = {}
     if live_dependencies is not None:
         if live_dependencies.get('urdf_sha256') != manifest.data['source_asset']['urdf_sha256']:
             problems.append('incompatible profile: the mounted asset hash differs from the manifest source asset')
@@ -122,8 +122,12 @@ def validate(manifest, spec, controller, *, live_dependencies=None, require_veri
             problems.append('transform validity failed: %s' % json.dumps(bad_transforms))
         replay_claim = validity['claims'].get('command_replay_integration')
         if replay_claim and replay_claim['active_compatibility'] == 'STALE':
-            problems.append('command_replay_integration binding is STALE: %s' % json.dumps(replay_claim['mismatched']))
-    report = {'status': 'REJECTED' if problems else 'VALID', 'problems': problems, 'summary': sequence.summary(), 'qualification_validity': validity}
+            if diagnostic:   # a DIAGNOSTIC package is admitted with its stale bindings on record; it can never qualify anything
+                diagnostic_stale = replay_claim['mismatched']
+            else:
+                problems.append('command_replay_integration binding is STALE: %s' % json.dumps(replay_claim['mismatched']))
+    report = {'status': 'REJECTED' if problems else 'VALID', 'problems': problems, 'summary': sequence.summary(), 'qualification_validity': validity,
+              'diagnostic_stale_bindings': diagnostic_stale if (diagnostic and live_dependencies is not None) else None}
     return (None if problems else sequence), report
 
 
@@ -156,8 +160,11 @@ def main(argv=None):
     spec = synthetic_hand_open_close(controller['body_home_rad']) if a.synthetic else json.loads(a.source_spec.read_text())
     live = None
     if a.source_urdf is not None:
-        live = dict(dependency_values_from_urdf(a.source_urdf, collision_cooking=COLLISION_COOKING), support=a.support, controller=a.controller_descriptor)
-    sequence, report = validate(manifest, spec, controller, live_dependencies=live, require_verified_hand_semantics=a.require_verified_hand_semantics)
+        # the live values bind what this package will actually apply: the mounted asset, the ACTUAL physics step, the hand
+        # conversion profile(s) of the spec and the scripted arm datum (absolute URDF radians)
+        live = runtime_dependency_values(a.source_urdf, collision_cooking=COLLISION_COOKING, physics_dt_s=(a.physics_dt_s if a.physics_dt_s is not None else 0.005),
+                                         support=a.support, controller=a.controller_descriptor, hand_contracts=spec['hand_contracts'], arm_datum=ARM_DATUM_SCRIPTED)
+    sequence, report = validate(manifest, spec, controller, live_dependencies=live, require_verified_hand_semantics=a.require_verified_hand_semantics, diagnostic=(a.execution_label == 'DIAGNOSTIC'))
     report.update(manifest_id=manifest.data['manifest_id'], manifest_sha256=manifest.sha256, validated_utc=datetime.now(timezone.utc).isoformat())
     if a.validate_only or sequence is None:
         print(json.dumps(report, indent=1))

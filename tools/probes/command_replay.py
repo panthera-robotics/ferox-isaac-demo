@@ -16,7 +16,7 @@ assert sorted(p.name for p in Path('/sys/class/net').iterdir()) == ['lo']
 assert os.environ.get('PANTHERA_PROBE_MODE') == 'command-replay'
 config_path = Path(os.environ['PANTHERA_PROBE_CONFIG']); config = json.loads(config_path.read_text())
 out = Path('/evidence'); sys.path[:0] = ['/workspace/ferox_tools', '/workspace/ferox_isaac/twin']
-from inspire.embodiment import ContractError, EmbodimentManifest, ReplaySequence, canonical_sha256, dependency_values_from_urdf  # noqa: E402
+from inspire.embodiment import ARM_DATUM_SCRIPTED, ContractError, EmbodimentManifest, ReplaySequence, canonical_sha256, runtime_dependency_values  # noqa: E402
 from inspire.body_feedforward import bounded_gravity_feedforward  # noqa: E402
 from inspire import loop_ipc  # noqa: E402
 from inspire.closed_loop_targets import ClosedLoopTargets, TargetError  # noqa: E402
@@ -111,7 +111,12 @@ for n in body_names:
     assert abs(lo - limits[n]['lower']) < 1e-9 and abs(hi - limits[n]['upper']) < 1e-9, n
 # Second-layer qualification/transform validity against the MOUNTED inputs (identity, not physical correctness).
 COLLISION_COOKING = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'
-live_dependencies = dict(dependency_values_from_urdf(source, collision_cooking=COLLISION_COOKING), support='FIXED_PELVIS', controller='implicit_biased_drive_v1 replay controller (package-hashed gains)')
+# The live values carry what this run ACTUALLY applies: the mounted asset, the actual physics step (a DIAGNOSTIC refinement
+# stales every dt-bound claim), the applied hand conversion profile(s) and the arm datum. Scripted replay applies the
+# package's hand contracts on absolute URDF radians; a closed-loop run rebinds both below once its adapters exist.
+CONTROLLER_DESCRIPTOR = 'implicit_biased_drive_v1 replay controller (package-hashed gains)'
+live_dependencies = runtime_dependency_values(source, collision_cooking=COLLISION_COOKING, physics_dt_s=dt, support='FIXED_PELVIS', controller=CONTROLLER_DESCRIPTOR,
+                                              hand_contracts=sequence.adapters, arm_datum=ARM_DATUM_SCRIPTED)
 qualification_validity = manifest.check_validity(live_dependencies)
 if any(v['status'] != 'VALID' for v in qualification_validity['transforms'].values()):
     raise RuntimeError('transform validity failed against the mounted asset: %s' % json.dumps(qualification_validity['transforms']))
@@ -283,6 +288,10 @@ if closed_loop:
     _limits = {a: manifest.hand_actuator('right', a)['closed_rad'] for a in HAND_ACTUATORS}
     _radian_contract = {'axis_order': list(PISTON_HAND_ORDER), 'open_value': 0.0, 'closed_value': 1.0, 'per_axis_endpoints': {a: {'open_value': 0.0, 'closed_value': _limits[a]} for a in HAND_ACTUATORS}, 'saturation_policy': 'clip_declared'}
     cl_adapters = {sd: HandCommandAdapter(manifest, sd, _radian_contract) for sd in ('left', 'right')}
+    # closed loop applies the radian contract above (not the package's) and the declared arm datum: rebind and re-check
+    live_dependencies = runtime_dependency_values(source, collision_cooking=COLLISION_COOKING, physics_dt_s=dt, support='FIXED_PELVIS', controller=CONTROLLER_DESCRIPTOR,
+                                                  hand_contracts=cl_adapters, arm_datum='closed_loop:' + cl_datum_mode)
+    qualification_validity = manifest.check_validity(live_dependencies)
     cl_hybrid = closed_loop.get('hybrid') if closed_loop['control_source'] == 'HYBRID_MODEL_ARMS_SCRIPTED_HANDS' else None
     if cl_hybrid:
         _closure_contract = {'axis_order': list(HAND_ACTUATORS), 'open_value': 0.0, 'closed_value': 1.0, 'saturation_policy': 'reject'}
