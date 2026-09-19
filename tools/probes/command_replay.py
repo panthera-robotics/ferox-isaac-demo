@@ -24,6 +24,7 @@ from inspire.model_action_adapter import validate_piston_chunk, PISTON_DIMS, PIS
 from inspire.presentation_layer import validate_presentation, add_visual_overlay  # noqa: E402
 from inspire.embodiment import HandCommandAdapter, HAND_ACTUATORS  # noqa: E402
 from inspire.operational_observer import OBSERVERS, LEGACY, make_observer  # noqa: E402
+from inspire.extra_cameras import parse_extra_cameras, camera_transform, focal_length  # noqa: E402
 
 started_wall = time.monotonic()
 package = Path(config['package'])
@@ -76,6 +77,9 @@ if closed_loop:
     cl_ipc = loop_ipc.layout(out / 'ipc'); cl_timeout_first = float(closed_loop.get('inference_timeout_first_s', 90.0)); cl_timeout = float(closed_loop.get('inference_timeout_s', 20.0))
     cl_arm_names = [n for side in ('left', 'right') for n in ('%s_shoulder_pitch_joint' % side, '%s_shoulder_roll_joint' % side, '%s_shoulder_yaw_joint' % side, '%s_elbow_joint' % side, '%s_wrist_roll_joint' % side, '%s_wrist_pitch_joint' % side, '%s_wrist_yaw_joint' % side)]
     cl_state = {'iteration': 0, 'chunk': None, 'chunk_pos': 0, 'model_tick': 0, 'records': [], 'refusals': [], 'hand_phase': 'open', 'close_started_tick': None, 'obs_count': 0, 'interventions': [], 'ramp_to': None}
+    # Sprint O (model lane, UnifoLM sim adapter): OPTIONAL declared render-only ADAPTER cameras on robot links
+    # (closed_loop.extra_cameras, validated by inspire.extra_cameras before Isaac starts). Absent/empty key = [] = byte-identical run.
+    cl_extra_specs = parse_extra_cameras(closed_loop)
 
 from isaacsim import SimulationApp  # noqa: E402
 app = SimulationApp({'headless': True, 'renderer': 'RaytracedLighting'})
@@ -186,15 +190,28 @@ if scene:
     table = UsdGeom.Cube.Define(world.stage, '/World/Scene/Table'); table.CreateSizeAttr(1.)
     table.AddTranslateOp().Set(Gf.Vec3d(t['center_xy_m'][0], t['center_xy_m'][1], pz + t['top_z_pelvis_m'] - t['size_m'][2] / 2.)); table.AddScaleOp().Set(Gf.Vec3f(*t['size_m']))
     table.CreateDisplayColorAttr([Gf.Vec3f(.92, .92, .9)]); collide(table.GetPrim())   # static collider (no RigidBodyAPI)
-    o = scene['object']  # {"center_pelvis_m": [x,y,z], "radius_m": r, "length_m": L, "mass_kg": m}
+    o = scene['object']  # {"center_pelvis_m": [x,y,z], "radius_m": r, "length_m": L, "mass_kg": m}  (+ optional Sprint P keys: "shape": "cylinder"|"box", "size_m": [sx, sy, sz] for a box, "display_color": [r, g, b])
     obj_x = UsdGeom.Xform.Define(world.stage, '/World/Scene/Object'); obj_x.AddTranslateOp().Set(Gf.Vec3d(o['center_pelvis_m'][0], o['center_pelvis_m'][1], pz + o['center_pelvis_m'][2]))
     obj_prim = obj_x.GetPrim(); UsdPhysics.RigidBodyAPI.Apply(obj_prim).CreateKinematicEnabledAttr(False)
     massapi = UsdPhysics.MassAPI.Apply(obj_prim); massapi.CreateMassAttr(float(o['mass_kg']))
-    r_, L_, m_ = float(o['radius_m']), float(o['length_m']), float(o['mass_kg'])
-    massapi.CreateDiagonalInertiaAttr(Gf.Vec3f(m_ * (3 * r_ * r_ + L_ * L_) / 12., m_ * (3 * r_ * r_ + L_ * L_) / 12., m_ * r_ * r_ / 2.)); massapi.CreatePrincipalAxesAttr(Gf.Quatf(1.))
+    # Sprint P (declared props, optional): object.shape "box" = an axis-aligned block of size_m [sx, sy, sz] (a stacking block) instead of the
+    # cylinder; box inertia about its centre; incompatible with object.base (rod-only). object.display_color = the body's display colour
+    # (a colour word in an instruction needs a coloured object); absent keys reproduce the previous cylinder/colour byte for byte.
+    shape_ = str(o.get('shape', 'cylinder')); color_ = o.get('display_color') or (.15, .15, .18)
+    if shape_ not in ('cylinder', 'box') or (shape_ == 'box' and o.get('base')): raise ValueError('scene.object.shape must be cylinder or box (box has no base)')
+    m_ = float(o['mass_kg'])
+    if shape_ == 'box':
+        sx_, sy_, sz_ = (float(v) for v in o['size_m']); r_, L_ = max(sx_, sy_) / 2., sz_
+        massapi.CreateDiagonalInertiaAttr(Gf.Vec3f(m_ * (sy_ * sy_ + sz_ * sz_) / 12., m_ * (sx_ * sx_ + sz_ * sz_) / 12., m_ * (sx_ * sx_ + sy_ * sy_) / 12.)); massapi.CreatePrincipalAxesAttr(Gf.Quatf(1.))
+    else:
+        r_, L_ = float(o['radius_m']), float(o['length_m'])
+        massapi.CreateDiagonalInertiaAttr(Gf.Vec3f(m_ * (3 * r_ * r_ + L_ * L_) / 12., m_ * (3 * r_ * r_ + L_ * L_) / 12., m_ * r_ * r_ / 2.)); massapi.CreatePrincipalAxesAttr(Gf.Quatf(1.))
     PhysxSchema.PhysxContactReportAPI.Apply(obj_prim).CreateThresholdAttr(0.); PhysxSchema.PhysxRigidBodyAPI.Apply(obj_prim).CreateSleepThresholdAttr(0.)
-    cyl = UsdGeom.Cylinder.Define(world.stage, '/World/Scene/Object/Body'); cyl.CreateAxisAttr('Z'); cyl.CreateRadiusAttr(r_); cyl.CreateHeightAttr(L_)
-    cyl.CreateDisplayColorAttr([Gf.Vec3f(.15, .15, .18)]); collide(cyl.GetPrim())
+    if shape_ == 'box':
+        cyl = UsdGeom.Cube.Define(world.stage, '/World/Scene/Object/Body'); cyl.CreateSizeAttr(1.); cyl.AddScaleOp().Set(Gf.Vec3f(sx_, sy_, sz_))
+    else:
+        cyl = UsdGeom.Cylinder.Define(world.stage, '/World/Scene/Object/Body'); cyl.CreateAxisAttr('Z'); cyl.CreateRadiusAttr(r_); cyl.CreateHeightAttr(L_)
+    cyl.CreateDisplayColorAttr([Gf.Vec3f(*[float(c) for c in color_])]); collide(cyl.GetPrim())
     # Sprint O (declared props, optional): a base disc under the rod (paper-roll-holder / stand shape) as a second collider of the SAME
     # rigid body: object.base = {"radius_m": R, "thickness_m": T, "mass_kg": M}; the disc sits under the rod's bottom end (its top at the
     # rod bottom); total mass = rod + base with the combined inertia about the combined COM; dimensions declared before physics.
@@ -362,6 +379,19 @@ policy = Camera('/World/G1/%s/policy_camera' % mount['parent_link'], resolution=
 x = UsdGeom.Xformable(policy.prim); x.ClearXformOpOrder(); x.AddTransformOp().Set(Gf.Matrix4d(T.T.tolist()))
 aperture = float(policy.get_horizontal_aperture()); policy.set_focal_length(aperture / (2. * math.tan(math.radians(cam_spec['calibration']['horizontal_fov_deg']) / 2.)))
 cameras['policy'] = policy; (out / 'frames' / 'policy').mkdir(parents=True)
+# Sprint O (model lane, UnifoLM sim adapter): declared render-only ADAPTER cameras attached to robot links (closed_loop.extra_cameras,
+# parsed above; xyz/rpy in the link frame, URDF camera convention +X forward / +Z up like the d435 mount above, converted through the
+# same R_link_cam). Rendered with the same fresh render as the policy frame at every inference and published next to the policy PNG as
+# obs/<k>_<name>.png with the sha256 in the observation JSON. The donor carries no such sensors (e.g. no wrist cameras): adapter inputs,
+# never called native. Absent key = no prim, no PNG, no JSON key (byte-identical output).
+cl_extra_cameras = {}
+for spec_ in (cl_extra_specs if closed_loop else []):
+    name_, link_ = spec_['name'], spec_['link']; assert world.stage.GetPrimAtPath('/World/G1/' + link_).IsValid(), 'extra camera link not found: ' + link_
+    T_x = np.array(camera_transform(spec_))
+    cam_ = Camera('/World/G1/%s/extra_camera_%s' % (link_, name_), resolution=(spec_['width'], spec_['height'])); cam_.initialize(); cam_.set_clipping_range(.02, 10.)
+    x = UsdGeom.Xformable(cam_.prim); x.ClearXformOpOrder(); x.AddTransformOp().Set(Gf.Matrix4d(T_x.T.tolist()))
+    cam_.set_focal_length(focal_length(cam_.get_horizontal_aperture(), spec_['hfov_deg']))
+    cl_extra_cameras[name_] = cam_
 frame_file = (out / 'frames.jsonl').open('w', buffering=1); state_file = (out / 'state.jsonl').open('w', buffering=1)
 command_file = (out / 'commands.jsonl').open('w', buffering=1)
 phase = 'lead_in'; aborted = None; rejections = []; applied_rows = set(); lead_in_steps = int(round(lead_in_s / dt))
@@ -399,7 +429,18 @@ if closed_loop:
         hand_of = lambda side: [qd[manifest.hand_actuator(side, a)['joint']] for a in PISTON_HAND_ORDER]   # dataset order pinky..thumb_yaw, donor radians (identity, declared)
         state = {'left_arm': [qd[n] - dz[n] for n in cl_arm_names[:7]], 'right_arm': [qd[n] - dz[n] for n in cl_arm_names[7:]], 'left_hand': hand_of('left'), 'right_hand': hand_of('right'), 'waist': [qd['waist_yaw_joint'], qd['waist_roll_joint'], qd['waist_pitch_joint']]}
         k = cl_state['obs_count']; cl_state['obs_count'] += 1
-        loop_ipc.write_observation(cl_ipc, k, cl_token, {'state': state, 'instruction': closed_loop['instruction'], 'physics_s': world.current_time, 'tick': tick, 'camera': 'policy_head_d435_color_nominal 640x480 RGB'}, image_bytes=png)
+        extra_images = {}
+        for name_, cam_ in cl_extra_cameras.items():   # Sprint O: declared ADAPTER cameras, same render as the policy frame, PNGs land before the JSON
+            px_ = cam_.get_rgba(); extra = 0
+            while (px_ is None or px_.size == 0) and extra < 3:
+                world.render(); extra += 1; px_ = cam_.get_rgba()
+            assert px_ is not None and px_.ndim == 3, name_
+            b_ = io.BytesIO(); Image.fromarray(px_[..., :3].astype(np.uint8)).save(b_, format='PNG'); png_ = b_.getvalue()
+            rel_ = 'obs/%06d_%s.png' % (k, name_); loop_ipc._atomic_write(cl_ipc / rel_, png_)
+            (out / 'frames' / 'policy' / ('obs%06d_%s.png' % (k, name_))).write_bytes(png_)
+            extra_images[name_] = {'path': rel_, 'sha256': hashlib.sha256(png_).hexdigest(), 'link': next(s_['link'] for s_ in cl_extra_specs if s_['name'] == name_), 'size': [int(px_.shape[1]), int(px_.shape[0])], 'kind': 'DECLARED_ADAPTER_CAMERA (render-only; not a donor sensor)'}
+        cl_state['last_extra_image_sha256'] = {n_: v_['sha256'] for n_, v_ in extra_images.items()}
+        loop_ipc.write_observation(cl_ipc, k, cl_token, {'state': state, 'instruction': closed_loop['instruction'], 'physics_s': world.current_time, 'tick': tick, 'camera': 'policy_head_d435_color_nominal 640x480 RGB', **({'extra_images': extra_images} if extra_images else {})}, image_bytes=png)
         (out / 'frames' / 'policy' / ('obs%06d.png' % k)).write_bytes(png)
         return k, hashlib.sha256(png).hexdigest(), state
     def cl_request_chunk(tick):
@@ -412,6 +453,8 @@ if closed_loop:
         rep = validate_piston_chunk(manifest, act, hand_adapters=cl_adapters, prefix_steps=cl_prefix)
         rec = {'iteration': cl_state['iteration'], 'obs_id': k, 'tick': tick, 'physics_s': world.current_time, 'image_sha256': png_sha, 'state_sent': state, 'inference_id': msg.get('inference_id'), 'latency_s': msg.get('latency_s'), 'wall_wait_s': time.monotonic() - t_wait,
                'raw_first_step': {kk: raw_act[kk][0] for kk in raw_act}, 'arm_state_datum': cl_datum_mode, 'datum_offset_rad': dz, 'adapter': {kk: rep[kk] for kk in ('executable', 'rejected', 'interventions', 'prefix_steps', 'horizon') if kk in rep}, 'preprocessing': msg.get('preprocessing')}
+        if cl_state.get('last_extra_image_sha256'):
+            rec['extra_image_sha256'] = dict(cl_state['last_extra_image_sha256'])
         if not rep['executable']:
             rec['refused'] = rep.get('refusal'); cl_state['records'].append(rec); cl_state['refusals'].append(rec['refused']); return None
         rec['decoded_rows'] = rep['rows']; rec['hand_outputs_used'] = 'MODEL' if not cl_hybrid else 'UNUSED (scripted hand owns the grasp); raw values logged'
@@ -606,7 +649,7 @@ metrics = {'status': 'PASS' if all(checks.values()) else 'FAIL', 'checks': check
            'rows_applied': len(applied_rows), 'rows_total': len(sequence.converted), 'clipped_rows': sequence.clipped_rows, 'rejections': rejections, 'abort': aborted,
            'closed_loop': ({'schema': 'closed_loop_v1', 'control_source': closed_loop['control_source'], 'timing': 'non-real-time closed-loop simulation (physics paused while inferring)', 'iterations_completed': cl_state['iteration'], 'iterations_planned': cl_iters, 'target_component': {'module': 'isaac/twin/inspire/closed_loop_targets.py', 'sha256': hashlib.sha256(Path(sys.modules['inspire.closed_loop_targets'].__file__).read_bytes()).hexdigest(), 'hand_owner': ('SCRIPTED' if cl_hybrid else 'MODEL'), 'model_rows_applied': (cl_targets.rows if cl_targets else 0), 'applied_records': (cl_targets.applied_records if cl_targets else 0)}, 'arm_state_datum': cl_datum_mode, 'datum_offset_rad': cl_state.get('datum'), 'handover_after_s': closed_loop.get('handover_after_s', 0.0), 'prefix_steps': cl_prefix, 'model_step_s': cl_model_ticks * dt,
                             'observations_published': cl_state['obs_count'], 'distinct_image_hashes': len({r['image_sha256'] for r in cl_state['records']}), 'refusals': cl_state['refusals'], 'interventions': {'count': len(cl_state['interventions']), 'by_axis': {a_: sum(1 for i_ in cl_state['interventions'] if i_['axis'] == a_) for a_ in {i_['axis'] for i_ in cl_state['interventions']}}, 'max_step_rad': closed_loop.get('max_step_rad'), 'interpolate_within_step': closed_loop.get('interpolate_within_step', True)}, 'hand_phase_final': cl_state['hand_phase'], 'close_started_tick': cl_state['close_started_tick'],
-                            'instruction': closed_loop['instruction'], 'sidecar_ready': (cl_ipc / 'READY').exists(), 'sidecar_exit': json.loads((cl_ipc / 'EXIT').read_text()) if (cl_ipc / 'EXIT').exists() else None} if closed_loop else None),
+                            'instruction': closed_loop['instruction'], 'sidecar_ready': (cl_ipc / 'READY').exists(), 'sidecar_exit': json.loads((cl_ipc / 'EXIT').read_text()) if (cl_ipc / 'EXIT').exists() else None, **({'extra_cameras': cl_extra_specs} if cl_extra_specs else {})} if closed_loop else None),
            'contact_points_during_replay': len(self_contacts), 'contact_pairs': sorted({tuple(sorted((c['actor0'], c['actor1']))) for c in self_contacts})[:40],
            'coupling_error_max_rad': max_coupling, 'hand_velocity_limit_readback': hand_velocity_limit_readback, 'fixed_base': True, 'support_constraints': ['pelvis_fixed_to_world_1m_above_origin'], 'ground_present': False, 'objects_present': False,
            'hardware_authorized': False, 'exact_asset_qualified': False, 'source_model': 'Unitree_FTP_G1_provisional_donor', 'manifest_id': manifest.data['manifest_id'], 'manifest_sha256': manifest.sha256,
