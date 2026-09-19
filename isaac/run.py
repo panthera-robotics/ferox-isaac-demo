@@ -839,7 +839,7 @@ class G1VelocityPolicy(PolicyController):
         if _amp > 0:
             _po = G1_29DOF_SIM_ORDER if self._body_idx is not None else list(self.robot.dof_names)
             self._arm_swing = ownership.ArmSwingOverlay(amplitude=_amp, gain=float(os.environ.get("G1_ARM_SWING_GAIN", "0.25")), blend_s=float(os.environ.get("G1_ARM_SWING_BLEND_S", "0.5")),
-                                                        max_rate=float(os.environ.get("G1_ARM_SWING_MAX_RATE", "3.0")))
+                                                        max_rate=float(os.environ.get("G1_ARM_SWING_MAX_RATE", "2.0")), tau=float(os.environ.get("G1_ARM_SWING_TAU", "0.08")))
             self._arm_swing_idx = {k: _po.index(n) for k, n in (("hl", "left_hip_pitch_joint"), ("hr", "right_hip_pitch_joint"), ("sl", "left_shoulder_pitch_joint"), ("sr", "right_shoulder_pitch_joint"))}
             self._arm_swing_cmd = np.zeros(3, dtype=np.float32)
             print(f"[arm swing] overlay ON amplitude={_amp} gain={self._arm_swing.gain} blend={self._arm_swing.blend_s} s max_rate={self._arm_swing.max_rate}", flush=True)
@@ -998,6 +998,8 @@ class G1VelocityPolicy(PolicyController):
             _sw = self._arm_swing.step(dt, _st, command, float(_q[_ix["hl"]]), float(_q[_ix["hr"]]), float(target_pos[_ix["sl"]]), float(target_pos[_ix["sr"]]))
             if _sw is not None:
                 target_pos = target_pos.copy(); target_pos[_ix["sl"]] = _sw[0]; target_pos[_ix["sr"]] = _sw[1]
+            if self._policy_counter % 2000 == 0 and self._arm_swing.peak_rate > 0:
+                print(f"[arm swing] w={self._arm_swing.w:.2f} delta_R={self._arm_swing.delta[1]:+.3f} peak_rate={self._arm_swing.peak_rate:.2f} rad/s peak_acc={self._arm_swing.peak_acc:.1f} rad/s2", flush=True)
         if self._body_idx is not None:
             action = ArticulationAction(joint_positions=target_pos, joint_indices=self._body_idx)
         else:

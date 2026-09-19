@@ -119,9 +119,11 @@ class ArmSwingOverlay:
     once the base is commanded (|cmd| > v_on) in WALK and blended out over >= 0.5 s when the command drops or ownership
     leaves WALK (a manipulation request); zero before the handoff. Pure Python (CPU-testable)."""
 
-    def __init__(self, amplitude=0.15, gain=0.25, blend_s=0.5, v_on=0.05, max_rate=3.0, bound=(-0.6, 0.6)):
+    def __init__(self, amplitude=0.15, gain=0.25, blend_s=0.5, v_on=0.05, max_rate=2.0, bound=(-0.6, 0.6), tau=0.08):
         self.A = float(amplitude); self.gain = float(gain); self.blend_s = max(0.5, float(blend_s)); self.v_on = float(v_on); self.max_rate = float(max_rate); self.bound = bound
-        self.w = 0.0; self.delta = [0.0, 0.0]; self.active = False
+        self.tau = float(tau)                        # first-order low-pass on the raw hip-derived signal (smooths the harmonics)
+        self.w = 0.0; self.delta = [0.0, 0.0]; self.active = False; self._filt = 0.0
+        self.peak_rate = 0.0; self.peak_acc = 0.0; self._prev_rate = [0.0, 0.0]
 
     def step(self, dt, state, cmd, hip_l, hip_r, base_l, base_r):
         """Returns (left_shoulder_pitch_target, right_shoulder_pitch_target) or None when the overlay is fully out."""
@@ -129,11 +131,16 @@ class ArmSwingOverlay:
         target_w = 1.0 if moving else 0.0
         step = dt / self.blend_s
         self.w += max(-step, min(step, target_w - self.w)); self.w = max(0.0, min(1.0, self.w))
-        raw = self.gain * (float(hip_l) - float(hip_r)); raw = max(-self.A, min(self.A, raw)) * self.w
-        want = [-raw, raw]                                   # left, right (opposite phase)
+        raw = self.gain * (float(hip_l) - float(hip_r)); raw = max(-self.A, min(self.A, raw))
+        if self.tau > 0: self._filt += (raw - self._filt) * min(1.0, dt / self.tau)
+        else: self._filt = raw
+        sig = self._filt * self.w
+        want = [-sig, sig]                                   # left, right (opposite phase)
         for i in range(2):
             d = want[i] - self.delta[i]; lim = self.max_rate * dt
-            self.delta[i] += max(-lim, min(lim, d))
+            step_i = max(-lim, min(lim, d)); rate = step_i / dt if dt > 0 else 0.0
+            self.peak_rate = max(self.peak_rate, abs(rate)); self.peak_acc = max(self.peak_acc, abs(rate - self._prev_rate[i]) / dt if dt > 0 else 0.0); self._prev_rate[i] = rate
+            self.delta[i] += step_i
         self.active = self.w > 1e-6 or any(abs(v) > 1e-6 for v in self.delta)
         if not self.active:
             return None
