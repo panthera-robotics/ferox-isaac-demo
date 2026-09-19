@@ -873,7 +873,8 @@ class G1VelocityPolicy(PolicyController):
                     every=int(os.environ.get("G1_OWNERSHIP_TRACE_EVERY", "10")))
                 if os.environ.get("G1_STATION_K_AFTER_UNMUTE", "").strip():
                     keeper.k_after_unmute = _f3("G1_STATION_K_AFTER_UNMUTE", "1.0,1.0,1.0")
-                self._arbiter.attach_station(keeper, mode=os.environ.get("G1_STATION_MODE", "manip").strip().lower() or "manip")
+                _goals = [[float(v) for v in g.split(",")] for g in os.environ.get("G1_STATION_GOALS", "").split(";") if g.strip()]   # Sprint P mission: world station goals "x,y,yaw;x,y,yaw"
+                self._arbiter.attach_station(keeper, mode=os.environ.get("G1_STATION_MODE", "manip").strip().lower() or "manip", goals=_goals)
                 print(f"[station] keeper ON mode={self._arbiter.station_mode} k={keeper.k} vmax={keeper.vmax} deadband=({keeper.db_xy} m, {keeper.db_yaw:.4f} rad) slew=({keeper.slew_xy}, {keeper.slew_yaw}) lock_at={self._station_lock_at}", flush=True)
             self._body_trace = None
             if os.environ.get("G1_OWNERSHIP_TRACE", "").strip().lower() in ("1", "true", "yes", "on"):

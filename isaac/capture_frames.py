@@ -25,9 +25,13 @@ def setup(world, width: int = 1280, height: int = 720) -> None:
         from pxr import Gf, UsdGeom
 
         _S["every"] = max(1, int(os.environ.get("G1_CAPTURE_EVERY", "3")))
+        _S["max_frames"] = int(os.environ.get("G1_CAPTURE_MAX_FRAMES", "0") or 0)   # Sprint P disk cap: stop writing after this many frames (0 = no cap)
         geom = os.environ.get("G1_CAPTURE_CAM", "").strip()
         if geom:
             _S["cam_geom"] = tuple(float(v) for v in geom.split(","))
+        res = os.environ.get("G1_CAPTURE_RES", "").strip()      # optional WxH (Sprint P: 960x540 keeps a long mission capture under the disk cap)
+        if res:
+            width, height = (int(v) for v in res.lower().split("x"))
         _S["dir"] = os.path.join(os.environ["G1_CAPTURE_DIR"], "frames")
         os.makedirs(_S["dir"], exist_ok=True)
         cam = UsdGeom.Camera.Define(world.stage, "/World/ChaseCam")
@@ -83,6 +87,10 @@ def maybe_step(runner) -> None:
         xf.AddTransformOp().Set(_look_at(Gf.Vec3d(*eye.tolist()), Gf.Vec3d(*target.tolist())))
         _S["tick"] += 1
         if _S["tick"] % _S["every"] != 0:
+            return
+        if _S["max_frames"] and _S["frame"] >= _S["max_frames"]:
+            if not _S.get("capped"):
+                _S["capped"] = True; print(f"[capture] frame cap {_S['max_frames']} reached; no more frames", flush=True)
             return
         data = _S["annot"].get_data()
         if data is None or getattr(data, "size", 0) == 0:

@@ -58,6 +58,15 @@ class Rod30Source:
         # G1_MANIP_RESUME_AT_S (sim s) request MANIP again and play the remaining rows (place/release), then clear the hold.
         self.split_stage = os.environ.get("G1_MANIP_SPLIT_STAGE", "").strip() or None
         self.resume_at = float(os.environ.get("G1_MANIP_RESUME_AT_S", "0") or 0)
+        # Sprint P Phase 4 (mission): request the grant (first request in WAIT, resume in CARRY) once the walk owner has DRIVEN the
+        # body (non-zero external command seen) and then held a zero command with the base settled for this long (arbiter idle timer)
+        self.idle_request_s = float(os.environ.get("G1_MANIP_IDLE_REQUEST_S", "0") or 0)
+        self._drive_seen = False
+        # world-fixed desks spawned before the walk: G1_MANIP_DESKS_WORLD json {"desks": [{"name", "center_top_world_m", "size_m"}],
+        # "object_z_snap_to": "<desk name>", "destination_world_m": [x, y, z]}; the deferred torso-frame spawn then keeps the
+        # object's planned torso-relative x/y, rests it ON that desk's top (declared z snap) and spawns no runtime table
+        self.desks_world = os.environ.get("G1_MANIP_DESKS_WORLD", "").strip() or None
+        self._desks = None; self._desks_spec = json.load(open(self.desks_world)) if self.desks_world else None
         self.stop_stage = os.environ.get("G1_MANIP_STOP_STAGE", "").strip() or None   # ladder A: play up to this stage's end, hold, then blend out (no split)
         # Sprint O (declared before a run, default off): defer the scene spawn from the grant to the first row of stage
         # G1_MANIP_SPAWN_AT_STAGE, and realise the pelvis-relative scene block in G1_MANIP_SPAWN_FRAME = pelvis | torso. The
@@ -178,7 +187,17 @@ class Rod30Source:
             pos = tpos if scene_frame == "torso_link" else tpos - Rt @ self.PELVIS_TO_TORSO_ZERO_WAIST   # the planner's pelvis origin = torso origin minus the zero-waist offset, in the torso frame
             frame = {"kind": "torso", "scene_block_frame": scene_frame, "torso_pos": [round(float(v), 4) for v in tpos], "torso_rpy_deg": [round(math.degrees(v), 2) for v in _rpy(Rt)],
                      "effective_pelvis_pos": [round(float(v), 4) for v in pos], "props_orientation": "world-upright, torso yaw", "pelvis_measured": {"pos": [round(float(v), 4) for v in robot.get_world_pose()[0]], "rpy_deg": [round(math.degrees(v), 2) for v in _rpy(_quat_wxyz_to_R(robot.get_world_pose()[1]))]}}
-        self._spawn(pos, R, quat, upright_from_object=(self.spawn_frame == "torso"), sc=self._scene_block(scene_frame if self.spawn_frame == "torso" else "pelvis_zero_waist"))
+        sc_eff = self._scene_block(scene_frame if self.spawn_frame == "torso" else "pelvis_zero_waist")
+        snap = None
+        if self._desks_spec is not None and self._desks:
+            name = self._desks_spec.get("object_z_snap_to"); dk = self._desks.get(name) if name else None
+            if dk is not None:
+                sc_eff["_skip_table"] = True; sc_eff["_snap_world_z"] = float(dk["top_world_z"]) + float(sc_eff["object"]["length_m"]) / 2.0
+                dst = self._desks_spec.get("destination_world_m"); sc_eff["_destination_world"] = [float(v) for v in dst] if dst else None
+                snap = {"desk": name, "top_world_z": dk["top_world_z"], "object_center_world_z": sc_eff["_snap_world_z"]}
+        self._spawn(pos, R, quat, upright_from_object=(self.spawn_frame == "torso"), sc=sc_eff)
+        if snap is not None and self._scene is not None:
+            self._scene["snap"] = snap; self._j("object_z_snapped_to_desk", dict(snap, rod_world=self._scene.get("rod_world")))
         self._subscribe_contacts(); self._spawn_pending = False
         # hand-vs-object offset at the spawn instant (world and spawn-frame), so a spawn next to / inside the fingers is visible
         wr = self._wrist_pose(); off = None
@@ -244,7 +263,10 @@ class Rod30Source:
             else:
                 top_w = None; tc_w = W(tc)
             mat = PhysicsMaterial(prim_path="/World/ManipScene/Material", static_friction=float(sc.get("static_friction", 0.7)), dynamic_friction=float(sc.get("dynamic_friction", 0.6)), restitution=0.0)
-            table = FixedCuboid(prim_path="/World/ManipScene/Table", position=np.array(tc_w), orientation=np.array(quat, dtype=float), scale=np.array(sz, dtype=float), color=np.array([0.55, 0.4, 0.25]), physics_material=mat)
+            if sc.get("_snap_world_z") is not None:   # mission: the object rests on a world-fixed desk (declared z snap); planned x/y kept
+                rod_w = [rod_w[0], rod_w[1], float(sc["_snap_world_z"])]; top_w = rod_w[2] - float(ob["length_m"]) / 2.0 - gap
+            if not sc.get("_skip_table"):
+                table = FixedCuboid(prim_path="/World/ManipScene/Table", position=np.array(tc_w), orientation=np.array(quat, dtype=float), scale=np.array(sz, dtype=float), color=np.array([0.55, 0.4, 0.25]), physics_material=mat)
             self._obj = DynamicCylinder(prim_path="/World/ManipScene/Rod", position=np.array(rod_w), orientation=np.array(quat, dtype=float), radius=float(ob["radius_m"]), height=float(ob["length_m"]), mass=float(ob["mass_kg"]), color=np.array([0.9, 0.2, 0.2]), physics_material=mat)
             base = self._spawn_object_base(ob, mat)   # Sprint O declared prop: a base disc as a second collider of the SAME rigid body (desk-stand shape)
             # Sprint O v11-rod30-stems: static pedestals ("pedestals": 8 mm-radius, 100 mm-tall cylinders standing on the bench
@@ -258,11 +280,14 @@ class Rod30Source:
                 stems.append({"prim": f"/World/ManipScene/Stem{i}", "world": pc_w, "radius_m": float(pd["radius_m"]), "height_m": float(pd["height_m"]), "role": pd.get("role")})
             dest = sc.get("destination", {}); dc = dest.get("center_xy_pelvis_m") or dest.get("center_xy_m") or [0.57, -0.14]
             dest_w = WZ([dc[0], dc[1], support_z], top_w + gap) if upright_from_object else W([dc[0], dc[1], support_z])
-            VisualCylinder(prim_path="/World/ManipScene/Destination", position=np.array([dest_w[0], dest_w[1], dest_w[2] + 0.001]), orientation=np.array(quat, dtype=float), radius=float(dest.get("radius_m", 0.03)), height=0.002, color=np.array([0.2, 0.8, 0.3]))
+            if sc.get("_destination_world"):
+                dest_w = [float(v) for v in sc["_destination_world"]]      # mission: the place target on the world-fixed desk (marker already spawned)
+            elif not sc.get("_skip_table"):
+                VisualCylinder(prim_path="/World/ManipScene/Destination", position=np.array([dest_w[0], dest_w[1], dest_w[2] + 0.001]), orientation=np.array(quat, dtype=float), radius=float(dest.get("radius_m", 0.03)), height=0.002, color=np.array([0.2, 0.8, 0.3]))
             support_top_w = (top_w + gap) if upright_from_object else W([ob["center_pelvis_m"][0], ob["center_pelvis_m"][1], support_z])[2]
             self._scene = {"table_world": tc_w, "rod_world": rod_w, "destination_world": dest_w, "stems": stems, "object_base": base, "upright_from_object": bool(upright_from_object),
                            "support_top_z_pelvis_m": support_z, "support_top_world_z": support_top_w, "scene_block_effective_from": sc.get("_effective_from", "scene_pelvis_relative"),
-                           "object_center_rel": list(ob["center_pelvis_m"]), "table_top_rel": float(tb["top_z_pelvis_m"])}
+                           "object_center_rel": list(ob["center_pelvis_m"]), "table_top_rel": float(tb["top_z_pelvis_m"]), "table_spawned": not bool(sc.get("_skip_table"))}
             self._j("scene_spawned", dict(self._scene, lifted_task_rule=self.lifted_task_rule, lifted_frozen_rule="rod centre >= 0.06 m above the support top", torso_link_derivation=sc.get("_torso_link_derivation"),
                                           lifted_frozen_rule_trivial_at_rest=bool(float(ob["length_m"]) / 2.0 >= 0.06)))   # a >= 12 cm object satisfies the rod30 rule while resting
         except Exception as exc:
@@ -414,12 +439,48 @@ class Rod30Source:
         return self.arb.policy_names
 
     # ---- per step ----------------------------------------------------------------------------------------------------
+    def _idle_request(self, t, source):
+        """Mission sequencing: True (and the request placed) once the walk owner drove and then went idle for idle_request_s."""
+        if not self._drive_seen and getattr(self.arb, "_ext_cmd_zero", True) is False:
+            self._drive_seen = True; self._j("walk_owner_driving", {"t": round(t, 2), "phase": self.phase})
+        idle = self.arb.idle_settled_s() if hasattr(self.arb, "idle_settled_s") else 0.0
+        if self._drive_seen and idle >= self.idle_request_s:
+            self._drive_seen = False; self.arb.request_manip(source=source); self._j("request_after_idle", {"t": round(t, 2), "idle_settled_s": round(idle, 2), "source": source})
+            return True
+        return False
+
+    def _spawn_desks_world(self, t):
+        try:
+            from isaacsim.core.api.objects import FixedCuboid, VisualCylinder
+            from isaacsim.core.api.materials import PhysicsMaterial
+            sc = self.spec["scene_pelvis_relative"]
+            mat = PhysicsMaterial(prim_path="/World/ManipScene/MaterialDesks", static_friction=float(sc.get("static_friction", 0.7)), dynamic_friction=float(sc.get("dynamic_friction", 0.6)), restitution=0.0)
+            self._desks = {}
+            for i, d in enumerate(self._desks_spec["desks"]):
+                c = [float(v) for v in d["center_top_world_m"]]; sz = [float(v) for v in d.get("size_m", [0.8, 0.6, 0.03])]
+                FixedCuboid(prim_path=f"/World/ManipScene/Desk{d['name']}", position=np.array([c[0], c[1], c[2] - sz[2] / 2.0]), orientation=np.array([1.0, 0.0, 0.0, 0.0]),
+                            scale=np.array(sz), color=np.array([0.55, 0.4, 0.25] if i == 0 else [0.45, 0.42, 0.3]), physics_material=mat)
+                self._desks[d["name"]] = {"prim": f"/World/ManipScene/Desk{d['name']}", "top_world_z": c[2], "center_xy": c[:2], "size_m": sz}
+            dst = self._desks_spec.get("destination_world_m")
+            if dst:
+                VisualCylinder(prim_path="/World/ManipScene/Destination", position=np.array([float(dst[0]), float(dst[1]), float(dst[2]) + 0.001]), orientation=np.array([1.0, 0.0, 0.0, 0.0]),
+                               radius=float(sc.get("destination", {}).get("radius_m", 0.03)), height=0.002, color=np.array([0.2, 0.8, 0.3]))
+            self._j("desks_spawned_world", {"t": round(t, 3), "desks": self._desks, "destination_world_m": dst, "object_z_snap_to": self._desks_spec.get("object_z_snap_to")})
+        except Exception as exc:
+            self._desks = {}; self._j("desks_spawn_failed", {"error": repr(exc)})
+
     def step(self, t, state):
+        if self._desks_spec is not None and self._desks is None and t >= 1.0:
+            self._spawn_desks_world(t)
         if state == "WALK" and self.phase == "WAIT" and self.request_at > 0 and t >= self.request_at:
             self.request_at = 0.0; self.arb.request_manip(source="rod30")
+        if state == "WALK" and self.phase == "WAIT" and self.idle_request_s > 0:
+            self._idle_request(t, "rod30-after-walk")
         if self.phase == "CARRY":
             if state == "WALK" and self.resume_at > 0 and t >= self.resume_at and not self._resume_pending:
                 self._resume_pending = True; self.arb.request_manip(source="rod30-resume"); self._j("resume_requested", {"t": round(t, 2)})
+            if state == "WALK" and self.idle_request_s > 0 and not self._resume_pending and self._idle_request(t, "rod30-resume"):
+                self._resume_pending = True
             if state == "MANIP" and self._resume_pending:
                 self._resume_pending = False   # _on_grant already ran (phase BLEND_IN set there)
             elif state != "MANIP":

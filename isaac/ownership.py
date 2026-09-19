@@ -259,34 +259,41 @@ class OwnershipArbiter:
             return True
 
     # ---- per physics step (sim thread) ---------------------------------------------------------------------------------
-    def attach_station(self, keeper, mode="manip"):
+    def attach_station(self, keeper, mode="manip", goals=None):
         """mode 'manip': latch at the manipulation grant, unlatch at RETURNING->WALK; 'idle': additionally latch during WALK once
         the external command has been zero for >= 1 s and the base settled, unlatch when a non-zero command arrives (re-latched
         to the grant pose at a manipulation grant, per the packet)."""
         self.station = keeper; self.station_mode = str(mode)
-        self._log("station_attached", {"mode": self.station_mode, "k": keeper.k, "vmax": keeper.vmax, "deadband_m_rad": [keeper.db_xy, keeper.db_yaw], "slew": [keeper.slew_xy, keeper.slew_yaw]})
+        # Sprint P Phase 4 (mission): declared WORLD station goals [(x, y, yaw), ...]; goal k is latched at the k-th manipulation
+        # request (WALK->SETTLING) instead of the pose at the grant, so the keeper walks the body onto the planned station
+        # (the grant still waits for the base to settle) and the desk/object geometry stays world-fixed
+        self.station_goals = [tuple(float(v) for v in g) for g in (goals or [])]; self._goal_i = 0
+        self._log("station_attached", {"mode": self.station_mode, "k": keeper.k, "vmax": keeper.vmax, "deadband_m_rad": [keeper.db_xy, keeper.db_yaw], "slew": [keeper.slew_xy, keeper.slew_yaw], "goals": self.station_goals})
 
     def note_external_command(self, cmd):
         """The walk owner's external command (vx, vy, wz) this tick, for the 'idle' station mode."""
         self._ext_cmd_zero = all(abs(float(v)) < 1e-6 for v in cmd)
+
+    def idle_settled_s(self):
+        """Seconds the external command has been zero with the base settled while in WALK (0 while commanded/moving/elsewhere)."""
+        return (self.t - self._idle_since) if (self._idle_since is not None and self.state == "WALK" and self._ext_cmd_zero) else 0.0
 
     def _station_tick(self, dt, base_xy, base_yaw, base_speed_xy):
         """Latch/unlatch bookkeeping + the command; called inside step() with the lock held (base pose may be None -> no keeper)."""
         k = self.station
         if k is None or base_xy is None or base_yaw is None:
             self.station_cmd = None; return
-        if self.state == "WALK" and self.station_mode == "idle":
-            if self._ext_cmd_zero:
-                if base_speed_xy < self.v_settle:
-                    if self._idle_since is None: self._idle_since = self.t
-                    if not k.active and self.t - self._idle_since >= 1.0:
-                        k.lock(base_xy[0], base_xy[1], base_yaw, self.t, source="idle")
-                else:
-                    self._idle_since = None
+        if self.state == "WALK":   # idle timer (every mode): zero external command + settled base
+            if self._ext_cmd_zero and base_speed_xy < self.v_settle:
+                if self._idle_since is None: self._idle_since = self.t
             else:
                 self._idle_since = None
-                if k.active and k.lock_source in ("idle", "grant"):
-                    k.unlock(self.t, source="external_command")
+        if self.state == "WALK" and self.station_mode == "idle":
+            if self._ext_cmd_zero:
+                if not k.active and self._idle_since is not None and self.t - self._idle_since >= 1.0:
+                    k.lock(base_xy[0], base_xy[1], base_yaw, self.t, source="idle")
+            elif k.active and k.lock_source in ("idle", "grant"):
+                k.unlock(self.t, source="external_command")
         self.station_cmd = k.step(dt, base_xy[0], base_xy[1], base_yaw, self.t, state=self.state)
 
     def step(self, dt, base_speed_xy, base_z, policy_targets, base_xy=None, base_yaw=None):
@@ -306,6 +313,11 @@ class OwnershipArbiter:
                 if self._pending_request:
                     self._pending_request = False; self._settled_since = None
                     self.state = "SETTLING"; self._log("WALK->SETTLING", {"speed": round(float(base_speed_xy), 4)})
+                    if self.station is not None and self._goal_i < len(self.station_goals) and base_xy is not None and base_yaw is not None:
+                        g = self.station_goals[self._goal_i]; self._goal_i += 1
+                        self.station.lock(g[0], g[1], g[2], self.t, source=f"goal{self._goal_i}")
+                        self._log("station_goal_latched", {"goal": self._goal_i, "target": list(g), "err_xy_m": round(math.hypot(base_xy[0] - g[0], base_xy[1] - g[1]), 4), "err_yaw_deg": round(math.degrees(StationKeeper._wrap(base_yaw - g[2])), 2)})
+                        self.station_cmd = self.station.step(0.0, base_xy[0], base_xy[1], base_yaw, self.t, state=self.state)
                 else:
                     return out, hold_hands, True, None
             if self.state == "SETTLING":
@@ -314,7 +326,7 @@ class OwnershipArbiter:
                     if self.t - self._settled_since >= self.settle_s:
                         self.state = "MANIP"; self._manip_arm = None; self._manip_hand = None
                         self._log("SETTLING->MANIP", {"speed": round(float(base_speed_xy), 4), "z": round(float(base_z), 4)})
-                        if self.station is not None and base_xy is not None and base_yaw is not None:
+                        if self.station is not None and base_xy is not None and base_yaw is not None and not (self.station.active and str(self.station.lock_source).startswith("goal")):
                             self.station.lock(base_xy[0], base_xy[1], base_yaw, self.t, source="grant")
                             self.station_cmd = self.station.step(0.0, base_xy[0], base_xy[1], base_yaw, self.t, state=self.state)
                         for h in self.hooks["grant"]:
