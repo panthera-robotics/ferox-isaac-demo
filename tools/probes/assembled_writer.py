@@ -37,8 +37,9 @@ def validate_presentation(pres):
     points of the PhysX contact report, pushed out of the face by a fraction of a millimetre; no collision, no mass."""
     if pres is None:
         return
-    if not isinstance(pres, dict) or not set(pres) <= {'cameras', 'ink_decals', 'note'}:
-        raise ValueError('presentation: cameras / ink_decals / note only')
+    if not isinstance(pres, dict) or not set(pres) <= {'cameras', 'ink_decals', 'note', 'visual_overlay'}:
+        raise ValueError('presentation: cameras / ink_decals / note / visual_overlay only')
+    validate_visual_overlay(pres.get('visual_overlay'))
     cams = pres.get('cameras', DEFAULT_CAMERAS)
     if not isinstance(cams, list) or not 1 <= len(cams) <= 6:
         raise ValueError('presentation.cameras: 1..6 cameras')
@@ -64,6 +65,59 @@ def validate_presentation(pres):
             raise ValueError('presentation.cameras.focal_length_mm: 4..200')
     if 'ink_decals' in pres and type(pres['ink_decals']) is not bool:
         raise ValueError('presentation.ink_decals: bool')
+
+def validate_visual_overlay(spec):
+    """Sprint P Phase 5: a RENDER-ONLY set-dressing layer (hero-world board station, floor, props) referenced under a
+    declared root. Every physics schema found under that root is disabled or deactivated at insertion (collision,
+    rigid bodies, joints, articulation roots, physics scenes) and counted into metrics; the live PhysX shape audit
+    that follows (backend_shapes.json) is the proof that the physics path is unchanged. Nothing about the robot,
+    the board panel, the marker, gains or timing is touched."""
+    if spec is None:
+        return
+    if not isinstance(spec, dict) or not set(spec) <= {'usd_path', 'root', 'translate_m', 'note'} or 'usd_path' not in spec:
+        raise ValueError('presentation.visual_overlay: usd_path [root, translate_m, note] only')
+    if not isinstance(spec['usd_path'], str) or not spec['usd_path'].endswith(('.usd', '.usda', '.usdc', '.usdz')):
+        raise ValueError('presentation.visual_overlay.usd_path: a USD file path')
+    root = spec.get('root', '/World/Visual')
+    if not isinstance(root, str) or not root.startswith('/World/Visual') or not all(part.isidentifier() for part in root.strip('/').split('/')):
+        raise ValueError('presentation.visual_overlay.root: a prim path under /World/Visual')
+    if 'translate_m' in spec and not (isinstance(spec['translate_m'], list) and len(spec['translate_m']) == 3 and
+                                      all(isinstance(v, (int, float)) and math.isfinite(v) and abs(v) < 10. for v in spec['translate_m'])):
+        raise ValueError('presentation.visual_overlay.translate_m: three finite metres')
+    if 'note' in spec and not isinstance(spec['note'], str):
+        raise ValueError('presentation.visual_overlay.note: string')
+
+
+def add_visual_overlay(stage, spec, add_reference_to_stage, UsdGeom, UsdPhysics, Gf):
+    """Reference the overlay USD under spec.root, apply the declared translation and strip physics under the root.
+    Returns the audit written to metrics. Called before world.reset() so the PhysX shape statistics taken after
+    the reset cover the overlay."""
+    root = spec.get('root', '/World/Visual'); usd_path = Path(spec['usd_path'])
+    if not usd_path.is_file():
+        raise ValueError('presentation.visual_overlay.usd_path not found: %s' % usd_path)
+    add_reference_to_stage(str(usd_path), root)
+    xf = UsdGeom.Xformable(stage.GetPrimAtPath(root)); xf.ClearXformOpOrder()
+    if 'translate_m' in spec:
+        xf.AddTranslateOp().Set(Gf.Vec3d(*[float(v) for v in spec['translate_m']]))
+    audit = {'usd_path': str(usd_path), 'usd_sha256': hashlib.sha256(usd_path.read_bytes()).hexdigest(), 'root': root,
+             'translate_m': list(spec.get('translate_m', [0., 0., 0.])), 'prims': 0, 'collision_disabled': 0, 'rigid_bodies_disabled': 0,
+             'joints_deactivated': 0, 'articulation_roots_removed': 0, 'physics_scenes_deactivated': 0,
+             'declaration': 'render-only set dressing: no collider, body, joint, articulation or physics scene from this layer reaches PhysX'}
+    under_root = [prim for prim in stage.Traverse() if str(prim.GetPath()) == root or str(prim.GetPath()).startswith(root + '/')]
+    for prim in under_root:
+        audit['prims'] += 1
+        if prim.IsA(UsdPhysics.Scene):
+            prim.SetActive(False); audit['physics_scenes_deactivated'] += 1; continue
+        if prim.IsA(UsdPhysics.Joint):
+            prim.SetActive(False); audit['joints_deactivated'] += 1; continue
+        if prim.HasAPI(UsdPhysics.ArticulationRootAPI):
+            prim.RemoveAPI(UsdPhysics.ArticulationRootAPI); audit['articulation_roots_removed'] += 1
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            UsdPhysics.RigidBodyAPI(prim).CreateRigidBodyEnabledAttr(False); audit['rigid_bodies_disabled'] += 1
+        if prim.HasAPI(UsdPhysics.CollisionAPI):
+            UsdPhysics.CollisionAPI(prim).CreateCollisionEnabledAttr(False); audit['collision_disabled'] += 1
+    return audit
+
 
 def validate_config(config):
     required = {'schema_version', 'hardware_authorized', 'private_driver_path',
@@ -512,6 +566,11 @@ def main():
                         step_contacts.append(record)
                     contact_file.write(json.dumps(record, allow_nan=False)+'\n')
                     contact_count += 1
+        overlay_audit = None
+        if (cfg.get('presentation') or {}).get('visual_overlay'):
+            # render-only set dressing (Sprint P Phase 5): referenced after the physics scene is complete, physics
+            # stripped under its root, audited by the live shape statistics taken after the reset
+            overlay_audit = add_visual_overlay(world.stage, cfg['presentation']['visual_overlay'], add_reference_to_stage, UsdGeom, UsdPhysics, Gf)
         subscription = get_physx_simulation_interface().subscribe_contact_report_events(on_contact)
         robot = SingleArticulation('/World/G1', name='assembled_writer_fixture')
         world.reset(); robot.initialize()
@@ -652,7 +711,8 @@ def main():
             (out/'frames'/label).mkdir(parents=True)
             cameras[label]=camera; camera_specs[label] = dict(spec, resolution=list(resolution))
         metrics['presentation'] = {'cameras': camera_specs, 'ink_decals': bool(presentation.get('ink_decals', False)) and contact_mode,
-            'note': 'cameras are external render-only prims (static or following a live link pose read back at capture time); ink decals are render-only prims at actual PhysX nib-panel contact points; neither touches physics or the robot'}
+            'visual_overlay': overlay_audit,
+            'note': 'cameras are external render-only prims (static or following a live link pose read back at capture time); ink decals are render-only prims at actual PhysX nib-panel contact points; a visual overlay is a referenced set-dressing layer with every physics schema disabled under its root (audit above, live shape statistics in backend_shapes.json); none of them touches physics or the robot'}
         ink_decal_points = []; ink_instancer = None
         if metrics['presentation']['ink_decals']:
             ink_instancer = UsdGeom.PointInstancer.Define(world.stage, '/World/InkDecals')
