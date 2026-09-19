@@ -64,7 +64,10 @@ class Rod30Source:
         self.phase = "WAIT"; self._t_grant = None; self._arm_start = None; self._grant_walltime = None
         self._prev_gains = None; self._scene = None; self._obj = None; self._trace = None; self._n = 0
         self._pelvis0 = None; self._ff_clips = 0; self._contacts = {"rod_hand": 0, "rod_table": 0, "rod_stem": 0, "rod_other": 0, "rows": 0}; self._contact_sub = None
-        self._flags = {"lifted": False, "held_after_lift": False, "transported": False, "released_resting": False, "max_clearance_m": 0.0}; self._grasp_seen = False
+        self._flags = {"lifted": False, "held_after_lift": False, "transported": False, "released_resting": False, "max_clearance_m": 0.0, "lifted_task": False}; self._grasp_seen = False
+        # Sprint O declared task flag (coordinator, 08:2xZ, before any W3 run): lifted_task = rod bottom clearance above the
+        # support (stem) top >= 0.02 m held continuously >= 1.0 s; reported BESIDE the frozen 0.06-centre flag, never instead
+        self._clear_since = None; self.lifted_task_rule = {"clearance_m": 0.02, "held_s": 1.0}
         self.default_arm = None
         self._log = open(os.path.join(journal_dir, "manip_owner.jsonl"), "a", encoding="utf-8")
         arbiter.hooks["grant"].append(self._on_grant); arbiter.hooks["walk"].append(self._on_walk)
@@ -141,7 +144,7 @@ class Rod30Source:
             VisualCylinder(prim_path="/World/ManipScene/Destination", position=np.array(W([dc[0], dc[1], support_z + 0.001])), orientation=np.array(quat, dtype=float), radius=float(dest.get("radius_m", 0.03)), height=0.002, color=np.array([0.2, 0.8, 0.3]))
             self._scene = {"table_world": W(tc), "rod_world": W(ob["center_pelvis_m"]), "destination_world": W([dc[0], dc[1], support_z]), "stems": stems,
                            "support_top_z_pelvis_m": support_z, "support_top_world_z": W([ob["center_pelvis_m"][0], ob["center_pelvis_m"][1], support_z])[2]}
-            self._j("scene_spawned", self._scene)
+            self._j("scene_spawned", dict(self._scene, lifted_task_rule=self.lifted_task_rule, lifted_frozen_rule="rod centre >= 0.06 m above the support top"))
         except Exception as exc:
             self._scene = None; self._obj = None
             self._j("scene_spawn_failed", {"error": repr(exc)})
@@ -202,6 +205,12 @@ class Rod30Source:
                 if self._flags["transported"] and abs(above - float(self.spec["scene_pelvis_relative"]["object"]["length_m"]) / 2.0) < 0.01 and speed < 0.02 and self.phase in ("BLEND_OUT", "RELEASED"): self._flags["released_resting"] = True
                 clearance = above - float(self.spec["scene_pelvis_relative"]["object"]["length_m"]) / 2.0   # rod bottom above the support top
                 self._flags["max_clearance_m"] = round(max(float(self._flags.get("max_clearance_m") or 0.0), clearance), 4)
+                if clearance >= self.lifted_task_rule["clearance_m"]:
+                    if self._clear_since is None: self._clear_since = t
+                    if t - self._clear_since >= self.lifted_task_rule["held_s"] and not self._flags["lifted_task"]:
+                        self._flags["lifted_task"] = True; self._j("lifted_task", {"t": round(t, 3), "clearance_m": round(clearance, 4), "rule": self.lifted_task_rule})
+                else:
+                    self._clear_since = None
                 row["rod"] = {"pos": [round(float(x), 4) for x in p], "quat_wxyz": [round(float(x), 4) for x in q], "above_table_top_m": round(above, 4), "clearance_m": round(clearance, 4), "dist_to_destination_m": round(dxy, 4), "speed_m_s": round(speed, 4)}
                 row["flags"] = dict(self._flags)
             except Exception as exc:
