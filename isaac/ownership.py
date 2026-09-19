@@ -271,7 +271,7 @@ class BodyTrace:
                    "base_speed_xy": round(float(np.hypot(float(lin[0]), float(lin[1]))), 4), "base_ang_speed": round(float(np.linalg.norm(np.asarray(ang, float))), 4),
                    "feet": feet, "foot_up": dict(self.foot_up), "steps": dict(self.steps)}
             self.f.write(json.dumps(row) + "\n")
-            if self.n % (self.every * 100) == 0: self.f.flush()
+            if self.n % (self.every * 20) == 0: self.f.flush()   # every ~1 s sim: a boot-ending fall keeps its last rows
         except Exception as exc:
             if self.n % 2000 == 0: print(f"[ownership trace] error {exc!r}", flush=True)
 
