@@ -997,6 +997,12 @@ def main():
     finally:
         cleanup_errors = []
         try:
+            # the observer summary (and its legacy shadow) is written on aborted runs too, so an abort is always attributable
+            if isinstance(metrics.get('observer'), dict) and 'operational_observer' in locals() and operational_observer is not None:
+                metrics['observer'].update(operational_observer.summary)
+        except BaseException as error:
+            cleanup_errors.append('observer summary: '+repr(error))
+        try:
             (out/'metrics.json').write_text(json.dumps(dict(metrics,status='FAIL',evaluation_status=metrics['status'],
                 cleanup_complete=False,wall_seconds=time.monotonic()-started),indent=2,allow_nan=False))
             (out/'probe.json').write_text(json.dumps({'status':'FAIL','scope':metrics['scope'],
