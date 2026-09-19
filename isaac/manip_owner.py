@@ -178,7 +178,13 @@ class Rod30Source:
                      "effective_pelvis_pos": [round(float(v), 4) for v in pos], "props_orientation": "world-upright, torso yaw", "pelvis_measured": {"pos": [round(float(v), 4) for v in robot.get_world_pose()[0]], "rpy_deg": [round(math.degrees(v), 2) for v in _rpy(_quat_wxyz_to_R(robot.get_world_pose()[1]))]}}
         self._spawn(pos, R, quat, upright_from_object=(self.spawn_frame == "torso"), sc=self._scene_block(scene_frame if self.spawn_frame == "torso" else "pelvis_zero_waist"))
         self._subscribe_contacts(); self._spawn_pending = False
-        self._j("scene_spawned_at_stage", {"t": round(t, 3), "stage": stage, "frame": frame})
+        # hand-vs-object offset at the spawn instant (world and spawn-frame), so a spawn next to / inside the fingers is visible
+        wr = self._wrist_pose(); off = None
+        if wr is not None and self._scene is not None:
+            dw = np.asarray(self._scene["rod_world"], float) - np.asarray(wr[:3], float)
+            off = {"puck_minus_wrist_world_m": [round(float(v), 4) for v in dw], "puck_minus_wrist_frame_m": [round(float(v), 4) for v in (np.asarray(R).T @ dw)], "wrist_world": wr[:3],
+                   "note": "wrist_yaw_link origin; the palm/fingers extend ~0.1-0.2 m beyond it"}
+        self._j("scene_spawned_at_stage", {"t": round(t, 3), "stage": stage, "frame": frame, "hand_object_offset": off})
 
     def _scene_block(self, scene_frame):
         """Effective scene block. A block declared in the torso_link frame carries its coordinates in a 'torso_link_frame' sub-block
