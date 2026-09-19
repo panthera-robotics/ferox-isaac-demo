@@ -71,7 +71,9 @@ def validate_config(config):
         'planner_frames_sha256', 'body_home_rad', 'kp_nm_rad', 'kd_nm_s_rad',
         'tau_ff_nm', 'gain_provenance', 'feedforward_provenance', 'workflow_mode',
         'letter_height_m', 'maximum_steps', 'maximum_wall_s'}
-    optional = {'actuation_backend', 'maximum_wall_age_s', 'hand_hold_kp_nm_rad', 'hand_hold_kd_nm_s_rad', 'contact_writing', 'job_text', 'presentation'}
+    optional = {'actuation_backend', 'maximum_wall_age_s', 'hand_hold_kp_nm_rad', 'hand_hold_kd_nm_s_rad', 'contact_writing', 'job_text', 'presentation', 'observer'}
+    if config.get('observer', 'legacy') not in ('legacy', 'simulation_operational_v1'):
+        raise ValueError('observer must be legacy or simulation_operational_v1')
     validate_presentation(config.get('presentation'))
     text = config.get('job_text', 'I')
     # one or two lines (the driver's validate_text accepts a single '\n'); every line 1-12 upper-case letters/digits/spaces, no surrounding whitespace
@@ -138,8 +140,11 @@ def validate_config(config):
     return config
 
 
-def observed_checks(names, q, dq, effort, limits, mimic):
-    """Fixed physical guards; do not soften these using a successful trajectory."""
+def observed_checks(names, q, dq, effort, limits, mimic, observer=None, sequence=None, physics_s=None):
+    """Fixed physical guards; do not soften these using a successful trajectory.
+    Sprint O owner decision A: with `observer` (SIMULATION_OPERATIONAL_OBSERVER v1) the velocity guard is evaluated on the SAMPLED-INTERVAL
+    velocity (mimic children at |multiplier| x parent field, persist 2, coupling faults) and the legacy reported-velocity rule is only
+    recorded in the returned `legacy_shadow`; without it (default) the historical reported-velocity rule aborts exactly as before."""
     if len(names) != 53 or len(set(names)) != 53 or set(names) != set(limits):
         raise ValueError('observed articulation does not match exact named53 source')
     if any(len(values) != 53 for values in (q, dq, effort)):
@@ -151,9 +156,15 @@ def observed_checks(names, q, dq, effort, limits, mimic):
         limit = limits[name]
         violation = max(violation, limit['lower'] - position, position - limit['upper'], 0.)
         speed = max(speed, abs(velocity))
-        if abs(velocity) > min(5., limit['velocity']):
+        if observer is None and abs(velocity) > min(5., limit['velocity']):
             raise ValueError('observed velocity exceeded source/5rad_s guard: ' + name)
         by_name[name] = position
+    legacy_shadow = None
+    if observer is not None:
+        decision = observer.update(sequence, physics_s, by_name, dict(zip(names, dq)))
+        legacy_shadow = decision['legacy_shadow']
+        if decision['abort']:
+            raise ValueError('operational observer abort (%s): %s' % (decision['reason'], sorted(decision['violations'] or decision['coupling_faults'])))
     if violation > .03:
         raise ValueError('observed joint limit violation exceeded .03rad')
     coupling = {name: by_name[name] - (m['multiplier'] * by_name[m['parent']] + m['offset'])
@@ -161,7 +172,7 @@ def observed_checks(names, q, dq, effort, limits, mimic):
     if coupling and max(abs(v) for v in coupling.values()) > .03:
         raise ValueError('observed hand mimic error exceeded .03rad')
     return {'joint_limit_violation_rad': violation, 'maximum_velocity_rad_s': speed,
-            'coupling_error_rad': coupling}
+            'coupling_error_rad': coupling, 'legacy_shadow': legacy_shadow}
 
 
 def quaternion_wxyz_from_matrix(R):
@@ -327,6 +338,10 @@ def main():
         if set(body_names) != set(facts['body_joint_names']):
             raise ValueError('config body names differ from actual source donor')
         limits = facts['joint_limits']
+        from inspire.operational_observer import make_observer
+        observer_name = cfg.get('observer', 'legacy')
+        operational_observer = make_observer(observer_name, limits, facts['mimic_map'], .005, threshold_multiple=1.0, persist=2, reported_cap=5.0)   # the writer guard's 1x threshold, now on the sampled-interval channel
+        metrics['observer'] = {'active': observer_name}
         for n, value in cfg['body_home_rad'].items():
             finite(value, n, limits[n]['lower'], limits[n]['upper'])
             finite(cfg['tau_ff_nm'][n], n+'.feedforward', -limits[n]['effort'], limits[n]['effort'])
@@ -795,7 +810,7 @@ def main():
             if collision_faults:
                 metrics['material_nonadjacent_collision_faults'] = collision_faults[:100]
                 raise ValueError('material nonadjacent self-collision before body write: penetration>1mm or impulse>0.025Ns')
-            checks = observed_checks(names, q, dq, effort, limits, facts['mimic_map'])
+            checks = observed_checks(names, q, dq, effort, limits, facts['mimic_map'], operational_observer, sample_number, float(world.current_time))
             maximum_coupling = max(maximum_coupling, max(map(abs, checks['coupling_error_rad'].values()), default=0.))
             pelvis = pose_matrix(poses['pelvis'])
             pelvis_rotation = np.eye(4)
@@ -924,6 +939,8 @@ def main():
             'final_max_efforts': final_caps.tolist(),
             'final_gains_match_last_composed': bool(np.array_equal(np.ravel(final_gains[0]), kp) and np.array_equal(np.ravel(final_gains[1]), kd)),
             'source_caps_unchanged': bool(np.array_equal(final_caps, live_caps))}
+        if operational_observer is not None:
+            metrics['observer'].update(operational_observer.summary); metrics['observer']['note'] = 'SIM-only guard (owner decision A, Sprint O): sampled-interval velocity at 1x field, mimic children at |multiplier| x parent field, persist 2; legacy reported-velocity guard scored in legacy_shadow, never acting'
         metrics['checks'] = {'actual_workflow_finished': bool(workflow and workflow['finished']),
             'body_writes_observed': metrics['effective_body_writes'] > 0,
             'actual_writer_references_observed': metrics['returned_references'] > 0,
