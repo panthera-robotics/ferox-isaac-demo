@@ -39,9 +39,14 @@ class Rod30Source:
     def __init__(self, schedule_path, arbiter, policy, journal_dir, *, spawn_scene=True, gravity_ff=True):
         self.spec = json.load(open(schedule_path, "r", encoding="utf-8"))
         self.arb = arbiter; self.policy = policy; self.jdir = journal_dir
-        self.arm_joints = list(self.spec["arm_joints"]); self.hand_joints = list(self.spec["hand_joints_right_independent"])
+        self.arm_joints_all = list(self.spec["arm_joints"]); self.hand_joints = list(self.spec["hand_joints_right_independent"])
+        # seam knob (Sprint N, first failing seam of n4a/n4b): with G1_MANIP_LEFT_ARM=policy the manipulation owner commands
+        # only the RIGHT arm; the left arm stays with the walking policy instead of being driven to URDF zero by the schedule.
+        self.left_arm_mode = os.environ.get("G1_MANIP_LEFT_ARM", "schedule").strip().lower()
+        self.arm_joints = [n for n in self.arm_joints_all if not (self.left_arm_mode == "policy" and n.startswith("left_"))]
+        self.arm_col = {n: self.arm_joints_all.index(n) for n in self.arm_joints}   # column of each commanded joint in arm_q rows
         self.rows = self.spec["rows"]; self.row_t = np.array([float(r["t"]) for r in self.rows])
-        hc = self.spec.get("handoff_contract", {}); self.blend_in = float(hc.get("blend_in_s", 2.0)); self.blend_out = float(hc.get("blend_out_s", 2.0))
+        hc = self.spec.get("handoff_contract", {}); self.blend_in = float(os.environ.get("G1_MANIP_BLEND_IN_S", "") or hc.get("blend_in_s", 2.0)); self.blend_out = float(hc.get("blend_out_s", 2.0))
         g = self.spec.get("gains_while_manipulation_owner_holds", {})
         self.arm_kp = g.get("arm_kp_nm_rad", {}); self.arm_kd = g.get("arm_kd_nm_s_rad", g.get("arm_kd", {}))
         hk = g.get("hand_kp_nm_rad", 1.0); hd = g.get("hand_kd_nm_s_rad", 0.05)
@@ -57,8 +62,8 @@ class Rod30Source:
         self._log = open(os.path.join(journal_dir, "manip_owner.jsonl"), "a", encoding="utf-8")
         arbiter.hooks["grant"].append(self._on_grant); arbiter.hooks["walk"].append(self._on_walk)
         self._j("init", {"schedule": self.spec.get("version"), "rows": len(self.rows), "duration_s": self.spec.get("duration_s"),
-                         "arm_joints": self.arm_joints, "hand_joints": self.hand_joints, "blend_in_s": self.blend_in, "blend_out_s": self.blend_out,
-                         "spawn_scene": spawn_scene, "gravity_ff": gravity_ff})
+                         "arm_joints_commanded": self.arm_joints, "left_arm_mode": self.left_arm_mode, "hand_joints": self.hand_joints,
+                         "blend_in_s": self.blend_in, "blend_out_s": self.blend_out, "spawn_scene": spawn_scene, "gravity_ff": gravity_ff})
 
     def _j(self, event, detail=None):
         row = {"t": round(self.arb.t, 4), "wall": time.time(), "event": event, "phase": self.phase, "detail": detail}
@@ -199,13 +204,13 @@ class Rod30Source:
         s = t - self._t_grant
         if self.phase == "BLEND_IN":
             a = min(1.0, s / max(1e-6, self.blend_in)); r0 = self.rows[0]
-            arm = [(1 - a) * self._arm_start[n] + a * float(r0["arm_q"][i]) for i, n in enumerate(self.arm_joints)]
+            arm = [(1 - a) * self._arm_start[n] + a * float(r0["arm_q"][self.arm_col[n]]) for n in self.arm_joints]
             hand = [a * float(r0["hand_q_right"][i]) for i in range(len(self.hand_joints))]
             if a >= 1.0:
                 self.phase = "PLAY"; self._t_play = t; self._j("PLAY", {})
         elif self.phase == "PLAY":
             sp = t - self._t_play; k = int(np.searchsorted(self.row_t, sp, side="right") - 1); k = max(0, min(k, len(self.rows) - 1))
-            r = self.rows[k]; arm = [float(v) for v in r["arm_q"]]; hand = [float(v) for v in r["hand_q_right"]]
+            r = self.rows[k]; arm = [float(r["arm_q"][self.arm_col[n]]) for n in self.arm_joints]; hand = [float(v) for v in r["hand_q_right"]]
             if self._n % 200 == 0:
                 self._j("row", {"k": k, "stage": r.get("stage"), "sp": round(sp, 3)})
             if sp >= float(self.row_t[-1]):
