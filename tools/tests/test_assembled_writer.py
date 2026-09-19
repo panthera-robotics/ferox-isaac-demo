@@ -138,6 +138,15 @@ class ActuationBackendConfigTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 probe.validate_config(self.config(presentation=bad))
 
+    def test_visual_overlay_is_a_declared_render_only_layer(self):
+        ok = {'usd_path': '/workspace/hero/board_station.usda', 'root': '/World/Visual/Station', 'translate_m': [0., 0., .21], 'note': 'hero-world board station, render only'}
+        probe.validate_config(self.config(presentation={'visual_overlay': ok}))
+        probe.validate_config(self.config(presentation={'visual_overlay': {'usd_path': '/workspace/hero/world.usd'}}))
+        for bad in ({'root': '/World/Visual'}, {**ok, 'usd_path': '/workspace/hero/station.obj'}, {**ok, 'root': '/World/G1'}, {**ok, 'root': '/World/Visual/not valid'},
+                    {**ok, 'translate_m': [0., 0.]}, {**ok, 'translate_m': [0., float('inf'), 0.]}, {**ok, 'scale': 2.}, {**ok, 'note': 3}, 'hero.usd'):
+            with self.assertRaises(ValueError):
+                probe.validate_config(self.config(presentation={'visual_overlay': bad}))
+
     def test_job_text_defaults_to_I_and_is_bounded(self):
         self.assertEqual(probe.validate_config(self.config()).get('job_text', 'I'), 'I')
         probe.validate_config(self.config(job_text='L')); probe.validate_config(self.config(job_text='G1 OK'))
