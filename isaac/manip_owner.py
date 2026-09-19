@@ -77,6 +77,16 @@ class Rod30Source:
         self.spawn_at_stage = os.environ.get("G1_MANIP_SPAWN_AT_STAGE", "").strip() or None
         # Sprint P M1 schedule 2: stages during which the station keeper is muted (base command 0 while the fingers close)
         self.station_quiet_stages = [x.strip() for x in os.environ.get("G1_STATION_QUIET_STAGES", "").split(",") if x.strip()]
+        # Sprint P mission-4 creep-carry: at the first row of G1_MANIP_CREEP_AT_STAGE the playback freezes on that row (arm held in
+        # its pose, still MANIP, keeper active) and the keeper's station goal is ramped along G1_MANIP_CREEP_VECTOR (world x,y m) at
+        # G1_MANIP_CREEP_RATE m/s; the rows resume at the next stage once the keeper error stays below CREEP_SETTLE_M for
+        # CREEP_SETTLE_S (or after CREEP_TIMEOUT_S, declared). The carry is the keeper's own bounded command, no split, no walk owner.
+        self.creep_stage = os.environ.get("G1_MANIP_CREEP_AT_STAGE", "").strip() or None
+        self.creep_vec = [float(v) for v in (os.environ.get("G1_MANIP_CREEP_VECTOR", "0,0").split(",") + ["0"])[:2]]
+        self.creep_rate = float(os.environ.get("G1_MANIP_CREEP_RATE", "0.1") or 0.1)
+        self.creep_settle_m = float(os.environ.get("G1_MANIP_CREEP_SETTLE_M", "0.03") or 0.03); self.creep_settle_s = float(os.environ.get("G1_MANIP_CREEP_SETTLE_S", "1.0") or 1.0)
+        self.creep_timeout_s = float(os.environ.get("G1_MANIP_CREEP_TIMEOUT_S", "25") or 25)
+        self._creep = None; self._creep_done = False
         # Sprint O lB declaration: the scene given directly in WORLD coordinates (a world-fixed desk, as the integrated task needs):
         # G1_MANIP_SCENE_WORLD = path to {"object_center_world_m", "table_center_top_world_m", "destination_center_world_m",
         # "object_bottom_to_table_top_gap_m"}; spawned at the grant with props world-upright (overrides the deferred/torso options)
@@ -502,8 +512,33 @@ class Rod30Source:
             if a >= 1.0:
                 self.phase = "PLAY"; self._t_play = t - float(self.row_t[k0]); self._j("PLAY", {"from_row": k0, "stage": r0.get("stage")})
         elif self.phase == "PLAY":
+            if self._creep is not None:
+                self._t_play = t - self._creep["sp0"]          # freeze the playback on the creep row
             sp = t - self._t_play; k = int(np.searchsorted(self.row_t, sp, side="right") - 1); k = max(0, min(k, len(self.rows) - 1))
             r = self.rows[k]; arm = [float(r["arm_q"][self.arm_col[n]]) for n in self.arm_joints]; hand = [float(v) for v in r["hand_q_right"]]
+            keeper = getattr(self.arb, "station", None)
+            if self.creep_stage and self._creep is None and not self._creep_done and r.get("stage") == self.creep_stage and keeper is not None and keeper.active:
+                st = keeper.target; dist = float(np.hypot(*self.creep_vec))
+                self._creep = {"t0": t, "k": k, "sp0": sp, "start": st, "goal": (st[0] + self.creep_vec[0], st[1] + self.creep_vec[1], st[2]), "dist": dist, "settled_since": None}
+                self._j("creep_start", {"t": round(t, 3), "stage": r.get("stage"), "row": k, "start": [round(v, 4) for v in st], "goal": [round(v, 4) for v in self._creep["goal"]], "rate_m_s": self.creep_rate,
+                                        "keeper_k": list(keeper.k), "keeper_vmax": list(keeper.vmax), "puck_minus_wrist": self._puck_wrist_offset()})
+            if self._creep is not None:
+                c = self._creep; prog = min(1.0, (t - c["t0"]) * self.creep_rate / max(1e-6, c["dist"])) if c["dist"] > 1e-6 else 1.0
+                keeper.move_target(c["start"][0] + prog * self.creep_vec[0], c["start"][1] + prog * self.creep_vec[1], c["start"][2])
+                err = float(np.hypot(keeper.err[0], keeper.err[1])); done = None
+                if prog >= 1.0:
+                    if err < self.creep_settle_m:
+                        c["settled_since"] = c["settled_since"] if c["settled_since"] is not None else t
+                        if t - c["settled_since"] >= self.creep_settle_s: done = "settled"
+                    else:
+                        c["settled_since"] = None
+                if done is None and t - c["t0"] >= self.creep_timeout_s: done = "timeout"
+                if self._n % 100 == 0:
+                    self._j("creep", {"t": round(t, 3), "progress": round(prog, 3), "err_xy_m": round(err, 4), "err_yaw_deg": round(math.degrees(keeper.err[2]), 2), "cmd": [round(v, 3) for v in keeper.cmd]})
+                if done:
+                    nxt = next((i for i in range(k + 1, len(self.rows)) if self.rows[i].get("stage") != r.get("stage")), len(self.rows) - 1)
+                    self._j("creep_done", {"t": round(t, 3), "how": done, "duration_s": round(t - c["t0"], 2), "err_xy_m": round(err, 4), "err_yaw_deg": round(math.degrees(keeper.err[2]), 2), "resume_row": nxt, "resume_stage": self.rows[nxt].get("stage"), "puck_minus_wrist": self._puck_wrist_offset()})
+                    self._creep = None; self._creep_done = True; self._t_play = t - float(self.row_t[nxt])
             if self._spawn_pending and r.get("stage") == self.spawn_at_stage:
                 self._spawn_at_stage_now(t, r.get("stage"))
             if self.station_quiet_stages and getattr(self.arb, "station", None) is not None:

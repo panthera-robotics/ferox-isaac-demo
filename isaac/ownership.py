@@ -73,6 +73,12 @@ class StationKeeper:
         self.cmd = [0.0, 0.0, 0.0]
         if self._journal: self._journal("station_lock", {"x": round(float(x), 4), "y": round(float(y), 4), "yaw_deg": round(math.degrees(yaw), 2), "source": source, "n": self.locks})
 
+    def move_target(self, x, y, yaw):
+        """Sprint P creep-carry: move the latched station goal (used every tick by the manipulation owner's goal ramp); no-op when unlocked."""
+        if self.target is None:
+            return False
+        self.target = (float(x), float(y), float(yaw)); return True
+
     def unlock(self, t, source="explicit"):
         if self.target is None:
             return
