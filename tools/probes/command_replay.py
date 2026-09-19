@@ -191,6 +191,18 @@ if scene:
     PhysxSchema.PhysxContactReportAPI.Apply(obj_prim).CreateThresholdAttr(0.); PhysxSchema.PhysxRigidBodyAPI.Apply(obj_prim).CreateSleepThresholdAttr(0.)
     cyl = UsdGeom.Cylinder.Define(world.stage, '/World/Scene/Object/Body'); cyl.CreateAxisAttr('Z'); cyl.CreateRadiusAttr(r_); cyl.CreateHeightAttr(L_)
     cyl.CreateDisplayColorAttr([Gf.Vec3f(.15, .15, .18)]); collide(cyl.GetPrim())
+    # Sprint O (declared props, optional): a base disc under the rod (paper-roll-holder / stand shape) as a second collider of the SAME
+    # rigid body: object.base = {"radius_m": R, "thickness_m": T, "mass_kg": M}; the disc sits under the rod's bottom end (its top at the
+    # rod bottom); total mass = rod + base with the combined inertia about the combined COM; dimensions declared before physics.
+    base_ = o.get('base')
+    if base_:
+        Rb, Tb, Mb = float(base_['radius_m']), float(base_['thickness_m']), float(base_['mass_kg'])
+        disc = UsdGeom.Cylinder.Define(world.stage, '/World/Scene/Object/Base'); disc.CreateAxisAttr('Z'); disc.CreateRadiusAttr(Rb); disc.CreateHeightAttr(Tb)
+        disc.AddTranslateOp().Set(Gf.Vec3d(0., 0., -L_ / 2. - Tb / 2.)); disc.CreateDisplayColorAttr([Gf.Vec3f(.25, .25, .28)]); collide(disc.GetPrim())
+        Mt = m_ + Mb; zc = (m_ * 0. + Mb * (-L_ / 2. - Tb / 2.)) / Mt   # combined COM along the rod axis (rod centre at 0)
+        Irod_xy = m_ * (3 * r_ * r_ + L_ * L_) / 12.; Idisc_xy = Mb * (3 * Rb * Rb + Tb * Tb) / 12.
+        Ixy = Irod_xy + m_ * zc * zc + Idisc_xy + Mb * (-L_ / 2. - Tb / 2. - zc) ** 2; Iz = m_ * r_ * r_ / 2. + Mb * Rb * Rb / 2.
+        massapi.CreateMassAttr(Mt); massapi.CreateCenterOfMassAttr(Gf.Vec3f(0., 0., zc)); massapi.CreateDiagonalInertiaAttr(Gf.Vec3f(Ixy, Ixy, Iz))
     # Sprint O (declared props, optional): static stems/pedestals standing on the table top, e.g. a pen-holder stem under a tube,
     # so that a fingers-down hook grasp can reach the object with the fingertips hanging below its bottom. Static colliders
     # (no RigidBodyAPI), same contact material, dimensions declared in the probe config before physics; recorded in scene_facts.
@@ -203,7 +215,7 @@ if scene:
     disk_z = pz + t['top_z_pelvis_m'] + .001 + max([float(ped['height_m']) for ped in pedestals if abs(ped['center_xy_m'][0] - d['center_xy_m'][0]) < 1e-6 and abs(ped['center_xy_m'][1] - d['center_xy_m'][1]) < 1e-6] or [0.0])
     disk.AddTranslateOp().Set(Gf.Vec3d(d['center_xy_m'][0], d['center_xy_m'][1], disk_z)); disk.CreateDisplayColorAttr([Gf.Vec3f(.2, .6, .9)])   # visual only, no collision
     scene_facts = {'table_top_z_world_m': pz + t['top_z_pelvis_m'], 'object_center_world_m': [o['center_pelvis_m'][0], o['center_pelvis_m'][1], pz + o['center_pelvis_m'][2]], 'object': o, 'table': t, 'destination': d,
-                   'pedestals': pedestals, 'object_prim': '/World/Scene/Object', 'object_is_free_rigid_body': True, 'attachments_or_welds': None, 'material': {'static': float(scene.get('static_friction', .7)), 'dynamic': float(scene.get('dynamic_friction', .6))},
+                   'pedestals': pedestals, 'object_base': o.get('base'), 'object_prim': '/World/Scene/Object', 'object_is_free_rigid_body': True, 'attachments_or_welds': None, 'material': {'static': float(scene.get('static_friction', .7)), 'dynamic': float(scene.get('dynamic_friction', .6))},
                    'floor_present': False, 'support': 'pelvis fixed to the world at z = 1.0 m (shown in all views)'}
 for p in world.stage.Traverse():
     if p.HasAPI(PhysxSchema.PhysxArticulationAPI):
