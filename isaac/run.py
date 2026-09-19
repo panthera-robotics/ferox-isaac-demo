@@ -40,6 +40,7 @@ import omni.appwindow  # Contains handle to keyboard
 import sim_utils as ros_utils
 import viewport_follow  # PANTHERA: flag-gated viewport-follow for x11grab capture
 import capture_frames  # PANTHERA (Sprint M): flag-gated headless chase-camera PNG capture (G1_CAPTURE_DIR)
+import ownership  # PANTHERA (Sprint N): flag-gated body/arm/hand ownership arbiter (G1_OWNERSHIP)
 import yaml
 from isaacsim.core.api import World
 from isaacsim.core.utils.prims import define_prim
@@ -827,6 +828,28 @@ class G1VelocityPolicy(PolicyController):
                 flush=True,
             )
 
+        self._arbiter = None
+        self._manip_script = None
+        self.command_allowed = True
+        if ownership.enabled():
+            names_all = list(self.robot.dof_names)
+            policy_order = G1_29DOF_SIM_ORDER if self._body_idx is not None else names_all
+            self._arbiter = ownership.OwnershipArbiter(
+                policy_order, names_all,
+                v_settle=float(os.environ.get("G1_OWNERSHIP_V_SETTLE", "0.05")),
+                settle_s=float(os.environ.get("G1_OWNERSHIP_SETTLE_S", "1.0")),
+                return_s=float(os.environ.get("G1_OWNERSHIP_RETURN_S", "1.0")),
+                journal_path=os.environ.get("G1_OWNERSHIP_JOURNAL", "/tmp/ownership_journal.jsonl"),
+            )
+            script = os.environ.get("G1_OWNERSHIP_SCRIPT", "").strip()
+            if script:
+                spec = json.load(open(script, "r", encoding="utf-8")) if os.path.isfile(script) else json.loads(script)
+                self._manip_script = ownership.ScriptedManipulationSource(spec, self._arbiter)
+                print(f"[ownership] scripted manipulation source: {spec.get('cycles', 1)} cycle(s), joints {spec['schedule']['joints']}", flush=True)
+            if os.environ.get("G1_OWNERSHIP_ROS", "1").strip().lower() in ("1", "true", "yes", "on"):
+                ownership.setup_ros(self._arbiter)
+            self._hand_all_idx = {n: names_all.index(n) for n in self._arbiter.hand_names}
+
         total_obs_size = sum(
             term_sizes[name] * self._history_length for name in self._obs_term_names
         )
@@ -913,11 +936,23 @@ class G1VelocityPolicy(PolicyController):
             ).astype(np.float32)
             target_pos = target_pos.copy()
             target_pos[sch["idx"]] = q
+        hand_targets = None
+        if self._arbiter is not None:
+            lin = self.robot.get_linear_velocity()
+            pos_w, _ = self.robot.get_world_pose()
+            speed = float(np.hypot(float(lin[0]), float(lin[1])))
+            if self._manip_script is not None:
+                self._manip_script.step(self._arbiter.t, self._arbiter.state)
+            target_pos, hand_targets, self.command_allowed = self._arbiter.step(dt, speed, float(pos_w[2]), target_pos)
         if self._body_idx is not None:
             action = ArticulationAction(joint_positions=target_pos, joint_indices=self._body_idx)
         else:
             action = ArticulationAction(joint_positions=target_pos)
         self.robot.apply_action(action)
+        if hand_targets:
+            idx = np.array([self._hand_all_idx[n] for n in hand_targets], dtype=np.int64)
+            vals = np.array([hand_targets[n] for n in hand_targets], dtype=np.float32)
+            self.robot.apply_action(ArticulationAction(joint_positions=vals, joint_indices=idx))
         self._policy_counter += 1
 
 
@@ -1327,6 +1362,8 @@ class RobotRosRunner(object):
                     cmd = cmd + cmd_vel
 
         cmd = np.minimum(np.maximum(cmd, self._cmd_min), self._cmd_max)
+        if not getattr(self._robot, "command_allowed", True):
+            cmd = np.zeros(3, dtype=np.float32)  # PANTHERA (Sprint N): the ownership arbiter holds the base still outside WALK
         self._robot.forward(step_size, cmd)
         self._update_odom()
 
