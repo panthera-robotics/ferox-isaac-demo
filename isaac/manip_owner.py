@@ -67,6 +67,7 @@ class Rod30Source:
         # pelvis->torso_link zero-waist offset removed) at the moment the dwell ends.
         self.spawn_at_stage = os.environ.get("G1_MANIP_SPAWN_AT_STAGE", "").strip() or None
         self.spawn_frame = os.environ.get("G1_MANIP_SPAWN_FRAME", "pelvis").strip().lower() or "pelvis"
+        if self.spawn_frame == "torso_link": self.spawn_frame = "torso"      # alias used in the coordinator's declaration
         self._spawn_pending = False
         self._split_row = None; self._resume_pending = False; self._grants = 0
         self.spawn_scene = spawn_scene; self.gravity_ff = gravity_ff
@@ -150,11 +151,43 @@ class Rod30Source:
             pos = tpos if scene_frame == "torso_link" else tpos - Rt @ self.PELVIS_TO_TORSO_ZERO_WAIST   # the planner's pelvis origin = torso origin minus the zero-waist offset, in the torso frame
             frame = {"kind": "torso", "scene_block_frame": scene_frame, "torso_pos": [round(float(v), 4) for v in tpos], "torso_rpy_deg": [round(math.degrees(v), 2) for v in _rpy(Rt)],
                      "effective_pelvis_pos": [round(float(v), 4) for v in pos], "props_orientation": "world-upright, torso yaw", "pelvis_measured": {"pos": [round(float(v), 4) for v in robot.get_world_pose()[0]], "rpy_deg": [round(math.degrees(v), 2) for v in _rpy(_quat_wxyz_to_R(robot.get_world_pose()[1]))]}}
-        self._spawn(pos, R, quat, upright_from_object=(self.spawn_frame == "torso"))
+        self._spawn(pos, R, quat, upright_from_object=(self.spawn_frame == "torso"), sc=self._scene_block(scene_frame if self.spawn_frame == "torso" else "pelvis_zero_waist"))
         self._subscribe_contacts(); self._spawn_pending = False
         self._j("scene_spawned_at_stage", {"t": round(t, 3), "stage": stage, "frame": frame})
 
-    def _spawn(self, pos, R, quat, upright_from_object=False):
+    def _scene_block(self, scene_frame):
+        """Effective scene block. A block declared in the torso_link frame carries its coordinates in a 'torso_link_frame' sub-block
+        (object_center_torso_link_m, destination_center_torso_link_m, table_center_top_torso_link_m, object_bottom_to_table_top_gap_m);
+        those replace the pelvis-frame numbers when the spawn happens in the torso frame."""
+        import copy, re
+        sc = copy.deepcopy(self.spec["scene_pelvis_relative"]); tl = sc.get("torso_link_frame")
+        if scene_frame == "torso_link" and tl:
+            # The planner's arm rows hang from a torso_link PITCHED by the planned waist angle (e.g. 0.34 rad) on an upright pelvis.
+            # The physically correct torso_link coordinates of a pelvis-frame point p are R_y(waist)^T (p - t); a declaration that
+            # lists R = identity for the pelvis->torso transform is only a translation (p - t) and would place the object ~15 cm too
+            # low on a torso that really is pitched. We therefore derive the torso_link coordinates from the unambiguous pelvis-
+            # frame numbers with the declared planned waist pitch (explicit 'planned_waist_pitch_rad', else parsed from the
+            # 'pelvis_T_torso_link_at_waist_<rad>' key), and journal both for the record.
+            key = next((k for k in tl if k.startswith("pelvis_T_torso_link")), None); tr = tl.get(key, {}) if key else {}
+            t = np.asarray(tr.get("t", self.PELVIS_TO_TORSO_ZERO_WAIST), float)
+            m = re.search(r"at_waist_([0-9.]+)", key or ""); waist = float(tl.get("planned_waist_pitch_rad", m.group(1) if m else 0.0))
+            c, sn = math.cos(waist), math.sin(waist); RyT = np.array([[c, 0.0, -sn], [0.0, 1.0, 0.0], [sn, 0.0, c]])   # R_y(waist)^T
+            def T(p_pelvis): return (RyT @ (np.asarray(p_pelvis, float) - t)).tolist()
+            obj_p = list(sc["object"]["center_pelvis_m"]); obj_t = T(obj_p)
+            dest_p = (sc.get("destination", {}).get("center_xy_pelvis_m") or sc.get("destination", {}).get("center_xy_m") or [0.57, -0.14])
+            dest_t = T([dest_p[0], dest_p[1], obj_p[2]])                     # destination at the object's height
+            tab = sc["table"]; tab_t = T([tab["center_xy_m"][0], tab["center_xy_m"][1], float(tab["top_z_pelvis_m"])])
+            gap = float(sc.get("support_top_z_pelvis_m", tab["top_z_pelvis_m"])) - float(tab["top_z_pelvis_m"])
+            sc["object"]["center_pelvis_m"] = obj_t
+            sc.setdefault("destination", {})["center_xy_m"] = dest_t[:2]; sc["destination"].pop("center_xy_pelvis_m", None)
+            sc["table"]["center_xy_m"] = tab_t[:2]; sc["table"]["top_z_pelvis_m"] = obj_t[2] - float(sc["object"]["length_m"]) / 2.0 - gap   # stack under the object (props go world-upright anyway)
+            sc["support_top_z_pelvis_m"] = sc["table"]["top_z_pelvis_m"] + gap
+            sc["_effective_from"] = "torso_link_frame (pelvis-frame numbers rotated by the planned waist pitch)"
+            sc["_torso_link_derivation"] = {"planned_waist_pitch_rad": waist, "t": t.tolist(), "object_torso_link_true": obj_t, "object_torso_link_declared": tl.get("object_center_torso_link_m"),
+                                            "destination_torso_link_true": dest_t, "table_top_center_torso_link_true": tab_t}
+        return sc
+
+    def _spawn(self, pos, R, quat, upright_from_object=False, sc=None):
         """Realise the declared pelvis-relative scene: positions = pos + R @ p_rel; orientations = quat. With upright_from_object
         (torso-frame spawn) the object keeps its transformed position but the table / stems / destination are placed WORLD-
         UPRIGHT with the table top at the object's resting bottom minus the declared table-top-to-support gap, so the object
@@ -162,7 +195,7 @@ class Rod30Source:
         try:
             from isaacsim.core.api.objects import DynamicCylinder, FixedCuboid, FixedCylinder, VisualCylinder
             from isaacsim.core.api.materials import PhysicsMaterial
-            sc = self.spec["scene_pelvis_relative"]; pos = np.asarray(pos, float)
+            sc = sc or self.spec["scene_pelvis_relative"]; pos = np.asarray(pos, float); self._sc_eff = sc
             def W(rel): return (pos + R @ np.asarray(rel, float)).tolist()
             tb = sc["table"]; sz = tb["size_m"]; tc = [tb["center_xy_m"][0], tb["center_xy_m"][1], float(tb["top_z_pelvis_m"]) - sz[2] / 2.0]
             ob = sc["object"]; support_z = float(sc.get("support_top_z_pelvis_m", tb["top_z_pelvis_m"])); gap = support_z - float(tb["top_z_pelvis_m"])
@@ -193,8 +226,9 @@ class Rod30Source:
             VisualCylinder(prim_path="/World/ManipScene/Destination", position=np.array([dest_w[0], dest_w[1], dest_w[2] + 0.001]), orientation=np.array(quat, dtype=float), radius=float(dest.get("radius_m", 0.03)), height=0.002, color=np.array([0.2, 0.8, 0.3]))
             support_top_w = (top_w + gap) if upright_from_object else W([ob["center_pelvis_m"][0], ob["center_pelvis_m"][1], support_z])[2]
             self._scene = {"table_world": tc_w, "rod_world": rod_w, "destination_world": dest_w, "stems": stems, "object_base": base, "upright_from_object": bool(upright_from_object),
-                           "support_top_z_pelvis_m": support_z, "support_top_world_z": support_top_w}
-            self._j("scene_spawned", dict(self._scene, lifted_task_rule=self.lifted_task_rule, lifted_frozen_rule="rod centre >= 0.06 m above the support top",
+                           "support_top_z_pelvis_m": support_z, "support_top_world_z": support_top_w, "scene_block_effective_from": sc.get("_effective_from", "scene_pelvis_relative"),
+                           "object_center_rel": list(ob["center_pelvis_m"]), "table_top_rel": float(tb["top_z_pelvis_m"])}
+            self._j("scene_spawned", dict(self._scene, lifted_task_rule=self.lifted_task_rule, lifted_frozen_rule="rod centre >= 0.06 m above the support top", torso_link_derivation=sc.get("_torso_link_derivation"),
                                           lifted_frozen_rule_trivial_at_rest=bool(float(ob["length_m"]) / 2.0 >= 0.06)))   # a >= 12 cm object satisfies the rod30 rule while resting
         except Exception as exc:
             self._scene = None; self._obj = None
