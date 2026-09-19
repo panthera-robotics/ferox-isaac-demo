@@ -185,7 +185,7 @@ class Rod30Source:
         if wr is not None and self._scene is not None:
             dw = np.asarray(self._scene["rod_world"], float) - np.asarray(wr[:3], float)
             off = {"puck_minus_wrist_world_m": [round(float(v), 4) for v in dw], "puck_minus_wrist_frame_m": [round(float(v), 4) for v in (np.asarray(R).T @ dw)], "wrist_world": wr[:3],
-                   "note": "wrist_yaw_link origin; the palm/fingers extend ~0.1-0.2 m beyond it"}
+                   "puck_minus_wrist_wrist_frame_m": (self._puck_wrist_offset() or {}).get("wrist_frame_m"), "note": "wrist_yaw_link origin; the palm/fingers extend ~0.1-0.2 m beyond it"}
         self._j("scene_spawned_at_stage", {"t": round(t, 3), "stage": stage, "frame": frame, "hand_object_offset": off})
 
     def _scene_block(self, scene_frame):
@@ -342,6 +342,19 @@ class Rod30Source:
             self._ff_layout_logged = True; self._j("gravity_ff_layout", layout)
         return g
 
+    def _puck_wrist_offset(self):
+        """puck-minus-wrist in world and in the right wrist_yaw_link frame (physics view xyzw quaternion), or None."""
+        wr = self._wrist_pose()
+        if wr is None or self._obj is None:
+            return None
+        try:
+            p, _ = self._obj.get_world_pose(); dw = np.asarray(p, float) - np.asarray(wr[:3], float)
+            x, y, z, w = [float(v) for v in wr[3:7]]
+            Rw = np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
+            return {"world_m": [round(float(v), 4) for v in dw], "wrist_frame_m": [round(float(v), 4) for v in (Rw.T @ dw)]}
+        except Exception:
+            return None
+
     def _wrist_pose(self):
         try:
             view = self._view(); names = list(view.body_names); i = names.index("right_wrist_yaw_link")
@@ -428,6 +441,8 @@ class Rod30Source:
                 self._spawn_at_stage_now(t, r.get("stage"))
             if self.station_quiet_stages and getattr(self.arb, "station", None) is not None:
                 self.arb.station.mute = r.get("stage") in self.station_quiet_stages
+            if r.get("stage") != getattr(self, "_last_stage", None):
+                self._last_stage = r.get("stage"); self._j("stage", {"k": k, "stage": r.get("stage"), "sp": round(sp, 3), "puck_minus_wrist": self._puck_wrist_offset()})
             if self._n % 200 == 0:
                 self._j("row", {"k": k, "stage": r.get("stage"), "sp": round(sp, 3)})
             if self.split_stage and self._split_row is None and r.get("stage") == self.split_stage:
