@@ -129,10 +129,10 @@ class Rod30Source:
         self._grants += 1
         if self._grants == 1:
             self._pelvis0 = (np.asarray(pos, float).copy(), rpy)
-            if self.spawn_scene and self.scene_world:
+            if self.spawn_scene and self.scene_world and not self.spawn_at_stage:
                 self._spawn_world_now()
             elif self.spawn_scene and self.spawn_at_stage:
-                self._spawn_pending = True; self._j("scene_spawn_deferred", {"until_stage": self.spawn_at_stage, "frame": self.spawn_frame})
+                self._spawn_pending = True; self._j("scene_spawn_deferred", {"until_stage": self.spawn_at_stage, "frame": "world" if self.scene_world else self.spawn_frame})
             elif self.spawn_scene:
                 self._spawn(pos, R, quat)
                 self._subscribe_contacts()
@@ -158,7 +158,10 @@ class Rod30Source:
         self._j("scene_spawned_world", {"file": self.scene_world, "declared": sc["_world_declared"]})
 
     def _spawn_at_stage_now(self, t, stage):
-        """Deferred spawn: realise the declared pelvis-relative scene at this instant in the declared frame."""
+        """Deferred spawn: realise the declared scene at this instant — world coordinates if declared, else the pelvis-relative
+        block in the declared frame."""
+        if self.scene_world:
+            self._spawn_world_now(); self._spawn_pending = False; self._j("scene_spawned_at_stage", {"t": round(t, 3), "stage": stage, "frame": {"kind": "world", "file": self.scene_world}}); return
         robot = self.policy.robot; pos, quat = robot.get_world_pose(); R = _quat_wxyz_to_R(quat)
         frame = {"kind": "pelvis", "pos": [round(float(v), 4) for v in pos], "rpy_deg": [round(math.degrees(v), 2) for v in _rpy(R)]}
         if self.spawn_frame == "torso":
