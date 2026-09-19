@@ -41,11 +41,12 @@ import sim_utils as ros_utils
 import viewport_follow  # PANTHERA: flag-gated viewport-follow for x11grab capture
 import capture_frames  # PANTHERA (Sprint M): flag-gated headless chase-camera PNG capture (G1_CAPTURE_DIR)
 import ownership  # PANTHERA (Sprint N): flag-gated body/arm/hand ownership arbiter (G1_OWNERSHIP)
+import manip_owner  # PANTHERA (Sprint N): flag-gated rod30 manipulation owner (G1_MANIP_REFERENCE)
 import yaml
 from isaacsim.core.api import World
 from isaacsim.core.utils.prims import define_prim
 from isaacsim.core.utils.rotations import quat_to_rot_matrix
-from isaacsim.core.utils.types import ArticulationAction
+from isaacsim.core.utils.types import ArticulationAction, ArticulationActions
 from isaacsim.robot.policy.examples.controllers import PolicyController
 from isaacsim.robot.policy.examples.controllers.config_loader import (
     get_action,
@@ -849,6 +850,14 @@ class G1VelocityPolicy(PolicyController):
             if os.environ.get("G1_OWNERSHIP_ROS", "1").strip().lower() in ("1", "true", "yes", "on"):
                 ownership.setup_ros(self._arbiter)
             self._hand_all_idx = {n: names_all.index(n) for n in self._arbiter.hand_names}
+            self._manip_ref = None
+            if manip_owner.enabled():
+                jdir = os.path.dirname(os.environ.get("G1_OWNERSHIP_JOURNAL", "/tmp/ownership_journal.jsonl")) or "/tmp"
+                self._manip_ref = manip_owner.Rod30Source(
+                    os.environ["G1_MANIP_REFERENCE"], self._arbiter, self, jdir,
+                    spawn_scene=os.environ.get("G1_MANIP_SPAWN_SCENE", "1").strip().lower() in ("1", "true", "yes", "on"),
+                    gravity_ff=os.environ.get("G1_MANIP_GRAVITY_FF", "1").strip().lower() in ("1", "true", "yes", "on"),
+                )
 
         total_obs_size = sum(
             term_sizes[name] * self._history_length for name in self._obs_term_names
@@ -937,13 +946,16 @@ class G1VelocityPolicy(PolicyController):
             target_pos = target_pos.copy()
             target_pos[sch["idx"]] = q
         hand_targets = None
+        extra_efforts = None
         if self._arbiter is not None:
             lin = self.robot.get_linear_velocity()
             pos_w, _ = self.robot.get_world_pose()
             speed = float(np.hypot(float(lin[0]), float(lin[1])))
             if self._manip_script is not None:
                 self._manip_script.step(self._arbiter.t, self._arbiter.state)
-            target_pos, hand_targets, self.command_allowed = self._arbiter.step(dt, speed, float(pos_w[2]), target_pos)
+            if getattr(self, "_manip_ref", None) is not None:
+                self._manip_ref.step(self._arbiter.t, self._arbiter.state)
+            target_pos, hand_targets, self.command_allowed, extra_efforts = self._arbiter.step(dt, speed, float(pos_w[2]), target_pos)
         if self._body_idx is not None:
             action = ArticulationAction(joint_positions=target_pos, joint_indices=self._body_idx)
         else:
@@ -953,6 +965,11 @@ class G1VelocityPolicy(PolicyController):
             idx = np.array([self._hand_all_idx[n] for n in hand_targets], dtype=np.int64)
             vals = np.array([hand_targets[n] for n in hand_targets], dtype=np.float32)
             self.robot.apply_action(ArticulationAction(joint_positions=vals, joint_indices=idx))
+        if extra_efforts:
+            names_all = list(self.robot.dof_names)
+            idx = np.array([names_all.index(n) for n in extra_efforts], dtype=np.int64)
+            vals = np.array([extra_efforts[n] for n in extra_efforts], dtype=np.float32)
+            self.robot._articulation_view.apply_action(ArticulationActions(joint_efforts=vals[None, :], joint_indices=idx))
         self._policy_counter += 1
 
 

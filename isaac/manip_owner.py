@@ -1,0 +1,241 @@
+# PANTHERA (Sprint N, wb-cand-N02): the rod30 MANIPULATION OWNER for the ownership arbiter. Off unless G1_MANIP_REFERENCE is set.
+#
+# Plays the coordinator's manipulation reference schedule (manip-rod30-v1: 14 arm joints in ABSOLUTE URDF radians + the
+# 6 independent right-hand joints, sim-time zero-order hold) through the arbiter as the manipulation owner:
+#   WAIT -> (arbiter grants MANIP) -> BLEND_IN (policy arm targets -> row 0, hand open -> row 0, blend_in_s)
+#        -> PLAY (rows by sim time since the end of the blend) -> BLEND_OUT (last row -> policy DEFAULT arm pose, blend_out_s)
+#        -> release (the arbiter's RETURNING ramp then hands the arms back to the live policy targets)
+# On grant: records the previous drive gains, sets the manipulation gains (arm kp/kd and hand kp/kd from the schedule), spawns the
+# pelvis-relative scene (static table, free cylinder, visual destination disc) at the MEASURED pelvis pose, journals the pelvis
+# pose; every step in MANIP: gravity feed-forward = the articulation's generalized gravity forces on the commanded arm joints,
+# ramped over 1 s, capped at the drive's own max effort; on RETURNING->WALK: gains restored, efforts off. Object pose traced.
+# Nothing here writes joint STATE; the runtime remains the only actuator writer (targets/efforts flow through the arbiter).
+import json
+import math
+import os
+import time
+
+import numpy as np
+
+from ownership import ARMS
+
+
+def enabled() -> bool:
+    return bool(os.environ.get("G1_MANIP_REFERENCE", "").strip())
+
+
+def _quat_wxyz_to_R(q):
+    w, x, y, z = [float(v) for v in q]
+    return np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                     [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                     [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]], dtype=float)
+
+
+def _rpy(R):
+    return (math.atan2(R[2, 1], R[2, 2]), math.atan2(-R[2, 0], math.hypot(R[2, 1], R[2, 2])), math.atan2(R[1, 0], R[0, 0]))
+
+
+class Rod30Source:
+    def __init__(self, schedule_path, arbiter, policy, journal_dir, *, spawn_scene=True, gravity_ff=True):
+        self.spec = json.load(open(schedule_path, "r", encoding="utf-8"))
+        self.arb = arbiter; self.policy = policy; self.jdir = journal_dir
+        self.arm_joints = list(self.spec["arm_joints"]); self.hand_joints = list(self.spec["hand_joints_right_independent"])
+        self.rows = self.spec["rows"]; self.row_t = np.array([float(r["t"]) for r in self.rows])
+        hc = self.spec.get("handoff_contract", {}); self.blend_in = float(hc.get("blend_in_s", 2.0)); self.blend_out = float(hc.get("blend_out_s", 2.0))
+        g = self.spec.get("gains_while_manipulation_owner_holds", {})
+        self.arm_kp = g.get("arm_kp_nm_rad", {}); self.arm_kd = g.get("arm_kd_nm_s_rad", g.get("arm_kd", {}))
+        hk = g.get("hand_kp_nm_rad", 1.0); hd = g.get("hand_kd_nm_s_rad", 0.05)
+        self.hand_kp = hk if isinstance(hk, dict) else {n: float(hk) for n in self.hand_joints}
+        self.hand_kd = hd if isinstance(hd, dict) else {n: float(hd) for n in self.hand_joints}
+        self.request_at = float(os.environ.get("G1_MANIP_REQUEST_AT_S", "0") or 0)   # > 0: request MANIP once at this sim time (from WALK)
+        self.spawn_scene = spawn_scene; self.gravity_ff = gravity_ff
+        self.phase = "WAIT"; self._t_grant = None; self._arm_start = None; self._grant_walltime = None
+        self._prev_gains = None; self._scene = None; self._obj = None; self._trace = None; self._n = 0
+        self._pelvis0 = None; self._ff_clips = 0; self._contacts = {"rod_hand": 0, "rod_table": 0, "rod_other": 0, "rows": 0}; self._contact_sub = None
+        self._flags = {"lifted": False, "held_after_lift": False, "transported": False, "released_resting": False}; self._grasp_seen = False
+        self.default_arm = None
+        self._log = open(os.path.join(journal_dir, "manip_owner.jsonl"), "a", encoding="utf-8")
+        arbiter.hooks["grant"].append(self._on_grant); arbiter.hooks["walk"].append(self._on_walk)
+        self._j("init", {"schedule": self.spec.get("version"), "rows": len(self.rows), "duration_s": self.spec.get("duration_s"),
+                         "arm_joints": self.arm_joints, "hand_joints": self.hand_joints, "blend_in_s": self.blend_in, "blend_out_s": self.blend_out,
+                         "spawn_scene": spawn_scene, "gravity_ff": gravity_ff})
+
+    def _j(self, event, detail=None):
+        row = {"t": round(self.arb.t, 4), "wall": time.time(), "event": event, "phase": self.phase, "detail": detail}
+        self._log.write(json.dumps(row) + "\n"); self._log.flush()
+        print(f"[manip_owner] t={self.arb.t:8.3f} {event} {json.dumps(detail)[:300] if detail else ''}", flush=True)
+
+    # ---- articulation helpers ---------------------------------------------------------------------------------------
+    def _view(self):
+        return self.policy.robot._articulation_view
+
+    def _all_names(self):
+        return list(self.policy.robot.dof_names)
+
+    def _on_grant(self, arb):
+        robot = self.policy.robot
+        pos, quat = robot.get_world_pose(); R = _quat_wxyz_to_R(quat); rpy = _rpy(R)
+        self._j("grant", {"pelvis_pos": [round(float(v), 4) for v in pos], "pelvis_quat_wxyz": [round(float(v), 5) for v in quat],
+                          "pelvis_rpy_deg": [round(math.degrees(v), 2) for v in rpy]})
+        names = self._all_names(); view = self._view()
+        # policy arm targets at handoff = the policy's current target vector for the arm joints (policy order)
+        pt = self.policy._action_offset + self.policy._action_scale * self.policy.action
+        self._arm_start = {n: float(pt[self.policy_names().index(n)]) for n in self.arm_joints}
+        self.default_arm = {n: float(self.policy.default_pos[self.policy_names().index(n)]) for n in self.arm_joints}
+        # gains: record, then set the manipulation gains on the arm and the right hand's independent joints
+        kps, kds = view.get_gains(); kps = np.asarray(kps).reshape(-1).copy(); kds = np.asarray(kds).reshape(-1).copy()
+        self._prev_gains = (kps.copy(), kds.copy())
+        idx = [names.index(n) for n in self.arm_joints + self.hand_joints]
+        new_kp = np.array([float(self.arm_kp.get(n, 60.0)) for n in self.arm_joints] + [float(self.hand_kp.get(n, 1.0)) for n in self.hand_joints], dtype=np.float32)
+        new_kd = np.array([float(self.arm_kd.get(n, 1.5)) for n in self.arm_joints] + [float(self.hand_kd.get(n, 0.05)) for n in self.hand_joints], dtype=np.float32)
+        view.set_gains(new_kp, new_kd, joint_indices=np.array(idx, dtype=np.int64))
+        self._max_eff = np.asarray(view.get_max_efforts()).reshape(-1)
+        self._j("gains_set", {"arm_kp": float(new_kp[0]), "arm_kd": float(new_kd[0]), "hand_kp": float(new_kp[-1]), "hand_kd": float(new_kd[-1]),
+                              "prev_arm_kp": float(kps[names.index(self.arm_joints[0])]), "prev_hand_kp": float(kps[names.index(self.hand_joints[0])]),
+                              "arm_max_effort": {n: float(self._max_eff[names.index(n)]) for n in self.arm_joints}})
+        self._pelvis0 = (np.asarray(pos, float).copy(), rpy)
+        if self.spawn_scene:
+            self._spawn(pos, R, quat)
+            self._subscribe_contacts()
+        self._t_grant = arb.t; self.phase = "BLEND_IN"; self._j("BLEND_IN", {"arm_start": self._arm_start})
+
+    def _spawn(self, pos, R, quat):
+        try:
+            from isaacsim.core.api.objects import DynamicCylinder, FixedCuboid, VisualCylinder
+            from isaacsim.core.api.materials import PhysicsMaterial
+            sc = self.spec["scene_pelvis_relative"]; pos = np.asarray(pos, float)
+            def W(rel): return (pos + R @ np.asarray(rel, float)).tolist()
+            tb = sc["table"]; sz = tb["size_m"]; tc = [tb["center_xy_m"][0], tb["center_xy_m"][1], float(tb["top_z_pelvis_m"]) - sz[2] / 2.0]
+            mat = PhysicsMaterial(prim_path="/World/ManipScene/Material", static_friction=float(sc.get("static_friction", 0.7)), dynamic_friction=float(sc.get("dynamic_friction", 0.6)), restitution=0.0)
+            table = FixedCuboid(prim_path="/World/ManipScene/Table", position=np.array(W(tc)), orientation=np.array(quat, dtype=float), scale=np.array(sz, dtype=float), color=np.array([0.55, 0.4, 0.25]), physics_material=mat)
+            ob = sc["object"]
+            self._obj = DynamicCylinder(prim_path="/World/ManipScene/Rod", position=np.array(W(ob["center_pelvis_m"])), orientation=np.array(quat, dtype=float), radius=float(ob["radius_m"]), height=float(ob["length_m"]), mass=float(ob["mass_kg"]), color=np.array([0.9, 0.2, 0.2]), physics_material=mat)
+            dest = sc.get("destination", {}); dc = dest.get("center_xy_pelvis_m") or dest.get("center_xy_m") or [0.57, -0.14]
+            VisualCylinder(prim_path="/World/ManipScene/Destination", position=np.array(W([dc[0], dc[1], float(tb["top_z_pelvis_m"]) + 0.001])), orientation=np.array(quat, dtype=float), radius=float(dest.get("radius_m", 0.03)), height=0.002, color=np.array([0.2, 0.8, 0.3]))
+            self._scene = {"table_world": W(tc), "rod_world": W(ob["center_pelvis_m"]), "destination_world": W([dc[0], dc[1], float(tb["top_z_pelvis_m"])])}
+            self._j("scene_spawned", self._scene)
+        except Exception as exc:
+            self._scene = None; self._obj = None
+            self._j("scene_spawn_failed", {"error": repr(exc)})
+
+    def _subscribe_contacts(self):
+        try:
+            from omni.physx import get_physx_simulation_interface
+            from pxr import PhysxSchema
+            import omni.usd
+            stage = omni.usd.get_context().get_stage()
+            prim = stage.GetPrimAtPath("/World/ManipScene/Rod")
+            api = PhysxSchema.PhysxContactReportAPI.Apply(prim); api.CreateThresholdAttr(0.0)
+
+            def _cb(headers, data):
+                for h in headers:
+                    a = str(h.actor0); b = str(h.actor1)
+                    if "/World/ManipScene/Rod" not in (a, b):
+                        continue
+                    other = b if a.endswith("Rod") else a
+                    if "/World/G1/right_" in other or "/World/G1/" in other and any(k in other for k in ("index", "middle", "ring", "little", "thumb", "wrist", "base_link")):
+                        self._contacts["rod_hand"] += 1
+                    elif "ManipScene/Table" in other:
+                        self._contacts["rod_table"] += 1
+                    else:
+                        self._contacts["rod_other"] += 1
+                    self._contacts["rows"] += 1
+
+            self._contact_sub = get_physx_simulation_interface().subscribe_contact_report_events(_cb)
+            self._j("contact_report_subscribed", {"prim": "/World/ManipScene/Rod"})
+        except Exception as exc:
+            self._j("contact_report_unavailable", {"error": repr(exc)})
+
+    def _wrist_pose(self):
+        try:
+            view = self._view(); names = list(view.body_names); i = names.index("right_wrist_yaw_link")
+            tf = np.asarray(view._physics_view.get_link_transforms()).reshape(-1, len(names), 7)[0][i]
+            return [round(float(v), 4) for v in tf]
+        except Exception:
+            return None
+
+    def _trace_row(self, t):
+        robot = self.policy.robot; pos, quat = robot.get_world_pose(); R = _quat_wxyz_to_R(quat); rpy = _rpy(R)
+        row = {"t": round(t, 4), "phase": self.phase, "owners": self.arb.owner_by_group(), "pelvis": {"z": round(float(pos[2]), 4), "rpy_deg": [round(math.degrees(v), 2) for v in rpy]},
+               "pelvis_drift_since_handoff": {"xy_m": round(float(np.hypot(pos[0] - self._pelvis0[0][0], pos[1] - self._pelvis0[0][1])), 4), "z_m": round(float(pos[2] - self._pelvis0[0][2]), 4), "yaw_deg": round(math.degrees(rpy[2] - self._pelvis0[1][2]), 2)} if self._pelvis0 is not None else None,
+               "wrist_yaw_link_world": self._wrist_pose(), "ff_clip_count": self._ff_clips, "contacts": dict(self._contacts)}
+        if self._obj is not None and self._scene is not None:
+            try:
+                p, q = self._obj.get_world_pose(); v = self._obj.get_linear_velocity()
+                top = float(self._scene["table_world"][2]) + float(self.spec["scene_pelvis_relative"]["table"]["size_m"][2]) / 2.0
+                dest = np.asarray(self._scene["destination_world"][:2]); above = float(p[2]) - top
+                dxy = float(np.hypot(p[0] - dest[0], p[1] - dest[1])); speed = float(np.linalg.norm(np.asarray(v)))
+                in_hand = self._contacts["rod_hand"] > 0 and speed >= 0.0
+                if above >= 0.06 and self.phase == "PLAY": self._flags["lifted"] = True; self._grasp_seen = True
+                if self._flags["lifted"] and above >= 0.06: self._flags["held_after_lift"] = True
+                if self._flags["lifted"] and dxy <= 0.03: self._flags["transported"] = True
+                if self._flags["transported"] and abs(above - float(self.spec["scene_pelvis_relative"]["object"]["length_m"]) / 2.0) < 0.01 and speed < 0.02 and self.phase in ("BLEND_OUT", "RELEASED"): self._flags["released_resting"] = True
+                row["rod"] = {"pos": [round(float(x), 4) for x in p], "quat_wxyz": [round(float(x), 4) for x in q], "above_table_top_m": round(above, 4), "dist_to_destination_m": round(dxy, 4), "speed_m_s": round(speed, 4)}
+                row["flags"] = dict(self._flags)
+            except Exception as exc:
+                row["rod_error"] = repr(exc)
+        if self._trace is None:
+            self._trace = open(os.path.join(self.jdir, "manip_trace.jsonl"), "a", encoding="utf-8")
+        self._trace.write(json.dumps(row) + "\n"); self._trace.flush()
+
+    def _on_walk(self, arb):
+        if self._prev_gains is not None:
+            kps, kds = self._prev_gains; names = self._all_names()
+            idx = np.array([names.index(n) for n in self.arm_joints + self.hand_joints], dtype=np.int64)
+            self._view().set_gains(kps[idx].astype(np.float32), kds[idx].astype(np.float32), joint_indices=idx)
+            self._j("gains_restored", {"arm_kp": float(kps[idx[0]]), "hand_kp": float(kps[idx[-1]])})
+        self.arb.set_efforts(None); self.phase = "DONE"
+        self._j("DONE", {"flags": dict(self._flags), "contacts": dict(self._contacts), "ff_clip_count": self._ff_clips})
+
+    def policy_names(self):
+        return self.arb.policy_names
+
+    # ---- per step ----------------------------------------------------------------------------------------------------
+    def step(self, t, state):
+        if state == "WALK" and self.phase == "WAIT" and self.request_at > 0 and t >= self.request_at:
+            self.request_at = 0.0; self.arb.request_manip(source="rod30")
+        if state != "MANIP" or self.phase in ("WAIT", "DONE", "RELEASED"):
+            return
+        s = t - self._t_grant
+        if self.phase == "BLEND_IN":
+            a = min(1.0, s / max(1e-6, self.blend_in)); r0 = self.rows[0]
+            arm = [(1 - a) * self._arm_start[n] + a * float(r0["arm_q"][i]) for i, n in enumerate(self.arm_joints)]
+            hand = [a * float(r0["hand_q_right"][i]) for i in range(len(self.hand_joints))]
+            if a >= 1.0:
+                self.phase = "PLAY"; self._t_play = t; self._j("PLAY", {})
+        elif self.phase == "PLAY":
+            sp = t - self._t_play; k = int(np.searchsorted(self.row_t, sp, side="right") - 1); k = max(0, min(k, len(self.rows) - 1))
+            r = self.rows[k]; arm = [float(v) for v in r["arm_q"]]; hand = [float(v) for v in r["hand_q_right"]]
+            if self._n % 200 == 0:
+                self._j("row", {"k": k, "stage": r.get("stage"), "sp": round(sp, 3)})
+            if sp >= float(self.row_t[-1]):
+                self.phase = "BLEND_OUT"; self._t_out = t; self._last = (arm, hand); self._j("BLEND_OUT", {"to": "policy default arm pose"})
+        else:  # BLEND_OUT
+            a = min(1.0, (t - self._t_out) / max(1e-6, self.blend_out)); la, lh = self._last
+            arm = [(1 - a) * la[i] + a * self.default_arm[n] for i, n in enumerate(self.arm_joints)]
+            hand = [(1 - a) * lh[i] for i in range(len(self.hand_joints))]
+            if a >= 1.0:
+                self.arb.set_targets(self.arm_joints + self.hand_joints, arm + hand, source="rod30")
+                self.arb.release(source="rod30"); self.phase = "RELEASED"; self._j("released", {})
+                return
+        self.arb.set_targets(self.arm_joints + self.hand_joints, arm + hand, source="rod30")
+        # gravity feed-forward on the commanded arm joints, ramped over 1 s after grant, capped at the drive max effort
+        if self.gravity_ff:
+            try:
+                names = self._all_names(); g = np.asarray(self._view().get_generalized_gravity_forces()).reshape(-1)
+                ramp = min(1.0, s / 1.0); eff = {}
+                for n in self.arm_joints:
+                    i = names.index(n); cap = float(self._max_eff[i]) if self._max_eff is not None else 25.0
+                    raw = ramp * float(g[i]); eff[n] = float(np.clip(raw, -cap, cap))
+                    if abs(raw) > cap: self._ff_clips += 1
+                self.arb.set_efforts(eff)
+                if self._n % 200 == 0:
+                    self._j("gravity_ff", {"ramp": round(ramp, 2), "effort_nm": {k: round(v, 3) for k, v in eff.items()}})
+            except Exception as exc:
+                self.gravity_ff = False; self.arb.set_efforts(None); self._j("gravity_ff_disabled", {"error": repr(exc)})
+        if self._n % 10 == 0:
+            try:
+                self._trace_row(t)
+            except Exception as exc:
+                if self._n % 2000 == 0: self._j("trace_error", {"error": repr(exc)})
+        self._n += 1

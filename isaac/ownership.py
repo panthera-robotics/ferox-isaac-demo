@@ -53,7 +53,9 @@ class OwnershipArbiter:
         self._return_from = None
         self.refused = {"arm_targets_outside_manip": 0, "unknown_joint": 0, "request_while_moving_queued": 0}
         self.transitions = []
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
+        self.hooks = {"grant": [], "walk": []}      # callables(arbiter) run on SETTLING->MANIP and RETURNING->WALK
+        self._manip_effort = None                    # dict policy joint name -> extra joint effort (N m) while MANIP/RETURNING
         self._journal = open(journal_path, "a", encoding="utf-8") if journal_path else None
         self._log("init", {"policy_joints": len(self.policy_names), "arms": len(self.arm_idx), "locomotion": len(self.loco_idx),
                            "hands": len(self.hand_names), "v_settle": self.v_settle, "settle_s": self.settle_s, "return_s": self.return_s})
@@ -96,6 +98,11 @@ class OwnershipArbiter:
             else:
                 self._pending_request = False; self._log("release_ignored", {"source": source, "reason": self.state})
 
+    def set_efforts(self, efforts):
+        """Extra joint efforts (N m) from the manipulation source for joints it owns; None clears."""
+        with self._lock:
+            self._manip_effort = dict(efforts) if efforts else None
+
     def set_targets(self, names, positions, source="topic"):
         """Arm/hand targets from the manipulation source. Refused (counted) unless the arbiter is in MANIP."""
         with self._lock:
@@ -117,7 +124,7 @@ class OwnershipArbiter:
     # ---- per physics step (sim thread) ---------------------------------------------------------------------------------
     def step(self, dt, base_speed_xy, base_z, policy_targets):
         """policy_targets: full policy-order target vector (numpy array) as the policy computed it. Returns
-        (targets_to_write, hand_targets_dict_or_None, command_allowed)."""
+        (targets_to_write, hand_targets_dict_or_None, command_allowed, extra_efforts_dict_or_None)."""
         import numpy as np
         with self._lock:
             self.t += float(dt)
@@ -127,16 +134,18 @@ class OwnershipArbiter:
                     self._pending_request = False; self._settled_since = None
                     self.state = "SETTLING"; self._log("WALK->SETTLING", {"speed": round(float(base_speed_xy), 4)})
                 else:
-                    return out, None, True
+                    return out, None, True, None
             if self.state == "SETTLING":
                 if base_speed_xy < self.v_settle:
                     if self._settled_since is None: self._settled_since = self.t
                     if self.t - self._settled_since >= self.settle_s:
                         self.state = "MANIP"; self._manip_arm = None; self._manip_hand = None
                         self._log("SETTLING->MANIP", {"speed": round(float(base_speed_xy), 4), "z": round(float(base_z), 4)})
+                        for h in self.hooks["grant"]:
+                            h(self)
                 else:
                     self._settled_since = None
-                return out, None, False
+                return out, None, False, None
             if self.state == "MANIP":
                 if self._manip_arm:
                     for n, q in self._manip_arm.items():
@@ -146,15 +155,18 @@ class OwnershipArbiter:
                     self._pending_release = False
                     self._return_from = {n: float(out[self.policy_names.index(n)]) for n in ARMS}
                     self._return_t0 = self.t; self.state = "RETURNING"; self._log("MANIP->RETURNING", {"return_s": self.return_s})
-                return out, hands, False
+                return out, hands, False, (dict(self._manip_effort) if self._manip_effort else None)
             # RETURNING: linear ramp from the last manipulation arm targets to the live policy arm targets
             a = min(1.0, (self.t - self._return_t0) / max(1e-6, self.return_s))
             for n, q0 in self._return_from.items():
                 i = self.policy_names.index(n); out[i] = (1.0 - a) * q0 + a * float(policy_targets[i])
+            eff = {n: (1.0 - a) * v for n, v in self._manip_effort.items()} if self._manip_effort else None
             if a >= 1.0:
-                self.state = "WALK"; self._return_from = None; self._log("RETURNING->WALK", {})
-                return out, None, True
-            return out, None, False
+                self.state = "WALK"; self._return_from = None; self._manip_effort = None; self._log("RETURNING->WALK", {})
+                for h in self.hooks["walk"]:
+                    h(self)
+                return out, None, True, None
+            return out, None, False, eff
 
 
 class ScriptedManipulationSource:
