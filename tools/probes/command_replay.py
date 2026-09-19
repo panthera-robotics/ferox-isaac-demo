@@ -191,11 +191,19 @@ if scene:
     PhysxSchema.PhysxContactReportAPI.Apply(obj_prim).CreateThresholdAttr(0.); PhysxSchema.PhysxRigidBodyAPI.Apply(obj_prim).CreateSleepThresholdAttr(0.)
     cyl = UsdGeom.Cylinder.Define(world.stage, '/World/Scene/Object/Body'); cyl.CreateAxisAttr('Z'); cyl.CreateRadiusAttr(r_); cyl.CreateHeightAttr(L_)
     cyl.CreateDisplayColorAttr([Gf.Vec3f(.15, .15, .18)]); collide(cyl.GetPrim())
+    # Sprint O (declared props, optional): static stems/pedestals standing on the table top, e.g. a pen-holder stem under a tube,
+    # so that a fingers-down hook grasp can reach the object with the fingertips hanging below its bottom. Static colliders
+    # (no RigidBodyAPI), same contact material, dimensions declared in the probe config before physics; recorded in scene_facts.
+    pedestals = scene.get('pedestals') or []
+    for k_, ped in enumerate(pedestals):   # {"center_xy_m": [x, y], "radius_m": r, "height_m": h}
+        stem = UsdGeom.Cylinder.Define(world.stage, '/World/Scene/Pedestal%d' % k_); stem.CreateAxisAttr('Z'); stem.CreateRadiusAttr(float(ped['radius_m'])); stem.CreateHeightAttr(float(ped['height_m']))
+        stem.AddTranslateOp().Set(Gf.Vec3d(ped['center_xy_m'][0], ped['center_xy_m'][1], pz + t['top_z_pelvis_m'] + float(ped['height_m']) / 2.)); stem.CreateDisplayColorAttr([Gf.Vec3f(.55, .55, .58)]); collide(stem.GetPrim())
     d = scene['destination']  # {"center_xy_m": [x, y], "radius_m": r}
     disk = UsdGeom.Cylinder.Define(world.stage, '/World/Scene/DestinationMarker'); disk.CreateAxisAttr('Z'); disk.CreateRadiusAttr(float(d['radius_m'])); disk.CreateHeightAttr(.002)
-    disk.AddTranslateOp().Set(Gf.Vec3d(d['center_xy_m'][0], d['center_xy_m'][1], pz + t['top_z_pelvis_m'] + .001)); disk.CreateDisplayColorAttr([Gf.Vec3f(.2, .6, .9)])   # visual only, no collision
+    disk_z = pz + t['top_z_pelvis_m'] + .001 + max([float(ped['height_m']) for ped in pedestals if abs(ped['center_xy_m'][0] - d['center_xy_m'][0]) < 1e-6 and abs(ped['center_xy_m'][1] - d['center_xy_m'][1]) < 1e-6] or [0.0])
+    disk.AddTranslateOp().Set(Gf.Vec3d(d['center_xy_m'][0], d['center_xy_m'][1], disk_z)); disk.CreateDisplayColorAttr([Gf.Vec3f(.2, .6, .9)])   # visual only, no collision
     scene_facts = {'table_top_z_world_m': pz + t['top_z_pelvis_m'], 'object_center_world_m': [o['center_pelvis_m'][0], o['center_pelvis_m'][1], pz + o['center_pelvis_m'][2]], 'object': o, 'table': t, 'destination': d,
-                   'object_prim': '/World/Scene/Object', 'object_is_free_rigid_body': True, 'attachments_or_welds': None, 'material': {'static': float(scene.get('static_friction', .7)), 'dynamic': float(scene.get('dynamic_friction', .6))},
+                   'pedestals': pedestals, 'object_prim': '/World/Scene/Object', 'object_is_free_rigid_body': True, 'attachments_or_welds': None, 'material': {'static': float(scene.get('static_friction', .7)), 'dynamic': float(scene.get('dynamic_friction', .6))},
                    'floor_present': False, 'support': 'pelvis fixed to the world at z = 1.0 m (shown in all views)'}
 for p in world.stage.Traverse():
     if p.HasAPI(PhysxSchema.PhysxArticulationAPI):
