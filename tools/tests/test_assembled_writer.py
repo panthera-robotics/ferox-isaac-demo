@@ -126,6 +126,18 @@ class ActuationBackendConfigTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 probe.validate_config(self.config(contact_writing=bad))
 
+    def test_presentation_cameras_and_ink_decals_are_declared_render_only_and_bounded(self):
+        static = {'label': 'oblique', 'position_m': [1.2, -1.4, 1.5], 'look_at_m': [.3, -.4, 1.2], 'resolution': [960, 720]}
+        track = {'label': 'hand', 'track': 'right_base_link', 'offset_m': [.25, -.35, .2], 'focal_length_mm': 35}
+        probe.validate_config(self.config(presentation={'cameras': [static, track], 'ink_decals': True}))
+        probe.validate_config(self.config(presentation={'ink_decals': False}))   # default cameras
+        for bad in ({'cameras': []}, {'cameras': [static, dict(static)]}, {'cameras': [{**static, 'resolution': [64, 64]}]},
+                    {'cameras': [{**track, 'track': 'head'}]}, {'cameras': [{**track, 'position_m': [0, 0, 1]}]}, {'cameras': [{k: v for k, v in track.items() if k != 'offset_m'}]},
+                    {'cameras': [{k: v for k, v in static.items() if k != 'look_at_m'}]}, {'cameras': [{**static, 'label': 'not valid'}]}, {'ink_decals': 'yes'}, {'extra': 1},
+                    {'cameras': [{**static, 'position_m': [float('nan'), 0, 1]}]}, {'cameras': [{**track, 'focal_length_mm': 500}]}):
+            with self.assertRaises(ValueError):
+                probe.validate_config(self.config(presentation=bad))
+
     def test_job_text_defaults_to_I_and_is_bounded(self):
         self.assertEqual(probe.validate_config(self.config()).get('job_text', 'I'), 'I')
         probe.validate_config(self.config(job_text='L')); probe.validate_config(self.config(job_text='G1 OK'))
