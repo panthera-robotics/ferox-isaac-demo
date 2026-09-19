@@ -26,6 +26,7 @@ def setup(world, width: int = 1280, height: int = 720) -> None:
 
         _S["every"] = max(1, int(os.environ.get("G1_CAPTURE_EVERY", "3")))
         _S["max_frames"] = int(os.environ.get("G1_CAPTURE_MAX_FRAMES", "0") or 0)   # Sprint P disk cap: stop writing after this many frames (0 = no cap)
+        _S["start_s"] = float(os.environ.get("G1_CAPTURE_START_S", "0") or 0); _S["stop_s"] = float(os.environ.get("G1_CAPTURE_STOP_S", "0") or 0)   # capture window (sim s)
         geom = os.environ.get("G1_CAPTURE_CAM", "").strip()
         if geom:
             _S["cam_geom"] = tuple(float(v) for v in geom.split(","))
@@ -92,6 +93,13 @@ def maybe_step(runner) -> None:
             if not _S.get("capped"):
                 _S["capped"] = True; print(f"[capture] frame cap {_S['max_frames']} reached; no more frames", flush=True)
             return
+        if _S["start_s"] or _S["stop_s"]:
+            try:
+                st = float(runner._world.current_time)
+                if st < _S["start_s"] or (_S["stop_s"] > 0 and st > _S["stop_s"]):
+                    return
+            except Exception:
+                pass
         data = _S["annot"].get_data()
         if data is None or getattr(data, "size", 0) == 0:
             return

@@ -57,6 +57,9 @@ def setup(world, width: int = 1280, height: int = 720) -> None:
 
         _apply_preset()
         _S["every"] = max(1, int(os.environ.get("G1_CAPTURE_EVERY", "3")))
+        # Sprint P disk caps (render-only): capture window in sim seconds and a hard frame cap (0 = none)
+        _S["start_s"] = float(os.environ.get("G1_CAPTURE_START_S", "0") or 0); _S["stop_s"] = float(os.environ.get("G1_CAPTURE_STOP_S", "0") or 0)
+        _S["max_frames"] = int(os.environ.get("G1_CAPTURE_MAX_FRAMES", "0") or 0)
         res_override = os.environ.get("G1_CAPTURE_RES", "").strip()
         _S["dir"] = os.path.join(os.environ["G1_CAPTURE_DIR"], "frames")
         os.makedirs(_S["dir"], exist_ok=True)
@@ -168,6 +171,12 @@ def maybe_step(runner) -> None:
             sim_t = float(runner._world.current_time)
         except Exception:
             pass
+        if sim_t is not None and (sim_t < _S["start_s"] or (_S["stop_s"] > 0 and sim_t > _S["stop_s"])):
+            return
+        if _S["max_frames"] and _S["frame"] >= _S["max_frames"]:
+            if not _S.get("capped"):
+                _S["capped"] = True; print(f"[capture] frame cap {_S['max_frames']} reached; no more frames", flush=True)
+            return
         pos, quat = runner._robot.robot.get_world_pose()
         row = {"frame": _S["frame"], "render_tick": _S["tick"], "sim_time": sim_t, "robot_pos": [round(float(v), 4) for v in pos], "files": {}}
         for cam in _S["cams"]:
