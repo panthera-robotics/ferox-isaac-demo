@@ -170,7 +170,7 @@ class Rod30Source:
             # 'pelvis_T_torso_link_at_waist_<rad>' key), and journal both for the record.
             key = next((k for k in tl if k.startswith("pelvis_T_torso_link")), None); tr = tl.get(key, {}) if key else {}
             t = np.asarray(tr.get("t", self.PELVIS_TO_TORSO_ZERO_WAIST), float)
-            m = re.search(r"at_waist_([0-9.]+)", key or ""); waist = float(tl.get("planned_waist_pitch_rad", m.group(1) if m else 0.0))
+            m = re.search(r"at_waist_([0-9.]+)", key or ""); waist = float(tl.get("planned_waist_pitch_rad", sc.get("planned_waist_pitch_rad", m.group(1) if m else 0.0)))
             c, sn = math.cos(waist), math.sin(waist); RyT = np.array([[c, 0.0, -sn], [0.0, 1.0, 0.0], [sn, 0.0, c]])   # R_y(waist)^T
             def T(p_pelvis): return (RyT @ (np.asarray(p_pelvis, float) - t)).tolist()
             obj_p = list(sc["object"]["center_pelvis_m"]); obj_t = T(obj_p)
