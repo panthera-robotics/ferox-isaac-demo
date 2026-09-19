@@ -199,19 +199,28 @@ class ScriptedManipulationSource:
         self.spec = spec; self.arb = arbiter
         self.cycles = int(spec.get("cycles", 1)); self.first = float(spec.get("first_request_s", 10.0)); self.gap = float(spec.get("gap_s", 6.0))
         self.hold_end = float(spec.get("hold_end_s", 1.0))
-        sch = spec["schedule"]; self.joints = list(sch["joints"]); self.keys = sorted(sch["keyframes"], key=lambda k: float(k["t"]))
+        # Sprint O W2: an optional list of named schedules ("schedules": [{"candidate","joints","keyframes"}...]) is played
+        # interleaved, cycle k -> schedules[k % n], so an early fall still leaves every candidate with the same number of
+        # completed cycles; each request is journaled as source "script:<candidate>" for per-candidate scoring.
+        self.schedules = [dict(sc) for sc in spec.get("schedules", [])] or [dict(spec["schedule"], candidate=spec.get("candidate", "script"))]
+        self._select(0)
         self.done = 0; self._grant_t = None; self._next_request_t = self.first; self._released_t = None
         self._last_state = None
+
+    def _select(self, cycle):
+        sch = self.schedules[cycle % len(self.schedules)]
+        self.candidate = str(sch.get("candidate", "script")); self.joints = list(sch["joints"]); self.keys = sorted(sch["keyframes"], key=lambda k: float(k["t"]))
 
     def step(self, t, state):
         if state != self._last_state:
             if state == "MANIP": self._grant_t = t
             if state == "WALK" and self._last_state == "RETURNING":
                 self.done += 1; self._next_request_t = t + self.gap
-                print(f"[ownership script] cycle {self.done}/{self.cycles} complete at t={t:.2f}", flush=True)
+                print(f"[ownership script] cycle {self.done}/{self.cycles} ({self.candidate}) complete at t={t:.2f}", flush=True)
+                self._select(self.done)
             self._last_state = state
         if state == "WALK" and self.done < self.cycles and t >= self._next_request_t:
-            self.arb.request_manip(source="script"); self._next_request_t = float("inf")
+            self.arb.request_manip(source="script" if len(self.schedules) == 1 and self.candidate == "script" else f"script:{self.candidate}"); self._next_request_t = float("inf")
         if state == "MANIP" and self._grant_t is not None:
             import numpy as np
             tt = [float(k["t"]) for k in self.keys]; s = t - self._grant_t
