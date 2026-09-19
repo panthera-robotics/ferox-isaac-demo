@@ -74,8 +74,10 @@ def validate_config(config):
     optional = {'actuation_backend', 'maximum_wall_age_s', 'hand_hold_kp_nm_rad', 'hand_hold_kd_nm_s_rad', 'contact_writing', 'job_text', 'presentation'}
     validate_presentation(config.get('presentation'))
     text = config.get('job_text', 'I')
-    if not isinstance(text, str) or not 1 <= len(text) <= 12 or text != text.strip() or any(c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ' for c in text):
-        raise ValueError('job_text must be 1-12 upper-case letters/digits/spaces without surrounding whitespace')
+    # one or two lines (the driver's validate_text accepts a single '\n'); every line 1-12 upper-case letters/digits/spaces, no surrounding whitespace
+    lines = text.split('\n') if isinstance(text, str) else None
+    if lines is None or not 1 <= len(lines) <= 2 or any(not 1 <= len(l) <= 12 or l != l.strip() or any(c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ' for c in l) for l in lines):
+        raise ValueError('job_text must be 1-12 upper-case letters/digits/spaces without surrounding whitespace, optionally two such lines joined by one newline')
     contact = config.get('contact_writing')
     if contact is not None:
         needed = {'held_marker_grasp_path', 'preload_support_s', 'closing_ramp_s', 'grasp_finger_kp_nm_rad', 'grasp_finger_kd_nm_s_rad', 'provenance'}
