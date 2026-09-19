@@ -66,6 +66,8 @@ class Rod30Source:
         # planner's upright-pelvis / zero-waist geometry in the frame the arm chain actually hangs from (torso_link, with the
         # pelvis->torso_link zero-waist offset removed) at the moment the dwell ends.
         self.spawn_at_stage = os.environ.get("G1_MANIP_SPAWN_AT_STAGE", "").strip() or None
+        # Sprint P M1 schedule 2: stages during which the station keeper is muted (base command 0 while the fingers close)
+        self.station_quiet_stages = [x.strip() for x in os.environ.get("G1_STATION_QUIET_STAGES", "").split(",") if x.strip()]
         # Sprint O lB declaration: the scene given directly in WORLD coordinates (a world-fixed desk, as the integrated task needs):
         # G1_MANIP_SCENE_WORLD = path to {"object_center_world_m", "table_center_top_world_m", "destination_center_world_m",
         # "object_bottom_to_table_top_gap_m"}; spawned at the grant with props world-upright (overrides the deferred/torso options)
@@ -381,6 +383,7 @@ class Rod30Source:
         self._trace.write(json.dumps(row) + "\n"); self._trace.flush()
 
     def _on_walk(self, arb):
+        if getattr(arb, "station", None) is not None: arb.station.mute = False
         if self.phase == "CARRY":
             # ladder C: body ownership returned while the hand keeps the grip; gains stay as the manipulation owner set them
             # for the held joints so the grip force does not change hands mid-carry (restored at the final release)
@@ -423,6 +426,8 @@ class Rod30Source:
             r = self.rows[k]; arm = [float(r["arm_q"][self.arm_col[n]]) for n in self.arm_joints]; hand = [float(v) for v in r["hand_q_right"]]
             if self._spawn_pending and r.get("stage") == self.spawn_at_stage:
                 self._spawn_at_stage_now(t, r.get("stage"))
+            if self.station_quiet_stages and getattr(self.arb, "station", None) is not None:
+                self.arb.station.mute = r.get("stage") in self.station_quiet_stages
             if self._n % 200 == 0:
                 self._j("row", {"k": k, "stage": r.get("stage"), "sp": round(sp, 3)})
             if self.split_stage and self._split_row is None and r.get("stage") == self.split_stage:
@@ -434,8 +439,10 @@ class Rod30Source:
                 return
             if self.stop_stage and r.get("stage") != self.stop_stage and any(x.get("stage") == self.stop_stage for x in self.rows[:k]):
                 self.phase = "BLEND_OUT"; self._t_out = t; self._last = (arm, hand); self._j("BLEND_OUT", {"to": "policy default arm pose", "after_stage": self.stop_stage})
+                if getattr(self.arb, "station", None) is not None: self.arb.station.mute = False
             elif sp >= float(self.row_t[-1]):
                 self.phase = "BLEND_OUT"; self._t_out = t; self._last = (arm, hand); self._j("BLEND_OUT", {"to": "policy default arm pose"})
+                if getattr(self.arb, "station", None) is not None: self.arb.station.mute = False
         else:  # BLEND_OUT
             a = min(1.0, (t - self._t_out) / max(1e-6, self.blend_out)); la, lh = self._last
             arm = [(1 - a) * la[i] + a * self.default_arm[n] for i, n in enumerate(self.arm_joints)]

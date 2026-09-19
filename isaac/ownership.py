@@ -50,6 +50,7 @@ class StationKeeper:
         self.db_xy = float(deadband[0]); self.db_yaw = float(deadband[1]); self.slew_xy = float(slew[0]); self.slew_yaw = float(slew[1])
         self.target = None                      # (x, y, yaw)
         self.locked_at = None; self.lock_source = None
+        self.mute = False; self._mute_logged = None   # Sprint P schedule 2: a manipulation stage may mute the keeper (command -> 0, still tracking)
         self.cmd = [0.0, 0.0, 0.0]              # last commanded (vx, vy, wz) in the body frame
         self.err = [0.0, 0.0, 0.0]              # last (ex, ey) world m, eyaw rad
         self._journal = journal; self._trace = open(trace_path, "a", encoding="utf-8") if trace_path else None
@@ -94,6 +95,10 @@ class StationKeeper:
         want = [c * vwx + s_ * vwy, -s_ * vwx + c * vwy, -self.k[2] * self._softdead(eyaw, self.db_yaw)]
         for i in range(3):
             want[i] = max(-self.vmax[i], min(self.vmax[i], want[i]))
+        if self.mute:
+            want = [0.0, 0.0, 0.0]
+        if self._journal and self.mute != self._mute_logged:
+            self._mute_logged = self.mute; self._journal("station_mute" if self.mute else "station_unmute", {"t": round(float(t), 3), "err_xy_m": round(math.hypot(ex, ey), 4), "err_yaw_deg": round(math.degrees(eyaw), 2)})
         # slew limit (command acceleration bound) against the previous command
         dmax = [self.slew_xy * dt, self.slew_xy * dt, self.slew_yaw * dt]
         for i in range(3):
@@ -102,7 +107,7 @@ class StationKeeper:
         if self._trace and self._n % self.every == 0:
             self._trace.write(json.dumps({"t": round(float(t), 4), "state": state, "held_s": round(float(t) - self.locked_at, 3), "pos": [round(float(x), 4), round(float(y), 4)], "yaw_deg": round(math.degrees(yaw), 2),
                                           "err_xy_m": [round(ex, 4), round(ey, 4)], "err_norm_m": round(math.hypot(ex, ey), 4), "err_yaw_deg": round(math.degrees(eyaw), 2),
-                                          "cmd": [round(v, 4) for v in self.cmd]}) + "\n")
+                                          "cmd": [round(v, 4) for v in self.cmd], "mute": self.mute}) + "\n")
             if self._n % (self.every * 20) == 0: self._trace.flush()
         return list(self.cmd)
 
