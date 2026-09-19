@@ -131,6 +131,7 @@ class Rod30Source:
             table = FixedCuboid(prim_path="/World/ManipScene/Table", position=np.array(W(tc)), orientation=np.array(quat, dtype=float), scale=np.array(sz, dtype=float), color=np.array([0.55, 0.4, 0.25]), physics_material=mat)
             ob = sc["object"]
             self._obj = DynamicCylinder(prim_path="/World/ManipScene/Rod", position=np.array(W(ob["center_pelvis_m"])), orientation=np.array(quat, dtype=float), radius=float(ob["radius_m"]), height=float(ob["length_m"]), mass=float(ob["mass_kg"]), color=np.array([0.9, 0.2, 0.2]), physics_material=mat)
+            base = self._spawn_object_base(ob, mat)   # Sprint O declared prop: a base disc as a second collider of the SAME rigid body (desk-stand shape)
             # Sprint O v11-rod30-stems: static pedestals ("pedestals": 8 mm-radius, 100 mm-tall cylinders standing on the bench
             # top at the pick and destination xy); the object stands on the pick stem, and the support top used by the
             # lifted/placed flags is scene.support_top_z_pelvis_m (declared before physics), not the bench top
@@ -142,13 +143,38 @@ class Rod30Source:
             support_z = float(sc.get("support_top_z_pelvis_m", tb["top_z_pelvis_m"]))
             dest = sc.get("destination", {}); dc = dest.get("center_xy_pelvis_m") or dest.get("center_xy_m") or [0.57, -0.14]
             VisualCylinder(prim_path="/World/ManipScene/Destination", position=np.array(W([dc[0], dc[1], support_z + 0.001])), orientation=np.array(quat, dtype=float), radius=float(dest.get("radius_m", 0.03)), height=0.002, color=np.array([0.2, 0.8, 0.3]))
-            self._scene = {"table_world": W(tc), "rod_world": W(ob["center_pelvis_m"]), "destination_world": W([dc[0], dc[1], support_z]), "stems": stems,
+            self._scene = {"table_world": W(tc), "rod_world": W(ob["center_pelvis_m"]), "destination_world": W([dc[0], dc[1], support_z]), "stems": stems, "object_base": base,
                            "support_top_z_pelvis_m": support_z, "support_top_world_z": W([ob["center_pelvis_m"][0], ob["center_pelvis_m"][1], support_z])[2]}
             self._j("scene_spawned", dict(self._scene, lifted_task_rule=self.lifted_task_rule, lifted_frozen_rule="rod centre >= 0.06 m above the support top",
                                           lifted_frozen_rule_trivial_at_rest=bool(float(ob["length_m"]) / 2.0 >= 0.06)))   # a >= 12 cm object satisfies the rod30 rule while resting
         except Exception as exc:
             self._scene = None; self._obj = None
             self._j("scene_spawn_failed", {"error": repr(exc)})
+
+    def _spawn_object_base(self, ob, mat):
+        """object.base = {"radius_m", "thickness_m", "mass_kg"}: a disc under the rod's bottom end (its top at the rod bottom) added as a
+        child collider of the rod's rigid body; mass/COM/inertia of the compound set explicitly (same arithmetic as the coordinator's
+        command_replay.py probe knob). Declared before physics; a declared base that cannot be built aborts the spawn (no silent rod-only run)."""
+        base_ = ob.get("base")
+        if not base_:
+            return None
+        from pxr import Gf, UsdGeom, UsdPhysics, UsdShade
+        import omni.usd
+        stage = omni.usd.get_context().get_stage(); body = stage.GetPrimAtPath("/World/ManipScene/Rod")
+        r_, L_, m_ = float(ob["radius_m"]), float(ob["length_m"]), float(ob["mass_kg"]); Rb, Tb, Mb = float(base_["radius_m"]), float(base_["thickness_m"]), float(base_["mass_kg"])
+        disc = UsdGeom.Cylinder.Define(stage, "/World/ManipScene/Rod/Base"); disc.CreateAxisAttr("Z"); disc.CreateRadiusAttr(Rb); disc.CreateHeightAttr(Tb)
+        disc.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, -L_ / 2.0 - Tb / 2.0)); disc.CreateDisplayColorAttr([Gf.Vec3f(0.25, 0.25, 0.28)])
+        UsdPhysics.CollisionAPI.Apply(disc.GetPrim())
+        try:
+            UsdShade.MaterialBindingAPI.Apply(disc.GetPrim()).Bind(UsdShade.Material(stage.GetPrimAtPath(mat.prim_path)), UsdShade.Tokens.weakerThanDescendants, "physics")
+        except Exception as exc:
+            self._j("object_base_material_bind_failed", {"error": repr(exc)})
+        Mt = m_ + Mb; zc = (Mb * (-L_ / 2.0 - Tb / 2.0)) / Mt
+        Irod_xy = m_ * (3 * r_ * r_ + L_ * L_) / 12.0; Idisc_xy = Mb * (3 * Rb * Rb + Tb * Tb) / 12.0
+        Ixy = Irod_xy + m_ * zc * zc + Idisc_xy + Mb * (-L_ / 2.0 - Tb / 2.0 - zc) ** 2; Iz = m_ * r_ * r_ / 2.0 + Mb * Rb * Rb / 2.0
+        massapi = UsdPhysics.MassAPI.Apply(body); massapi.CreateMassAttr(Mt); massapi.CreateCenterOfMassAttr(Gf.Vec3f(0.0, 0.0, zc))
+        massapi.CreateDiagonalInertiaAttr(Gf.Vec3f(Ixy, Ixy, Iz)); massapi.CreatePrincipalAxesAttr(Gf.Quatf(1.0))
+        return {"prim": "/World/ManipScene/Rod/Base", "radius_m": Rb, "thickness_m": Tb, "mass_kg": Mb, "total_mass_kg": Mt, "com_z_m": zc, "inertia_diag": [Ixy, Ixy, Iz]}
 
     def _subscribe_contacts(self):
         try:
