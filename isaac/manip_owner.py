@@ -144,8 +144,11 @@ class Rod30Source:
             tpos = np.asarray(tf[:3], float); qx, qy, qz, qw = [float(v) for v in tf[3:7]]      # physics tensor API: xyzw
             Rt = _quat_wxyz_to_R([qw, qx, qy, qz]); R = Rt
             yaw = _rpy(Rt)[2]; quat = [math.cos(yaw / 2.0), 0.0, 0.0, math.sin(yaw / 2.0)]              # props stay world-upright (yaw only)
-            pos = tpos - Rt @ self.PELVIS_TO_TORSO_ZERO_WAIST                                    # the planner's pelvis origin = torso origin minus the zero-waist offset, in the torso frame
-            frame = {"kind": "torso", "torso_pos": [round(float(v), 4) for v in tpos], "torso_rpy_deg": [round(math.degrees(v), 2) for v in _rpy(Rt)],
+            # the scene block's own frame: "pelvis_zero_waist" (default: the planner's upright pelvis with the waist at zero, so the
+            # torso_link origin sits at PELVIS_TO_TORSO_ZERO_WAIST) or "torso_link" (coordinates already relative to torso_link)
+            scene_frame = (os.environ.get("G1_MANIP_SCENE_FRAME", "").strip() or str(self.spec["scene_pelvis_relative"].get("frame", "pelvis_zero_waist"))).lower()
+            pos = tpos if scene_frame == "torso_link" else tpos - Rt @ self.PELVIS_TO_TORSO_ZERO_WAIST   # the planner's pelvis origin = torso origin minus the zero-waist offset, in the torso frame
+            frame = {"kind": "torso", "scene_block_frame": scene_frame, "torso_pos": [round(float(v), 4) for v in tpos], "torso_rpy_deg": [round(math.degrees(v), 2) for v in _rpy(Rt)],
                      "effective_pelvis_pos": [round(float(v), 4) for v in pos], "props_orientation": "world-upright, torso yaw", "pelvis_measured": {"pos": [round(float(v), 4) for v in robot.get_world_pose()[0]], "rpy_deg": [round(math.degrees(v), 2) for v in _rpy(_quat_wxyz_to_R(robot.get_world_pose()[1]))]}}
         self._spawn(pos, R, quat, upright_from_object=(self.spawn_frame == "torso"))
         self._subscribe_contacts(); self._spawn_pending = False
