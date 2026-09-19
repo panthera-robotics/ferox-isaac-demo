@@ -66,6 +66,10 @@ class Rod30Source:
         # planner's upright-pelvis / zero-waist geometry in the frame the arm chain actually hangs from (torso_link, with the
         # pelvis->torso_link zero-waist offset removed) at the moment the dwell ends.
         self.spawn_at_stage = os.environ.get("G1_MANIP_SPAWN_AT_STAGE", "").strip() or None
+        # Sprint O lB declaration: the scene given directly in WORLD coordinates (a world-fixed desk, as the integrated task needs):
+        # G1_MANIP_SCENE_WORLD = path to {"object_center_world_m", "table_center_top_world_m", "destination_center_world_m",
+        # "object_bottom_to_table_top_gap_m"}; spawned at the grant with props world-upright (overrides the deferred/torso options)
+        self.scene_world = os.environ.get("G1_MANIP_SCENE_WORLD", "").strip() or None
         self.spawn_frame = os.environ.get("G1_MANIP_SPAWN_FRAME", "pelvis").strip().lower() or "pelvis"
         if self.spawn_frame == "torso_link": self.spawn_frame = "torso"      # alias used in the coordinator's declaration
         self._spawn_pending = False
@@ -84,7 +88,7 @@ class Rod30Source:
         self._j("init", {"schedule": self.spec.get("version"), "rows": len(self.rows), "duration_s": self.spec.get("duration_s"),
                          "arm_joints_commanded": self.arm_joints, "left_arm_mode": self.left_arm_mode, "hand_joints": self.hand_joints,
                          "blend_in_s": self.blend_in, "blend_out_s": self.blend_out, "spawn_scene": spawn_scene, "gravity_ff": gravity_ff,
-                         "spawn_at_stage": self.spawn_at_stage, "spawn_frame": self.spawn_frame})
+                         "spawn_at_stage": self.spawn_at_stage, "spawn_frame": self.spawn_frame, "scene_world": self.scene_world})
 
     def _j(self, event, detail=None):
         row = {"t": round(self.arb.t, 4), "wall": time.time(), "event": event, "phase": self.phase, "detail": detail}
@@ -125,7 +129,9 @@ class Rod30Source:
         self._grants += 1
         if self._grants == 1:
             self._pelvis0 = (np.asarray(pos, float).copy(), rpy)
-            if self.spawn_scene and self.spawn_at_stage:
+            if self.spawn_scene and self.scene_world:
+                self._spawn_world_now()
+            elif self.spawn_scene and self.spawn_at_stage:
                 self._spawn_pending = True; self._j("scene_spawn_deferred", {"until_stage": self.spawn_at_stage, "frame": self.spawn_frame})
             elif self.spawn_scene:
                 self._spawn(pos, R, quat)
@@ -134,6 +140,22 @@ class Rod30Source:
         self._j("BLEND_IN", {"arm_start": self._arm_start, "grant": self._grants, "resume_from_row": self._split_row})
 
     PELVIS_TO_TORSO_ZERO_WAIST = np.array([-0.0039635, 0.0, 0.044])   # pelvis -> torso_link origin with the waist joints at zero (donor URDF waist_roll_joint origin)
+
+    def _spawn_world_now(self):
+        """World-coordinate scene (declared file): object centre, desk-top centre, destination in world metres; realised with the
+        identity frame at the grant, props world-upright and stacked under the object."""
+        import copy
+        w = json.load(open(self.scene_world)); sc = copy.deepcopy(self.spec["scene_pelvis_relative"])
+        obj = [float(v) for v in w["object_center_world_m"]]; tab = [float(v) for v in w["table_center_top_world_m"]]; dst = [float(v) for v in w["destination_center_world_m"]]
+        gap = float(w.get("object_bottom_to_table_top_gap_m", 0.0))
+        sc["object"]["center_pelvis_m"] = obj; sc.setdefault("destination", {})["center_xy_m"] = dst[:2]; sc["destination"].pop("center_xy_pelvis_m", None)
+        sc["table"]["center_xy_m"] = tab[:2]; sc["table"]["top_z_pelvis_m"] = obj[2] - float(sc["object"]["length_m"]) / 2.0 - gap
+        sc["support_top_z_pelvis_m"] = sc["table"]["top_z_pelvis_m"] + gap; sc["_effective_from"] = f"world coordinates ({os.path.basename(self.scene_world)})"
+        sc["_world_declared"] = {"object_center_world_m": obj, "table_center_top_world_m": tab, "destination_center_world_m": dst, "gap_m": gap,
+                                 "declared_table_top_world_z": tab[2], "table_top_used_world_z": sc["table"]["top_z_pelvis_m"]}
+        self._spawn(np.zeros(3), np.eye(3), [1.0, 0.0, 0.0, 0.0], upright_from_object=True, sc=sc)
+        self._subscribe_contacts()
+        self._j("scene_spawned_world", {"file": self.scene_world, "declared": sc["_world_declared"]})
 
     def _spawn_at_stage_now(self, t, stage):
         """Deferred spawn: realise the declared pelvis-relative scene at this instant in the declared frame."""
@@ -289,6 +311,24 @@ class Rod30Source:
         except Exception as exc:
             self._j("contact_report_unavailable", {"error": repr(exc)})
 
+    def _gravity_forces(self, names):
+        """Joint-ordered gravity-compensation torques (Nm) for all DOFs. The physics tensor view of a FLOATING-BASE articulation
+        prepends the 6 root DOFs; ArticulationView.get_generalized_gravity_forces() (Isaac Sim 5.1) slices the first num_dof
+        columns of that wider tensor, so on a floating base it silently returns the root wrench followed by the joints shifted
+        by six (found in Sprint O lA: the elbow's -3.6 Nm landed on the wrist yaw, the shoulder pitch got the hip yaw's +1.0 Nm,
+        2.6-5 deg of arm sag). We read the raw tensor and drop the root entries; any other size disables the feed-forward."""
+        view = self._view(); n = len(names)
+        raw = np.asarray(view._physics_view.get_gravity_compensation_forces()).reshape(-1)
+        if raw.size == n + 6:
+            g = raw[6:]; layout = {"raw_entries": int(raw.size), "dofs": n, "root_entries_skipped": 6, "base": "floating"}
+        elif raw.size == n:
+            g = raw; layout = {"raw_entries": int(raw.size), "dofs": n, "root_entries_skipped": 0, "base": "fixed"}
+        else:
+            raise RuntimeError(f"gravity compensation forces have {raw.size} entries for {n} DOFs")
+        if not getattr(self, "_ff_layout_logged", False):
+            self._ff_layout_logged = True; self._j("gravity_ff_layout", layout)
+        return g
+
     def _wrist_pose(self):
         try:
             view = self._view(); names = list(view.body_names); i = names.index("right_wrist_yaw_link")
@@ -397,7 +437,7 @@ class Rod30Source:
         # gravity feed-forward on the commanded arm joints, ramped over 1 s after grant, capped at the drive max effort
         if self.gravity_ff:
             try:
-                names = self._all_names(); g = np.asarray(self._view().get_generalized_gravity_forces()).reshape(-1)
+                names = self._all_names(); g = self._gravity_forces(names)
                 ramp = min(1.0, s / 1.0); eff = {}
                 for n in self.arm_joints:
                     i = names.index(n); cap = float(self._max_eff[i]) if self._max_eff is not None else 25.0
