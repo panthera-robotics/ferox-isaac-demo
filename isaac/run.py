@@ -833,6 +833,16 @@ class G1VelocityPolicy(PolicyController):
         self._arbiter = None
         self._manip_script = None
         self.command_allowed = True
+        # Sprint P M3: presentation arm-swing overlay (G1_ARM_SWING=<amplitude rad>, off by default)
+        self._arm_swing = None
+        _amp = float(os.environ.get("G1_ARM_SWING", "0") or 0)
+        if _amp > 0:
+            _po = G1_29DOF_SIM_ORDER if self._body_idx is not None else list(self.robot.dof_names)
+            self._arm_swing = ownership.ArmSwingOverlay(amplitude=_amp, gain=float(os.environ.get("G1_ARM_SWING_GAIN", "0.25")), blend_s=float(os.environ.get("G1_ARM_SWING_BLEND_S", "0.5")),
+                                                        max_rate=float(os.environ.get("G1_ARM_SWING_MAX_RATE", "3.0")))
+            self._arm_swing_idx = {k: _po.index(n) for k, n in (("hl", "left_hip_pitch_joint"), ("hr", "right_hip_pitch_joint"), ("sl", "left_shoulder_pitch_joint"), ("sr", "right_shoulder_pitch_joint"))}
+            self._arm_swing_cmd = np.zeros(3, dtype=np.float32)
+            print(f"[arm swing] overlay ON amplitude={_amp} gain={self._arm_swing.gain} blend={self._arm_swing.blend_s} s max_rate={self._arm_swing.max_rate}", flush=True)
         if ownership.enabled():
             names_all = list(self.robot.dof_names)
             policy_order = G1_29DOF_SIM_ORDER if self._body_idx is not None else names_all
@@ -981,6 +991,13 @@ class G1VelocityPolicy(PolicyController):
             target_pos, hand_targets, self.command_allowed, extra_efforts = self._arbiter.step(dt, speed, float(pos_w[2]), target_pos, base_xy=(float(pos_w[0]), float(pos_w[1])), base_yaw=yaw_w)
             if getattr(self, "_body_trace", None) is not None:
                 self._body_trace.step()
+        if self._arm_swing is not None:
+            _st = self._arbiter.state if self._arbiter is not None else "WALK"
+            _q = self.robot.get_joint_positions(); _q = _q[self._body_idx] if self._body_idx is not None else _q
+            _ix = self._arm_swing_idx
+            _sw = self._arm_swing.step(dt, _st, command, float(_q[_ix["hl"]]), float(_q[_ix["hr"]]), float(target_pos[_ix["sl"]]), float(target_pos[_ix["sr"]]))
+            if _sw is not None:
+                target_pos = target_pos.copy(); target_pos[_ix["sl"]] = _sw[0]; target_pos[_ix["sr"]] = _sw[1]
         if self._body_idx is not None:
             action = ArticulationAction(joint_positions=target_pos, joint_indices=self._body_idx)
         else:

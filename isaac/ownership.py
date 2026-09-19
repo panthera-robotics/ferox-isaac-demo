@@ -107,6 +107,35 @@ class StationKeeper:
         return list(self.cmd)
 
 
+class ArmSwingOverlay:
+    """Sprint P M3 — presentation arm swing on the policy's arm targets while the WALK owner is walking. Opposite-phase shoulder
+    pitch derived from the measured gait itself (delta_R = +k * (hip_pitch_L - hip_pitch_R), delta_L = -delta_R), so it is
+    phase-locked to the legs and vanishes when they stand still; amplitude-clamped, rate-limited, blended in over >= 0.5 s
+    once the base is commanded (|cmd| > v_on) in WALK and blended out over >= 0.5 s when the command drops or ownership
+    leaves WALK (a manipulation request); zero before the handoff. Pure Python (CPU-testable)."""
+
+    def __init__(self, amplitude=0.15, gain=0.25, blend_s=0.5, v_on=0.05, max_rate=3.0, bound=(-0.6, 0.6)):
+        self.A = float(amplitude); self.gain = float(gain); self.blend_s = max(0.5, float(blend_s)); self.v_on = float(v_on); self.max_rate = float(max_rate); self.bound = bound
+        self.w = 0.0; self.delta = [0.0, 0.0]; self.active = False
+
+    def step(self, dt, state, cmd, hip_l, hip_r, base_l, base_r):
+        """Returns (left_shoulder_pitch_target, right_shoulder_pitch_target) or None when the overlay is fully out."""
+        moving = state == "WALK" and math.hypot(float(cmd[0]), float(cmd[1])) > self.v_on
+        target_w = 1.0 if moving else 0.0
+        step = dt / self.blend_s
+        self.w += max(-step, min(step, target_w - self.w)); self.w = max(0.0, min(1.0, self.w))
+        raw = self.gain * (float(hip_l) - float(hip_r)); raw = max(-self.A, min(self.A, raw)) * self.w
+        want = [-raw, raw]                                   # left, right (opposite phase)
+        for i in range(2):
+            d = want[i] - self.delta[i]; lim = self.max_rate * dt
+            self.delta[i] += max(-lim, min(lim, d))
+        self.active = self.w > 1e-6 or any(abs(v) > 1e-6 for v in self.delta)
+        if not self.active:
+            return None
+        lo, hi = self.bound
+        return (max(lo, min(hi, float(base_l) + self.delta[0])), max(lo, min(hi, float(base_r) + self.delta[1])))
+
+
 class OwnershipArbiter:
     """Pure-Python state machine (no Isaac/ROS imports) so it can be unit-tested on CPU."""
 
