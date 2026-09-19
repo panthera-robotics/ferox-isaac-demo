@@ -146,6 +146,13 @@ class ActuationBackendConfigTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 probe.validate_config(self.config(job_text=bad))
 
+    def test_observer_key_defaults_to_legacy_and_accepts_the_operational_v1(self):
+        self.assertEqual(probe.validate_config(self.config()).get('observer', 'legacy'), 'legacy')
+        probe.validate_config(self.config(observer='legacy')); probe.validate_config(self.config(observer='simulation_operational_v1'))
+        for bad in ('operational', 'v1', '', 1, None):
+            with self.assertRaises(ValueError):
+                probe.validate_config(self.config(observer=bad))
+
     def test_wall_age_tolerance_is_declared_and_bounded(self):
         probe.validate_config(self.config(maximum_wall_age_s=1.0))
         for bad in (.05, 6., float('nan'), '1'):

@@ -22,6 +22,7 @@ from inspire import loop_ipc  # noqa: E402
 from inspire.closed_loop_targets import ClosedLoopTargets, TargetError  # noqa: E402
 from inspire.model_action_adapter import validate_piston_chunk, PISTON_DIMS, PISTON_HAND_ORDER  # noqa: E402
 from inspire.embodiment import HandCommandAdapter, HAND_ACTUATORS  # noqa: E402
+from inspire.operational_observer import OBSERVERS, LEGACY, make_observer  # noqa: E402
 
 started_wall = time.monotonic()
 package = Path(config['package'])
@@ -45,6 +46,10 @@ lead_in_s = float(config.get('lead_in_s', 0.5)); assert 0.0 <= lead_in_s <= 5.0
 # Declared physics step: the manifest binds physics_dt_s = 0.005 for every qualification; any other value is a DIAGNOSTIC
 # refinement (hand-req-02 F7 convergence check) and stales the bound claims by construction (recorded in metrics['physics_dt']).
 dt = float(config.get('physics_dt_s', 0.005)); assert 0.001 <= dt <= 0.005 and abs(round(0.005 / dt) * dt - 0.005) < 1e-9, 'physics_dt_s must divide 0.005 s'
+# Sprint O owner decision A: `observer` selects the velocity guard for NEW runs. `legacy` (default) keeps the historical rule (reported
+# velocity > 2x the joint's own URDF field aborts). `simulation_operational_v1` aborts on the SAMPLED-INTERVAL velocity (mimic children
+# at |multiplier| x parent field, persist 2) or a coupling fault; the legacy rule is then scored only in `legacy_envelope_shadow`.
+observer_name = str(config.get('observer', LEGACY)); assert observer_name in OBSERVERS, 'observer must be one of %s' % (OBSERVERS,)
 steps = min(maximum_steps, int(round((lead_in_s + sequence.duration_s) / dt)) + 1)
 # Closed-loop mode (sprint K K4): the package's single row is the START pose; after the lead-in the probe publishes fresh
 # observations to a co-admitted model sidecar over private file IPC and executes a short validated prefix of each
@@ -97,6 +102,8 @@ def palm_builder(stage, mesh, body, side):
 
 
 asset, facts = import_body(source, out, fixed_base=True, palm_builder=palm_builder, left_thumb_builder=replace_left_thumb_with_slabs)
+operational_observer = make_observer(observer_name, facts['joint_limits'], facts['mimic_map'], dt, threshold_multiple=2.0, persist=2)
+legacy_shadow_summary = {'over_2x_samples': 0, 'first': None, 'would_abort': False}
 body_names = list(manifest.body_names)
 assert set(body_names) == set(facts['body_joint_names']) and len(body_names) == 29
 hand_names = list(manifest.hand_joint_names('left')) + list(manifest.hand_joint_names('right'))
@@ -463,19 +470,32 @@ for tick in range(steps):
         aborted = {'sequence': tick, 'reason': 'nonfinite_physics_state'}; break
     poses = {n: np.asarray(v.get_transforms())[0].tolist() for n, v in views.items()}
     coupling = {n: float(q[names.index(n)] - (m['multiplier'] * q[names.index(m['parent'])] + m['offset'])) for n, m in facts['mimic_map'].items()}
+    reported_over_2x = {n: float(dq[i]) for i, n in enumerate(names) if abs(dq[i]) > 2 * facts['joint_limits'][n]['velocity']}
+    decision = None if operational_observer is None else operational_observer.update(tick, float(world.current_time), dict(zip(names, q.tolist())), dict(zip(names, dq.tolist())))
     r = {'sequence': tick, 'physics_s': world.current_time, 'wall_s': time.monotonic() - loop_wall_start, 'phase': phase, 'source_row': None if row is None else row['row'],
          'source_t_s': None if row is None else row['t_s'], 'runtime_names': names, 'q_rad': q.tolist(), 'dq_rad_s': dq.tolist(), 'measured_generalized_effort_nm': effort.tolist(),
          'body_command_names': body_names, 'body_command_rad': body_target.tolist(), 'hand_command_names': hand_names, 'hand_command_rad': hand_target.tolist(),
          'link_poses_world_xyzw': poses, 'coupling_error_rad': coupling, 'body_feedforward': ff_record}
+    if decision is not None:
+        r['legacy_envelope_shadow'] = {'reported_over_2x_rad_s': reported_over_2x, 'would_abort': bool(reported_over_2x)}
     trace.append(r); state_file.write(json.dumps(r, allow_nan=False) + '\n')
     if object_view is not None:
         op = np.asarray(object_view.get_transforms())[0].tolist(); ov = np.asarray(object_view.get_velocities())[0].tolist()
         object_file.write(json.dumps({'sequence': tick, 'physics_s': world.current_time, 'phase': phase, 'source_row': None if row is None else row['row'], 'pose_world_xyzw': op, 'linear_velocity_m_s': ov[:3], 'angular_velocity_rad_s': ov[3:],
                                       'right_palm_pose_world_xyzw': poses['right_base_link']}, allow_nan=False) + '\n')
     violated = {n: float(q[i]) for i, n in enumerate(names) if q[i] < facts['joint_limits'][n]['lower'] - .1 or q[i] > facts['joint_limits'][n]['upper'] + .1}
-    overspeed = {n: float(dq[i]) for i, n in enumerate(names) if abs(dq[i]) > 2 * facts['joint_limits'][n]['velocity']}
-    if violated or overspeed:
-        aborted = {'sequence': tick, 'reason': 'source_envelope_abort', 'joint_limit_violations_rad': violated, 'joint_velocity_violations_rad_s': overspeed}; break
+    if decision is None:
+        overspeed = reported_over_2x                                                    # legacy rule, unchanged
+        if violated or overspeed:
+            aborted = {'sequence': tick, 'reason': 'source_envelope_abort', 'joint_limit_violations_rad': violated, 'joint_velocity_violations_rad_s': overspeed, 'observer': LEGACY}; break
+    else:
+        if reported_over_2x:
+            legacy_shadow_summary['over_2x_samples'] += 1; legacy_shadow_summary['would_abort'] = True
+            if legacy_shadow_summary['first'] is None:
+                legacy_shadow_summary['first'] = {'sequence': tick, 'physics_s': float(world.current_time), 'joints': reported_over_2x}
+        if violated or decision['abort']:
+            aborted = {'sequence': tick, 'reason': 'source_envelope_abort' if violated else 'operational_observer_abort', 'joint_limit_violations_rad': violated, 'joint_velocity_violations_rad_s': decision['violations'],
+                       'coupling_faults_rad': decision['coupling_faults'], 'observer': observer_name, 'observer_reason': decision['reason'], 'legacy_envelope_shadow': r['legacy_envelope_shadow']}; break
     if (tick + 1) % frame_every == 0:
         frame = (tick + 1) // frame_every - 1; files_ = {}
         palm = np.asarray(poses['right_base_link'][:3]); eye = palm + np.asarray(closeup['offset'])
@@ -528,6 +548,7 @@ metrics = {'status': 'PASS' if all(checks.values()) else 'FAIL', 'checks': check
            'steps': len(trace), 'physics_dt': dt, 'lead_in_s': lead_in_s, 'simulated_s': len(trace) * dt, 'loop_wall_s': loop_wall,
            'real_time_factor_loop': (len(trace) * dt) / loop_wall if loop_wall > 0 else None, 'offline_replay': True, 'wall_since_probe_start_s': time.monotonic() - started_wall,
            'runtime_names': names, 'commanded_body_joints': commanded_body, 'commanded_hand_joints': commanded_hand, 'tracking_abs_error_rad': tracking,
+           'observer': ({'active': LEGACY, 'note': 'historical rule: reported velocity > 2x own URDF field aborts'} if operational_observer is None else {'active': observer_name, **operational_observer.summary, 'legacy_envelope_shadow': legacy_shadow_summary, 'note': 'SIM-only guard (owner decision A, Sprint O): sampled-interval velocity, mimic children at |multiplier| x parent field, persist 2; legacy reported-velocity rule scored in shadow, never acting'}),
            'rows_applied': len(applied_rows), 'rows_total': len(sequence.converted), 'clipped_rows': sequence.clipped_rows, 'rejections': rejections, 'abort': aborted,
            'closed_loop': ({'schema': 'closed_loop_v1', 'control_source': closed_loop['control_source'], 'timing': 'non-real-time closed-loop simulation (physics paused while inferring)', 'iterations_completed': cl_state['iteration'], 'iterations_planned': cl_iters, 'target_component': {'module': 'isaac/twin/inspire/closed_loop_targets.py', 'sha256': hashlib.sha256(Path(sys.modules['inspire.closed_loop_targets'].__file__).read_bytes()).hexdigest(), 'hand_owner': ('SCRIPTED' if cl_hybrid else 'MODEL'), 'model_rows_applied': (cl_targets.rows if cl_targets else 0), 'applied_records': (cl_targets.applied_records if cl_targets else 0)}, 'arm_state_datum': cl_datum_mode, 'datum_offset_rad': cl_state.get('datum'), 'handover_after_s': closed_loop.get('handover_after_s', 0.0), 'prefix_steps': cl_prefix, 'model_step_s': cl_model_ticks * dt,
                             'observations_published': cl_state['obs_count'], 'distinct_image_hashes': len({r['image_sha256'] for r in cl_state['records']}), 'refusals': cl_state['refusals'], 'interventions': {'count': len(cl_state['interventions']), 'by_axis': {a_: sum(1 for i_ in cl_state['interventions'] if i_['axis'] == a_) for a_ in {i_['axis'] for i_ in cl_state['interventions']}}, 'max_step_rad': closed_loop.get('max_step_rad'), 'interpolate_within_step': closed_loop.get('interpolate_within_step', True)}, 'hand_phase_final': cl_state['hand_phase'], 'close_started_tick': cl_state['close_started_tick'],
