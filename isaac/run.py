@@ -850,6 +850,12 @@ class G1VelocityPolicy(PolicyController):
             if os.environ.get("G1_OWNERSHIP_ROS", "1").strip().lower() in ("1", "true", "yes", "on"):
                 ownership.setup_ros(self._arbiter)
             self._hand_all_idx = {n: names_all.index(n) for n in self._arbiter.hand_names}
+            self._body_trace = None
+            if os.environ.get("G1_OWNERSHIP_TRACE", "").strip().lower() in ("1", "true", "yes", "on"):
+                jdir0 = os.path.dirname(os.environ.get("G1_OWNERSHIP_JOURNAL", "/tmp/ownership_journal.jsonl")) or "/tmp"
+                self._body_trace = ownership.BodyTrace(self.robot, self._arbiter, os.path.join(jdir0, "body_trace.jsonl"),
+                                                       every=int(os.environ.get("G1_OWNERSHIP_TRACE_EVERY", "10")))
+                print("[ownership] body trace ON", flush=True)
             self._manip_ref = None
             if manip_owner.enabled():
                 jdir = os.path.dirname(os.environ.get("G1_OWNERSHIP_JOURNAL", "/tmp/ownership_journal.jsonl")) or "/tmp"
@@ -956,6 +962,8 @@ class G1VelocityPolicy(PolicyController):
             if getattr(self, "_manip_ref", None) is not None:
                 self._manip_ref.step(self._arbiter.t, self._arbiter.state)
             target_pos, hand_targets, self.command_allowed, extra_efforts = self._arbiter.step(dt, speed, float(pos_w[2]), target_pos)
+            if getattr(self, "_body_trace", None) is not None:
+                self._body_trace.step()
         if self._body_idx is not None:
             action = ArticulationAction(joint_positions=target_pos, joint_indices=self._body_idx)
         else:

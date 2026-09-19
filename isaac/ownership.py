@@ -56,6 +56,8 @@ class OwnershipArbiter:
         self._lock = threading.RLock()
         self.hooks = {"grant": [], "walk": []}      # callables(arbiter) run on SETTLING->MANIP and RETURNING->WALK
         self._manip_effort = None                    # dict policy joint name -> extra joint effort (N m) while MANIP/RETURNING
+        self._carry_arm = None                       # Sprint O W3: dict arm joint -> target held by the "carry_hold" source outside MANIP
+        self._carry_hand = None                      # dict hand joint -> target kept while carrying (grip persists across ownership)
         self._journal = open(journal_path, "a", encoding="utf-8") if journal_path else None
         self._log("init", {"policy_joints": len(self.policy_names), "arms": len(self.arm_idx), "locomotion": len(self.loco_idx),
                            "hands": len(self.hand_names), "v_settle": self.v_settle, "settle_s": self.settle_s, "return_s": self.return_s})
@@ -70,7 +72,7 @@ class OwnershipArbiter:
 
     def owner_by_group(self):
         if self.state in ("WALK", "SETTLING"):
-            return {"locomotion": "policy", "arms": "policy", "hands": "authored"}
+            return {"locomotion": "policy", "arms": "carry_hold" if self._carry_arm else "policy", "hands": "carry_hold" if self._carry_hand else "authored"}
         if self.state == "MANIP":
             return {"locomotion": "policy(balance)", "arms": "manipulation", "hands": "manipulation" if self._manip_hand else "authored"}
         return {"locomotion": "policy(balance)", "arms": "return_ramp", "hands": "authored"}
@@ -97,6 +99,19 @@ class OwnershipArbiter:
                 self._pending_release = True; self._log("release", {"source": source})
             else:
                 self._pending_request = False; self._log("release_ignored", {"source": source, "reason": self.state})
+
+    def set_carry_hold(self, arm_targets, hand_targets, source="manip"):
+        """Arm/hand targets kept by the carry_hold source after the manipulation owner releases (WALK_CARRY): the policy keeps
+        the locomotion group, the arms listed here stay at these targets, the hand keeps its grip targets."""
+        with self._lock:
+            self._carry_arm = {n: float(q) for n, q in (arm_targets or {}).items() if n in ARMS}
+            self._carry_hand = {n: float(q) for n, q in (hand_targets or {}).items() if n in self.hand_names} or None
+            self._log("carry_hold_set", {"source": source, "arms": sorted(self._carry_arm), "hands": sorted(self._carry_hand or {})})
+
+    def clear_carry_hold(self, source="manip"):
+        with self._lock:
+            had = bool(self._carry_arm); self._carry_arm = None; self._carry_hand = None
+            self._log("carry_hold_cleared", {"source": source, "had_hold": had})
 
     def set_efforts(self, efforts):
         """Extra joint efforts (N m) from the manipulation source for joints it owns; None clears."""
@@ -129,12 +144,16 @@ class OwnershipArbiter:
         with self._lock:
             self.t += float(dt)
             out = np.array(policy_targets, dtype=np.float32, copy=True)
+            hold_hands = dict(self._carry_hand) if self._carry_hand else None
+            if self._carry_arm:
+                for n, q in self._carry_arm.items():
+                    out[self.policy_names.index(n)] = q
             if self.state == "WALK":
                 if self._pending_request:
                     self._pending_request = False; self._settled_since = None
                     self.state = "SETTLING"; self._log("WALK->SETTLING", {"speed": round(float(base_speed_xy), 4)})
                 else:
-                    return out, None, True, None
+                    return out, hold_hands, True, None
             if self.state == "SETTLING":
                 if base_speed_xy < self.v_settle:
                     if self._settled_since is None: self._settled_since = self.t
@@ -145,28 +164,30 @@ class OwnershipArbiter:
                             h(self)
                 else:
                     self._settled_since = None
-                return out, None, False, None
+                return out, hold_hands, False, None
             if self.state == "MANIP":
                 if self._manip_arm:
                     for n, q in self._manip_arm.items():
                         out[self.policy_names.index(n)] = q
-                hands = dict(self._manip_hand) if self._manip_hand else None
+                hands = dict(self._manip_hand) if self._manip_hand else hold_hands
                 if self._pending_release:
                     self._pending_release = False
                     self._return_from = {n: float(out[self.policy_names.index(n)]) for n in ARMS}
                     self._return_t0 = self.t; self.state = "RETURNING"; self._log("MANIP->RETURNING", {"return_s": self.return_s})
                 return out, hands, False, (dict(self._manip_effort) if self._manip_effort else None)
-            # RETURNING: linear ramp from the last manipulation arm targets to the live policy arm targets
+            # RETURNING: linear ramp from the last manipulation arm targets to the live policy arm targets (or to the carry hold)
             a = min(1.0, (self.t - self._return_t0) / max(1e-6, self.return_s))
             for n, q0 in self._return_from.items():
-                i = self.policy_names.index(n); out[i] = (1.0 - a) * q0 + a * float(policy_targets[i])
+                i = self.policy_names.index(n)
+                dest = self._carry_arm[n] if (self._carry_arm and n in self._carry_arm) else float(policy_targets[i])
+                out[i] = (1.0 - a) * q0 + a * dest
             eff = {n: (1.0 - a) * v for n, v in self._manip_effort.items()} if self._manip_effort else None
             if a >= 1.0:
                 self.state = "WALK"; self._return_from = None; self._manip_effort = None; self._log("RETURNING->WALK", {})
                 for h in self.hooks["walk"]:
                     h(self)
-                return out, None, True, None
-            return out, None, False, eff
+                return out, hold_hands, True, None
+            return out, hold_hands, False, eff
 
 
 class ScriptedManipulationSource:
@@ -198,6 +219,52 @@ class ScriptedManipulationSource:
             self.arb.set_targets(self.joints, q, source="script")
             if s >= tt[-1] + self.hold_end:
                 self.arb.release(source="script"); self._grant_t = None
+
+
+class BodyTrace:
+    """Per-step body trace for the arbiter path (Sprint O W2 prefilter): pelvis pose/rpy, base velocities, both feet
+    (ankle_roll links) world positions, foot-lift flags and a step counter; one JSONL row every `every` physics steps.
+    Read-only; enabled by G1_OWNERSHIP_TRACE=1 (path next to the ownership journal)."""
+
+    def __init__(self, robot, arbiter, path, every=10, lift_m=0.02):
+        import numpy as np
+        self.robot = robot; self.arb = arbiter; self.every = int(every); self.lift = float(lift_m)
+        self.f = open(path, "a", encoding="utf-8"); self.n = 0
+        self.view = robot._articulation_view
+        self.links = list(self.view.body_names) if hasattr(self.view, "body_names") else []
+        self.feet = {k: (self.links.index(k) if k in self.links else None) for k in ("left_ankle_roll_link", "right_ankle_roll_link")}
+        self.foot_z0 = {}; self.foot_up = {k: False for k in self.feet}; self.steps = {k: 0 for k in self.feet}
+        self._np = np
+
+    def _link(self, i):
+        tf = self._np.asarray(self.view._physics_view.get_link_transforms()).reshape(-1, len(self.links), 7)[0][i]
+        return [float(v) for v in tf[:3]]
+
+    def step(self):
+        self.n += 1
+        if self.n % self.every:
+            return
+        np = self._np
+        try:
+            pos, quat = self.robot.get_world_pose(); lin = self.robot.get_linear_velocity(); ang = self.robot.get_angular_velocity()
+            w, x, y, z = [float(v) for v in quat]
+            roll = math.atan2(2 * (w * x + y * z), 1 - 2 * (x * x + y * y)); pitch = math.asin(max(-1.0, min(1.0, 2 * (w * y - z * x)))); yaw = math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
+            feet = {}
+            for k, i in self.feet.items():
+                if i is None: continue
+                p = self._link(i); feet[k] = [round(v, 4) for v in p]
+                if k not in self.foot_z0: self.foot_z0[k] = p[2]
+                up = p[2] - self.foot_z0[k] > self.lift
+                if up and not self.foot_up[k]: self.steps[k] += 1
+                self.foot_up[k] = up
+            row = {"t": round(self.arb.t, 4), "state": self.arb.state, "owners": self.arb.owner_by_group(),
+                   "pelvis": {"pos": [round(float(v), 4) for v in pos], "rpy_deg": [round(math.degrees(roll), 2), round(math.degrees(pitch), 2), round(math.degrees(yaw), 2)]},
+                   "base_speed_xy": round(float(np.hypot(float(lin[0]), float(lin[1]))), 4), "base_ang_speed": round(float(np.linalg.norm(np.asarray(ang, float))), 4),
+                   "feet": feet, "foot_up": dict(self.foot_up), "steps": dict(self.steps)}
+            self.f.write(json.dumps(row) + "\n")
+            if self.n % (self.every * 100) == 0: self.f.flush()
+        except Exception as exc:
+            if self.n % 2000 == 0: print(f"[ownership trace] error {exc!r}", flush=True)
 
 
 def setup_ros(arbiter):

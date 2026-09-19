@@ -53,6 +53,13 @@ class Rod30Source:
         self.hand_kp = hk if isinstance(hk, dict) else {n: float(hk) for n in self.hand_joints}
         self.hand_kd = hd if isinstance(hd, dict) else {n: float(hd) for n in self.hand_joints}
         self.request_at = float(os.environ.get("G1_MANIP_REQUEST_AT_S", "0") or 0)   # > 0: request MANIP once at this sim time (from WALK)
+        # Sprint O W3 split mode: play rows up to the first row of stage G1_MANIP_SPLIT_STAGE, then hand the arms back to the walk
+        # owner as a CARRY HOLD (arms at that row's targets, hand keeps that row's grip targets) and release; at
+        # G1_MANIP_RESUME_AT_S (sim s) request MANIP again and play the remaining rows (place/release), then clear the hold.
+        self.split_stage = os.environ.get("G1_MANIP_SPLIT_STAGE", "").strip() or None
+        self.resume_at = float(os.environ.get("G1_MANIP_RESUME_AT_S", "0") or 0)
+        self.stop_stage = os.environ.get("G1_MANIP_STOP_STAGE", "").strip() or None   # ladder A: play up to this stage's end, hold, then blend out (no split)
+        self._split_row = None; self._resume_pending = False; self._grants = 0
         self.spawn_scene = spawn_scene; self.gravity_ff = gravity_ff
         self.phase = "WAIT"; self._t_grant = None; self._arm_start = None; self._grant_walltime = None
         self._prev_gains = None; self._scene = None; self._obj = None; self._trace = None; self._n = 0
@@ -86,10 +93,13 @@ class Rod30Source:
         # policy arm targets at handoff = the policy's current target vector for the arm joints (policy order)
         pt = self.policy._action_offset + self.policy._action_scale * self.policy.action
         self._arm_start = {n: float(pt[self.policy_names().index(n)]) for n in self.arm_joints}
+        if self._split_row is not None and self.arb._carry_arm:
+            self._arm_start = {n: float(self.arb._carry_arm.get(n, self._arm_start[n])) for n in self.arm_joints}
         self.default_arm = {n: float(self.policy.default_pos[self.policy_names().index(n)]) for n in self.arm_joints}
         # gains: record, then set the manipulation gains on the arm and the right hand's independent joints
         kps, kds = view.get_gains(); kps = np.asarray(kps).reshape(-1).copy(); kds = np.asarray(kds).reshape(-1).copy()
-        self._prev_gains = (kps.copy(), kds.copy())
+        if self._prev_gains is None:   # record the walk owner's gains once (a resume grant must not capture the manipulation gains)
+            self._prev_gains = (kps.copy(), kds.copy())
         idx = [names.index(n) for n in self.arm_joints + self.hand_joints]
         new_kp = np.array([float(self.arm_kp.get(n, 60.0)) for n in self.arm_joints] + [float(self.hand_kp.get(n, 1.0)) for n in self.hand_joints], dtype=np.float32)
         new_kd = np.array([float(self.arm_kd.get(n, 1.5)) for n in self.arm_joints] + [float(self.hand_kd.get(n, 0.05)) for n in self.hand_joints], dtype=np.float32)
@@ -98,11 +108,14 @@ class Rod30Source:
         self._j("gains_set", {"arm_kp": float(new_kp[0]), "arm_kd": float(new_kd[0]), "hand_kp": float(new_kp[-1]), "hand_kd": float(new_kd[-1]),
                               "prev_arm_kp": float(kps[names.index(self.arm_joints[0])]), "prev_hand_kp": float(kps[names.index(self.hand_joints[0])]),
                               "arm_max_effort": {n: float(self._max_eff[names.index(n)]) for n in self.arm_joints}})
-        self._pelvis0 = (np.asarray(pos, float).copy(), rpy)
-        if self.spawn_scene:
-            self._spawn(pos, R, quat)
-            self._subscribe_contacts()
-        self._t_grant = arb.t; self.phase = "BLEND_IN"; self._j("BLEND_IN", {"arm_start": self._arm_start})
+        self._grants += 1
+        if self._grants == 1:
+            self._pelvis0 = (np.asarray(pos, float).copy(), rpy)
+            if self.spawn_scene:
+                self._spawn(pos, R, quat)
+                self._subscribe_contacts()
+        self._t_grant = arb.t; self.phase = "BLEND_IN"
+        self._j("BLEND_IN", {"arm_start": self._arm_start, "grant": self._grants, "resume_from_row": self._split_row})
 
     def _spawn(self, pos, R, quat):
         try:
@@ -184,12 +197,17 @@ class Rod30Source:
         self._trace.write(json.dumps(row) + "\n"); self._trace.flush()
 
     def _on_walk(self, arb):
+        if self.phase == "CARRY":
+            # ladder C: body ownership returned while the hand keeps the grip; gains stay as the manipulation owner set them
+            # for the held joints so the grip force does not change hands mid-carry (restored at the final release)
+            self._j("WALK_CARRY", {"arms_held": self.arm_joints, "hand_held": self.hand_joints})
+            return
         if self._prev_gains is not None:
             kps, kds = self._prev_gains; names = self._all_names()
             idx = np.array([names.index(n) for n in self.arm_joints + self.hand_joints], dtype=np.int64)
             self._view().set_gains(kps[idx].astype(np.float32), kds[idx].astype(np.float32), joint_indices=idx)
             self._j("gains_restored", {"arm_kp": float(kps[idx[0]]), "hand_kp": float(kps[idx[-1]])})
-        self.arb.set_efforts(None); self.phase = "DONE"
+        self.arb.set_efforts(None); self.arb.clear_carry_hold(source="rod30"); self.phase = "DONE"
         self._j("DONE", {"flags": dict(self._flags), "contacts": dict(self._contacts), "ff_clip_count": self._ff_clips})
 
     def policy_names(self):
@@ -199,21 +217,38 @@ class Rod30Source:
     def step(self, t, state):
         if state == "WALK" and self.phase == "WAIT" and self.request_at > 0 and t >= self.request_at:
             self.request_at = 0.0; self.arb.request_manip(source="rod30")
+        if self.phase == "CARRY":
+            if state == "WALK" and self.resume_at > 0 and t >= self.resume_at and not self._resume_pending:
+                self._resume_pending = True; self.arb.request_manip(source="rod30-resume"); self._j("resume_requested", {"t": round(t, 2)})
+            if state == "MANIP" and self._resume_pending:
+                self._resume_pending = False   # _on_grant already ran (phase BLEND_IN set there)
+            elif state != "MANIP":
+                return
         if state != "MANIP" or self.phase in ("WAIT", "DONE", "RELEASED"):
             return
         s = t - self._t_grant
         if self.phase == "BLEND_IN":
-            a = min(1.0, s / max(1e-6, self.blend_in)); r0 = self.rows[0]
+            a = min(1.0, s / max(1e-6, self.blend_in)); k0 = self._split_row if self._split_row is not None else 0; r0 = self.rows[k0]
+            hand0 = list(self._carry_hand_vals) if (self._split_row is not None and getattr(self, "_carry_hand_vals", None)) else [0.0] * len(self.hand_joints)
             arm = [(1 - a) * self._arm_start[n] + a * float(r0["arm_q"][self.arm_col[n]]) for n in self.arm_joints]
-            hand = [a * float(r0["hand_q_right"][i]) for i in range(len(self.hand_joints))]
+            hand = [(1 - a) * hand0[i] + a * float(r0["hand_q_right"][i]) for i in range(len(self.hand_joints))]
             if a >= 1.0:
-                self.phase = "PLAY"; self._t_play = t; self._j("PLAY", {})
+                self.phase = "PLAY"; self._t_play = t - float(self.row_t[k0]); self._j("PLAY", {"from_row": k0, "stage": r0.get("stage")})
         elif self.phase == "PLAY":
             sp = t - self._t_play; k = int(np.searchsorted(self.row_t, sp, side="right") - 1); k = max(0, min(k, len(self.rows) - 1))
             r = self.rows[k]; arm = [float(r["arm_q"][self.arm_col[n]]) for n in self.arm_joints]; hand = [float(v) for v in r["hand_q_right"]]
             if self._n % 200 == 0:
                 self._j("row", {"k": k, "stage": r.get("stage"), "sp": round(sp, 3)})
-            if sp >= float(self.row_t[-1]):
+            if self.split_stage and self._split_row is None and r.get("stage") == self.split_stage:
+                # ladder C: hand the arms to the carry hold at this row, keep the grip, release the manipulation owner
+                self._split_row = k; self._carry_hand_vals = list(hand)
+                self.arb.set_targets(self.arm_joints + self.hand_joints, arm + hand, source="rod30")
+                self.arb.set_carry_hold(dict(zip(self.arm_joints, arm)), dict(zip(self.hand_joints, hand)), source="rod30")
+                self.arb.release(source="rod30"); self.phase = "CARRY"; self._j("SPLIT->CARRY", {"row": k, "stage": self.split_stage, "resume_at_s": self.resume_at})
+                return
+            if self.stop_stage and r.get("stage") != self.stop_stage and any(x.get("stage") == self.stop_stage for x in self.rows[:k]):
+                self.phase = "BLEND_OUT"; self._t_out = t; self._last = (arm, hand); self._j("BLEND_OUT", {"to": "policy default arm pose", "after_stage": self.stop_stage})
+            elif sp >= float(self.row_t[-1]):
                 self.phase = "BLEND_OUT"; self._t_out = t; self._last = (arm, hand); self._j("BLEND_OUT", {"to": "policy default arm pose"})
         else:  # BLEND_OUT
             a = min(1.0, (t - self._t_out) / max(1e-6, self.blend_out)); la, lh = self._last
