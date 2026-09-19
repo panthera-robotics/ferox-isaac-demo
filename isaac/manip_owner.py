@@ -185,8 +185,8 @@ class Rod30Source:
         (object_center_torso_link_m, destination_center_torso_link_m, table_center_top_torso_link_m, object_bottom_to_table_top_gap_m);
         those replace the pelvis-frame numbers when the spawn happens in the torso frame."""
         import copy, re
-        sc = copy.deepcopy(self.spec["scene_pelvis_relative"]); tl = sc.get("torso_link_frame")
-        if scene_frame == "torso_link" and tl:
+        sc = copy.deepcopy(self.spec["scene_pelvis_relative"]); tl = sc.get("torso_link_frame") or {}
+        if scene_frame == "torso_link":
             # The planner's arm rows hang from a torso_link PITCHED by the planned waist angle (e.g. 0.34 rad) on an upright pelvis.
             # The physically correct torso_link coordinates of a pelvis-frame point p are R_y(waist)^T (p - t); a declaration that
             # lists R = identity for the pelvis->torso transform is only a translation (p - t) and would place the object ~15 cm too
@@ -194,6 +194,8 @@ class Rod30Source:
             # frame numbers with the declared planned waist pitch (explicit 'planned_waist_pitch_rad', else parsed from the
             # 'pelvis_T_torso_link_at_waist_<rad>' key), and journal both for the record.
             key = next((k for k in tl if k.startswith("pelvis_T_torso_link")), None); tr = tl.get(key, {}) if key else {}
+            if "planned_waist_pitch_rad" not in tl and "planned_waist_pitch_rad" not in sc and not key:
+                raise RuntimeError("scene block declared torso_link without planned_waist_pitch_rad (and no torso_link_frame sub-block)")
             t = np.asarray(tr.get("t", self.PELVIS_TO_TORSO_ZERO_WAIST), float)
             m = re.search(r"at_waist_([0-9.]+)", key or ""); waist = float(tl.get("planned_waist_pitch_rad", sc.get("planned_waist_pitch_rad", m.group(1) if m else 0.0)))
             c, sn = math.cos(waist), math.sin(waist); RyT = np.array([[c, 0.0, -sn], [0.0, 1.0, 0.0], [sn, 0.0, c]])   # R_y(waist)^T
