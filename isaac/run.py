@@ -40,6 +40,7 @@ import omni.appwindow  # Contains handle to keyboard
 import sim_utils as ros_utils
 import viewport_follow  # PANTHERA: flag-gated viewport-follow for x11grab capture
 import capture_frames  # PANTHERA (Sprint M): flag-gated headless chase-camera PNG capture (G1_CAPTURE_DIR)
+import capture_world_cams  # PANTHERA (Sprint O, world lane candidate): multi-camera capture from the hero world rigs (G1_CAPTURE_DIR + G1_CAPTURE_CAMS)
 import ownership  # PANTHERA (Sprint N): flag-gated body/arm/hand ownership arbiter (G1_OWNERSHIP)
 import manip_owner  # PANTHERA (Sprint N): flag-gated rod30 manipulation owner (G1_MANIP_REFERENCE)
 import yaml
@@ -1397,12 +1398,19 @@ class RobotRosRunner(object):
         Step simulation based on rendering downtime.
 
         """
-        capture_frames.setup(self._world)  # PANTHERA: no-op unless G1_CAPTURE_DIR
+        # PANTHERA: render-only capture, no-op unless G1_CAPTURE_DIR; with G1_CAPTURE_CAMS the world-rig module owns the run
+        if capture_world_cams.enabled():
+            capture_world_cams.setup(self._world)
+        else:
+            capture_frames.setup(self._world)
         while simulation_app.is_running():
             t0 = time.time()
             self._world.step(render=True)
             viewport_follow.maybe_step(self)  # PANTHERA: no-op unless VIEWPORT_FOLLOW
-            capture_frames.maybe_step(self)  # PANTHERA: no-op unless G1_CAPTURE_DIR
+            if capture_world_cams.enabled():
+                capture_world_cams.maybe_step(self)
+            else:
+                capture_frames.maybe_step(self)
             if self._world.is_stopped():
                 self.needs_reset = True
             if real_time:
