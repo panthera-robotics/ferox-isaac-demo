@@ -21,6 +21,7 @@ from inspire.body_feedforward import bounded_gravity_feedforward  # noqa: E402
 from inspire import loop_ipc  # noqa: E402
 from inspire.closed_loop_targets import ClosedLoopTargets, TargetError  # noqa: E402
 from inspire.model_action_adapter import validate_piston_chunk, PISTON_DIMS, PISTON_HAND_ORDER  # noqa: E402
+from inspire.presentation_layer import validate_presentation, add_visual_overlay  # noqa: E402
 from inspire.embodiment import HandCommandAdapter, HAND_ACTUATORS  # noqa: E402
 from inspire.operational_observer import OBSERVERS, LEGACY, make_observer  # noqa: E402
 
@@ -50,6 +51,9 @@ dt = float(config.get('physics_dt_s', 0.005)); assert 0.001 <= dt <= 0.005 and a
 # velocity > 2x the joint's own URDF field aborts). `simulation_operational_v1` aborts on the SAMPLED-INTERVAL velocity (mimic children
 # at |multiplier| x parent field, persist 2) or a coupling fault; the legacy rule is then scored only in `legacy_envelope_shadow`.
 observer_name = str(config.get('observer', LEGACY)); assert observer_name in OBSERVERS, 'observer must be one of %s' % (OBSERVERS,)
+# Sprint P: optional presentation block (declared external cameras like the writer probe's, and a RENDER-ONLY visual overlay for
+# hero-world captures); cameras and the overlay never touch physics (isaac/twin/inspire/presentation_layer.py).
+presentation = validate_presentation(config.get('presentation'))
 steps = min(maximum_steps, int(round((lead_in_s + sequence.duration_s) / dt)) + 1)
 # Closed-loop mode (sprint K K4): the package's single row is the START pose; after the lead-in the probe publishes fresh
 # observations to a co-admitted model sidecar over private file IPC and executes a short validated prefix of each
@@ -78,7 +82,7 @@ app = SimulationApp({'headless': True, 'renderer': 'RaytracedLighting'})
 import numpy as np  # noqa: E402
 from PIL import Image  # noqa: E402
 from pxr import Gf, PhysxSchema, PhysicsSchemaTools, Usd, UsdGeom, UsdLux, UsdPhysics  # noqa: E402
-from omni.physx import get_physx_simulation_interface  # noqa: E402
+from omni.physx import get_physx_simulation_interface, get_physxunittests_interface  # noqa: E402
 from isaacsim.core.api import World  # noqa: E402
 from isaacsim.core.prims import SingleArticulation  # noqa: E402
 from isaacsim.core.utils.extensions import enable_extension  # noqa: E402
@@ -227,9 +231,16 @@ if diagnostic_collision_filters:
         pa_, pb_ = world.stage.GetPrimAtPath('/World/G1/' + a_), world.stage.GetPrimAtPath('/World/G1/' + b_)
         assert pa_.IsValid() and pb_.IsValid(), 'unknown link in diagnostic_collision_filters: %s / %s' % (a_, b_)
         UsdPhysics.FilteredPairsAPI.Apply(pa_).CreateFilteredPairsRel().AddTarget(pb_.GetPath())
+overlay_audit = None
+if presentation and presentation.get('visual_overlay'):
+    # RENDER-ONLY set dressing (Sprint P): referenced after the task scene is complete, physics stripped under its root,
+    # audited by the live PhysX statistics taken after the reset (backend_shapes.json / metrics.presentation)
+    overlay_audit = add_visual_overlay(world.stage, presentation['visual_overlay'], add_reference_to_stage, UsdGeom, UsdPhysics, Gf)
 subscription = get_physx_simulation_interface().subscribe_contact_report_events(on_contact)
 robot = SingleArticulation('/World/G1', name='provisional_assembled_g1')
 world.reset(); robot.initialize()
+backend_statistics = dict(get_physxunittests_interface().get_physics_stats())   # live PhysX shape/body inventory after the reset: the physics-delta audit for any presentation change
+(out / 'backend_shapes.json').write_text(json.dumps({'statistics': backend_statistics, 'note': 'live PhysX statistics after the reset (Sprint P): identical to the reference run when only presentation changed'}, indent=2, allow_nan=False))
 inertia_audit = audit_live_properties(SimulationManager.get_physics_sim_view(), '/World/G1', facts['expected_source_rigid_properties_in_imported_frame'])
 (out / 'live_inertia_audit.json').write_text(json.dumps(inertia_audit, indent=2, allow_nan=False))
 names = list(robot.dof_names); assert set(names) == set(facts['joint_limits']) and len(names) == 53
@@ -300,10 +311,26 @@ object_file = (out / 'object.jsonl').open('w', buffering=1) if scene else None
 # Cameras: two external views and the policy camera on the torso at the donor URDF d435 mount.
 cameras = {}
 closeup = config.get('closeup_camera', {'offset': [0.42, -0.30, 0.28]})   # right-hand close-up: diagnostic camera re-aimed at the measured right palm every frame (follows the hand); not a policy input, not a bilateral trial
-for label, position, target in [('front', (2.4, -2.4, 1.7), (0, 0, 1.0)), ('side', (-.3, 3.2, 1.6), (0, 0, 1.0)), ('closeup_right_hand', (0.85, -0.85, 1.2), (0.2, -0.2, 0.92))]:
-    camera = Camera('/World/' + label + 'Camera', resolution=(640, 640)); camera.initialize(); camera.set_clipping_range(.01, 10.)
-    x = UsdGeom.Xformable(camera.prim); x.ClearXformOpOrder(); x.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*position), Gf.Vec3d(*target), Gf.Vec3d(0, 0, 1)).GetInverse())
-    cameras[label] = camera; (out / 'frames' / label).mkdir(parents=True)
+declared_cameras = (presentation or {}).get('cameras')
+tracking_cameras = {}   # label -> (target, offset): re-aimed every captured frame from the live pose readback (right_base_link / right_wrist_yaw_link / the free object)
+if declared_cameras is None:
+    for label, position, target in [('front', (2.4, -2.4, 1.7), (0, 0, 1.0)), ('side', (-.3, 3.2, 1.6), (0, 0, 1.0)), ('closeup_right_hand', (0.85, -0.85, 1.2), (0.2, -0.2, 0.92))]:
+        camera = Camera('/World/' + label + 'Camera', resolution=(640, 640)); camera.initialize(); camera.set_clipping_range(.01, 10.)
+        x = UsdGeom.Xformable(camera.prim); x.ClearXformOpOrder(); x.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*position), Gf.Vec3d(*target), Gf.Vec3d(0, 0, 1)).GetInverse())
+        cameras[label] = camera; (out / 'frames' / label).mkdir(parents=True)
+else:
+    # Sprint P: declared external cameras (static: position/look_at; tracking: offset from a live link or the free object), writer-probe format
+    assert scene is not None or all('track' not in c or c['track'] != 'object' for c in declared_cameras), 'an object-tracking camera needs a scene'
+    for spec_ in declared_cameras:
+        label = spec_['label']; camera = Camera('/World/' + label + 'Camera', resolution=tuple(spec_.get('resolution', [640, 640]))); camera.initialize(); camera.set_clipping_range(.01, 10.)
+        if 'focal_length_mm' in spec_:
+            camera.prim.GetAttribute('focalLength').Set(float(spec_['focal_length_mm']))
+        x = UsdGeom.Xformable(camera.prim); x.ClearXformOpOrder()
+        if 'track' in spec_:
+            tracking_cameras[label] = (spec_['track'], np.asarray(spec_['offset_m'], dtype=float)); x.AddTransformOp().Set(Gf.Matrix4d(1.0))
+        else:
+            x.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*spec_['position_m']), Gf.Vec3d(*spec_['look_at_m']), Gf.Vec3d(0, 0, 1)).GetInverse())
+        cameras[label] = camera; (out / 'frames' / label).mkdir(parents=True)
 cam_spec = manifest.data['cameras']['policy_head_d435_color_nominal']
 mount = cam_spec['mount']   # torso_link -> d435_link fixed joint from the donor URDF, carried by the manifest
 r_, p_, y_ = mount['rpy_rad']
@@ -499,9 +526,14 @@ for tick in range(steps):
     if (tick + 1) % frame_every == 0:
         frame = (tick + 1) // frame_every - 1; files_ = {}
         palm = np.asarray(poses['right_base_link'][:3]); eye = palm + np.asarray(closeup['offset'])
-        xc = UsdGeom.Xformable(cameras['closeup_right_hand'].prim); xc.ClearXformOpOrder()
-        xc.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*eye.tolist()), Gf.Vec3d(*palm.tolist()), Gf.Vec3d(0, 0, 1)).GetInverse())
-        world.render()   # re-render after re-aiming the diagnostic close-up (policy/external cameras unchanged)
+        if 'closeup_right_hand' in cameras:
+            xc = UsdGeom.Xformable(cameras['closeup_right_hand'].prim); xc.ClearXformOpOrder()
+            xc.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*eye.tolist()), Gf.Vec3d(*palm.tolist()), Gf.Vec3d(0, 0, 1)).GetInverse())
+        for label_, (target_, offset_) in tracking_cameras.items():
+            anchor = np.asarray(object_view.get_transforms())[0][:3].astype(float) if target_ == 'object' else np.asarray(poses[target_][:3])
+            xt = UsdGeom.Xformable(cameras[label_].prim); xt.ClearXformOpOrder()
+            xt.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*(anchor + offset_).tolist()), Gf.Vec3d(*anchor.tolist()), Gf.Vec3d(0, 0, 1)).GetInverse())
+        world.render()   # re-render after re-aiming the tracking views (policy/static cameras unchanged)
         for label, camera in cameras.items():
             pixels = camera.get_rgba(); extra = 0
             while (pixels is None or pixels.size == 0) and extra < 3:
@@ -541,6 +573,8 @@ metrics = {'status': 'PASS' if all(checks.values()) else 'FAIL', 'checks': check
            'replay_mode': 'command_driven_simulation (mode 2): initialize once, drive targets only, physics generates the response',
            'source': sequence.source, 'sequence_summary': sequence.summary(), 'package_files_sha256': files, 'package_sha256': pkg,
            'qualification_validity': qualification_validity, 'live_dependencies': live_dependencies,
+           'presentation': {'cameras': (declared_cameras if declared_cameras is not None else 'default front/side/closeup_right_hand 640x640 + policy'), 'visual_overlay': overlay_audit,
+                            'backend_physics_statistics': backend_statistics, 'note': 'cameras are render-only prims (static or re-aimed each captured frame from the live pose readback); a visual overlay is a referenced set-dressing layer with every physics schema disabled under its root; backend_physics_statistics are the live PhysX inventory after the reset (physics-delta audit vs the reference run)'},
            'controller': {'type': manifest.data['controller']['type'], 'provenance': controller.get('provenance'), 'hand_kp_nm_rad': hand_kp, 'hand_kd_nm_s_rad': hand_kd,
                           'gravity_feedforward': ({**gff, 'combined_effort_cap_events': ff_cap_count, 'max_requested_over_limit_nm': ff_cap_max, 'accounting': 'implicit PD drive (declared gains, URDF max force) + applied joint effort = model gravity term at the current configuration, ramped over ramp_in_s, reduced so that estimated PD + feed-forward stays within the URDF effort limit; measured_generalized_effort_nm in the trace is the solver joint effort (not motor torque)'} if gff['enabled'] else {'enabled': False}),
                           'body_gains_sha256': canonical_sha256({'kp': kp_body, 'kd': kd_body, 'home': home})},
