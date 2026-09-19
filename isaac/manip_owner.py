@@ -144,7 +144,8 @@ class Rod30Source:
             VisualCylinder(prim_path="/World/ManipScene/Destination", position=np.array(W([dc[0], dc[1], support_z + 0.001])), orientation=np.array(quat, dtype=float), radius=float(dest.get("radius_m", 0.03)), height=0.002, color=np.array([0.2, 0.8, 0.3]))
             self._scene = {"table_world": W(tc), "rod_world": W(ob["center_pelvis_m"]), "destination_world": W([dc[0], dc[1], support_z]), "stems": stems,
                            "support_top_z_pelvis_m": support_z, "support_top_world_z": W([ob["center_pelvis_m"][0], ob["center_pelvis_m"][1], support_z])[2]}
-            self._j("scene_spawned", dict(self._scene, lifted_task_rule=self.lifted_task_rule, lifted_frozen_rule="rod centre >= 0.06 m above the support top"))
+            self._j("scene_spawned", dict(self._scene, lifted_task_rule=self.lifted_task_rule, lifted_frozen_rule="rod centre >= 0.06 m above the support top",
+                                          lifted_frozen_rule_trivial_at_rest=bool(float(ob["length_m"]) / 2.0 >= 0.06)))   # a >= 12 cm object satisfies the rod30 rule while resting
         except Exception as exc:
             self._scene = None; self._obj = None
             self._j("scene_spawn_failed", {"error": repr(exc)})
