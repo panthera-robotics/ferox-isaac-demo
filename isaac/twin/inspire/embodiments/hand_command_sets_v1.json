@@ -1,0 +1,158 @@
+{
+ "schema": "hand_command_sets_v1",
+ "contract_id": "hand_action_contract_rh56dftp_donor_v1",
+ "contract_sha256": "4f1facb7b2de5394f9dae2b01e85d89e14a586fdf5be0d75e9d11061daa7fa1b",
+ "axis_order": [
+  "index",
+  "middle",
+  "ring",
+  "little",
+  "thumb_bend",
+  "thumb_rotation"
+ ],
+ "sets": {
+  "rod30_pick_v2": {
+   "units": "normalized_closure",
+   "description": "the qualified fixed-pelvis rod30 acquire/lift/hold/transport/place/release hand profile (scene v7-rod30, controller v4, identity map)",
+   "stages": {
+    "open": [
+     0.013907,
+     0.013907,
+     0.013907,
+     0.013907,
+     0.034106,
+     0.017181
+    ],
+    "closed": [
+     0.9,
+     0.9,
+     0.9,
+     0.9,
+     0.55,
+     0.5
+    ]
+   },
+   "spec_stage_for": {
+    "open": "home",
+    "closed": "close"
+   },
+   "timing": {
+    "close_s": 2.0,
+    "open_s": 1.5,
+    "rows_hz": 30.0,
+    "blend": "cosine (the spec rows hold ~0.1 s then blend; regenerate from the spec rows, not from this summary, when exactness matters)"
+   },
+   "provenance": {
+    "source_spec": "sessions/sprintJ-20260917T165919Z/configs/source-spec-rod30-pick-v2.json",
+    "source_spec_sha256": "d038f5235a0ee8db28c7cb8863a1f58713d3bf91ce20ba52ad4ed0d56527bdd8",
+    "qualified_runs": [
+     "sJ-diag-rod30-02/03 (J)",
+     "sM-rod30-regression-01 (M, C1\u2013C5 PASS)"
+    ],
+    "open_margin_rad": 0.02,
+    "saturation_policy": "reject"
+   }
+  },
+  "held_marker_grasp_v12": {
+   "units": "twin_rad",
+   "description": "retained across-palm writer grasp (v8e/v11 fixtures): initial pose then closing increments on the bench; six-axis view of held_marker_grasp_v12.json",
+   "stages": {
+    "initial": [
+     1.16298,
+     1.33247,
+     1.33249,
+     1.2248,
+     0.39494,
+     0.60442
+    ],
+    "closed": [
+     1.21298,
+     1.4381,
+     1.4381,
+     1.4248,
+     0.41494000000000003,
+     0.62442
+    ]
+   },
+   "spec_stage_for": {
+    "open": "initial",
+    "closed": "closed"
+   },
+   "timing": {
+    "preload_support_s": 1.5,
+    "closing_ramp_s": 0.4
+   },
+   "provenance": {
+    "grasp_file": "held_marker_grasp_v12.json (writer-held-marker-v8e / v11)",
+    "grasp_file_sha256_prefix": "af39f4c19326",
+    "closing_increments_rad": [
+     0.05,
+     0.2,
+     0.2,
+     0.2,
+     0.02,
+     0.02
+    ],
+    "closed_targets_clipped_to_twin_limits": true,
+    "gains": {
+     "kp_nm_rad": 1.0,
+     "kd_nm_s_rad": 0.5
+    },
+    "qualified_runs": [
+     "sF-grasp-v12-retention60-01 (60 s, tip drift 0.10 mm, axis 0.04 deg)",
+     "sM-writer-v11-I-55mm-02 (physical marker retained through the job)"
+    ],
+    "holder_pose_palm_m": [
+     -0.009651,
+     0.026517,
+     0.115157
+    ],
+    "holder_orientation_palm_qwxyz": [
+     0.5904714838943596,
+     -0.06151839766978899,
+     0.8045120096105397,
+     -0.017870082488504087
+    ],
+    "note": "the bench applies the thumb increment (0.02) to BOTH thumb joints: closed thumb_rotation 0.62442, thumb_bend 0.41494 (writer metrics hand_hold_gains.right_grasp.closed_targets_rad)"
+   }
+  },
+  "piston_n16_dataset_closure": {
+   "units": "twin_rad",
+   "description": "the piston dataset command plateau (index/middle/ring/little 1.30 rad; thumb pinned open) as seen through the EXPLORATORY identity map; listed for the learned route only",
+   "stages": {
+    "open": [
+     0.02,
+     0.02,
+     0.02,
+     0.02,
+     0.02,
+     0.0
+    ],
+    "closed": [
+     1.3,
+     1.3,
+     1.3,
+     1.3,
+     0.0,
+     0.0
+    ]
+   },
+   "spec_stage_for": {
+    "open": "reach",
+    "closed": "plateau"
+   },
+   "provenance": {
+    "source": "ep0_action.npy rows 150-257 (H2)",
+    "map": "model_maps.piston_n16 of the contract, EXPLORATORY; thumb_yaw -0.1 clipped to 0 (declared)",
+    "runs": [
+     "sM-piston-ep0-action-S1p75-DIAG-filtered-01 (CAPTURE, diagnostic reference)"
+    ]
+   }
+  }
+ },
+ "rules": [
+  "a set reproduces a COMMAND; the run named in its provenance is what qualified the result",
+  "conversion always goes through HandActionContract.route('scripted') + HandCommandAdapter; the binding value is hand_contract_descriptor of that adapter",
+  "twin_rad sets are clipped to the twin endpoints when converted (declared), never silently"
+ ]
+}
