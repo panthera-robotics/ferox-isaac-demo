@@ -63,8 +63,8 @@ class Rod30Source:
         self.spawn_scene = spawn_scene; self.gravity_ff = gravity_ff
         self.phase = "WAIT"; self._t_grant = None; self._arm_start = None; self._grant_walltime = None
         self._prev_gains = None; self._scene = None; self._obj = None; self._trace = None; self._n = 0
-        self._pelvis0 = None; self._ff_clips = 0; self._contacts = {"rod_hand": 0, "rod_table": 0, "rod_other": 0, "rows": 0}; self._contact_sub = None
-        self._flags = {"lifted": False, "held_after_lift": False, "transported": False, "released_resting": False}; self._grasp_seen = False
+        self._pelvis0 = None; self._ff_clips = 0; self._contacts = {"rod_hand": 0, "rod_table": 0, "rod_stem": 0, "rod_other": 0, "rows": 0}; self._contact_sub = None
+        self._flags = {"lifted": False, "held_after_lift": False, "transported": False, "released_resting": False, "max_clearance_m": 0.0}; self._grasp_seen = False
         self.default_arm = None
         self._log = open(os.path.join(journal_dir, "manip_owner.jsonl"), "a", encoding="utf-8")
         arbiter.hooks["grant"].append(self._on_grant); arbiter.hooks["walk"].append(self._on_walk)
@@ -119,7 +119,7 @@ class Rod30Source:
 
     def _spawn(self, pos, R, quat):
         try:
-            from isaacsim.core.api.objects import DynamicCylinder, FixedCuboid, VisualCylinder
+            from isaacsim.core.api.objects import DynamicCylinder, FixedCuboid, FixedCylinder, VisualCylinder
             from isaacsim.core.api.materials import PhysicsMaterial
             sc = self.spec["scene_pelvis_relative"]; pos = np.asarray(pos, float)
             def W(rel): return (pos + R @ np.asarray(rel, float)).tolist()
@@ -128,9 +128,19 @@ class Rod30Source:
             table = FixedCuboid(prim_path="/World/ManipScene/Table", position=np.array(W(tc)), orientation=np.array(quat, dtype=float), scale=np.array(sz, dtype=float), color=np.array([0.55, 0.4, 0.25]), physics_material=mat)
             ob = sc["object"]
             self._obj = DynamicCylinder(prim_path="/World/ManipScene/Rod", position=np.array(W(ob["center_pelvis_m"])), orientation=np.array(quat, dtype=float), radius=float(ob["radius_m"]), height=float(ob["length_m"]), mass=float(ob["mass_kg"]), color=np.array([0.9, 0.2, 0.2]), physics_material=mat)
+            # Sprint O v11-rod30-stems: static pedestals ("pedestals": 8 mm-radius, 100 mm-tall cylinders standing on the bench
+            # top at the pick and destination xy); the object stands on the pick stem, and the support top used by the
+            # lifted/placed flags is scene.support_top_z_pelvis_m (declared before physics), not the bench top
+            stems = []
+            for i, pd in enumerate(sc.get("pedestals", [])):
+                pc = [pd["center_xy_m"][0], pd["center_xy_m"][1], float(tb["top_z_pelvis_m"]) + float(pd["height_m"]) / 2.0]
+                FixedCylinder(prim_path=f"/World/ManipScene/Stem{i}", position=np.array(W(pc)), orientation=np.array(quat, dtype=float), radius=float(pd["radius_m"]), height=float(pd["height_m"]), color=np.array([0.3, 0.3, 0.35]), physics_material=mat)
+                stems.append({"prim": f"/World/ManipScene/Stem{i}", "world": W(pc), "radius_m": float(pd["radius_m"]), "height_m": float(pd["height_m"]), "role": pd.get("role")})
+            support_z = float(sc.get("support_top_z_pelvis_m", tb["top_z_pelvis_m"]))
             dest = sc.get("destination", {}); dc = dest.get("center_xy_pelvis_m") or dest.get("center_xy_m") or [0.57, -0.14]
-            VisualCylinder(prim_path="/World/ManipScene/Destination", position=np.array(W([dc[0], dc[1], float(tb["top_z_pelvis_m"]) + 0.001])), orientation=np.array(quat, dtype=float), radius=float(dest.get("radius_m", 0.03)), height=0.002, color=np.array([0.2, 0.8, 0.3]))
-            self._scene = {"table_world": W(tc), "rod_world": W(ob["center_pelvis_m"]), "destination_world": W([dc[0], dc[1], float(tb["top_z_pelvis_m"])])}
+            VisualCylinder(prim_path="/World/ManipScene/Destination", position=np.array(W([dc[0], dc[1], support_z + 0.001])), orientation=np.array(quat, dtype=float), radius=float(dest.get("radius_m", 0.03)), height=0.002, color=np.array([0.2, 0.8, 0.3]))
+            self._scene = {"table_world": W(tc), "rod_world": W(ob["center_pelvis_m"]), "destination_world": W([dc[0], dc[1], support_z]), "stems": stems,
+                           "support_top_z_pelvis_m": support_z, "support_top_world_z": W([ob["center_pelvis_m"][0], ob["center_pelvis_m"][1], support_z])[2]}
             self._j("scene_spawned", self._scene)
         except Exception as exc:
             self._scene = None; self._obj = None
@@ -155,6 +165,8 @@ class Rod30Source:
                         self._contacts["rod_hand"] += 1
                     elif "ManipScene/Table" in other:
                         self._contacts["rod_table"] += 1
+                    elif "ManipScene/Stem" in other:
+                        self._contacts["rod_stem"] += 1
                     else:
                         self._contacts["rod_other"] += 1
                     self._contacts["rows"] += 1
@@ -180,7 +192,7 @@ class Rod30Source:
         if self._obj is not None and self._scene is not None:
             try:
                 p, q = self._obj.get_world_pose(); v = self._obj.get_linear_velocity()
-                top = float(self._scene["table_world"][2]) + float(self.spec["scene_pelvis_relative"]["table"]["size_m"][2]) / 2.0
+                top = float(self._scene.get("support_top_world_z", float(self._scene["table_world"][2]) + float(self.spec["scene_pelvis_relative"]["table"]["size_m"][2]) / 2.0))
                 dest = np.asarray(self._scene["destination_world"][:2]); above = float(p[2]) - top
                 dxy = float(np.hypot(p[0] - dest[0], p[1] - dest[1])); speed = float(np.linalg.norm(np.asarray(v)))
                 in_hand = self._contacts["rod_hand"] > 0 and speed >= 0.0
@@ -188,7 +200,9 @@ class Rod30Source:
                 if self._flags["lifted"] and above >= 0.06: self._flags["held_after_lift"] = True
                 if self._flags["lifted"] and dxy <= 0.03: self._flags["transported"] = True
                 if self._flags["transported"] and abs(above - float(self.spec["scene_pelvis_relative"]["object"]["length_m"]) / 2.0) < 0.01 and speed < 0.02 and self.phase in ("BLEND_OUT", "RELEASED"): self._flags["released_resting"] = True
-                row["rod"] = {"pos": [round(float(x), 4) for x in p], "quat_wxyz": [round(float(x), 4) for x in q], "above_table_top_m": round(above, 4), "dist_to_destination_m": round(dxy, 4), "speed_m_s": round(speed, 4)}
+                clearance = above - float(self.spec["scene_pelvis_relative"]["object"]["length_m"]) / 2.0   # rod bottom above the support top
+                self._flags["max_clearance_m"] = round(max(float(self._flags.get("max_clearance_m") or 0.0), clearance), 4)
+                row["rod"] = {"pos": [round(float(x), 4) for x in p], "quat_wxyz": [round(float(x), 4) for x in q], "above_table_top_m": round(above, 4), "clearance_m": round(clearance, 4), "dist_to_destination_m": round(dxy, 4), "speed_m_s": round(speed, 4)}
                 row["flags"] = dict(self._flags)
             except Exception as exc:
                 row["rod_error"] = repr(exc)
