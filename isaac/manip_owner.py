@@ -484,6 +484,12 @@ class Rod30Source:
             if state == "MANIP" and self._resume_pending:
                 self._resume_pending = False   # _on_grant already ran (phase BLEND_IN set there)
             elif state != "MANIP":
+                self._n += 1
+                if self._n % 10 == 0 and self._pelvis0 is not None:
+                    try:
+                        self._trace_row(t)     # Sprint P mission-3 lesson: trace the carry too (puck vs wrist while the walk owner drives)
+                    except Exception as exc:
+                        if self._n % 2000 == 0: self._j("trace_error", {"error": repr(exc)})
                 return
         if state != "MANIP" or self.phase in ("WAIT", "DONE", "RELEASED"):
             return
