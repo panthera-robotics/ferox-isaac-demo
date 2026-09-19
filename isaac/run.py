@@ -871,6 +871,8 @@ class G1VelocityPolicy(PolicyController):
                     deadband=_f3("G1_STATION_DEADBAND", "0.015,0.0349"), slew=_f3("G1_STATION_SLEW", "0.5,1.0"),
                     journal=self._arbiter._log, trace_path=os.path.join(jdir_s, "station_trace.jsonl"),
                     every=int(os.environ.get("G1_OWNERSHIP_TRACE_EVERY", "10")))
+                if os.environ.get("G1_STATION_K_AFTER_UNMUTE", "").strip():
+                    keeper.k_after_unmute = _f3("G1_STATION_K_AFTER_UNMUTE", "1.0,1.0,1.0")
                 self._arbiter.attach_station(keeper, mode=os.environ.get("G1_STATION_MODE", "manip").strip().lower() or "manip")
                 print(f"[station] keeper ON mode={self._arbiter.station_mode} k={keeper.k} vmax={keeper.vmax} deadband=({keeper.db_xy} m, {keeper.db_yaw:.4f} rad) slew=({keeper.slew_xy}, {keeper.slew_yaw}) lock_at={self._station_lock_at}", flush=True)
             self._body_trace = None

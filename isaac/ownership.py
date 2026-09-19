@@ -51,6 +51,7 @@ class StationKeeper:
         self.target = None                      # (x, y, yaw)
         self.locked_at = None; self.lock_source = None
         self.mute = False; self._mute_logged = None   # Sprint P schedule 2: a manipulation stage may mute the keeper (command -> 0, still tracking)
+        self.k_after_unmute = None                    # Sprint P sequencing rule: gains to switch to at the first un-mute (e.g. schedule 1 for the safe re-engage)
         self.cmd = [0.0, 0.0, 0.0]              # last commanded (vx, vy, wz) in the body frame
         self.err = [0.0, 0.0, 0.0]              # last (ex, ey) world m, eyaw rad
         self._journal = journal; self._trace = open(trace_path, "a", encoding="utf-8") if trace_path else None
@@ -98,7 +99,13 @@ class StationKeeper:
         if self.mute:
             want = [0.0, 0.0, 0.0]
         if self._journal and self.mute != self._mute_logged:
-            self._mute_logged = self.mute; self._journal("station_mute" if self.mute else "station_unmute", {"t": round(float(t), 3), "err_xy_m": round(math.hypot(ex, ey), 4), "err_yaw_deg": round(math.degrees(eyaw), 2)})
+            if self._mute_logged is True and not self.mute and self.k_after_unmute is not None:
+                self.k = [float(v) for v in self.k_after_unmute]; self.k_after_unmute = None
+                if self._journal: self._journal("station_gains_switched", {"t": round(float(t), 3), "k": self.k, "reason": "first un-mute (declared per-phase schedule)"})
+                vwx = -self.k[0] * self._softdead(ex, self.db_xy); vwy = -self.k[1] * self._softdead(ey, self.db_xy)
+                want = [c * vwx + s_ * vwy, -s_ * vwx + c * vwy, -self.k[2] * self._softdead(eyaw, self.db_yaw)]
+                for i in range(3): want[i] = max(-self.vmax[i], min(self.vmax[i], want[i]))
+            self._mute_logged = self.mute; self._journal("station_mute" if self.mute else "station_unmute", {"t": round(float(t), 3), "err_xy_m": round(math.hypot(ex, ey), 4), "err_yaw_deg": round(math.degrees(eyaw), 2), "k": self.k})
         # slew limit (command acceleration bound) against the previous command
         dmax = [self.slew_xy * dt, self.slew_xy * dt, self.slew_yaw * dt]
         for i in range(3):
