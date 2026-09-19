@@ -141,7 +141,8 @@ class ActuationBackendConfigTests(unittest.TestCase):
     def test_job_text_defaults_to_I_and_is_bounded(self):
         self.assertEqual(probe.validate_config(self.config()).get('job_text', 'I'), 'I')
         probe.validate_config(self.config(job_text='L')); probe.validate_config(self.config(job_text='G1 OK'))
-        for bad in ('', ' I', 'i', 'ABCDEFGHIJKLM', 1, None):
+        probe.validate_config(self.config(job_text='G1\nOK'))                                     # two lines: the driver planner keeps the letter height and splits at the newline
+        for bad in ('', ' I', 'i', 'ABCDEFGHIJKLM', 1, None, 'G1\n', '\nOK', 'G1\nOK\nX', 'G1 \nOK', 'G1\n ok'):
             with self.assertRaises(ValueError):
                 probe.validate_config(self.config(job_text=bad))
 
