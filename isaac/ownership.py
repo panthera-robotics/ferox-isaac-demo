@@ -35,6 +35,78 @@ def enabled() -> bool:
     return os.environ.get("G1_OWNERSHIP", "").strip().lower() in ("1", "true", "yes", "on")
 
 
+class StationKeeper:
+    """Sprint P M1 — locomotion-owner station keeper on the walking policy's OWN velocity-command interface.
+    A station frame (pelvis x, y, yaw in the world) is latched at the manipulation-owner grant, at an explicit lock, or (mode
+    'idle') whenever the walk owner's command has been zero and the base settled; every control tick the keeper commands
+        v_world = -K_xy * softdead(e_xy),  wz = -K_yaw * softdead(e_yaw),  e = current - target,
+    rotated into the body frame, clamped to the bounds and slew-limited. Pure P (no integral -> nothing to wind up); no forces,
+    no constraints, no policy change: the numbers go where /cmd_vel goes. The measurement source is the simulator's pelvis
+    (articulation root) pose, the same source the /odom publisher uses. Pure Python (CPU-testable)."""
+
+    def __init__(self, *, k=(1.0, 1.0, 1.0), vmax=(0.3, 0.3, 0.5), deadband=(0.015, math.radians(2.0)), slew=(0.5, 1.0),
+                 journal=None, trace_path=None, every=10):
+        self.k = [float(v) for v in k]; self.vmax = [abs(float(v)) for v in vmax]
+        self.db_xy = float(deadband[0]); self.db_yaw = float(deadband[1]); self.slew_xy = float(slew[0]); self.slew_yaw = float(slew[1])
+        self.target = None                      # (x, y, yaw)
+        self.locked_at = None; self.lock_source = None
+        self.cmd = [0.0, 0.0, 0.0]              # last commanded (vx, vy, wz) in the body frame
+        self.err = [0.0, 0.0, 0.0]              # last (ex, ey) world m, eyaw rad
+        self._journal = journal; self._trace = open(trace_path, "a", encoding="utf-8") if trace_path else None
+        self.every = int(every); self._n = 0; self.locks = 0
+
+    @staticmethod
+    def _wrap(a):
+        return (a + math.pi) % (2.0 * math.pi) - math.pi
+
+    @staticmethod
+    def _softdead(e, db):
+        # continuous deadband: zero inside +-db, then linear from zero (no jump at the edge)
+        if abs(e) <= db:
+            return 0.0
+        return e - db if e > 0 else e + db
+
+    def lock(self, x, y, yaw, t, source="explicit"):
+        self.target = (float(x), float(y), float(yaw)); self.locked_at = float(t); self.lock_source = source; self.locks += 1
+        self.cmd = [0.0, 0.0, 0.0]
+        if self._journal: self._journal("station_lock", {"x": round(float(x), 4), "y": round(float(y), 4), "yaw_deg": round(math.degrees(yaw), 2), "source": source, "n": self.locks})
+
+    def unlock(self, t, source="explicit"):
+        if self.target is None:
+            return
+        if self._journal: self._journal("station_unlock", {"source": source, "held_s": round(float(t) - self.locked_at, 2), "last_err_xy_m": round(math.hypot(self.err[0], self.err[1]), 4), "last_err_yaw_deg": round(math.degrees(self.err[2]), 2)})
+        self.target = None; self.locked_at = None; self.lock_source = None; self.cmd = [0.0, 0.0, 0.0]
+
+    @property
+    def active(self):
+        return self.target is not None
+
+    def step(self, dt, x, y, yaw, t, state=""):
+        """Returns [vx, vy, wz] (body frame) while locked, else None."""
+        self._n += 1
+        if self.target is None:
+            return None
+        ex = float(x) - self.target[0]; ey = float(y) - self.target[1]; eyaw = self._wrap(float(yaw) - self.target[2])
+        self.err = [ex, ey, eyaw]
+        # world-frame velocity demand, then into the body (yaw) frame: v_body = R(-yaw) v_world
+        vwx = -self.k[0] * self._softdead(ex, self.db_xy); vwy = -self.k[1] * self._softdead(ey, self.db_xy)
+        c, s_ = math.cos(yaw), math.sin(yaw)
+        want = [c * vwx + s_ * vwy, -s_ * vwx + c * vwy, -self.k[2] * self._softdead(eyaw, self.db_yaw)]
+        for i in range(3):
+            want[i] = max(-self.vmax[i], min(self.vmax[i], want[i]))
+        # slew limit (command acceleration bound) against the previous command
+        dmax = [self.slew_xy * dt, self.slew_xy * dt, self.slew_yaw * dt]
+        for i in range(3):
+            d = want[i] - self.cmd[i]
+            self.cmd[i] += max(-dmax[i], min(dmax[i], d))
+        if self._trace and self._n % self.every == 0:
+            self._trace.write(json.dumps({"t": round(float(t), 4), "state": state, "held_s": round(float(t) - self.locked_at, 3), "pos": [round(float(x), 4), round(float(y), 4)], "yaw_deg": round(math.degrees(yaw), 2),
+                                          "err_xy_m": [round(ex, 4), round(ey, 4)], "err_norm_m": round(math.hypot(ex, ey), 4), "err_yaw_deg": round(math.degrees(eyaw), 2),
+                                          "cmd": [round(v, 4) for v in self.cmd]}) + "\n")
+            if self._n % (self.every * 20) == 0: self._trace.flush()
+        return list(self.cmd)
+
+
 class OwnershipArbiter:
     """Pure-Python state machine (no Isaac/ROS imports) so it can be unit-tested on CPU."""
 
@@ -58,6 +130,8 @@ class OwnershipArbiter:
         self._manip_effort = None                    # dict policy joint name -> extra joint effort (N m) while MANIP/RETURNING
         self._carry_arm = None                       # Sprint O W3: dict arm joint -> target held by the "carry_hold" source outside MANIP
         self._carry_hand = None                      # dict hand joint -> target kept while carrying (grip persists across ownership)
+        self.station = None; self.station_mode = "manip"; self.station_cmd = None   # Sprint P M1 (attach_station)
+        self._idle_since = None; self._ext_cmd_zero = True
         self._journal = open(journal_path, "a", encoding="utf-8") if journal_path else None
         self._log("init", {"policy_joints": len(self.policy_names), "arms": len(self.arm_idx), "locomotion": len(self.loco_idx),
                            "hands": len(self.hand_names), "v_settle": self.v_settle, "settle_s": self.settle_s, "return_s": self.return_s})
@@ -137,12 +211,44 @@ class OwnershipArbiter:
             return True
 
     # ---- per physics step (sim thread) ---------------------------------------------------------------------------------
-    def step(self, dt, base_speed_xy, base_z, policy_targets):
+    def attach_station(self, keeper, mode="manip"):
+        """mode 'manip': latch at the manipulation grant, unlatch at RETURNING->WALK; 'idle': additionally latch during WALK once
+        the external command has been zero for >= 1 s and the base settled, unlatch when a non-zero command arrives (re-latched
+        to the grant pose at a manipulation grant, per the packet)."""
+        self.station = keeper; self.station_mode = str(mode)
+        self._log("station_attached", {"mode": self.station_mode, "k": keeper.k, "vmax": keeper.vmax, "deadband_m_rad": [keeper.db_xy, keeper.db_yaw], "slew": [keeper.slew_xy, keeper.slew_yaw]})
+
+    def note_external_command(self, cmd):
+        """The walk owner's external command (vx, vy, wz) this tick, for the 'idle' station mode."""
+        self._ext_cmd_zero = all(abs(float(v)) < 1e-6 for v in cmd)
+
+    def _station_tick(self, dt, base_xy, base_yaw, base_speed_xy):
+        """Latch/unlatch bookkeeping + the command; called inside step() with the lock held (base pose may be None -> no keeper)."""
+        k = self.station
+        if k is None or base_xy is None or base_yaw is None:
+            self.station_cmd = None; return
+        if self.state == "WALK" and self.station_mode == "idle":
+            if self._ext_cmd_zero:
+                if base_speed_xy < self.v_settle:
+                    if self._idle_since is None: self._idle_since = self.t
+                    if not k.active and self.t - self._idle_since >= 1.0:
+                        k.lock(base_xy[0], base_xy[1], base_yaw, self.t, source="idle")
+                else:
+                    self._idle_since = None
+            else:
+                self._idle_since = None
+                if k.active and k.lock_source in ("idle", "grant"):
+                    k.unlock(self.t, source="external_command")
+        self.station_cmd = k.step(dt, base_xy[0], base_xy[1], base_yaw, self.t, state=self.state)
+
+    def step(self, dt, base_speed_xy, base_z, policy_targets, base_xy=None, base_yaw=None):
         """policy_targets: full policy-order target vector (numpy array) as the policy computed it. Returns
-        (targets_to_write, hand_targets_dict_or_None, command_allowed, extra_efforts_dict_or_None)."""
+        (targets_to_write, hand_targets_dict_or_None, command_allowed, extra_efforts_dict_or_None); with a station keeper
+        attached, self.station_cmd carries the body-frame (vx, vy, wz) to command instead of the external command (None = none)."""
         import numpy as np
         with self._lock:
             self.t += float(dt)
+            self._station_tick(dt, base_xy, base_yaw, base_speed_xy)
             out = np.array(policy_targets, dtype=np.float32, copy=True)
             hold_hands = dict(self._carry_hand) if self._carry_hand else None
             if self._carry_arm:
@@ -160,6 +266,9 @@ class OwnershipArbiter:
                     if self.t - self._settled_since >= self.settle_s:
                         self.state = "MANIP"; self._manip_arm = None; self._manip_hand = None
                         self._log("SETTLING->MANIP", {"speed": round(float(base_speed_xy), 4), "z": round(float(base_z), 4)})
+                        if self.station is not None and base_xy is not None and base_yaw is not None:
+                            self.station.lock(base_xy[0], base_xy[1], base_yaw, self.t, source="grant")
+                            self.station_cmd = self.station.step(0.0, base_xy[0], base_xy[1], base_yaw, self.t, state=self.state)
                         for h in self.hooks["grant"]:
                             h(self)
                 else:
@@ -184,6 +293,9 @@ class OwnershipArbiter:
             eff = {n: (1.0 - a) * v for n, v in self._manip_effort.items()} if self._manip_effort else None
             if a >= 1.0:
                 self.state = "WALK"; self._return_from = None; self._manip_effort = None; self._log("RETURNING->WALK", {})
+                if self.station is not None and self.station.active and self.station_mode == "manip":
+                    self.station.unlock(self.t, source="return_to_walk")
+                    self.station_cmd = None
                 for h in self.hooks["walk"]:
                     h(self)
                 return out, hold_hands, True, None

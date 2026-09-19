@@ -851,6 +851,18 @@ class G1VelocityPolicy(PolicyController):
             if os.environ.get("G1_OWNERSHIP_ROS", "1").strip().lower() in ("1", "true", "yes", "on"):
                 ownership.setup_ros(self._arbiter)
             self._hand_all_idx = {n: names_all.index(n) for n in self._arbiter.hand_names}
+            # Sprint P M1: locomotion-owner station keeper on the policy's own velocity command (G1_STATION_KEEP=1)
+            self._station_lock_at = float(os.environ.get("G1_STATION_LOCK_AT_S", "0") or 0)
+            if os.environ.get("G1_STATION_KEEP", "").strip().lower() in ("1", "true", "yes", "on"):
+                jdir_s = os.path.dirname(os.environ.get("G1_OWNERSHIP_JOURNAL", "/tmp/ownership_journal.jsonl")) or "/tmp"
+                _f3 = lambda key, dflt: [float(v) for v in os.environ.get(key, dflt).split(",")]
+                keeper = ownership.StationKeeper(
+                    k=_f3("G1_STATION_K", "1.0,1.0,1.0"), vmax=_f3("G1_STATION_VMAX", "0.3,0.3,0.5"),
+                    deadband=_f3("G1_STATION_DEADBAND", "0.015,0.0349"), slew=_f3("G1_STATION_SLEW", "0.5,1.0"),
+                    journal=self._arbiter._log, trace_path=os.path.join(jdir_s, "station_trace.jsonl"),
+                    every=int(os.environ.get("G1_OWNERSHIP_TRACE_EVERY", "10")))
+                self._arbiter.attach_station(keeper, mode=os.environ.get("G1_STATION_MODE", "manip").strip().lower() or "manip")
+                print(f"[station] keeper ON mode={self._arbiter.station_mode} k={keeper.k} vmax={keeper.vmax} deadband=({keeper.db_xy} m, {keeper.db_yaw:.4f} rad) slew=({keeper.slew_xy}, {keeper.slew_yaw}) lock_at={self._station_lock_at}", flush=True)
             self._body_trace = None
             if os.environ.get("G1_OWNERSHIP_TRACE", "").strip().lower() in ("1", "true", "yes", "on"):
                 jdir0 = os.path.dirname(os.environ.get("G1_OWNERSHIP_JOURNAL", "/tmp/ownership_journal.jsonl")) or "/tmp"
@@ -956,13 +968,17 @@ class G1VelocityPolicy(PolicyController):
         extra_efforts = None
         if self._arbiter is not None:
             lin = self.robot.get_linear_velocity()
-            pos_w, _ = self.robot.get_world_pose()
+            pos_w, quat_w = self.robot.get_world_pose()
             speed = float(np.hypot(float(lin[0]), float(lin[1])))
+            qw, qx, qy, qz = [float(v) for v in quat_w]
+            yaw_w = math.atan2(2.0 * (qw * qz + qx * qy), 1.0 - 2.0 * (qy * qy + qz * qz))
             if self._manip_script is not None:
                 self._manip_script.step(self._arbiter.t, self._arbiter.state)
             if getattr(self, "_manip_ref", None) is not None:
                 self._manip_ref.step(self._arbiter.t, self._arbiter.state)
-            target_pos, hand_targets, self.command_allowed, extra_efforts = self._arbiter.step(dt, speed, float(pos_w[2]), target_pos)
+            if self._arbiter.station is not None and self._station_lock_at > 0 and self._arbiter.t >= self._station_lock_at and not self._arbiter.station.active and self._arbiter.state == "WALK":
+                self._arbiter.station.lock(float(pos_w[0]), float(pos_w[1]), yaw_w, self._arbiter.t, source="explicit_lock_at_s"); self._station_lock_at = 0.0
+            target_pos, hand_targets, self.command_allowed, extra_efforts = self._arbiter.step(dt, speed, float(pos_w[2]), target_pos, base_xy=(float(pos_w[0]), float(pos_w[1])), base_yaw=yaw_w)
             if getattr(self, "_body_trace", None) is not None:
                 self._body_trace.step()
         if self._body_idx is not None:
@@ -1388,8 +1404,15 @@ class RobotRosRunner(object):
                     cmd = cmd + cmd_vel
 
         cmd = np.minimum(np.maximum(cmd, self._cmd_min), self._cmd_max)
+        arb = getattr(self._robot, "_arbiter", None)
+        if arb is not None and arb.station is not None:
+            arb.note_external_command(cmd)                     # Sprint P: the 'idle' station mode watches the external command
         if not getattr(self._robot, "command_allowed", True):
             cmd = np.zeros(3, dtype=np.float32)  # PANTHERA (Sprint N): the ownership arbiter holds the base still outside WALK
+        sc = getattr(arb, "station_cmd", None) if arb is not None else None
+        if sc is not None:
+            # Sprint P M1: the station keeper's bounded (vx, vy, wz) goes in through the same command path as /cmd_vel
+            cmd = np.minimum(np.maximum(np.asarray(sc, dtype=np.float32), self._cmd_min), self._cmd_max)
         self._robot.forward(step_size, cmd)
         self._update_odom()
 
