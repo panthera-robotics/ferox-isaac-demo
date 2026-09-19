@@ -59,6 +59,15 @@ class Rod30Source:
         self.split_stage = os.environ.get("G1_MANIP_SPLIT_STAGE", "").strip() or None
         self.resume_at = float(os.environ.get("G1_MANIP_RESUME_AT_S", "0") or 0)
         self.stop_stage = os.environ.get("G1_MANIP_STOP_STAGE", "").strip() or None   # ladder A: play up to this stage's end, hold, then blend out (no split)
+        # Sprint O (declared before a run, default off): defer the scene spawn from the grant to the first row of stage
+        # G1_MANIP_SPAWN_AT_STAGE, and realise the pelvis-relative scene block in G1_MANIP_SPAWN_FRAME = pelvis | torso. The
+        # walking policy holds a 13-20 deg forward torso lean (pelvis pitch + waist pitch, pelvis z -1..-2 cm) for as long as the
+        # right arm is forward (W2 prefilter traces, hold-phase averages); the arm rows are torso-relative, so "torso" realises the
+        # planner's upright-pelvis / zero-waist geometry in the frame the arm chain actually hangs from (torso_link, with the
+        # pelvis->torso_link zero-waist offset removed) at the moment the dwell ends.
+        self.spawn_at_stage = os.environ.get("G1_MANIP_SPAWN_AT_STAGE", "").strip() or None
+        self.spawn_frame = os.environ.get("G1_MANIP_SPAWN_FRAME", "pelvis").strip().lower() or "pelvis"
+        self._spawn_pending = False
         self._split_row = None; self._resume_pending = False; self._grants = 0
         self.spawn_scene = spawn_scene; self.gravity_ff = gravity_ff
         self.phase = "WAIT"; self._t_grant = None; self._arm_start = None; self._grant_walltime = None
@@ -73,7 +82,8 @@ class Rod30Source:
         arbiter.hooks["grant"].append(self._on_grant); arbiter.hooks["walk"].append(self._on_walk)
         self._j("init", {"schedule": self.spec.get("version"), "rows": len(self.rows), "duration_s": self.spec.get("duration_s"),
                          "arm_joints_commanded": self.arm_joints, "left_arm_mode": self.left_arm_mode, "hand_joints": self.hand_joints,
-                         "blend_in_s": self.blend_in, "blend_out_s": self.blend_out, "spawn_scene": spawn_scene, "gravity_ff": gravity_ff})
+                         "blend_in_s": self.blend_in, "blend_out_s": self.blend_out, "spawn_scene": spawn_scene, "gravity_ff": gravity_ff,
+                         "spawn_at_stage": self.spawn_at_stage, "spawn_frame": self.spawn_frame})
 
     def _j(self, event, detail=None):
         row = {"t": round(self.arb.t, 4), "wall": time.time(), "event": event, "phase": self.phase, "detail": detail}
@@ -114,23 +124,57 @@ class Rod30Source:
         self._grants += 1
         if self._grants == 1:
             self._pelvis0 = (np.asarray(pos, float).copy(), rpy)
-            if self.spawn_scene:
+            if self.spawn_scene and self.spawn_at_stage:
+                self._spawn_pending = True; self._j("scene_spawn_deferred", {"until_stage": self.spawn_at_stage, "frame": self.spawn_frame})
+            elif self.spawn_scene:
                 self._spawn(pos, R, quat)
                 self._subscribe_contacts()
         self._t_grant = arb.t; self.phase = "BLEND_IN"
         self._j("BLEND_IN", {"arm_start": self._arm_start, "grant": self._grants, "resume_from_row": self._split_row})
 
-    def _spawn(self, pos, R, quat):
+    PELVIS_TO_TORSO_ZERO_WAIST = np.array([-0.0039635, 0.0, 0.044])   # pelvis -> torso_link origin with the waist joints at zero (donor URDF waist_roll_joint origin)
+
+    def _spawn_at_stage_now(self, t, stage):
+        """Deferred spawn: realise the declared pelvis-relative scene at this instant in the declared frame."""
+        robot = self.policy.robot; pos, quat = robot.get_world_pose(); R = _quat_wxyz_to_R(quat)
+        frame = {"kind": "pelvis", "pos": [round(float(v), 4) for v in pos], "rpy_deg": [round(math.degrees(v), 2) for v in _rpy(R)]}
+        if self.spawn_frame == "torso":
+            view = self._view(); names = list(view.body_names); i = names.index("torso_link")
+            tf = np.asarray(view._physics_view.get_link_transforms()).reshape(-1, len(names), 7)[0][i]
+            tpos = np.asarray(tf[:3], float); qx, qy, qz, qw = [float(v) for v in tf[3:7]]      # physics tensor API: xyzw
+            Rt = _quat_wxyz_to_R([qw, qx, qy, qz]); R = Rt
+            yaw = _rpy(Rt)[2]; quat = [math.cos(yaw / 2.0), 0.0, 0.0, math.sin(yaw / 2.0)]              # props stay world-upright (yaw only)
+            pos = tpos - Rt @ self.PELVIS_TO_TORSO_ZERO_WAIST                                    # the planner's pelvis origin = torso origin minus the zero-waist offset, in the torso frame
+            frame = {"kind": "torso", "torso_pos": [round(float(v), 4) for v in tpos], "torso_rpy_deg": [round(math.degrees(v), 2) for v in _rpy(Rt)],
+                     "effective_pelvis_pos": [round(float(v), 4) for v in pos], "props_orientation": "world-upright, torso yaw", "pelvis_measured": {"pos": [round(float(v), 4) for v in robot.get_world_pose()[0]], "rpy_deg": [round(math.degrees(v), 2) for v in _rpy(_quat_wxyz_to_R(robot.get_world_pose()[1]))]}}
+        self._spawn(pos, R, quat, upright_from_object=(self.spawn_frame == "torso"))
+        self._subscribe_contacts(); self._spawn_pending = False
+        self._j("scene_spawned_at_stage", {"t": round(t, 3), "stage": stage, "frame": frame})
+
+    def _spawn(self, pos, R, quat, upright_from_object=False):
+        """Realise the declared pelvis-relative scene: positions = pos + R @ p_rel; orientations = quat. With upright_from_object
+        (torso-frame spawn) the object keeps its transformed position but the table / stems / destination are placed WORLD-
+        UPRIGHT with the table top at the object's resting bottom minus the declared table-top-to-support gap, so the object
+        rests on a horizontal surface exactly where the leaned-torso arm rows reach it."""
         try:
             from isaacsim.core.api.objects import DynamicCylinder, FixedCuboid, FixedCylinder, VisualCylinder
             from isaacsim.core.api.materials import PhysicsMaterial
             sc = self.spec["scene_pelvis_relative"]; pos = np.asarray(pos, float)
             def W(rel): return (pos + R @ np.asarray(rel, float)).tolist()
             tb = sc["table"]; sz = tb["size_m"]; tc = [tb["center_xy_m"][0], tb["center_xy_m"][1], float(tb["top_z_pelvis_m"]) - sz[2] / 2.0]
+            ob = sc["object"]; support_z = float(sc.get("support_top_z_pelvis_m", tb["top_z_pelvis_m"])); gap = support_z - float(tb["top_z_pelvis_m"])
+            rod_w = W(ob["center_pelvis_m"])
+            if upright_from_object:
+                top_w = rod_w[2] - float(ob["length_m"]) / 2.0 - gap                 # world z of the table top
+                Ry = _quat_wxyz_to_R(quat)[:2, :2]; oxy = np.asarray(ob["center_pelvis_m"][:2], float)
+                def WZ(rel, z):                                                       # horizontal offset from the OBJECT as planned (yaw-rotated), z absolute
+                    xy = np.asarray(rod_w[:2], float) + Ry @ (np.asarray(rel[:2], float) - oxy); return [float(xy[0]), float(xy[1]), z]
+                tc_w = WZ(tc, top_w - sz[2] / 2.0)
+            else:
+                top_w = None; tc_w = W(tc)
             mat = PhysicsMaterial(prim_path="/World/ManipScene/Material", static_friction=float(sc.get("static_friction", 0.7)), dynamic_friction=float(sc.get("dynamic_friction", 0.6)), restitution=0.0)
-            table = FixedCuboid(prim_path="/World/ManipScene/Table", position=np.array(W(tc)), orientation=np.array(quat, dtype=float), scale=np.array(sz, dtype=float), color=np.array([0.55, 0.4, 0.25]), physics_material=mat)
-            ob = sc["object"]
-            self._obj = DynamicCylinder(prim_path="/World/ManipScene/Rod", position=np.array(W(ob["center_pelvis_m"])), orientation=np.array(quat, dtype=float), radius=float(ob["radius_m"]), height=float(ob["length_m"]), mass=float(ob["mass_kg"]), color=np.array([0.9, 0.2, 0.2]), physics_material=mat)
+            table = FixedCuboid(prim_path="/World/ManipScene/Table", position=np.array(tc_w), orientation=np.array(quat, dtype=float), scale=np.array(sz, dtype=float), color=np.array([0.55, 0.4, 0.25]), physics_material=mat)
+            self._obj = DynamicCylinder(prim_path="/World/ManipScene/Rod", position=np.array(rod_w), orientation=np.array(quat, dtype=float), radius=float(ob["radius_m"]), height=float(ob["length_m"]), mass=float(ob["mass_kg"]), color=np.array([0.9, 0.2, 0.2]), physics_material=mat)
             base = self._spawn_object_base(ob, mat)   # Sprint O declared prop: a base disc as a second collider of the SAME rigid body (desk-stand shape)
             # Sprint O v11-rod30-stems: static pedestals ("pedestals": 8 mm-radius, 100 mm-tall cylinders standing on the bench
             # top at the pick and destination xy); the object stands on the pick stem, and the support top used by the
@@ -138,13 +182,15 @@ class Rod30Source:
             stems = []
             for i, pd in enumerate(sc.get("pedestals", [])):
                 pc = [pd["center_xy_m"][0], pd["center_xy_m"][1], float(tb["top_z_pelvis_m"]) + float(pd["height_m"]) / 2.0]
-                FixedCylinder(prim_path=f"/World/ManipScene/Stem{i}", position=np.array(W(pc)), orientation=np.array(quat, dtype=float), radius=float(pd["radius_m"]), height=float(pd["height_m"]), color=np.array([0.3, 0.3, 0.35]), physics_material=mat)
-                stems.append({"prim": f"/World/ManipScene/Stem{i}", "world": W(pc), "radius_m": float(pd["radius_m"]), "height_m": float(pd["height_m"]), "role": pd.get("role")})
-            support_z = float(sc.get("support_top_z_pelvis_m", tb["top_z_pelvis_m"]))
+                pc_w = WZ(pc, top_w + float(pd["height_m"]) / 2.0) if upright_from_object else W(pc)
+                FixedCylinder(prim_path=f"/World/ManipScene/Stem{i}", position=np.array(pc_w), orientation=np.array(quat, dtype=float), radius=float(pd["radius_m"]), height=float(pd["height_m"]), color=np.array([0.3, 0.3, 0.35]), physics_material=mat)
+                stems.append({"prim": f"/World/ManipScene/Stem{i}", "world": pc_w, "radius_m": float(pd["radius_m"]), "height_m": float(pd["height_m"]), "role": pd.get("role")})
             dest = sc.get("destination", {}); dc = dest.get("center_xy_pelvis_m") or dest.get("center_xy_m") or [0.57, -0.14]
-            VisualCylinder(prim_path="/World/ManipScene/Destination", position=np.array(W([dc[0], dc[1], support_z + 0.001])), orientation=np.array(quat, dtype=float), radius=float(dest.get("radius_m", 0.03)), height=0.002, color=np.array([0.2, 0.8, 0.3]))
-            self._scene = {"table_world": W(tc), "rod_world": W(ob["center_pelvis_m"]), "destination_world": W([dc[0], dc[1], support_z]), "stems": stems, "object_base": base,
-                           "support_top_z_pelvis_m": support_z, "support_top_world_z": W([ob["center_pelvis_m"][0], ob["center_pelvis_m"][1], support_z])[2]}
+            dest_w = WZ([dc[0], dc[1], support_z], top_w + gap) if upright_from_object else W([dc[0], dc[1], support_z])
+            VisualCylinder(prim_path="/World/ManipScene/Destination", position=np.array([dest_w[0], dest_w[1], dest_w[2] + 0.001]), orientation=np.array(quat, dtype=float), radius=float(dest.get("radius_m", 0.03)), height=0.002, color=np.array([0.2, 0.8, 0.3]))
+            support_top_w = (top_w + gap) if upright_from_object else W([ob["center_pelvis_m"][0], ob["center_pelvis_m"][1], support_z])[2]
+            self._scene = {"table_world": tc_w, "rod_world": rod_w, "destination_world": dest_w, "stems": stems, "object_base": base, "upright_from_object": bool(upright_from_object),
+                           "support_top_z_pelvis_m": support_z, "support_top_world_z": support_top_w}
             self._j("scene_spawned", dict(self._scene, lifted_task_rule=self.lifted_task_rule, lifted_frozen_rule="rod centre >= 0.06 m above the support top",
                                           lifted_frozen_rule_trivial_at_rest=bool(float(ob["length_m"]) / 2.0 >= 0.06)))   # a >= 12 cm object satisfies the rod30 rule while resting
         except Exception as exc:
@@ -287,6 +333,8 @@ class Rod30Source:
         elif self.phase == "PLAY":
             sp = t - self._t_play; k = int(np.searchsorted(self.row_t, sp, side="right") - 1); k = max(0, min(k, len(self.rows) - 1))
             r = self.rows[k]; arm = [float(r["arm_q"][self.arm_col[n]]) for n in self.arm_joints]; hand = [float(v) for v in r["hand_q_right"]]
+            if self._spawn_pending and r.get("stage") == self.spawn_at_stage:
+                self._spawn_at_stage_now(t, r.get("stage"))
             if self._n % 200 == 0:
                 self._j("row", {"k": k, "stage": r.get("stage"), "sp": round(sp, 3)})
             if self.split_stage and self._split_row is None and r.get("stage") == self.split_stage:
