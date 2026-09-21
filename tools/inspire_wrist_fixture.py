@@ -19,7 +19,11 @@ AXES = (
 )
 
 
-def write_wrist_fixture(source, output):
+def write_wrist_fixture(source, output, root_link='right_base_link', mount_rpy=None):
+    """root_link / mount_rpy (lane B, RH56E2 acceptance): the bench root link name of a non-donor hand and a declared fixed
+    rotation (roll pitch yaw, rad) between the last fixture carriage and that root, so a hand whose base frame differs from
+    the donor palm frame is presented to the world (holder, rack, gravity) exactly like the donor. Defaults reproduce the
+    original byte-for-byte."""
     source, output = Path(source).resolve(), Path(output).resolve()
     if output.exists():
         raise FileExistsError(output)
@@ -27,8 +31,8 @@ def write_wrist_fixture(source, output):
     links = {link.get('name'): link for link in hand.findall('link')}
     children = {joint.find('child').get('link') for joint in hand.findall('joint')}
     roots = set(links) - children
-    if roots != {'right_base_link'}:
-        raise ValueError('Expected the pinned standalone right-hand bench root')
+    if roots != {root_link}:
+        raise ValueError('Expected the pinned standalone right-hand bench root' if root_link == 'right_base_link' else f'Expected the declared bench root {root_link}, found {sorted(roots)}')
     if any(name.startswith('fixture_') for name in links):
         raise ValueError('Fixture namespace already occupied')
     unchanged_links = {name: ET.tostring(link) for name, link in links.items()}
@@ -49,10 +53,11 @@ def write_wrist_fixture(source, output):
         ET.SubElement(inertial, 'mass', value='.02')
         ET.SubElement(inertial, 'inertia', ixx='.00001', iyy='.00001', izz='.00001',
                       ixy='0', ixz='0', iyz='0')
-        child = 'right_base_link' if i == len(AXES)-1 else 'fixture_' + axis + '_carriage'
+        child = root_link if i == len(AXES)-1 else 'fixture_' + axis + '_carriage'
         name = 'fixture_' + axis + '_joint'
         joint = ET.SubElement(result, 'joint', name=name, type=kind)
-        ET.SubElement(joint, 'origin', xyz='0 0 0', rpy='0 0 0')
+        rpy = '0 0 0' if (mount_rpy is None or i != len(AXES)-1) else ' '.join(repr(float(v)) for v in mount_rpy)
+        ET.SubElement(joint, 'origin', xyz='0 0 0', rpy=rpy)
         ET.SubElement(joint, 'parent', link=parent)
         ET.SubElement(joint, 'child', link=child)
         ET.SubElement(joint, 'axis', xyz=direction)
@@ -76,7 +81,7 @@ def write_wrist_fixture(source, output):
     output.parent.mkdir(parents=True, exist_ok=True)
     ET.indent(result)
     ET.ElementTree(result).write(output, encoding='utf-8', xml_declaration=True)
-    return {'fixture_id': 'supported_xyz_rpy_wrist_v1', 'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+    return {'fixture_id': 'supported_xyz_rpy_wrist_v1', 'root_link': root_link, 'mount_rpy': (None if mount_rpy is None else [float(v) for v in mount_rpy]), 'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
             'generated_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
             'source_hand_geometry_mass_inertia_and_joints_preserved': True,
             'fixture_added_mass_kg': .12, 'fixture_link_collision_shapes': False,
