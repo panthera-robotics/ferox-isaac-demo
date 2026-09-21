@@ -60,7 +60,7 @@ def audit_md(audit, manifest, contract):
             L.append('- pairs %d, intersecting %d, closest: %s' % (d['pairs'], len(d['intersecting']), fmt(d['closest_5'][:3])))
         elif c['check'] == 'self_collision_closed_and_opposed':
             for k in ('closed', 'opposed_open_fingers'):
-                L.append('- %s: pairs %d, intersecting %d, max depth %.2f mm, deepest: %s' % (k, d[k]['pairs'], len(d[k]['intersecting']), d[k]['max_depth_mm'], fmt([(r['pair'], r['depth_mm']) for r in d[k]['intersecting'][:4]])))
+                L.append('- %s: pairs %d, intersecting %d, max depth %.2f mm, deepest: %s' % (k, d[k]['pairs'], len(d[k]['intersecting']), d[k]['max_depth_mm'], fmt([(r['pair'], r.get('depth_mm', 0.0)) for r in d[k]['intersecting'][:4]])))
             L.append('- %s' % d['note'])
         elif c['check'] == 'self_collision_envelope':
             for k, v in d.items():

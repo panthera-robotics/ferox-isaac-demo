@@ -185,9 +185,10 @@ def main():
         kind = 'sensor' if ('force_sensor' in ln or ln.endswith('tcp')) else 'main'
         dc = float(np.linalg.norm(l['com_base'] - M @ r['com_base'])) * 1000; dI = float(np.abs(l['I_base'] - M @ r['I_base'] @ M).max() / max(np.abs(r['I_base']).max(), 1e-15)); dm = abs(l['mass'] - r['mass']) / r['mass']
         per[ln] = {'kind': kind, 'com_mm': round(dc, 4), 'inertia_rel': round(dI, 6), 'mass_rel': round(dm, 7)}; worst[kind] = {k: max(worst[kind][k], v) for k, v in (('com_mm', dc), ('inertia_rel', dI), ('mass_rel', dm))}
-    ok = worst['main']['com_mm'] < 1e-3 and worst['main']['inertia_rel'] < 1e-5 and worst['main']['mass_rel'] < 1e-7 and worst['sensor']['com_mm'] < 1.0 and worst['sensor']['inertia_rel'] < 0.01 and worst['sensor']['mass_rel'] < 1e-3
-    check('left_inertials_mirror_right', ok, {'worst': worst, 'per_link': per, 'tolerance': 'main links (replaced by the mirrored right inertials): exact to 1e-3 mm / 1e-5; exporter-mirrored force-sensor links (kept from the public left file): 1 mm / 1 % / 0.1 % mass'})
-    check('left_pinky_intermediate_mass', abs(inert['left']['pinky_intermediate']['mass'] - 0.01166) < 1e-6 and abs(inert['right']['pinky_intermediate']['mass'] - 0.01166) < 1e-6, {'left_kg': inert['left']['pinky_intermediate']['mass'], 'right_kg': inert['right']['pinky_intermediate']['mass'], 'public_left_file_kg': manifest['public_urdf_corrections']['left_pinky_intermediate_mass_kg']['public_file']})
+    ok = worst['main']['com_mm'] < 0.01 and worst['main']['inertia_rel'] < 1e-3 and worst['main']['mass_rel'] < 1e-5 and worst['sensor']['com_mm'] < 1.0 and worst['sensor']['inertia_rel'] < 0.01 and worst['sensor']['mass_rel'] < 1e-3
+    check('left_inertials_mirror_right', ok, {'worst': worst, 'per_link': per, 'tolerance': 'main links (mirrored right inertials; after the r4 fold they also carry the exporter-mirrored sensor plates, which agree to <= 0.6 mm): 0.01 mm / 0.1 % / 1e-5 mass; exporter-mirrored force-sensor links when unfolded: 1 mm / 1 % / 0.1 % mass'})
+    pm_l, pm_r = inert['left']['pinky_intermediate']['mass'], inert['right']['pinky_intermediate']['mass']; folded = 'representation_r4' in manifest
+    check('left_pinky_intermediate_mass', abs(pm_l - pm_r) < 1e-6 and (folded or abs(pm_r - 0.01166) < 1e-6) and pm_r < 0.0125, {'left_kg': pm_l, 'right_kg': pm_r, 'public_left_file_kg': manifest['public_urdf_corrections']['left_pinky_intermediate_mass_kg']['public_file'], 'note': 'r4: link mass includes the folded sensor plates (0.01166 + pads)' if folded else 'bare link mass'})
     masses = {s: {ln: v['mass'] for ln, v in inert[s].items()} for s in SIDES}; totals = {s: round(sum(masses[s].values()), 6) for s in SIDES}
     check('masses_finite_positive', all(math.isfinite(m) and m > 0 for s in SIDES for m in masses[s].values()), {'hand_total_kg': totals, 'min_link_kg': {s: min(masses[s].values()) for s in SIDES}, 'links': {s: len(masses[s]) for s in SIDES}})
     mpol = manifest.get('mass_policy'); check('mass_policy_declared', bool(mpol) and mpol.get('primary') is not None, {'policy': mpol, 'hand_total_kg': totals})
@@ -240,7 +241,7 @@ def main():
         gdata = pairs_for(s); coll[s] = {}
         for pname, q in qs.items():
             res = scan(gdata, q, True); inter = [r for r in res if r['distance_mm'] <= 0]
-            coll[s][pname] = {'pairs': len(res), 'intersecting': inter, 'max_depth_mm': max([r['depth_mm'] for r in inter], default=0.0), 'closest_5': res[:5] if not inter else [r for r in res if r['distance_mm'] > 0][:5]}
+            coll[s][pname] = {'pairs': len(res), 'intersecting': inter, 'max_depth_mm': max([r.get('depth_mm', 0.0) for r in inter], default=0.0), 'closest_5': res[:5] if not inter else [r for r in res if r['distance_mm'] > 0][:5]}
         open_ok = not coll[s]['open']['intersecting']
         check('self_collision_preflight_open', open_ok, coll[s]['open'], s)
         check('self_collision_closed_and_opposed', True, {k: v for k, v in coll[s].items() if k != 'open'} | {'note': 'intersections at the coupled full-closure poses are the mechanical contacts of a fist with the opposed thumb (the real hand stalls on contact); the twin must not command them: see self_collision_envelope'}, s, level='INFO')
@@ -284,20 +285,27 @@ def main():
             for pitch in np.linspace(0, PRIOR['thumb_bend_rad'], 5):
                 for fing in (0.0, PRIOR['finger_proximal_rad']):
                     q = hand_config(model, J[s], s, {'thumb_proximal_yaw_joint': float(yaw), 'thumb_proximal_pitch_joint': float(pitch)} | {n: fing for n in ACTIVE[2:]}); res = scan(gdata, q, True)
-                    inter = [r for r in res if r['distance_mm'] <= 0]; depth = max([r['depth_mm'] for r in inter], default=0.0)
+                    inter = [r for r in res if r['distance_mm'] <= 0]; depth = max([r.get('depth_mm', 0.0) for r in inter], default=0.0)
                     grid.append({'yaw': round(float(yaw), 4), 'pitch': round(float(pitch), 4), 'fingers': fing, 'min_distance_mm': res[0]['distance_mm'] if res else None, 'depth_mm': depth, 'pair': res[0]['pair'] if res else None})
                     if depth > worst[0]: worst = (depth, grid[-1])
         cav[s] = {'worst_depth_mm': worst[0], 'worst_at': worst[1], 'intersecting_samples': [g for g in grid if g['depth_mm'] > 0 or (g['min_distance_mm'] is not None and g['min_distance_mm'] <= 0)], 'samples': len(grid), 'grid': grid}
-        check('palm_thumb_cavity_sweep', worst[0] < 1.0, {k: v for k, v in cav[s].items() if k != 'grid'} | {'rule': 'thumb links vs palm/base over yaw [0,1.658] x pitch [0,0.62] x fingers {open, closed}: PASS when no intersection deeper than 1.0 mm (a sub-millimetre skin overlap of the collision meshes at a joint limit is recorded, not a cavity fill)'}, s)
+        check('palm_thumb_cavity_sweep', worst[0] < 1.5, {k: v for k, v in cav[s].items() if k != 'grid'} | {'rule': 'thumb links vs palm/base over yaw [0,1.658] x pitch [0,0.62] x fingers {open, closed}: PASS when no intersection deeper than 1.5 mm (a sub-millimetre skin overlap at the yaw-0 full-bend limit is recorded, not a cavity fill; the exact meshes overlap 0.68 mm there, the r4 slab pieces add <= 0.4 mm of conservatism)'}, s)
     # ---- left meshes vs mirrored right meshes (surface deviation, enclosed volume, triangle counts)
     pin.forwardKinematics(model, data, q0); pin.updateFramePlacements(model, data); gdata = pin.GeometryData(geom); pin.updateGeometryPlacements(model, data, geom, gdata)
     bR = data.oMf[model.getFrameId('right_base')]; bL = data.oMf[model.getFrameId('left_base')]; M = np.diag([1.0, -1.0, 1.0]); mm = {}
     def vol(W, T):
         a, b, c = W[T[:, 0]], W[T[:, 1]], W[T[:, 2]]; return abs(float(np.einsum('ij,ij->i', a, np.cross(b, c)).sum() / 6))
+    def mesh_file(go):
+        return Path(go.meshPath).name.lower() if getattr(go, 'meshPath', '') else go.name
     for i, go in enumerate(geom.geometryObjects):
         ln = link_of[go.name]
-        if not ln.startswith('right_') or any(k in ln for k in BODY_KEYS): continue
-        lname = ln.replace('right_', 'left_', 1); j = [k for k, oo in enumerate(geom.geometryObjects) if link_of[oo.name] == lname][0]
+        if not ln.startswith('right_') or any(k in ln for k in BODY_KEYS) or 'palm_slabs' in str(getattr(go, 'meshPath', '')): continue
+        lname = ln.replace('right_', 'left_', 1); key = mesh_file(go).replace('right_', 'left_', 1)
+        cand = [k for k, oo in enumerate(geom.geometryObjects) if link_of[oo.name] == lname and mesh_file(oo) == key]
+        if not cand:
+            cand = [k for k, oo in enumerate(geom.geometryObjects) if link_of[oo.name] == lname and 'palm_slabs' not in str(getattr(oo, 'meshPath', ''))]
+        if not cand: continue
+        j = cand[0]
         VR, TR = mp.mesh_arrays(go.geometry); VL, TL = mp.mesh_arrays(geom.geometryObjects[j].geometry)
         WR = VR @ np.asarray(gdata.oMg[i].rotation).T + np.asarray(gdata.oMg[i].translation); WL = VL @ np.asarray(gdata.oMg[j].rotation).T + np.asarray(gdata.oMg[j].translation)
         BR = (WR - bR.translation) @ bR.rotation; BL = (WL - bL.translation) @ bL.rotation
@@ -305,7 +313,7 @@ def main():
         dist = mp.surface_distance(P, geom.geometryObjects[j].geometry, gdata.oMg[j])
         P2 = (BL @ M)[np.linspace(0, len(BL) - 1, min(len(BL), 1200)).astype(int)] @ bR.rotation.T + bR.translation
         dist2 = mp.surface_distance(P2, go.geometry, gdata.oMg[i])
-        mm[ln.replace('right_', '', 1)] = {'triangles': [go.geometry.num_tris, geom.geometryObjects[j].geometry.num_tris], 'enclosed_volume_cm3': [round(vol(BR, TR) * 1e6, 2), round(vol(BL, TL) * 1e6, 2)],
+        mm[mesh_file(go)] = {'link': ln.replace('right_', '', 1), 'triangles': [go.geometry.num_tris, geom.geometryObjects[j].geometry.num_tris], 'enclosed_volume_cm3': [round(vol(BR, TR) * 1e6, 2), round(vol(BL, TL) * 1e6, 2)],
                                             'bbox_shift_mm': round(float(np.abs(np.c_[(BR @ M).min(0), (BR @ M).max(0)] - np.c_[BL.min(0), BL.max(0)]).max()) * 1000, 3),
                                             'right_mirrored_to_left_surface_mm': {'p95': round(float(np.percentile(dist, 95)) * 1000, 3), 'max': round(float(dist.max()) * 1000, 3)},
                                             'left_mirrored_to_right_surface_mm': {'p95': round(float(np.percentile(dist2, 95)) * 1000, 3), 'max': round(float(dist2.max()) * 1000, 3)}}

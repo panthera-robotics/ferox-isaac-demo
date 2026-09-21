@@ -72,14 +72,23 @@ def prepare_source_e2(source, output):
         down.find('parent').set('link', up.find('parent').get('link')); o = down.find('origin'); o.set('xyz', ' '.join('%.9g' % v for v in xyz)); o.set('rpy', ' '.join('%.9g' % v for v in rpy))
         folded.append({'removed_link': base, 'removed_joint': up.get('name'), 'rewritten_joint': down.get('name'), 'new_parent': up.find('parent').get('link'), 'xyz_m': xyz, 'rpy_rad': rpy})
         derived.remove(link); derived.remove(up)
-    # 2. every remaining empty link is a leaf on a fixed joint -> nonphysical frame
-    for link in [p for p in derived.findall('link') if not list(p)]:
-        name = link.get('name'); parents = [j for j in derived.findall('joint') if j.find('child').get('link') == name]
+    # 2. every remaining empty link (leaf or with fixed children) on a fixed joint -> nonphysical frame; children of an empty link are
+    #    re-parented to its parent with the composed origin (r4: the folded palm parts / sensor pads / tcp are empty links, some nested)
+    while True:
+        empties = [p for p in derived.findall('link') if not list(p)]
+        if not empties: break
+        link = empties[0]; name = link.get('name'); parents = [j for j in derived.findall('joint') if j.find('child').get('link') == name]
         assert len(parents) == 1 and parents[0].get('type') == 'fixed', name
-        assert not any(j.find('parent').get('link') == name for j in derived.findall('joint')), name
-        joint = parents[0]; xyz, rpy = _origin(joint)
-        frames.append({'name': name, 'parent': joint.find('parent').get('link'), 'joint': joint.get('name'), 'xyz_m': xyz, 'rpy_rad': rpy, 'source_inertia_or_geometry': False, 'representation': 'nonphysical_coordinate_frame'})
+        joint = parents[0]; xyz, rpy = _origin(joint); parent = joint.find('parent').get('link')
+        for cj in [j for j in derived.findall('joint') if j.find('parent').get('link') == name]:
+            assert cj.get('type') == 'fixed', (name, cj.get('name'))
+            cx, cr = _origin(cj); nx, nr = _compose(xyz, rpy, cx, cr); cj.find('parent').set('link', parent); o = cj.find('origin')
+            if o is None: o = ET.SubElement(cj, 'origin')
+            o.set('xyz', ' '.join('%.9g' % v for v in nx)); o.set('rpy', ' '.join('%.9g' % v for v in nr))
+        frames.append({'name': name, 'parent': parent, 'joint': joint.get('name'), 'xyz_m': xyz, 'rpy_rad': rpy, 'source_inertia_or_geometry': False, 'representation': 'nonphysical_coordinate_frame'})
         derived.remove(link); derived.remove(joint)
+    physical = {p.get('name') for p in derived.findall('link')}
+    assert all(f['parent'] in physical for f in frames), [f for f in frames if f['parent'] not in physical]
     names = {f['name'] for f in frames}
     assert NONPHYSICAL_LEAVES <= names and {'right_base', 'left_base'} <= names, sorted(names)
     for mesh in derived.iter('mesh'):
@@ -187,7 +196,7 @@ def import_body_e2(source, output_dir, *, fixed_base):
     return dest, facts
 
 
-def variant_b_urdf(merged_e2_urdf, donor_urdf, output, name_map=None):
+def variant_b_urdf(merged_e2_urdf, donor_urdf, output, name_map=None, fold_record=None):
     """E2 geometry + FTP donor per-link masses: every E2 hand link takes the mass of its donor counterpart (the three E2 palm
     links share the donor's lumped base_link mass pro rata to their E2 masses); COM unchanged, inertia scaled with the mass.
     Returns the mapping record. Body links untouched."""
@@ -204,10 +213,18 @@ def variant_b_urdf(merged_e2_urdf, donor_urdf, output, name_map=None):
         for k in ('1', '2', '3', '4'): m['thumb_force_sensor_' + k] = 'thumb_force_sensor_' + k
         m['palm_force_sensor'] = 'palm_force_sensor'
         return side + '_' + m[suffix] if suffix in m else None
-    record = {'policy': 'E2_GEOMETRY_DONOR_LINK_MASSES (diagnostic variant B)', 'links': {}, 'hand_total_kg': {}}
+    record = {'policy': 'E2_GEOMETRY_DONOR_LINK_MASSES (diagnostic variant B)', 'links': {}, 'hand_total_kg': {}, 'fold_record_applied': bool(fold_record)}
+    # r4: folded sub-links (sensor pads, palm parts, tcp) carry no inertial; their DONOR masses are added to the donor counterpart of the body they were folded into
+    extra = {}
     for side in ('right', 'left'):
-        palm = [side + '_hand_base_link', side + '_palm_1', side + '_palm_2']; pm = {n: float(er.find("link[@name='%s']/inertial/mass" % n).get('value')) for n in palm}; tot = sum(pm.values())
-        donor_base = dmass[side + '_base_link']
+        for child, rec in (fold_record or {}).get(side, {}).items():
+            dn = donor_name(side, child[len(side) + 1:]); parent = rec['parent']
+            # resolve the parent through the fold chain (palm_2 -> palm_1 -> hand_base_link)
+            while parent in (fold_record or {}).get(side, {}): parent = fold_record[side][parent]['parent']
+            if dn in dmass: extra[parent] = extra.get(parent, 0.0) + dmass[dn]
+    for side in ('right', 'left'):
+        palm = [n for n in (side + '_hand_base_link', side + '_palm_1', side + '_palm_2') if er.find("link[@name='%s']/inertial" % n) is not None]; pm = {n: float(er.find("link[@name='%s']/inertial/mass" % n).get('value')) for n in palm}; tot = sum(pm.values())
+        donor_base = dmass[side + '_base_link'] + (extra.get(side + '_hand_base_link', 0.0) if len(palm) == 1 else 0.0)
         for l in er.findall('link'):
             n = l.get('name')
             if not n.startswith(side + '_') or l.find('inertial') is None: continue
@@ -216,7 +233,7 @@ def variant_b_urdf(merged_e2_urdf, donor_urdf, output, name_map=None):
             else:
                 dn = donor_name(side, suffix)
                 if dn is None or dn not in dmass: record['links'][n] = {'kept_e2_mass': float(l.find('inertial/mass').get('value')), 'reason': 'no donor counterpart'}; continue
-                new = dmass[dn]; src_name = dn
+                new = dmass[dn] + extra.get(n, 0.0); src_name = dn + (' + folded donor sensor masses %.4f' % extra[n] if n in extra else '')
             old = float(l.find('inertial/mass').get('value')); k = new / old; ine = l.find('inertial'); ine.find('mass').set('value', '%.9g' % new)
             I = ine.find('inertia')
             for key in ('ixx', 'ixy', 'ixz', 'iyy', 'iyz', 'izz'): I.set(key, '%.9g' % (float(I.get(key)) * k))

@@ -170,6 +170,14 @@ def build(source_root, donor_dir, output):
     corrections = {'left_inertials': 'main-link inertials replaced by the right inertials mirrored across the hand-base y=0 plane (method validated on the exporter-mirrored force-sensor links: COM agreement <= 0.6 mm)',
                    'left_pinky_intermediate_mass_kg': {'public_file': pm_l_before, 'used': pm_r, 'source': 'right_pinky_intermediate (public right file)'},
                    'mirror_report': mirror_report}
+    public_hands = {side: copy.deepcopy(hands[side]) for side in ('right', 'left')}   # public expansion + left corrections only (record: *_public.urdf)
+    # r4 asset representation: fixed sub-gram hand links folded into their parent bodies (frames kept) + declared slab palm collider
+    from . import e2_fold_slabs as fs
+    representation = {'policy': 'E2_HAND_PHYSICS_REPRESENTATION_r4', 'why': 'first E2 physics runs (bench evR-R1-B-right, whole body evR-W2-B-e2-s184828) went non-finite at step 1: palm split over fixed links left palm<->finger-root pairs unfiltered, the hollow-shell convex decomposition bulged over the 0.2 mm-inset finger roots / thumb cavity, and the contacts landed on 17-280 mg sensor bodies and a 1 ug tcp body',
+                      'class': 'asset REPRESENTATION (physics topology + palm collider); geometry, joint limits, masses and inertia totals unchanged', 'fold': {}, 'palm_collider': {}}
+    for side in ('right', 'left'):
+        representation['fold'][side] = fs.fold_fixed_hand_links(hands[side], side)
+        representation['palm_collider'][side] = fs.slab_palm_collider(hands[side], side, out, out, Path(__file__).resolve().parents[2])
     # declared drive limits on the merged twin URDF (public placeholders recorded per joint)
     drive_record = {}
     for side in ('right', 'left'):
@@ -203,16 +211,20 @@ def build(source_root, donor_dir, output):
     merged = out / 'g1_29dof_rev_1_0_with_inspire_hand_E2.urdf'; ET.indent(tree, space=' '); tree.write(merged, encoding='utf-8', xml_declaration=True)
     per_side = {}
     for side in ('right', 'left'):
+        hp = ET.Element('robot', name='E2_%s_hand_public' % side); ET.SubElement(hp, 'link', name=side + '_wrist_yaw_link')
+        for el in public_hands[side]: hp.append(copy.deepcopy(el))
+        pp = out / ('E2_%s_hand_public.urdf' % side); tp = ET.ElementTree(hp); ET.indent(tp, space=' '); tp.write(pp, encoding='utf-8', xml_declaration=True)
         hr = ET.Element('robot', name='E2_%s_hand' % side); ET.SubElement(hr, 'link', name=side + '_wrist_yaw_link')
-        for el in hands[side]: hr.append(copy.deepcopy(el))
+        for el in merged_hands[side]: hr.append(copy.deepcopy(el))
         p = out / ('E2_%s_hand.urdf' % side); t = ET.ElementTree(hr); ET.indent(t, space=' '); t.write(p, encoding='utf-8', xml_declaration=True)
-        # bench: root = <side>_base (the flange joint removed, transform retained in the manifest)
+        # bench: root = <side>_base (the flange joint removed, transform retained in the manifest); declared limits + representation like the twin (bench parity)
         br = ET.Element('robot', name='E2_%s_hand_bench' % side)
-        for el in hands[side]:
+        for el in merged_hands[side]:
             if el.tag == 'joint' and el.get('name') == side + '_hand_connection_joint': continue
             br.append(copy.deepcopy(el))
         pb = out / ('E2_%s_hand_bench.urdf' % side); tb = ET.ElementTree(br); ET.indent(tb, space=' '); tb.write(pb, encoding='utf-8', xml_declaration=True)
-        per_side[side] = {'hand_urdf': p.name, 'hand_urdf_sha256': sha256(p), 'bench_urdf': pb.name, 'bench_urdf_sha256': sha256(pb), 'bench_root': side + '_base',
+        per_side[side] = {'hand_urdf': p.name, 'hand_urdf_sha256': sha256(p), 'bench_urdf': pb.name, 'bench_urdf_sha256': sha256(pb), 'bench_root': side + '_base', 'public_expansion_urdf': pp.name, 'public_expansion_urdf_sha256': sha256(pp),
+                          'note': 'hand/bench URDFs carry the declared drive limits and the r4 representation like the merged twin (bench parity with the twin); the public expansion (placeholders, public sub-links) is kept as *_public.urdf for the record',
                           'wrist_mount': {'parent': side + '_wrist_yaw_link', 'child': side + '_base', 'xyz_m': [float(v) for v in MOUNT[side][0].split()], 'rpy_rad': [float(v) for v in MOUNT[side][1].split()],
                                           'provenance': 'donor flange transform (0.0415, 0, 0; rpy 0, +-pi/2, 0) composed with R_z(+90 deg) so that the E2 base (fingers +z, across y, palm normal +x) reproduces the donor finger datum (index/pinky joints and index tip within 0.1 mm; the thumb base sits 13.7 mm further along the fingers on the E2); NOT measured on hardware'}}
     per_side_mass = {s: round(sum(inertial(l)[0] for l in hands[s].findall('link') if inertial(l) is not None), 6) for s in ('right', 'left')}
@@ -222,7 +234,8 @@ def build(source_root, donor_dir, output):
                 'donor_body': {'urdf': str(donor_urdf), 'urdf_sha256': sha256(donor_urdf), 'removed_ftp_hand': removed, 'body_meshes': body_meshes},
                 'merged_urdf': {'name': merged.name, 'sha256': sha256(merged)}, 'hands': per_side, 'public_urdf_corrections': corrections,
                 'public_prior': PRIOR,
-                'drive_limit_policy': {**DRIVE_POLICY, 'applies_to': 'merged twin URDF only (E2_<side>_hand*.urdf keep the public placeholders)', 'per_joint': drive_record},
+                'drive_limit_policy': {**DRIVE_POLICY, 'applies_to': 'merged twin, per-hand and bench URDFs (E2_<side>_hand_public.urdf keeps the public placeholders)', 'per_joint': drive_record},
+                'representation_r4': representation,
                 'placeholders_not_used': {'urdf_effort_velocity': 'the public URDF effort/velocity attributes (1 / 1-2) are placeholders; the merged twin URDF carries the declared drive_limit_policy instead', 'motion_mode_2': 'unconfirmed; not used'},
                 'command_direction_truth': '1000 = fully open, 0 = closed (manual 2.6.11/2.6.12 and the public driver open-pose reset use 1000); the public rh56e2_register_map.md line "0 (Fully open) to 1000 (Fully closed)" is reversed and is NOT followed',
                 'mass_policy': mass_policy(per_side_mass), 'generated_usd': {'status': 'NOT_GENERATED_ON_CPU', 'note': 'the twin imports the merged URDF with the Kit URDF importer at run time (tools/inspire_body_asset.py import_body); its hash is recorded by the first admitted run'}}

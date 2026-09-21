@@ -115,7 +115,7 @@ def palm_builder(stage, mesh, body, side):
 COLLISION_POLICY = collision_policy(manifest.data)
 if COLLISION_POLICY['kind'] == 'ftp_donor_slabs_v2':
     asset, facts = import_body(source, out, fixed_base=True, palm_builder=palm_builder, left_thumb_builder=replace_left_thumb_with_slabs)
-elif COLLISION_POLICY['kind'] == 'public_stl_meshes':
+elif COLLISION_POLICY['kind'] in ('public_stl_meshes', 'e2_r4_folded_slabs'):   # both import the URDF as delivered (r4 bakes the representation into it)
     from inspire_e2_asset import import_body_e2  # noqa: E402
     asset, facts = import_body_e2(source, out, fixed_base=True)
 else:
