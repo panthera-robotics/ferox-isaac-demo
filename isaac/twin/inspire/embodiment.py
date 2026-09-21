@@ -65,6 +65,35 @@ def _fixed_joint(root, parent, child):
     raise ContractError('no fixed joint %s -> %s' % (parent, child))
 
 
+# The hand flange (wrist -> hand base) fixed joint, per asset family: the FTP donor names the hand base right_base_link, the
+# public exact-E2 description names it right_base. A manifest may declare the pair explicitly through
+# transforms.right.wrist_to_hand.frame ("<parent> -> <child>"); otherwise the first known pair present in the URDF is used.
+WRIST_MOUNT_PAIRS = (('right_wrist_yaw_link', 'right_base_link'), ('right_wrist_yaw_link', 'right_base'))
+
+
+def wrist_mount_joint(root, pair=None):
+    """Origin of the right hand flange joint: the declared (parent, child) pair, else the first known pair found in the URDF."""
+    if pair is not None:
+        return _fixed_joint(root, pair[0], pair[1])
+    for parent, child in WRIST_MOUNT_PAIRS:
+        try:
+            return _fixed_joint(root, parent, child)
+        except ContractError:
+            continue
+    raise ContractError('no hand flange joint among %s' % (WRIST_MOUNT_PAIRS,))
+
+
+def wrist_mount_pair_from_manifest(manifest_data):
+    """(parent, child) declared by transforms.right.wrist_to_hand.frame as "<parent> -> <child>", or None."""
+    t = (manifest_data.get('transforms', {}).get('right') or {}).get('wrist_to_hand') or {}
+    frame = t.get('frame')
+    if isinstance(frame, str) and '->' in frame:
+        parent, child = [x.strip() for x in frame.split('->', 1)]
+        if parent and child:
+            return parent, child
+    return None
+
+
 def fixed_joint_matrix(origin):
     """4x4 transform from a URDF origin dict (xyz + rpy, URDF convention Rz*Ry*Rx)."""
     r, p_, y = origin['rpy_rad']; xyz = origin['xyz_m']
@@ -84,15 +113,16 @@ def coupling_map_from_urdf(root):
     return out
 
 
-def dependency_values_from_urdf(urdf_path, *, collision_cooking, physics_dt_s='0.005', solver='TGS_32_8'):
-    """Live dependency values a runtime can compare against manifest bindings (identity, not physical correctness)."""
+def dependency_values_from_urdf(urdf_path, *, collision_cooking, physics_dt_s='0.005', solver='TGS_32_8', wrist_mount=None):
+    """Live dependency values a runtime can compare against manifest bindings (identity, not physical correctness).
+    wrist_mount: optional (parent, child) of the hand flange joint (see wrist_mount_joint)."""
     import xml.etree.ElementTree as ET
     data = open(urdf_path, 'rb').read(); root = ET.fromstring(data)
     coupling = coupling_map_from_urdf(root)
     return {'urdf_sha256': hashlib.sha256(data).hexdigest(),
             'coupling_map_sha256': hashlib.sha256(json.dumps(coupling, sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
             'collision_cooking': collision_cooking,
-            'wrist_mount_sha256': hashlib.sha256(json.dumps(fixed_joint_matrix(_fixed_joint(root, 'right_wrist_yaw_link', 'right_base_link'))).encode()).hexdigest(),
+            'wrist_mount_sha256': hashlib.sha256(json.dumps(fixed_joint_matrix(wrist_mount_joint(root, wrist_mount))).encode()).hexdigest(),
             'camera_mount_sha256': hashlib.sha256(json.dumps(_fixed_joint(root, 'torso_link', 'd435_link'), sort_keys=True).encode()).hexdigest(),
             'physics_dt_s': physics_dt_s, 'solver': solver}
 
@@ -128,14 +158,14 @@ def hand_contract_descriptor(contracts_by_side):
     return canonical_sha256(dict(sorted(profiles.items())))
 
 
-def runtime_dependency_values(urdf_path, *, collision_cooking, physics_dt_s, support, controller, hand_contracts, arm_datum, solver='TGS_32_8'):
+def runtime_dependency_values(urdf_path, *, collision_cooking, physics_dt_s, support, controller, hand_contracts, arm_datum, solver='TGS_32_8', wrist_mount=None):
     """The live dependency values of one run, composed the same way by the packager and the probe: asset identities from the
     mounted URDF, the ACTUAL physics step (a DIAGNOSTIC refinement stales every dt-bound claim by construction), the support,
     the controller descriptor, the applied hand conversion profile(s) and the arm reference datum."""
     dt = float(physics_dt_s)
     if not (dt > 0.0 and math.isfinite(dt)):
         raise ContractError('physics_dt_s must be a positive finite number')
-    return dict(dependency_values_from_urdf(urdf_path, collision_cooking=collision_cooking, physics_dt_s='%g' % dt, solver=solver), support=support, controller=controller,
+    return dict(dependency_values_from_urdf(urdf_path, collision_cooking=collision_cooking, physics_dt_s='%g' % dt, solver=solver, wrist_mount=wrist_mount), support=support, controller=controller,
                 hand_contract_sha256=hand_contract_descriptor(hand_contracts), arm_datum=str(arm_datum))
 
 

@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'isaac' / 'twin'))
-from inspire.embodiment import ARM_DATUM_SCRIPTED, ContractError, EmbodimentManifest, ReplaySequence, runtime_dependency_values  # noqa: E402
+from inspire.embodiment import ARM_DATUM_SCRIPTED, ContractError, EmbodimentManifest, ReplaySequence, runtime_dependency_values, wrist_mount_pair_from_manifest  # noqa: E402
 from inspire.spawn_clearance import check_spawn_clearance  # noqa: E402
 
 COLLISION_COOKING = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'   # the probe's declared provisional colliders
@@ -164,7 +164,8 @@ def main(argv=None):
         # the live values bind what this package will actually apply: the mounted asset, the ACTUAL physics step, the hand
         # conversion profile(s) of the spec and the scripted arm datum (absolute URDF radians)
         live = runtime_dependency_values(a.source_urdf, collision_cooking=COLLISION_COOKING, physics_dt_s=(a.physics_dt_s if a.physics_dt_s is not None else 0.005),
-                                         support=a.support, controller=a.controller_descriptor, hand_contracts=spec['hand_contracts'], arm_datum=ARM_DATUM_SCRIPTED)
+                                         support=a.support, controller=a.controller_descriptor, hand_contracts=spec['hand_contracts'], arm_datum=ARM_DATUM_SCRIPTED,
+                                         wrist_mount=wrist_mount_pair_from_manifest(manifest.data))
     sequence, report = validate(manifest, spec, controller, live_dependencies=live, require_verified_hand_semantics=a.require_verified_hand_semantics, diagnostic=(a.execution_label == 'DIAGNOSTIC'))
     report.update(manifest_id=manifest.data['manifest_id'], manifest_sha256=manifest.sha256, validated_utc=datetime.now(timezone.utc).isoformat())
     scene = None
