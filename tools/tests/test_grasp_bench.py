@@ -71,6 +71,34 @@ class FoldTests(unittest.TestCase):
         for link, xyz in (('right_index_proximal', (-0.0387, 0.0006, 0.1564)), ('right_pinky_proximal', (0.0259, 0.0006, 0.1536)), ('right_index_force_sensor_3', (-0.035, 0.0126, 0.2417))):
             for a, b in zip(T[link][:3, 3], xyz): self.assertAlmostEqual(float(a), b, places=3)
 
+    E2B_R4 = '/home/ubuntu/panthera/sim-workspace/parallel-20260917/e2-acceptance/inbox/hand-req-Q02-e2prior-asset-r4/asset/E2_right_hand_bench.urdf'
+
+    @unittest.skipUnless(os.path.exists(E2B_R4), 'E2 r4 bench URDF not on this host')
+    def test_fold_e2_r4_bench_chains_and_virtual_frames(self):
+        """r4: the sensor pads / palm_1,2 / palm_force_sensor / tcp / tcp_* are EMPTY links (fixed chains); the fold must remove them all,
+        keep 13 bodies, and give every removed frame a virtual pose in its surviving body; the folded hand with the declared mount lands on the
+        same finger datum as r3 and the virtual index sensor_3 frame on the r3 sensor_3 datum."""
+        import numpy as np
+        from inspire_grasp_bench import fold_massless_frames
+        from urdf_kinematics import UrdfKinematics
+        d = tempfile.mkdtemp(); rec = fold_massless_frames(self.E2B_R4, os.path.join(d, 'f.urdf'))
+        self.assertEqual(rec['new_root'], 'right_hand_base_link'); self.assertEqual(rec['n_links'], 13); self.assertEqual(rec['n_joints'], 12)
+        removed = {r['link'] for r in rec['removed_massless_leaves']}
+        for n in ('right_index_force_sensor_3', 'right_palm_1', 'right_palm_2', 'right_palm_force_sensor', 'right_tcp', 'right_tcp_pinch', 'right_thumb_force_sensor_4'):
+            self.assertIn(n, removed); self.assertIn(n, rec['virtual_frames'])
+        self.assertEqual(rec['virtual_frames']['right_index_force_sensor_3']['body'], 'right_index_intermediate')
+        self.assertEqual(rec['virtual_frames']['right_tcp_pinch']['hops'], 2); self.assertEqual(rec['virtual_frames']['right_tcp_pinch']['body'], 'right_hand_base_link')
+        f = write_wrist_fixture(os.path.join(d, 'f.urdf'), os.path.join(d, 'w.urdf'), root_link='right_hand_base_link', mount_rpy=(3.141592653589793, 0.0, 1.5707963267948966))
+        T = UrdfKinematics(os.path.join(d, 'w.urdf')).transforms({})
+        for link, xyz in (('right_index_proximal', (-0.0387, 0.0006, 0.1564)), ('right_pinky_proximal', (0.0259, 0.0006, 0.1536))):
+            for a, b in zip(T[link][:3, 3], xyz): self.assertAlmostEqual(float(a), b, places=3)
+        vf = rec['virtual_frames']['right_index_force_sensor_3']; tip = T['right_index_intermediate'] @ np.asarray(vf['frame_in_body'])
+        for a, b in zip(tip[:3, 3], (-0.035, 0.0126, 0.2417)): self.assertAlmostEqual(float(a), b, places=3)
+        # the r4 bench carries the declared drive limits on all 12 joints (bench parity with the merged twin)
+        import xml.etree.ElementTree as ET
+        lim = {j.get('name'): j.find('limit') for j in ET.parse(os.path.join(d, 'f.urdf')).getroot().findall('joint') if j.get('type') == 'revolute'}
+        self.assertEqual(len(lim), 12); self.assertTrue(all(float(l.get('effort')) == 10.0 and float(l.get('velocity')) == 1.0 for l in lim.values()))
+
     @unittest.skipUnless(os.path.exists(DONOR_BENCH), 'donor bench URDF not on this host')
     def test_fold_donor_is_noop(self):
         from inspire_grasp_bench import fold_massless_frames

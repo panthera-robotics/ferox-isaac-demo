@@ -341,13 +341,25 @@ if 'blocked-index' in mode:
     index_id = names.index(index_name)
     free_window = trace[-60:]
     free_q = float(np.mean([r['q_rad'][index_id] for r in free_window]))
-    tip = SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/Hand/' + INDEX_TIP)
+    # The tip may be a folded VIRTUAL frame (r4 E2: the sensor pads are empty links folded into the finger bodies): then read the
+    # surviving body and compose the recorded frame_in_body. Donor / unfolded hands: the tip is a rigid body, offset = identity.
+    tip_body, tip_offset = INDEX_TIP, None
+    if fold_record and INDEX_TIP in (fold_record.get('virtual_frames') or {}):
+        vf = fold_record['virtual_frames'][INDEX_TIP]; tip_body = vf['body']; tip_offset = np.asarray(vf['frame_in_body'], dtype=np.float64)
+    tip = SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/Hand/' + tip_body)
     assert tip.count == 1
     # Place the later obstacle using the measured closed finger pose, then open
     # before spawning it. This prevents an initially intersecting fixture from
     # masquerading as resistance to the commanded closing trajectory.
     measured_tip_pose = np.asarray(tip.get_transforms())[0].copy()
-    obstacle_position = measured_tip_pose[:3].copy()
+    if tip_offset is None:
+        obstacle_position = measured_tip_pose[:3].copy()
+    else:
+        qx, qy, qz, qw = [float(v) for v in measured_tip_pose[3:7]]
+        R = np.array([[1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qz * qw), 2 * (qx * qz + qy * qw)],
+                      [2 * (qx * qy + qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qx * qw)],
+                      [2 * (qx * qz - qy * qw), 2 * (qy * qz + qx * qw), 1 - 2 * (qx * qx + qy * qy)]])
+        obstacle_position = (R @ tip_offset[:3, 3] + measured_tip_pose[:3]).astype(np.float64)
     phase = 'before_blocked_index'
     step(zero, 240)
     material = PhysicsMaterial('/World/IndexBlockMaterial', static_friction=.5,
@@ -392,7 +404,7 @@ if 'blocked-index' in mode:
     blocked_index = {'scope': 'fixed_palm_bench_external_obstruction_only', 'checks': blocked_checks,
         'free_index_rad': free_q, 'blocked_index_rad': blocked_q,
         'position_difference_rad': free_q - blocked_q, 'block_center_world_m': obstacle_position.tolist(),
-        'placement_source_body': '/World/Hand/' + INDEX_TIP, 'index_joint': index_name, 'index_match': INDEX_MATCH,
+        'placement_source_body': '/World/Hand/' + tip_body, 'placement_virtual_frame': (None if tip_offset is None else {'frame': INDEX_TIP, 'frame_in_body': tip_offset.tolist()}), 'index_joint': index_name, 'index_match': INDEX_MATCH,
         'measured_body_pose_xyzw': measured_tip_pose.tolist(), 'free_start': free_start, 'blocked_start': blocked_start,
         'final_window_samples': 60, 'hold_contact_sequences': len(hold_contact_sequences),
         'block_size_m': [.016, .016, .016], 'block_physics_settings': obstacle_settings,

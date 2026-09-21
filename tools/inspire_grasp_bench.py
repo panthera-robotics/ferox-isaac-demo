@@ -116,9 +116,13 @@ class WriterHand:
 
 def fold_massless_frames(source, output):
     """Bench pre-processing for hands whose URDF carries massless, collision-less frames (public E2: the flange root `<side>_base` and the
-    tcp_* convenience leaves): removes massless leaf links (fixed joints, no children) and folds a massless ROOT with exactly one fixed
-    child joint into that child (the child becomes the root; the removed fixed transform must be composed into the declared mount, see
-    the returned record). Physical links, joints, limits, mimics, meshes and inertials are untouched (asserted). Returns the record."""
+    tcp_* convenience leaves; r4: the folded sensor-pad / palm / tcp frames kept as empty links): removes massless leaf links (fixed
+    joints, no children, no collision) repeatedly until none is left (so fixed CHAINS of empty frames such as tcp -> tcp_* or
+    palm_1 -> palm_2 fold too) and folds a massless ROOT with exactly one fixed child joint into that child (the child becomes the root;
+    the removed fixed transform must be composed into the declared mount, see the returned record). Every removed frame is kept as a
+    VIRTUAL frame in the record (`virtual_frames[name] = {body, frame_in_body}`: the nearest surviving body and the 4x4 transform of the
+    frame in that body, composed through the removed fixed joints) so probes can still read its pose. Physical links, joints, limits,
+    mimics, meshes and inertials are untouched (asserted). Identity on the donor. Returns the record."""
     from pathlib import Path
     import xml.etree.ElementTree as ET
     from copy import deepcopy
@@ -131,10 +135,21 @@ def fold_massless_frames(source, output):
     massless = {n for n, l in links.items() if l.find('inertial') is None}
     parents = {j.find('child').get('link'): j for j in joints}; children = {}
     for j in joints: children.setdefault(j.find('parent').get('link'), []).append(j)
-    removed_leaves = []
-    for n in sorted(massless):
-        if n in parents and not children.get(n) and parents[n].get('type') == 'fixed' and links[n].find('collision') is None:
-            root.remove(links[n]); root.remove(parents[n]); removed_leaves.append({'link': n, 'joint': parents[n].get('name')}); joints.remove(parents[n])
+    removed_leaves = []; removed_fixed = {}   # link -> (parent, xyz, rpy)
+    def _origin(j):
+        o = j.find('origin')
+        return ([float(v) for v in (o.get('xyz') if o is not None else '0 0 0').split()], [float(v) for v in (o.get('rpy') if o is not None else '0 0 0').split()])
+    while True:
+        children = {}
+        for j in joints: children.setdefault(j.find('parent').get('link'), []).append(j)
+        progress = False
+        for n in sorted(massless):
+            if n in links and n in parents and not children.get(n) and parents[n].get('type') == 'fixed' and links[n].find('collision') is None:
+                xyz, rpy = _origin(parents[n]); removed_fixed[n] = (parents[n].find('parent').get('link'), xyz, rpy)
+                root.remove(links[n]); root.remove(parents[n]); removed_leaves.append({'link': n, 'joint': parents[n].get('name'), 'parent': removed_fixed[n][0], 'xyz': xyz, 'rpy': rpy}); joints.remove(parents[n])
+                del links[n]; progress = True
+        if not progress: break
+        # children map is rebuilt at the top of the loop: a frame whose only children were removed becomes a leaf on the next pass
     links = {l.get('name'): l for l in root.findall('link')}; joints = list(root.findall('joint'))
     child_set = {j.find('child').get('link') for j in joints}; roots = [n for n in links if n not in child_set]
     folded_root = None
@@ -157,5 +172,21 @@ def fold_massless_frames(source, output):
         assert ET.tostring(a) == before_links[l.get('name')], l.get('name')
     for j in root.findall('joint'): assert blob(j) == before_joints[j.get('name')], j.get('name')
     out.parent.mkdir(parents=True, exist_ok=True); ET.indent(root); tree.write(out, encoding='utf-8', xml_declaration=True)
+    # virtual frames: each removed frame expressed in the nearest surviving body (compose the removed fixed joints outward)
+    import math
+    def _rpy_matrix(xyz, rpy):
+        import numpy as np
+        r, p, y = rpy; cr, sr, cp, sp, cy, sy = math.cos(r), math.sin(r), math.cos(p), math.sin(p), math.cos(y), math.sin(y)
+        R = np.array([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]]) @ np.array([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]]) @ np.array([[1, 0, 0], [0, cr, -sr], [0, sr, cr]])
+        T = np.eye(4); T[:3, :3] = R; T[:3, 3] = xyz; return T
+    surviving = set(links); virtual = {}
+    for n in removed_fixed:
+        import numpy as np
+        T = np.eye(4); cur = n; hops = 0
+        while cur in removed_fixed and hops < 64:
+            parent, xyz, rpy = removed_fixed[cur]; T = _rpy_matrix(xyz, rpy) @ T; cur = parent; hops += 1
+        if cur in surviving:
+            virtual[n] = {'body': cur, 'frame_in_body': [[float(v) for v in row] for row in T], 'hops': hops}
     return {'source': str(src), 'output': str(out), 'removed_massless_leaves': removed_leaves, 'folded_root': folded_root,
-            'new_root': folded_root['new_root'] if folded_root else roots[0], 'n_links': len(root.findall('link')), 'n_joints': len(root.findall('joint'))}
+            'new_root': folded_root['new_root'] if folded_root else roots[0], 'n_links': len(root.findall('link')), 'n_joints': len(root.findall('joint')),
+            'virtual_frames': virtual}
