@@ -36,8 +36,8 @@ def build(asset_manifest, donor, audit=None):
                          'corrections_applied': ['left main-link inertials = right mirrored across the hand-base y=0 plane', 'left_pinky_intermediate mass 0.01869 -> 0.01166 kg (right value)', 'drive limits: declared donor policy effort 10 / velocity 1.0 on all 24 hand joints (public placeholders recorded)'],
                          'mass_policy': a['mass_policy']['primary'], 'hand_total_mass_kg': a['mass_policy']['hand_total_kg'], 'donor_status': 'DONOR_BASELINE_FROZEN (manifest g1_edu29_rh56dftp_donor_v1 unchanged)'}
     claims = {k: {'status': 'NOT_RUN', 'evidence': None, 'configuration': None} for k in donor['qualification']['claims']}
-    claims['static_asset_audit'] = {'status': 'PASS' if audit and audit.get('verdict') == 'STATIC_AUDIT_PASS' else 'NOT_RUN', 'evidence': 'E2_PRIOR_ASSET_AUDIT (hand-req-Q02)' if audit else None,
-                                    'configuration': {'urdf_sha256': a['merged_urdf']['sha256'], 'audit_summary': json.dumps(audit['summary'], sort_keys=True)} if audit else None}
+    claims['static_asset_audit'] = {'status': 'PASS' if audit and audit.get('verdict') == 'STATIC_AUDIT_PASS' else 'NOT_RUN', 'evidence': ('E2_PRIOR_ASSET_AUDIT (hand-req-Q02): %s' % json.dumps(audit['summary'], sort_keys=True)) if audit else None,
+                                    'configuration': {'urdf_sha256': a['merged_urdf']['sha256']} if audit else None}
     m['qualification'] = {'exact_asset_qualified': False, 'installed_hand_similarity_percent': None, 'claims': claims, 'rule': donor['qualification']['rule'],
                           'label': LABEL, 'note': 'geometry/kinematics/inertials are public priors of the exact model family; installed calibration (hand-req-Q01) is INCOMPLETE; no physics claim is inherited from the donor'}
     hands = {}
@@ -51,7 +51,9 @@ def build(asset_manifest, donor, audit=None):
                        'native_interface': {'axis_order_owner_context': list(ad.NATIVE_ORDER), 'scale_owner_context': '0..1000 counts, 1000 = open (all six; thumb rotation 1000 = out = yaw 0)', 'status': 'PUBLIC_PRIOR_UNVERIFIED_ON_INSTALLED_UNIT',
                                             'count_mapping': 'E2_KINEMATIC_CONTRACT.json count_mapping (c = 1 - count/1000, rad = c * closed_rad, coupled targets clamped at the child limit)'},
                        'feedback': {'independent_axes_measured': True, 'coupled_joints_measured': False, 'note': donor['hands'][side]['feedback']['note']},
-                       'drive_model': ad.DRIVE_MODEL['kind'], 'donor_to_e2_name_map': ad.name_map(side)}
+                       'drive_model': ad.DRIVE_MODEL['kind'], 'donor_to_e2_name_map': ad.name_map(side),
+                       'link_names': {'base_link': side + '_base', 'palm_body': side + '_hand_base_link', 'palm_body_rpy_from_base': [3.14159, 0.0, 0.0],
+                                      'note': 'base_link is the pure flange frame under <side>_wrist_yaw_link (folded into the palm body on USD import); palm_body is the first physical link (public hand_base_joint rpy 3.14159 0 0, xyz 0)'}}
     m['hands'] = hands
     tr = {}
     right = a['hands']['right']['wrist_mount']

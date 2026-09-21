@@ -196,3 +196,25 @@ def test_wrist_mount_binding_accepts_the_e2_flange_and_keeps_the_donor():
     live = dependency_values_from_urdf(f.name, collision_cooking='meshes')
     import hashlib
     assert live['wrist_mount_sha256'] == hashlib.sha256(json.dumps(fixed_joint_matrix(wrist_mount_joint(e2))).encode()).hexdigest()
+
+
+def test_hand_link_names_default_to_the_donor_and_accept_the_e2_declaration():
+    from isaac.twin.inspire.embodiment import ContractError, hand_link_names
+    assert hand_link_names({'hands': {'right': {}}}, 'right') == {'base_link': 'right_base_link', 'palm_body': 'right_base_link', 'palm_body_rpy_from_base': [0.0, 0.0, 0.0]}
+    e2 = {'hands': {'left': {'link_names': {'base_link': 'left_base', 'palm_body': 'left_hand_base_link', 'palm_body_rpy_from_base': [3.14159, 0, 0]}}}}
+    assert hand_link_names(e2, 'left')['palm_body'] == 'left_hand_base_link'
+    with pytest.raises(ContractError):
+        hand_link_names({'hands': {'right': {'link_names': {'base_link': 'left_base'}}}}, 'right')
+
+
+def test_spawn_clearance_hand_subtree_follows_the_declared_base(tmp_path):
+    from isaac.twin.inspire.spawn_clearance import ClearanceError, hand_links
+    urdf = tmp_path / 'h.urdf'
+    urdf.write_text('<robot name="x"><link name="pelvis"/><link name="right_wrist_yaw_link"/><link name="right_base"/><link name="right_hand_base_link"/><link name="right_index_proximal"/>'
+                    '<joint name="w" type="fixed"><origin xyz="0 0 0" rpy="0 0 0"/><parent link="pelvis"/><child link="right_wrist_yaw_link"/></joint>'
+                    '<joint name="f" type="fixed"><origin xyz="0.0415 0 0" rpy="0 0 0"/><parent link="right_wrist_yaw_link"/><child link="right_base"/></joint>'
+                    '<joint name="b" type="fixed"><origin xyz="0 0 0" rpy="3.14159 0 0"/><parent link="right_base"/><child link="right_hand_base_link"/></joint>'
+                    '<joint name="i" type="revolute"><origin xyz="0 0.03 0.1" rpy="0 0 0"/><parent link="right_hand_base_link"/><child link="right_index_proximal"/><axis xyz="0 0 -1"/><limit lower="0" upper="1.4381" effort="1" velocity="1"/></joint></robot>')
+    assert hand_links(str(urdf), 'right', 'right_base') == ['right_base', 'right_hand_base_link', 'right_index_proximal']
+    with pytest.raises(ClearanceError):
+        hand_links(str(urdf), 'right')                                                        # the donor default name is absent in an E2 tree

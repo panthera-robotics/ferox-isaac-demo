@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'isaac' / 'twin'))
-from inspire.embodiment import ARM_DATUM_SCRIPTED, ContractError, EmbodimentManifest, ReplaySequence, runtime_dependency_values, wrist_mount_pair_from_manifest  # noqa: E402
+from inspire.embodiment import ARM_DATUM_SCRIPTED, ContractError, EmbodimentManifest, ReplaySequence, hand_link_names, runtime_dependency_values, wrist_mount_pair_from_manifest  # noqa: E402
 from inspire.spawn_clearance import check_spawn_clearance  # noqa: E402
 
 COLLISION_COOKING = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'   # the probe's declared provisional colliders
@@ -180,7 +180,8 @@ def main(argv=None):
             first_hand = {}
             for side_block in first['hands'].values():
                 first_hand.update(side_block['targets_rad'])
-            report['spawn_clearance'] = check_spawn_clearance(a.source_urdf, scene, body_q, {'urdf_open': {}, 'first_row': first_hand})
+            report['spawn_clearance'] = check_spawn_clearance(a.source_urdf, scene, body_q, {'urdf_open': {}, 'first_row': first_hand},
+                                                              hand_base_links={s_: hand_link_names(manifest.data, s_)['base_link'] for s_ in ('left', 'right')})
             if report['spawn_clearance']['status'] != 'CLEAR':
                 report['problems'].append('spawn clearance: %d hand link(s) inside the scene geometry at the spawn pose (%s)' % (len(report['spawn_clearance']['overlaps']), '; '.join(sorted({'%s in %s' % (o['link'], o['box']) for o in report['spawn_clearance']['overlaps']})[:6])))
                 report['status'] = 'REJECTED'; sequence = None
