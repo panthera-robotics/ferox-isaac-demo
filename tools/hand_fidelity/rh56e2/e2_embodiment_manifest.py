@@ -54,10 +54,13 @@ def build(asset_manifest, donor, audit=None):
                        'drive_model': ad.DRIVE_MODEL['kind'], 'donor_to_e2_name_map': ad.name_map(side)}
     m['hands'] = hands
     tr = {}
+    right = a['hands']['right']['wrist_mount']
+    # the twin binds sha256(json.dumps(fixed_joint_matrix(origin))) of the RIGHT flange joint (embodiment.dependency_values_from_urdf); same formula here
+    wrist_mount_sha = hashlib.sha256(json.dumps(rpy_matrix(right['xyz_m'], right['rpy_rad'])).encode()).hexdigest()
     for side in ad.SIDES:
         h = a['hands'][side]['wrist_mount']; T = rpy_matrix(h['xyz_m'], h['rpy_rad'])
         tr[side] = {'wrist_to_hand': {'matrix_4x4': T, 'frame': '%s_wrist_yaw_link -> %s_base' % (side, side), 'provenance': h['provenance'],
-                                      'valid_for': {'urdf_sha256': a['merged_urdf']['sha256'], 'wrist_mount_sha256': hashlib.sha256(json.dumps({'xyz': h['xyz_m'], 'rpy': h['rpy_rad']}, sort_keys=True).encode()).hexdigest()},
+                                      'valid_for': {'urdf_sha256': a['merged_urdf']['sha256'], 'wrist_mount_sha256': wrist_mount_sha},
                                       'dependent_qualifications': ['contact_writing', 'command_replay_integration']}, 'hand_to_tool': None}
     m['transforms'] = tr
     m['controller'] = {**donor['controller'], 'type': donor['controller']['type'].replace('coupled joints follow mimic cons', 'coupled joints follow the E2 coupling table with child-limit clamps; original: coupled joints follow mimic cons'), 'hand_drive_model': ad.DRIVE_MODEL}

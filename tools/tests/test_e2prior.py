@@ -175,3 +175,24 @@ def test_installed_profiles_and_cli_flags(tmp_path):
 
 def test_installed_capture_hook_is_documented_and_empty():
     assert INSTALLED_CAPTURE is None   # replace with the owner's capture; the synthetic image above is not an installed measurement
+
+
+def test_wrist_mount_binding_accepts_the_e2_flange_and_keeps_the_donor():
+    """The twin used to hard-code right_wrist_yaw_link -> right_base_link; the E2 flange child is right_base."""
+    import xml.etree.ElementTree as ET
+    from isaac.twin.inspire.embodiment import ContractError, fixed_joint_matrix, wrist_mount_joint, wrist_mount_pair_from_manifest, dependency_values_from_urdf
+    e2 = ET.fromstring('<robot name="e2"><link name="right_wrist_yaw_link"/><link name="right_base"/><joint name="right_hand_connection_joint" type="fixed"><origin xyz="0.0415 0 0" rpy="1.5707963 0 1.5707963"/><parent link="right_wrist_yaw_link"/><child link="right_base"/></joint>'
+                       '<link name="torso_link"/><link name="d435_link"/><joint name="d" type="fixed"><origin xyz="0 0 0" rpy="0 0 0"/><parent link="torso_link"/><child link="d435_link"/></joint></robot>')
+    donor = ET.fromstring('<robot name="d"><link name="right_wrist_yaw_link"/><link name="right_base_link"/><joint name="right_base_joint" type="fixed"><origin xyz="0.0415 0 0" rpy="0 1.5707963 0"/><parent link="right_wrist_yaw_link"/><child link="right_base_link"/></joint></robot>')
+    assert wrist_mount_joint(e2)['child_link'] == 'right_base' and wrist_mount_joint(donor)['child_link'] == 'right_base_link'
+    assert wrist_mount_joint(e2, ('right_wrist_yaw_link', 'right_base'))['xyz_m'] == [0.0415, 0.0, 0.0]
+    with pytest.raises(ContractError):
+        wrist_mount_joint(e2, ('right_wrist_yaw_link', 'right_base_link'))
+    assert wrist_mount_pair_from_manifest({'transforms': {'right': {'wrist_to_hand': {'frame': 'right_wrist_yaw_link -> right_base'}}}}) == ('right_wrist_yaw_link', 'right_base')
+    assert wrist_mount_pair_from_manifest({'transforms': {'right': {'wrist_to_hand': None}}}) is None
+    import tempfile
+    with tempfile.NamedTemporaryFile('w', suffix='.urdf', delete=False) as f:
+        f.write(ET.tostring(e2, encoding='unicode'))
+    live = dependency_values_from_urdf(f.name, collision_cooking='meshes')
+    import hashlib
+    assert live['wrist_mount_sha256'] == hashlib.sha256(json.dumps(fixed_joint_matrix(wrist_mount_joint(e2))).encode()).hexdigest()
