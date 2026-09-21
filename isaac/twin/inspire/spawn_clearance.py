@@ -90,8 +90,16 @@ def link_frames(urdf_path, q_by_name):
     return frames
 
 
-def hand_links(urdf_path, side, base=None):
-    """Every link at or below the hand base link (default <side>_base_link, the FTP donor; the manifest's hands.<side>.link_names.base_link otherwise)."""
+def collisionless_links(urdf_path):
+    """Links that carry no <collision> element: pure frames (the public E2 description's tcp / tcp_pinch / tcp_three_fingers /
+    tcp_full_hand convenience frames ahead of the fingertips) that no contact can involve."""
+    import xml.etree.ElementTree as ET
+    return {l.get('name') for l in ET.parse(urdf_path).getroot().findall('link') if l.find('collision') is None}
+
+
+def hand_links(urdf_path, side, base=None, physical_only=False):
+    """Every link at or below the hand base link (default <side>_base_link, the FTP donor; the manifest's hands.<side>.link_names.base_link otherwise).
+    physical_only drops the collision-less frames (they are still reported by the caller)."""
     joints = read_urdf_joints(urdf_path); base = base or (side + '_base_link')
     kids = {}
     for j in joints.values():
@@ -101,13 +109,15 @@ def hand_links(urdf_path, side, base=None):
         l = stack.pop(); out.append(l); stack.extend(kids.get(l, []))
     if len(out) < 2:
         raise ClearanceError('no hand subtree below %s' % base)
+    if physical_only:
+        skip = collisionless_links(urdf_path); out = [l for l in out if l not in skip]
     return out
 
 
-def hand_points(urdf_path, side, q_by_name, base=None):
+def hand_points(urdf_path, side, q_by_name, base=None, physical_only=False):
     """{link: origin (pelvis frame)} for every hand link of one side at the joint values q."""
     frames = link_frames(urdf_path, q_by_name)
-    return {l: frames[l][1] for l in hand_links(urdf_path, side, base) if l in frames}
+    return {l: frames[l][1] for l in hand_links(urdf_path, side, base, physical_only) if l in frames}
 
 
 def hand_box(urdf_path, side, q_by_name, pad_m=DEFAULT_PAD_M, base=None):
@@ -148,10 +158,13 @@ def check_spawn_clearance(urdf_path, scene, body_q_rad, hand_poses, pad_m=DEFAUL
     boxes = scene_boxes(scene)
     report = {'status': 'CLEAR', 'pad_m': pad_m, 'boxes': [{'name': n, 'min_m': lo, 'max_m': hi} for n, lo, hi in boxes], 'hands': {}, 'overlaps': [], 'min_margin_m': None, 'closest': None}
     best = None
+    virtual = sorted(l for side in ('left', 'right') for l in hand_links(urdf_path, side, (hand_base_links or {}).get(side)) if l in collisionless_links(urdf_path))
+    if virtual:   # only physical links are tested; the key is absent for assets without such frames (donor reports unchanged)
+        report['virtual_frames_skipped'] = virtual
     for label, hand_q in hand_poses.items():
         q = dict(body_q_rad); q.update(hand_q or {})
         for side in ('left', 'right'):
-            pts = hand_points(urdf_path, side, q, (hand_base_links or {}).get(side)); key = '%s:%s' % (label, side)
+            pts = hand_points(urdf_path, side, q, (hand_base_links or {}).get(side), physical_only=True); key = '%s:%s' % (label, side)
             report['hands'][key] = {'links': len(pts), 'min_m': [round(min(p[i] for p in pts.values()), 4) for i in range(3)], 'max_m': [round(max(p[i] for p in pts.values()), 4) for i in range(3)]}
             for link, pt in pts.items():
                 for name, lo, hi in boxes:

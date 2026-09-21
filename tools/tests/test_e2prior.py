@@ -218,3 +218,24 @@ def test_spawn_clearance_hand_subtree_follows_the_declared_base(tmp_path):
     assert hand_links(str(urdf), 'right', 'right_base') == ['right_base', 'right_hand_base_link', 'right_index_proximal']
     with pytest.raises(ClearanceError):
         hand_links(str(urdf), 'right')                                                        # the donor default name is absent in an E2 tree
+
+
+def test_spawn_clearance_ignores_collisionless_convenience_frames(tmp_path):
+    from isaac.twin.inspire.spawn_clearance import check_spawn_clearance, collisionless_links, hand_links
+    urdf = tmp_path / 'h.urdf'
+    urdf.write_text('<robot name="x"><link name="pelvis"/><link name="right_wrist_yaw_link"/><link name="right_base"/>'
+                    '<link name="right_hand_base_link"><collision><geometry><box size="0.01 0.01 0.01"/></geometry></collision></link>'
+                    '<link name="right_tcp_pinch"/>'
+                    '<joint name="w" type="fixed"><origin xyz="0 0 0" rpy="0 0 0"/><parent link="pelvis"/><child link="right_wrist_yaw_link"/></joint>'
+                    '<joint name="f" type="fixed"><origin xyz="0 0 0" rpy="0 0 0"/><parent link="right_wrist_yaw_link"/><child link="right_base"/></joint>'
+                    '<joint name="b" type="fixed"><origin xyz="0 0 0" rpy="0 0 0"/><parent link="right_base"/><child link="right_hand_base_link"/></joint>'
+                    '<joint name="t" type="fixed"><origin xyz="0.5 0 0" rpy="0 0 0"/><parent link="right_hand_base_link"/><child link="right_tcp_pinch"/></joint>'
+                    '<link name="left_wrist_yaw_link"/><link name="left_base"/><link name="left_hand_base_link"><collision><geometry><box size="0.01 0.01 0.01"/></geometry></collision></link>'
+                    '<joint name="lw" type="fixed"><origin xyz="0 1 0" rpy="0 0 0"/><parent link="pelvis"/><child link="left_wrist_yaw_link"/></joint>'
+                    '<joint name="lf" type="fixed"><origin xyz="0 0 0" rpy="0 0 0"/><parent link="left_wrist_yaw_link"/><child link="left_base"/></joint>'
+                    '<joint name="lb" type="fixed"><origin xyz="0 0 0" rpy="0 0 0"/><parent link="left_base"/><child link="left_hand_base_link"/></joint></robot>')
+    assert collisionless_links(str(urdf)) >= {'right_tcp_pinch', 'right_base'}
+    assert hand_links(str(urdf), 'right', 'right_base', physical_only=True) == ['right_hand_base_link']
+    scene = {'object': {'center_m': [0.5, 0.0, 0.0], 'size_m': [0.06, 0.06, 0.06]}}
+    rep = check_spawn_clearance(str(urdf), scene, {}, {'urdf_open': {}}, hand_base_links={'right': 'right_base', 'left': 'left_base'})
+    assert rep['status'] == 'CLEAR' and 'right_tcp_pinch' in rep['virtual_frames_skipped']     # the frame sits inside the object box; the physical hand does not
