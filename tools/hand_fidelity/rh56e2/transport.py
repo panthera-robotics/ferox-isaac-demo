@@ -125,18 +125,62 @@ def _modbus_index(address, length, convention):
     raise ValueError('unknown Modbus addressing convention %r (declare one of the candidates and verify it)' % convention)
 
 
-def _words_to_payload(words, element_size):
-    """Modbus words are big-endian 16-bit; re-express them as the manual's little-endian byte payload."""
+BYTE_ORDERS = ('low_high', 'high_low')
+# How the two bytes of one 16-bit holding register map onto two consecutive manual byte addresses (a, a+1) for the 8-bit groups
+# (actuator_error_code 1606, dof_status 1612, actuator_temperature 1618: six byte channels in three words):
+#   low_high: byte[a] = low byte of the word, byte[a+1] = high byte  (little-endian register image; the order CONSISTENT with the
+#             16-bit decode, where the manual's little-endian short [a]=low,[a+1]=high is served as the register's numeric value)
+#   high_low: byte[a] = high byte, byte[a+1] = low byte               (big-endian register image)
+# Neither is verified on an installed unit. It must be DECLARED per capture (--modbus-byte-order) and is written into every record;
+# with no declaration the byte groups are logged as raw words plus both bytes of every word and are NOT decoded into channels.
+INSTALLED_PROFILES = {   # owner-declared installed network profiles (Modbus TCP); dry_run stays the default transport
+    'left': {'host': '192.168.123.210', 'port': 6000, 'unit_id': 1},
+    'right': {'host': '192.168.123.211', 'port': 6000, 'unit_id': 1},
+}
+
+
+def word_bytes(words):
+    """[(low, high), ...] for every 16-bit word: both bytes, no channel assignment."""
+    return [(w & 0xFF, (w >> 8) & 0xFF) for w in words]
+
+
+def _words_to_payload(words, element_size, length=None, byte_order=None):
+    """Re-express Modbus holding-register words as the manual's byte payload.
+    element_size 2 (16-bit groups): each word is one little-endian signed short of the payload; the word VALUE is preserved and the
+        result does not depend on byte_order (angle_actual / actuator_position_actual / angle_set are therefore unaffected by it).
+    element_size 1 (8-bit groups): each word carries TWO byte channels; both are emitted, in the declared byte_order, and the payload
+        is cut to `length` bytes; with byte_order None no channel assignment is possible and None is returned (callers keep the words)."""
     if element_size == 1:
-        return bytes(w & 0xFF for w in words)
+        if byte_order is None:
+            return None
+        if byte_order not in BYTE_ORDERS:
+            raise ValueError('unknown Modbus byte order %r (declare one of %s)' % (byte_order, BYTE_ORDERS))
+        out = b''.join(bytes((lo, hi) if byte_order == 'low_high' else (hi, lo)) for lo, hi in word_bytes(words))
+        return out if length is None else out[:length]
     return b''.join(struct.pack('<h', struct.unpack('>h', struct.pack('>H', w))[0]) for w in words)
+
+
+def _payload_to_words(payload, element_size, byte_order=None):
+    """Inverse of _words_to_payload for writes. 8-bit groups need an even payload and a declared byte order (a lone byte would
+    need a read-modify-write of its partner channel; that is refused here, use the native RS485 frame for single-byte registers)."""
+    if element_size == 2:
+        return [struct.unpack('>H', struct.pack('>h', struct.unpack('<h', payload[i:i + 2])[0]))[0] for i in range(0, len(payload), 2)]
+    if byte_order is None:
+        raise ValueError('byte-group write over Modbus needs a declared byte order (--modbus-byte-order)')
+    if byte_order not in BYTE_ORDERS:
+        raise ValueError('unknown Modbus byte order %r' % byte_order)
+    if len(payload) % 2:
+        raise ValueError('byte-group write over Modbus needs an even number of bytes (%d given); a single byte register is written with the native RS485 frame' % len(payload))
+    pairs = [(payload[i], payload[i + 1]) for i in range(0, len(payload), 2)]
+    return [(lo | (hi << 8)) for lo, hi in (p if byte_order == 'low_high' else (p[1], p[0]) for p in pairs)]
 
 
 class ModbusTcpTransport:
     kind = 'modbus_tcp'
 
-    def __init__(self, host='192.168.11.210', port=6000, convention='index_eq_byte_address_qty_words', timeout_s=0.5, unit_id=0xFF, **kw):
+    def __init__(self, host='192.168.11.210', port=6000, convention='index_eq_byte_address_qty_words', timeout_s=0.5, unit_id=0xFF, byte_order=None, **kw):
         self.sock = socket.create_connection((host, port), timeout=timeout_s); self.convention = convention; self.unit = unit_id; self.tid = 0
+        self.byte_order = byte_order; self.last_words = None; self.last_response_hex = None
 
     def _txn(self, pdu):
         self.tid = (self.tid + 1) & 0xFFFF
@@ -151,18 +195,14 @@ class ModbusTcpTransport:
         return body
 
     def read(self, address, length, element_size=2):
-        idx, qty = _modbus_index(address, length, self.convention)
+        idx, qty = _modbus_index(address, length, self.convention); self.last_words = None; self.last_response_hex = None
         body = self._txn(struct.pack('>BHH', 0x03, idx, qty))
         if not body or body[0] != 0x03: return None
-        n = body[1]; words = struct.unpack('>%dH' % (n // 2), body[2:2 + n])
-        return _words_to_payload(words, element_size)
+        n = body[1]; words = struct.unpack('>%dH' % (n // 2), body[2:2 + n]); self.last_words = list(words); self.last_response_hex = body.hex()
+        return _words_to_payload(words, element_size, length, self.byte_order)
 
     def write(self, address, payload, element_size=2):
-        idx, qty = _modbus_index(address, len(payload), self.convention)
-        if element_size == 2:
-            words = [struct.unpack('>H', struct.pack('>h', struct.unpack('<h', payload[i:i + 2])[0]))[0] for i in range(0, len(payload), 2)]
-        else:
-            words = list(payload)
+        words = _payload_to_words(bytes(payload), element_size, self.byte_order); idx, qty = _modbus_index(address, len(payload), self.convention)
         pdu = struct.pack('>BHHB', 0x10, idx, len(words), 2 * len(words)) + b''.join(struct.pack('>H', w) for w in words)
         return self._txn(pdu)
 
@@ -173,9 +213,10 @@ class ModbusTcpTransport:
 class ModbusRtuTransport:
     kind = 'modbus_rtu'
 
-    def __init__(self, port, baud=115200, slave_id=1, convention='index_eq_byte_address_qty_words', timeout_s=0.2, **kw):
+    def __init__(self, port, baud=115200, slave_id=1, convention='index_eq_byte_address_qty_words', timeout_s=0.2, byte_order=None, **kw):
         import serial
         self.ser = serial.Serial(port, baudrate=baud, bytesize=8, parity='N', stopbits=1, timeout=timeout_s); self.slave = slave_id; self.convention = convention
+        self.byte_order = byte_order; self.last_words = None; self.last_response_hex = None
 
     def _txn(self, pdu, expect):
         frame = bytes([self.slave]) + pdu; frame += struct.pack('<H', crc16_modbus(frame))
@@ -184,14 +225,14 @@ class ModbusRtuTransport:
         return resp[1:-2]
 
     def read(self, address, length, element_size=2):
-        idx, qty = _modbus_index(address, length, self.convention)
+        idx, qty = _modbus_index(address, length, self.convention); self.last_words = None; self.last_response_hex = None
         body = self._txn(struct.pack('>BHH', 0x03, idx, qty), 5 + 2 * qty)
         if not body or body[0] != 0x03: return None
-        words = struct.unpack('>%dH' % (body[1] // 2), body[2:2 + body[1]]); return _words_to_payload(words, element_size)
+        words = struct.unpack('>%dH' % (body[1] // 2), body[2:2 + body[1]]); self.last_words = list(words); self.last_response_hex = body.hex()
+        return _words_to_payload(words, element_size, length, self.byte_order)
 
     def write(self, address, payload, element_size=2):
-        idx, qty = _modbus_index(address, len(payload), self.convention)
-        words = [struct.unpack('>H', struct.pack('>h', struct.unpack('<h', payload[i:i + 2])[0]))[0] for i in range(0, len(payload), 2)] if element_size == 2 else list(payload)
+        words = _payload_to_words(bytes(payload), element_size, self.byte_order); idx, qty = _modbus_index(address, len(payload), self.convention)
         pdu = struct.pack('>BHHB', 0x10, idx, len(words), 2 * len(words)) + b''.join(struct.pack('>H', w) for w in words)
         return self._txn(pdu, 8)
 
