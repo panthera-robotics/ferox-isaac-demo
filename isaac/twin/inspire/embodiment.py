@@ -88,6 +88,10 @@ def wrist_mount_joint(root, pair=None):
 COLLISION_MODELS = {
     'ftp_donor_slabs_v2': 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0',
     'public_stl_meshes': 'public_stl_meshes;approximation=convexDecomposition(importer);offsets=importer_default;no_slab_substitution',
+    # Q02-r4 (coord-dec-R1-02): hand fixed links folded into their parent bodies at the URDF level, palm collider = e2_palm_yz_slabs_v1
+    # (conservative convex pieces from 4 mm x/z cells of the exact E2 palm meshes), fingers/thumb importer convex-decomposed;
+    # the representation is baked into the delivered URDFs, so every probe that imports them as delivered applies it.
+    'e2_r4_folded_slabs': 'e2_r4:fixed_hand_links_folded;palm=e2_palm_yz_slabs_v1(4mm_xz_exact_meshes);fingers=convexDecomposition(importer);offsets=importer_default;baked_into_urdf',
 }
 
 
