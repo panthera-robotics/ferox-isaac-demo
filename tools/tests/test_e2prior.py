@@ -239,3 +239,39 @@ def test_spawn_clearance_ignores_collisionless_convenience_frames(tmp_path):
     scene = {'object': {'center_m': [0.5, 0.0, 0.0], 'size_m': [0.06, 0.06, 0.06]}}
     rep = check_spawn_clearance(str(urdf), scene, {}, {'urdf_open': {}}, hand_base_links={'right': 'right_base', 'left': 'left_base'})
     assert rep['status'] == 'CLEAR' and 'right_tcp_pinch' in rep['virtual_frames_skipped']     # the frame sits inside the object box; the physical hand does not
+
+
+def test_collision_policy_defaults_to_the_donor_slabs_and_refuses_unknown_kinds():
+    from isaac.twin.inspire.embodiment import COLLISION_MODELS, ContractError, collision_policy
+    assert collision_policy({'source_asset': {}}) == {'kind': 'ftp_donor_slabs_v2', 'cooking': 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'}
+    assert collision_policy({'source_asset': {'collision_model': {'kind': 'public_stl_meshes'}}})['cooking'] == COLLISION_MODELS['public_stl_meshes']
+    with pytest.raises(ContractError):
+        collision_policy({'source_asset': {'collision_model': {'kind': 'something_else'}}})
+    with pytest.raises(ContractError):
+        collision_policy({'source_asset': {'collision_model': {'kind': 'public_stl_meshes', 'cooking': 'slabs'}}})
+
+
+def test_prepare_source_e2_folds_the_flange_and_records_the_convenience_frames(tmp_path):
+    sys.path.insert(0, TOOLS)
+    import inspire_e2_asset as ie
+    urdf = tmp_path / 'e2.urdf'
+    urdf.write_text('<robot name="x"><link name="pelvis"><inertial><origin xyz="0 0 0" rpy="0 0 0"/><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial></link>'
+                    '<link name="torso_link"><inertial><origin xyz="0 0 0" rpy="0 0 0"/><mass value="1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial></link>'
+                    '<joint name="w0" type="fixed"><origin xyz="0 0 0" rpy="0 0 0"/><parent link="pelvis"/><child link="torso_link"/></joint>'
+                    + ''.join('<link name="%s"/><joint name="%s_joint" type="fixed"><origin xyz="0 0 0" rpy="0 0 0"/><parent link="%s"/><child link="%s"/></joint>' % (n, n, 'torso_link' if n != 'imu_in_pelvis' else 'pelvis', n) for n in ('imu_in_torso', 'imu_in_pelvis', 'd435_link', 'mid360_link'))
+                    + ''.join('<link name="%s_wrist_yaw_link"><inertial><origin xyz="0 0 0" rpy="0 0 0"/><mass value="0.1"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial></link>'
+                              '<joint name="%s_wrist" type="fixed"><origin xyz="0 0 0" rpy="0 0 0"/><parent link="torso_link"/><child link="%s_wrist_yaw_link"/></joint>'
+                              '<link name="%s_base"/><joint name="%s_hand_connection_joint" type="fixed"><origin xyz="0.0415 0 0" rpy="1.5707963 0 1.5707963"/><parent link="%s_wrist_yaw_link"/><child link="%s_base"/></joint>'
+                              '<link name="%s_hand_base_link"><inertial><origin xyz="0 0 0" rpy="0 0 0"/><mass value="0.09"/><inertia ixx="1" ixy="0" ixz="0" iyy="1" iyz="0" izz="1"/></inertial><collision><geometry><box size="0.01 0.01 0.01"/></geometry></collision></link>'
+                              '<joint name="%s_hand_base_joint" type="fixed"><origin xyz="0 0 0" rpy="3.14159 0 0"/><parent link="%s_base"/><child link="%s_hand_base_link"/></joint>'
+                              '<link name="%s_tcp_pinch"/><joint name="%s_tcp_pinch_joint" type="fixed"><origin xyz="0 0 0.2" rpy="0 0 0"/><parent link="%s_hand_base_link"/><child link="%s_tcp_pinch"/></joint>' % ((s,) * 15) for s in ('right', 'left'))
+                    + '</robot>')
+    facts = ie.prepare_source_e2(urdf, tmp_path / 'prepared.urdf')
+    names = {f['name'] for f in facts['coordinate_frames']}
+    assert {'right_base', 'left_base', 'right_tcp_pinch', 'left_tcp_pinch', 'imu_in_torso', 'imu_in_pelvis', 'd435_link', 'mid360_link'} <= names
+    fold = {f['rewritten_joint']: f for f in facts['folded_flange_frames']}
+    assert fold['right_hand_base_joint']['new_parent'] == 'right_wrist_yaw_link' and abs(fold['right_hand_base_joint']['xyz_m'][0] - 0.0415) < 1e-9
+    import xml.etree.ElementTree as ET
+    prepared = ET.parse(tmp_path / 'prepared.urdf').getroot()
+    assert prepared.find("link[@name='right_base']") is None and prepared.find("joint[@name='right_hand_base_joint']/parent").get('link') == 'right_wrist_yaw_link'
+    assert set(facts['physical_link_mass_kg']) == {'pelvis', 'torso_link', 'right_wrist_yaw_link', 'left_wrist_yaw_link', 'right_hand_base_link', 'left_hand_base_link'}

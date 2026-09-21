@@ -22,7 +22,7 @@ from inspire import loop_ipc  # noqa: E402
 from inspire.closed_loop_targets import ClosedLoopTargets, TargetError  # noqa: E402
 from inspire.model_action_adapter import validate_piston_chunk, PISTON_DIMS, PISTON_HAND_ORDER  # noqa: E402
 from inspire.presentation_layer import validate_presentation, add_visual_overlay  # noqa: E402
-from inspire.embodiment import hand_link_names  # noqa: E402
+from inspire.embodiment import collision_policy, hand_link_names, wrist_mount_pair_from_manifest  # noqa: E402
 from inspire.embodiment import HandCommandAdapter, HAND_ACTUATORS  # noqa: E402
 from inspire.operational_observer import OBSERVERS, LEGACY, make_observer  # noqa: E402
 from inspire.extra_cameras import parse_extra_cameras, camera_transform, focal_length  # noqa: E402
@@ -110,7 +110,16 @@ def palm_builder(stage, mesh, body, side):
                                         candidate_id='ftp_palm_yz_slabs_v2' if side == 'right' else 'ftp_left_palm_yz_slabs_v1')
 
 
-asset, facts = import_body(source, out, fixed_base=True, palm_builder=palm_builder, left_thumb_builder=replace_left_thumb_with_slabs)
+# The manifest declares the collision model of the mounted asset: the FTP donor path (slab candidates on the donor palm/thumb prims)
+# is byte-identical to every previous run; the public exact-E2 asset is imported with its STL meshes as delivered (inspire_e2_asset).
+COLLISION_POLICY = collision_policy(manifest.data)
+if COLLISION_POLICY['kind'] == 'ftp_donor_slabs_v2':
+    asset, facts = import_body(source, out, fixed_base=True, palm_builder=palm_builder, left_thumb_builder=replace_left_thumb_with_slabs)
+elif COLLISION_POLICY['kind'] == 'public_stl_meshes':
+    from inspire_e2_asset import import_body_e2  # noqa: E402
+    asset, facts = import_body_e2(source, out, fixed_base=True)
+else:
+    raise RuntimeError('unknown collision model %r' % COLLISION_POLICY)
 operational_observer = make_observer(observer_name, facts['joint_limits'], facts['mimic_map'], dt, threshold_multiple=2.0, persist=2)
 legacy_shadow_summary = {'over_2x_samples': 0, 'first': None, 'would_abort': False}
 body_names = list(manifest.body_names)
@@ -126,12 +135,13 @@ for n in body_names:
     lo, hi = manifest.body_limit(n)
     assert abs(lo - limits[n]['lower']) < 1e-9 and abs(hi - limits[n]['upper']) < 1e-9, n
 # Second-layer qualification/transform validity against the MOUNTED inputs (identity, not physical correctness).
-COLLISION_COOKING = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'
+COLLISION_COOKING = COLLISION_POLICY['cooking']   # donor: 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'
+WRIST_MOUNT_PAIR = wrist_mount_pair_from_manifest(manifest.data)
 # The live values carry what this run ACTUALLY applies: the mounted asset, the actual physics step (a DIAGNOSTIC refinement
 # stales every dt-bound claim), the applied hand conversion profile(s) and the arm datum. Scripted replay applies the
 # package's hand contracts on absolute URDF radians; a closed-loop run rebinds both below once its adapters exist.
 CONTROLLER_DESCRIPTOR = 'implicit_biased_drive_v1 replay controller (package-hashed gains)'
-live_dependencies = runtime_dependency_values(source, collision_cooking=COLLISION_COOKING, physics_dt_s=dt, support='FIXED_PELVIS', controller=CONTROLLER_DESCRIPTOR,
+live_dependencies = runtime_dependency_values(source, collision_cooking=COLLISION_COOKING, physics_dt_s=dt, support='FIXED_PELVIS', controller=CONTROLLER_DESCRIPTOR, wrist_mount=WRIST_MOUNT_PAIR,
                                               hand_contracts=sequence.adapters, arm_datum=ARM_DATUM_SCRIPTED)
 qualification_validity = manifest.check_validity(live_dependencies)
 if any(v['status'] != 'VALID' for v in qualification_validity['transforms'].values()):
@@ -405,7 +415,7 @@ if closed_loop:
     _radian_contract = {'axis_order': list(PISTON_HAND_ORDER), 'open_value': 0.0, 'closed_value': 1.0, 'per_axis_endpoints': {a: {'open_value': 0.0, 'closed_value': _limits[a]} for a in HAND_ACTUATORS}, 'saturation_policy': 'clip_declared'}
     cl_adapters = {sd: HandCommandAdapter(manifest, sd, _radian_contract) for sd in ('left', 'right')}
     # closed loop applies the radian contract above (not the package's) and the declared arm datum: rebind and re-check
-    live_dependencies = runtime_dependency_values(source, collision_cooking=COLLISION_COOKING, physics_dt_s=dt, support='FIXED_PELVIS', controller=CONTROLLER_DESCRIPTOR,
+    live_dependencies = runtime_dependency_values(source, collision_cooking=COLLISION_COOKING, physics_dt_s=dt, support='FIXED_PELVIS', controller=CONTROLLER_DESCRIPTOR, wrist_mount=WRIST_MOUNT_PAIR,
                                                   hand_contracts=cl_adapters, arm_datum='closed_loop:' + cl_datum_mode)
     qualification_validity = manifest.check_validity(live_dependencies)
     cl_hybrid = closed_loop.get('hybrid') if closed_loop['control_source'] == 'HYBRID_MODEL_ARMS_SCRIPTED_HANDS' else None
@@ -575,7 +585,7 @@ for tick in range(steps):
     if object_view is not None:
         op = np.asarray(object_view.get_transforms())[0].tolist(); ov = np.asarray(object_view.get_velocities())[0].tolist()
         object_file.write(json.dumps({'sequence': tick, 'physics_s': world.current_time, 'phase': phase, 'source_row': None if row is None else row['row'], 'pose_world_xyzw': op, 'linear_velocity_m_s': ov[:3], 'angular_velocity_rad_s': ov[3:],
-                                      'right_palm_pose_world_xyzw': poses[palm_body['right']], 'right_palm_body': palm_body['right']}, allow_nan=False) + '\n')
+                                      'right_palm_pose_world_xyzw': poses[palm_body['right']]}, allow_nan=False) + '\n')
     violated = {n: float(q[i]) for i, n in enumerate(names) if q[i] < facts['joint_limits'][n]['lower'] - .1 or q[i] > facts['joint_limits'][n]['upper'] + .1}
     if decision is None:
         overspeed = reported_over_2x                                                    # legacy rule, unchanged

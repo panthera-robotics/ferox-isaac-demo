@@ -21,10 +21,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'isaac' / 'twin'))
-from inspire.embodiment import ARM_DATUM_SCRIPTED, ContractError, EmbodimentManifest, ReplaySequence, hand_link_names, runtime_dependency_values, wrist_mount_pair_from_manifest  # noqa: E402
+from inspire.embodiment import ARM_DATUM_SCRIPTED, ContractError, EmbodimentManifest, ReplaySequence, collision_policy, hand_link_names, runtime_dependency_values, wrist_mount_pair_from_manifest  # noqa: E402
 from inspire.spawn_clearance import check_spawn_clearance  # noqa: E402
 
-COLLISION_COOKING = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'   # the probe's declared provisional colliders
+COLLISION_COOKING = 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0'   # the donor probe's declared provisional colliders (= embodiment.COLLISION_MODELS['ftp_donor_slabs_v2']; the manifest's collision_model selects the applied cooking)
 
 SYNTHETIC_CONTRACT = {'axis_order': ['index', 'middle', 'ring', 'little', 'thumb_bend', 'thumb_rotation'], 'open_value': 0.0, 'closed_value': 1.0, 'saturation_policy': 'reject'}
 
@@ -163,7 +163,7 @@ def main(argv=None):
     if a.source_urdf is not None:
         # the live values bind what this package will actually apply: the mounted asset, the ACTUAL physics step, the hand
         # conversion profile(s) of the spec and the scripted arm datum (absolute URDF radians)
-        live = runtime_dependency_values(a.source_urdf, collision_cooking=COLLISION_COOKING, physics_dt_s=(a.physics_dt_s if a.physics_dt_s is not None else 0.005),
+        live = runtime_dependency_values(a.source_urdf, collision_cooking=collision_policy(manifest.data)['cooking'], physics_dt_s=(a.physics_dt_s if a.physics_dt_s is not None else 0.005),
                                          support=a.support, controller=a.controller_descriptor, hand_contracts=spec['hand_contracts'], arm_datum=ARM_DATUM_SCRIPTED,
                                          wrist_mount=wrist_mount_pair_from_manifest(manifest.data))
     sequence, report = validate(manifest, spec, controller, live_dependencies=live, require_verified_hand_semantics=a.require_verified_hand_semantics, diagnostic=(a.execution_label == 'DIAGNOSTIC'))

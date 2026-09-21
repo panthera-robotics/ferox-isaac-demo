@@ -33,6 +33,7 @@ def build(asset_manifest, donor, audit=None):
     m['hardware_identity'] = {**donor['hardware_identity'], 'asset_relation': 'exact model family (RH56E2) from the public vendor-partner description; installed unit NOT measured'}
     m['source_asset'] = {'asset_id': a['asset_id'], 'kind': 'public_exact_model_prior', 'exact_hand_model': True, 'installed_calibration': 'INCOMPLETE', 'urdf_sha256': a['merged_urdf']['sha256'], 'urdf_name': a['merged_urdf']['name'],
                          'public_source': {'url': a['source']['url'], 'commit': a['source']['commit']}, 'collision': 'public STL meshes as collision geometry (64 files, LFS-verified); no provisional slab colliders',
+                         'collision_model': {'kind': 'public_stl_meshes', 'cooking': 'public_stl_meshes;approximation=convexDecomposition(importer);offsets=importer_default;no_slab_substitution'},
                          'corrections_applied': ['left main-link inertials = right mirrored across the hand-base y=0 plane', 'left_pinky_intermediate mass 0.01869 -> 0.01166 kg (right value)', 'drive limits: declared donor policy effort 10 / velocity 1.0 on all 24 hand joints (public placeholders recorded)'],
                          'mass_policy': a['mass_policy']['primary'], 'hand_total_mass_kg': a['mass_policy']['hand_total_kg'], 'donor_status': 'DONOR_BASELINE_FROZEN (manifest g1_edu29_rh56dftp_donor_v1 unchanged)'}
     claims = {k: {'status': 'NOT_RUN', 'evidence': None, 'configuration': None} for k in donor['qualification']['claims']}

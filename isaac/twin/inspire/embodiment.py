@@ -83,6 +83,27 @@ def wrist_mount_joint(root, pair=None):
     raise ContractError('no hand flange joint among %s' % (WRIST_MOUNT_PAIRS,))
 
 
+# Collision model of the mounted asset, declared by source_asset.collision_model {kind, cooking}; absent = the FTP donor's
+# provisional palm/thumb slab candidates exactly as every qualified donor run applied them (cooking string unchanged).
+COLLISION_MODELS = {
+    'ftp_donor_slabs_v2': 'right=ftp_palm_yz_slabs_v2;left=ftp_left_palm_yz_slabs_v1;contact_offset_m=0.0012860533315688372;rest_offset_m=0',
+    'public_stl_meshes': 'public_stl_meshes;approximation=convexDecomposition(importer);offsets=importer_default;no_slab_substitution',
+}
+
+
+def collision_policy(manifest_data):
+    """{'kind', 'cooking'} for the asset the manifest names. Unknown kinds are refused (never silently substituted)."""
+    declared = (manifest_data.get('source_asset') or {}).get('collision_model')
+    if declared is None:
+        return {'kind': 'ftp_donor_slabs_v2', 'cooking': COLLISION_MODELS['ftp_donor_slabs_v2']}
+    if not isinstance(declared, Mapping) or declared.get('kind') not in COLLISION_MODELS:
+        raise ContractError('source_asset.collision_model.kind must be one of %s' % sorted(COLLISION_MODELS))
+    cooking = declared.get('cooking', COLLISION_MODELS[declared['kind']])
+    if cooking != COLLISION_MODELS[declared['kind']]:
+        raise ContractError('source_asset.collision_model.cooking does not match the declared kind')
+    return {'kind': declared['kind'], 'cooking': cooking}
+
+
 def hand_link_names(manifest_data, side):
     """Asset-specific hand link roles for one side, declared by hands.<side>.link_names or defaulting to the FTP donor names:
     base_link = root of the hand subtree under the wrist (spawn clearance, kinematics); palm_body = the palm RIGID BODY the
@@ -279,6 +300,7 @@ class EmbodimentManifest:
                 raise ContractError('%s hand must declare whether independent axes are measured' % side)
             hand_link_names(data, side)   # validates hands.<side>.link_names when declared
             self._hand_joint_names[side] = tuple(spec['joint'] for spec in act.values())
+        collision_policy(data)             # validates source_asset.collision_model when declared
         for key in ('wrist_to_hand', 'hand_to_tool'):
             for side in SIDES:
                 t = data['transforms'].get(side, {}).get(key)
