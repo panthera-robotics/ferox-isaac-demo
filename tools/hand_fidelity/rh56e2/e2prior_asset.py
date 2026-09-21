@@ -177,7 +177,14 @@ def build(source_root, donor_dir, output):
                       'class': 'asset REPRESENTATION (physics topology + palm collider); geometry, joint limits, masses and inertia totals unchanged', 'fold': {}, 'palm_collider': {}}
     for side in ('right', 'left'):
         representation['fold'][side] = fs.fold_fixed_hand_links(hands[side], side)
-        representation['palm_collider'][side] = fs.slab_palm_collider(hands[side], side, out, out, Path(__file__).resolve().parents[2])
+        # r5: thumb swept collision surface from the folded (pre-slab) hand, then the carve-aware slab palm
+        tmp_root = ET.Element('robot', name='tmp'); ET.SubElement(tmp_root, 'link', name=side + '_wrist_yaw_link')
+        for el in hands[side]: tmp_root.append(copy.deepcopy(el))
+        tmp = out / ('_tmp_%s.urdf' % side); ET.ElementTree(tmp_root).write(tmp, encoding='utf-8', xml_declaration=True)
+        cloud = fs.thumb_swept_cloud(tmp, out, side); tmp.unlink()
+        representation['palm_collider'][side] = fs.slab_palm_collider(hands[side], side, out, out, Path(__file__).resolve().parents[2], carve_cloud=cloud)
+    representation['policy'] = 'E2_HAND_PHYSICS_REPRESENTATION_r5'
+    representation['r5'] = 'thumb-cavity carve-out of the palm pieces (hdR-r4-bench-smoke: right_thumb_metacarpal in permanent contact with the r4 palm pieces from initialization, impulse up to 172; the thumb rests in the cavity with ~0.4 mm design clearance)' 
     # declared drive limits on the merged twin URDF (public placeholders recorded per joint)
     drive_record = {}
     for side in ('right', 'left'):

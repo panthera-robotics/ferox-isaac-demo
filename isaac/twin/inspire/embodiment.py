@@ -92,6 +92,8 @@ COLLISION_MODELS = {
     # (conservative convex pieces from 4 mm x/z cells of the exact E2 palm meshes), fingers/thumb importer convex-decomposed;
     # the representation is baked into the delivered URDFs, so every probe that imports them as delivered applies it.
     'e2_r4_folded_slabs': 'e2_r4:fixed_hand_links_folded;palm=e2_palm_yz_slabs_v1(4mm_xz_exact_meshes);fingers=convexDecomposition(importer);offsets=importer_default;baked_into_urdf',
+    # Q02-r5 (coord-dec-R1-04): r4 + thumb-cavity carve of the palm pieces (cells within 1.5 mm of the thumb's swept collision surface rebuilt at 1 mm, sub-pieces within the margin dropped)
+    'e2_r5_folded_slabs': 'e2_r5:fixed_hand_links_folded;palm=e2_palm_yz_slabs_v2_thumb_cavity(4mm_xz_exact_meshes+1mm_thumb_cavity_carve_1.5mm_margin);fingers=convexDecomposition(importer);offsets=importer_default;baked_into_urdf',
 }
 
 

@@ -26,6 +26,11 @@ import numpy as np
 
 FOLD_SUFFIXES = ('palm_1', 'palm_2', 'palm_force_sensor', 'tcp')
 SLAB_ID = 'e2_palm_yz_slabs_v1'; SLAB_WIDTH_M = 0.004; SLAB_AXES = (0, 2)   # bounded x (palm normal) and z (finger direction) in the hand_base_link frame; columns along y
+# r5 (Q02-r5): thumb-cavity carve-out — the smoke hdR-r4-bench-smoke showed right_thumb_metacarpal in permanent contact with the r4 palm pieces from
+# initialization (the thumb rests in the palm cavity with ~0.4 mm design clearance; slab conservatism + PhysX contact offset close it). Pieces whose
+# hull comes within CARVE_MARGIN_M of the thumb's swept collision surface (yaw x bend sweep at the URDF open fingers) are rebuilt at CARVE_WIDTH_M
+# cells and every sub-piece still within the margin is dropped: the palm collider loses only the thin skin the thumb sweeps through.
+SLAB_ID_V2 = 'e2_palm_yz_slabs_v2_thumb_cavity'; CARVE_WIDTH_M = 0.001; CARVE_MARGIN_M = 0.0015
 
 
 def rpy_to_R(r, p, y):
@@ -105,7 +110,38 @@ def write_stl(path, points, faces):
     Path(path).write_bytes(b'e2_palm_yz_slabs_v1 piece'.ljust(80, b'\0') + struct.pack('<I', len(tri)) + rec.tobytes())
 
 
-def slab_palm_collider(hand, side, mesh_root, out_dir, ferox_tools):
+def thumb_swept_cloud(urdf_path, package_dir, side, n_yaw=12, n_pitch=6, every=2):
+    """Collision-surface points of the thumb links over the yaw x bend envelope (fingers open), in the <side>_hand_base_link frame."""
+    import pinocchio as pin
+    m = pin.buildModelFromUrdf(str(urdf_path)); g = pin.buildGeomFromUrdf(m, str(urdf_path), pin.GeometryType.COLLISION, package_dirs=[str(package_dir)]); d = m.createData(); gd = pin.GeometryData(g)
+    link = {o.name: m.frames[o.parentFrame].name for o in g.geometryObjects}; thumb = [i for i, o in enumerate(g.geometryObjects) if link[o.name].startswith(side + '_thumb')]
+    verts = {i: np.asarray(g.geometryObjects[i].geometry.vertices(), dtype=float)[::every] for i in thumb}
+    J = {'yaw': side + '_thumb_proximal_yaw_joint', 'pitch': side + '_thumb_proximal_pitch_joint', 'inter': side + '_thumb_intermediate_joint', 'distal': side + '_thumb_distal_joint'}
+    cloud = []
+    for yaw in np.linspace(0.0, 1.658, n_yaw):
+        for pitch in np.linspace(0.0, 0.62, n_pitch):
+            q = pin.neutral(m); q[m.idx_qs[m.getJointId(J['yaw'])]] = yaw; q[m.idx_qs[m.getJointId(J['pitch'])]] = pitch
+            q[m.idx_qs[m.getJointId(J['inter'])]] = min(0.8392 * pitch, 0.5410520681); q[m.idx_qs[m.getJointId(J['distal'])]] = min(0.7477272 * pitch, 0.45553093)
+            pin.forwardKinematics(m, d, q); pin.updateFramePlacements(m, d); pin.updateGeometryPlacements(m, d, g, gd); H = d.oMf[m.getFrameId(side + '_hand_base_link')]
+            for i in thumb:
+                T = H.inverse() * gd.oMg[i]; cloud.append(verts[i] @ np.asarray(T.rotation).T + np.asarray(T.translation))
+    return np.vstack(cloud)
+
+
+def _hull_eqs(points):
+    from scipy.spatial import ConvexHull
+    try: return ConvexHull(np.asarray(points, dtype=float)).equations
+    except Exception: return None
+
+
+def _within(eqs, cloud, margin):
+    """True if any cloud point lies inside the hull dilated by margin."""
+    if eqs is None or not len(cloud): return False
+    s = eqs[:, :3] @ cloud.T + eqs[:, 3:4]
+    return bool(np.any(np.all(s <= margin, axis=0)))
+
+
+def slab_palm_collider(hand, side, mesh_root, out_dir, ferox_tools, carve_cloud=None):
     """Replace the merged palm body's palm mesh colliders with slab pieces. mesh_root: directory holding meshes/<side>/*.STL as referenced
     by the URDF (filename attribute is relative to the URDF dir); out_dir: the asset dir (pieces go to meshes/<side>/palm_slabs/)."""
     sys.path.insert(0, str(ferox_tools))
@@ -117,10 +153,26 @@ def slab_palm_collider(hand, side, mesh_root, out_dir, ferox_tools):
         if not any(k in fn for k in ('base_link.STL', 'plam_1.STL', 'plam_2.STL')): continue
         R, t = origin_of(col); V = read_stl(Path(mesh_root) / fn); tris.extend([[tuple(R @ p + t) for p in tri] for tri in V]); palm.remove(col); replaced.append(fn)
     pieces, zero = source_slab_hulls(tris, axes=SLAB_AXES, width_m=SLAB_WIDTH_M)
+    carve = None; cid = SLAB_ID
+    if carve_cloud is not None:
+        cid = SLAB_ID_V2; cloud = np.asarray(carve_cloud, dtype=float)
+        offending = {tuple(pc['slab_cell']) for pc in pieces if _within(_hull_eqs(pc['points']), cloud, CARVE_MARGIN_M)}
+        fine, _ = source_slab_hulls(tris, axes=SLAB_AXES, width_m=CARVE_WIDTH_M) if offending else ([], [])
+        ratio = int(round(SLAB_WIDTH_M / CARVE_WIDTH_M)); kept = []; dropped = 0; sub_used = 0
+        for pc in pieces:
+            if tuple(pc['slab_cell']) not in offending: kept.append(pc)
+        for fp in fine:
+            coarse = tuple(math.floor(c / ratio) for c in fp['slab_cell'])
+            if coarse not in offending: continue
+            if _within(_hull_eqs(fp['points']), cloud, CARVE_MARGIN_M): dropped += 1; continue
+            kept.append(dict(fp, carved_from_cell=list(coarse))); sub_used += 1
+        carve = {'margin_m': CARVE_MARGIN_M, 'fine_width_m': CARVE_WIDTH_M, 'coarse_cells_rebuilt': len(offending), 'coarse_pieces_replaced': sum(1 for pc in pieces if tuple(pc['slab_cell']) in offending), 'fine_pieces_kept': sub_used, 'fine_pieces_dropped': dropped,
+                 'swept_cloud_points': int(len(cloud)), 'sweep': 'thumb links (incl. folded pads) over yaw [0,1.658] x bend [0,0.62], fingers open, 12 x 6 poses'}
+        pieces = kept
     pdir = Path(out_dir) / 'meshes' / side / 'palm_slabs'; pdir.mkdir(parents=True, exist_ok=True); names = []; vol = 0.0
     for i, pc in enumerate(pieces):
-        name = 'meshes/%s/palm_slabs/%s_%03d.stl' % (side, SLAB_ID, i); write_stl(Path(out_dir) / name, pc['points'], pc['faces']); names.append(name); vol += pc.get('volume_m3', 0.0)
+        name = 'meshes/%s/palm_slabs/%s_%03d.stl' % (side, cid, i); write_stl(Path(out_dir) / name, pc['points'], pc['faces']); names.append(name); vol += pc.get('volume_m3', 0.0)
         col = ET.SubElement(palm, 'collision'); o = ET.SubElement(col, 'origin'); o.set('xyz', '0 0 0'); o.set('rpy', '0 0 0'); g = ET.SubElement(col, 'geometry'); m = ET.SubElement(g, 'mesh'); m.set('filename', name)
-    return {'candidate_id': SLAB_ID, 'slab_axes': ['XYZ'[a] for a in SLAB_AXES], 'slab_width_m': SLAB_WIDTH_M, 'frame': side + '_hand_base_link (palm normal +x, across y, fingers -z)', 'source_meshes_replaced': replaced, 'source_triangles': len(tris),
-            'pieces': len(pieces), 'zero_volume_cells': len(zero), 'pieces_volume_cm3': round(vol * 1e6, 2), 'piece_files': names,
-            'method': 'inspire_collision.source_slab_hulls on the exact E2 palm triangles (conservative closed convex hull per 4 mm x/z cell, split to <= 120 vertices); visuals untouched'}
+    return {'candidate_id': cid, 'slab_axes': ['XYZ'[a] for a in SLAB_AXES], 'slab_width_m': SLAB_WIDTH_M, 'frame': side + '_hand_base_link (palm normal +x, across y, fingers -z)', 'source_meshes_replaced': replaced, 'source_triangles': len(tris),
+            'pieces': len(pieces), 'zero_volume_cells': len(zero), 'pieces_volume_cm3': round(vol * 1e6, 2), 'piece_files': names, 'thumb_cavity_carve': carve,
+            'method': 'inspire_collision.source_slab_hulls on the exact E2 palm triangles (conservative closed convex hull per 4 mm x/z cell, split to <= 120 vertices); visuals untouched' + ('; r5: cells within %.1f mm of the thumb swept collision surface rebuilt at %.0f mm and sub-pieces still within the margin dropped' % (CARVE_MARGIN_M * 1e3, CARVE_WIDTH_M * 1e3) if carve else '')}
