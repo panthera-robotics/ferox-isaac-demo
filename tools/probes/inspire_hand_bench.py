@@ -88,8 +88,11 @@ stage = Usd.Stage.Open(str(dest))
 usd_masses = {str(p.GetPath()): float(UsdPhysics.MassAPI(p).GetMassAttr().Get())
               for p in stage.Traverse() if p.HasAPI(UsdPhysics.MassAPI)
               and UsdPhysics.MassAPI(p).GetMassAttr().Get() is not None}
-mass = sum(usd_masses.values())
-want_mass = sum(float(m.get('value')) for m in root.iter('mass'))
+authored = {l.get('name'): float(l.find('inertial/mass').get('value')) for l in root.findall('link') if l.find('inertial/mass') is not None}
+massless_frames = [l.get('name') for l in root.findall('link') if l.find('inertial/mass') is None]   # tcp/root frames of the E2 bench (none on the donor)
+mass = sum(v for p_, v in usd_masses.items() if p_.rsplit('/', 1)[-1] in authored)
+want_mass = sum(authored.values())
+importer_masses_on_massless_frames = {p_: v for p_, v in usd_masses.items() if p_.rsplit('/', 1)[-1] in massless_frames}
 assert abs(mass - want_mass) < .001, (mass, want_mass)
 usd_joints = {p.GetName(): p for p in stage.Traverse() if p.IsA(UsdPhysics.RevoluteJoint)}
 assert set(usd_joints) == set(limits), 'Imported joint set differs'
@@ -419,7 +422,7 @@ metrics = {'probe': 'inspire_hand_bench (hand-agnostic variant of inspire_hand.p
            'source_model': 'declared by the mounted source asset (donor or E2 public prior); exact installed-hand equivalence unverified',
            'target_model': 'RH56E2-2R-T1', 'exact_asset_qualified': False,
            'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
-           'source_mass_kg': want_mass, 'imported_mass_kg': mass,
+           'source_mass_kg': want_mass, 'imported_mass_kg': mass, 'massless_frames': massless_frames, 'importer_masses_on_massless_frames': importer_masses_on_massless_frames,
            'manufacturer_nominal_E2_T1_hand_kg': .79, 'mass_rescaled': False,
            'fixed_base': True, 'tool_attached': False, 'controller': 'six_independent_position_drives',
            'diagnostic_mode': mode, 'gravity': str(world.get_physics_context().get_gravity()),
