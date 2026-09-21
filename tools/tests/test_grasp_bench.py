@@ -55,3 +55,24 @@ class WriterHandTests(unittest.TestCase):
         w = WriterHand.from_config({'hand': {'source_urdf': 'g1_29dof_rev_1_0_with_inspire_hand_E2.urdf', 'importer': 'e2', 'palm_body_link': 'right_hand_base_link', 'donor_palm_in_palm_body': X2, 'axis_joints': E2['axis_joints'], 'axis_upper_rad': E2['axis_upper_rad']}})
         self.assertFalse(w.is_donor); m = w.map_targets(GraspConfig(thumb_yaw_initial_rad=1.1641).initial_targets()); self.assertAlmostEqual(m['right_thumb_proximal_yaw_joint'], 1.658, places=9)
         with self.assertRaises(ValueError): WriterHand.from_config({'hand': {'importer': 'x'}})
+
+
+class FoldTests(unittest.TestCase):
+    E2B = '/home/ubuntu/panthera/sim-workspace/parallel-20260917/e2-acceptance/inbox/hand-req-Q02-e2prior-asset-r3/asset/E2_right_hand_bench.urdf'
+
+    @unittest.skipUnless(os.path.exists(E2B), 'E2 bench URDF not on this host')
+    def test_fold_e2_bench_lands_on_donor_datum(self):
+        from inspire_grasp_bench import fold_massless_frames
+        from urdf_kinematics import UrdfKinematics
+        d = tempfile.mkdtemp(); rec = fold_massless_frames(self.E2B, os.path.join(d, 'f.urdf'))
+        self.assertEqual(rec['new_root'], 'right_hand_base_link'); self.assertEqual(len(rec['removed_massless_leaves']), 3); self.assertEqual(rec['folded_root']['removed_joint_rpy'][0], 3.14159)
+        f = write_wrist_fixture(os.path.join(d, 'f.urdf'), os.path.join(d, 'w.urdf'), root_link='right_hand_base_link', mount_rpy=(3.141592653589793, 0.0, 1.5707963267948966))
+        T = UrdfKinematics(os.path.join(d, 'w.urdf')).transforms({})
+        for link, xyz in (('right_index_proximal', (-0.0387, 0.0006, 0.1564)), ('right_pinky_proximal', (0.0259, 0.0006, 0.1536)), ('right_index_force_sensor_3', (-0.035, 0.0126, 0.2417))):
+            for a, b in zip(T[link][:3, 3], xyz): self.assertAlmostEqual(float(a), b, places=3)
+
+    @unittest.skipUnless(os.path.exists(DONOR_BENCH), 'donor bench URDF not on this host')
+    def test_fold_donor_is_noop(self):
+        from inspire_grasp_bench import fold_massless_frames
+        d = tempfile.mkdtemp(); rec = fold_massless_frames(DONOR_BENCH, os.path.join(d, 'f.urdf'))
+        self.assertEqual(rec['removed_massless_leaves'], []); self.assertIsNone(rec['folded_root']); self.assertEqual(rec['new_root'], 'right_base_link')

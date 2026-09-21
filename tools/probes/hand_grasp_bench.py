@@ -58,7 +58,14 @@ def main():
         'gates':{'minimum_measured_lift_m':.05,'tip_drift_m':.003,'axis_drift_deg':3.,'continuous_actual_hand_contact':True,
                  'external_contact_during_clearance_or_hold_allowed':False},'marker_total_mass_kg':.088})
     try:
-        source=Path('/source-assets')/bench.source_urdf;facts=audit_urdf(source);root=ET.parse(source).getroot()
+        source=Path('/source-assets')/bench.source_urdf
+        fold_record=None
+        if bench.fold_massless_frames:   # E2: massless flange root folded into the palm body, tcp leaves dropped (declared mount already composed)
+            from inspire_grasp_bench import fold_massless_frames
+            fold_record=fold_massless_frames(source,out/'bench_folded.urdf');source=out/'bench_folded.urdf'
+            assert fold_record['new_root']==bench.root_link,(fold_record['new_root'],bench.root_link)
+            write('bench_fold.json',fold_record)
+        facts=audit_urdf(source);root=ET.parse(source).getroot()
         robot_prim=root.get('name')   # imported USD root prim name (donor bench: Rhand)
         independent=[j.get('name') for j in root.findall('joint') if j.get('type')=='revolute' and j.find('mimic') is None]
         mimics={j.get('name'):{'parent':j.find('mimic').get('joint'),'multiplier':float(j.find('mimic').get('multiplier',1)),

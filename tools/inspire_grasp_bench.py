@@ -28,6 +28,7 @@ class HandBench:
     axis_joints: dict = field(default_factory=lambda: dict(DONOR_JOINTS))
     axis_upper_rad: dict = field(default_factory=lambda: dict(DONOR_UPPER))
     palm_collision: str = 'donor_slabs_v2'
+    fold_massless_frames: bool = False   # E2: fold the massless flange root into the palm body and drop massless tcp leaves before import (record returned)
     label: str = 'DONOR_BASELINE_FROZEN (provisional RH56DFTP donor bench)'
 
     def __post_init__(self):
@@ -47,7 +48,7 @@ class HandBench:
 
     @property
     def is_donor(self):
-        return self.source_urdf == 'FTP_right_hand_bench.urdf' and self.axis_joints == DONOR_JOINTS and self.axis_upper_rad == DONOR_UPPER and self.palm_collision == 'donor_slabs_v2' and self.mount_rpy is None
+        return self.source_urdf == 'FTP_right_hand_bench.urdf' and self.axis_joints == DONOR_JOINTS and self.axis_upper_rad == DONOR_UPPER and self.palm_collision == 'donor_slabs_v2' and self.mount_rpy is None and not self.fold_massless_frames
 
     def axis_of_donor_joint(self, donor_name):
         for a, n in DONOR_JOINTS.items():
@@ -69,7 +70,7 @@ class HandBench:
 
     def facts(self):
         return {'source_urdf': self.source_urdf, 'root_link': self.root_link, 'mount_rpy': self.mount_rpy, 'axis_joints': dict(self.axis_joints), 'axis_upper_rad': dict(self.axis_upper_rad),
-                'donor_upper_rad': dict(DONOR_UPPER), 'palm_collision': self.palm_collision, 'label': self.label, 'is_donor': self.is_donor,
+                'donor_upper_rad': dict(DONOR_UPPER), 'palm_collision': self.palm_collision, 'fold_massless_frames': self.fold_massless_frames, 'label': self.label, 'is_donor': self.is_donor,
                 'mapping': 'identity' if self.is_donor else 'closure-preserving: q_bench = (q_donor / donor_upper) * bench_upper per axis; names renamed; increments/releases scaled likewise'}
 
 
@@ -111,3 +112,50 @@ class WriterHand:
         return {'source_urdf': self.source_urdf, 'importer': self.importer, 'palm_body_link': self.palm_body_link, 'donor_palm_in_palm_body': [list(r) for r in self.donor_palm_in_palm_body],
                 'axis_joints': dict(self.axis_joints), 'axis_upper_rad': dict(self.axis_upper_rad), 'donor_upper_rad': dict(DONOR_UPPER), 'label': self.label, 'is_donor': self.is_donor,
                 'mapping': 'identity' if self.is_donor else 'closure-preserving per axis; holder pose re-expressed through donor_palm_in_palm_body'}
+
+
+def fold_massless_frames(source, output):
+    """Bench pre-processing for hands whose URDF carries massless, collision-less frames (public E2: the flange root `<side>_base` and the
+    tcp_* convenience leaves): removes massless leaf links (fixed joints, no children) and folds a massless ROOT with exactly one fixed
+    child joint into that child (the child becomes the root; the removed fixed transform must be composed into the declared mount, see
+    the returned record). Physical links, joints, limits, mimics, meshes and inertials are untouched (asserted). Returns the record."""
+    from pathlib import Path
+    import xml.etree.ElementTree as ET
+    from copy import deepcopy
+    src, out = Path(source).resolve(), Path(output).resolve()
+    tree = ET.parse(src); root = tree.getroot()
+    links = {l.get('name'): l for l in root.findall('link')}; joints = list(root.findall('joint'))
+    def blob(e):
+        c = deepcopy(e); c.tail = None; return ET.tostring(c)
+    before_links = {n: blob(l) for n, l in links.items()}; before_joints = {j.get('name'): blob(j) for j in joints}
+    massless = {n for n, l in links.items() if l.find('inertial') is None}
+    parents = {j.find('child').get('link'): j for j in joints}; children = {}
+    for j in joints: children.setdefault(j.find('parent').get('link'), []).append(j)
+    removed_leaves = []
+    for n in sorted(massless):
+        if n in parents and not children.get(n) and parents[n].get('type') == 'fixed' and links[n].find('collision') is None:
+            root.remove(links[n]); root.remove(parents[n]); removed_leaves.append({'link': n, 'joint': parents[n].get('name')}); joints.remove(parents[n])
+    links = {l.get('name'): l for l in root.findall('link')}; joints = list(root.findall('joint'))
+    child_set = {j.find('child').get('link') for j in joints}; roots = [n for n in links if n not in child_set]
+    folded_root = None
+    if len(roots) == 1 and roots[0] in massless:
+        r = roots[0]; kids = [j for j in joints if j.find('parent').get('link') == r]
+        if len(kids) == 1 and kids[0].get('type') == 'fixed':
+            o = kids[0].find('origin')
+            folded_root = {'removed_root': r, 'removed_joint': kids[0].get('name'), 'new_root': kids[0].find('child').get('link'),
+                           'removed_joint_xyz': [float(v) for v in (o.get('xyz') if o is not None else '0 0 0').split()], 'removed_joint_rpy': [float(v) for v in (o.get('rpy') if o is not None else '0 0 0').split()],
+                           'mount_rule': 'declared mount = base mount composed with this removed fixed transform (root -> new_root)'}
+            root.remove(links[r]); root.remove(kids[0])
+    orig_mesh = {l.get('name'): [m.get('filename') for m in l.iter('mesh')] for l in root.findall('link')}
+    for mesh in root.iter('mesh'):
+        fn = Path(mesh.get('filename'))
+        if not fn.is_absolute(): mesh.set('filename', str((src.parent / fn).resolve()))
+    # every remaining link/joint byte-identical to the source apart from mesh path resolution
+    for l in root.findall('link'):
+        a = deepcopy(l); a.tail = None
+        for m, fn0 in zip(a.iter('mesh'), orig_mesh[l.get('name')]): m.set('filename', fn0)
+        assert ET.tostring(a) == before_links[l.get('name')], l.get('name')
+    for j in root.findall('joint'): assert blob(j) == before_joints[j.get('name')], j.get('name')
+    out.parent.mkdir(parents=True, exist_ok=True); ET.indent(root); tree.write(out, encoding='utf-8', xml_declaration=True)
+    return {'source': str(src), 'output': str(out), 'removed_massless_leaves': removed_leaves, 'folded_root': folded_root,
+            'new_root': folded_root['new_root'] if folded_root else roots[0], 'n_links': len(root.findall('link')), 'n_joints': len(root.findall('joint'))}

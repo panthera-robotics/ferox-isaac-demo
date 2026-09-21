@@ -16,6 +16,7 @@ This is a fixed-base diagnostic, never a grasp, tactile or standing qualificatio
 """
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -31,12 +32,20 @@ _pc = {}
 if os.environ.get('PANTHERA_PROBE_CONFIG') and Path(os.environ['PANTHERA_PROBE_CONFIG']).is_file():
     _pc = json.loads(Path(os.environ['PANTHERA_PROBE_CONFIG']).read_text()).get('bench', {})
 BENCH_URDF = _pc.get('bench_urdf', os.environ.get('PANTHERA_BENCH_URDF', 'FTP_right_hand_bench.urdf'))
+FOLD = bool(_pc.get('fold_massless_frames', False))          # E2: fold the massless flange root / drop tcp leaves before import
+MOUNT_RPY = _pc.get('mount_rpy')                             # E2: declared fixed rotation of the bench hand in the world (donor: none)
 INDEX_JOINT = _pc.get('index_joint', os.environ.get('PANTHERA_BENCH_INDEX_JOINT', 'right_index_1_joint'))
 INDEX_TIP = _pc.get('index_tip', os.environ.get('PANTHERA_BENCH_INDEX_TIP', 'right_index_force_sensor_3'))
 INDEX_MATCH = _pc.get('index_match', os.environ.get('PANTHERA_BENCH_INDEX_MATCH', '/right_index'))
 LIMIT_MARGIN = 0.02   # declared donor rule (sprint J): commanded targets stay 0.02 rad inside the URDF limits
 source = Path('/source-assets') / BENCH_URDF
 assert source.is_file(), f'bench URDF missing: {source}'
+out = Path('/evidence'); fold_record = None
+if FOLD:
+    sys.path.insert(0, '/workspace/ferox_tools')
+    from inspire_grasp_bench import fold_massless_frames
+    fold_record = fold_massless_frames(source, out / 'bench_folded.urdf'); source = out / 'bench_folded.urdf'
+    out.joinpath('bench_fold.json').write_text(json.dumps(fold_record, indent=2))
 facts = audit_urdf(source)
 root = ET.parse(source).getroot()
 independent = [j.get('name') for j in root.findall('joint')
@@ -48,7 +57,6 @@ mimics = {j.get('name'): {'parent': j.find('mimic').get('joint'),
 limits = {j.get('name'): [float(j.find('limit').get(k)) for k in ('lower', 'upper')]
           for j in root.findall('joint') if j.get('type') == 'revolute'}
 assert len(independent) == 6 and len(mimics) == 6
-out = Path('/evidence')
 mode = os.environ.get('PANTHERA_PROBE_MODE', 'default')
 assert mode in {'default', 'blocked-index', 'tgs-forces-blocked-index'}
 from isaacsim import SimulationApp
@@ -136,6 +144,10 @@ if mode.startswith('tgs-forces-'):
     assert flag.Get() is True
 UsdLux.DomeLight.Define(world.stage, '/World/Light').CreateIntensityAttr(1400.)
 add_reference_to_stage(str(dest), '/World/Hand')
+if MOUNT_RPY is not None:   # declared world orientation of the bench hand (E2: presents the hand like the donor bench, fingers +z)
+    _r, _p, _y = [float(v) for v in MOUNT_RPY]
+    _x = UsdGeom.Xformable(world.stage.GetPrimAtPath('/World/Hand')); _x.ClearXformOpOrder()
+    _x.AddRotateXYZOp().Set(Gf.Vec3f(math.degrees(_r), math.degrees(_p), math.degrees(_y)))
 if 'velocity8-' in mode:
     # One-factor contact velocity convergence diagnostic; preserve position
     # iterations, geometry, time step, limits and drives.
@@ -413,7 +425,7 @@ if blocked_index is not None:
 startup_contacts = [c for c in contacts if c['phase'] in ('initialization', 'initial')]
 limit_events = {n: int(sum(1 for r in trace if r['q_rad'][names.index(n)] < lo - LIMIT_MARGIN or r['q_rad'][names.index(n)] > hi + LIMIT_MARGIN)) for n, (lo, hi) in limits.items()}
 dq_peak_per_joint = {n: float(max(abs(r['dq_rad_s'][names.index(n)]) for r in trace)) for n in names}
-metrics = {'probe': 'inspire_hand_bench (hand-agnostic variant of inspire_hand.py; acceptance lane B)', 'bench_urdf': BENCH_URDF, 'probe_config_bench_block': _pc,
+metrics = {'probe': 'inspire_hand_bench (hand-agnostic variant of inspire_hand.py; acceptance lane B)', 'bench_urdf': BENCH_URDF, 'probe_config_bench_block': _pc, 'fold_record': fold_record, 'mount_rpy': MOUNT_RPY,
            'bench_names': {'index_joint': INDEX_JOINT, 'index_tip': INDEX_TIP, 'index_match': INDEX_MATCH}, 'limit_margin_rad': LIMIT_MARGIN,
            'r1_segments': segments, 'startup_contact_points': len(startup_contacts),
            'startup_contact_pairs': sorted({(c['actor0'], c['actor1']) for c in startup_contacts}, key=str)[:50],
