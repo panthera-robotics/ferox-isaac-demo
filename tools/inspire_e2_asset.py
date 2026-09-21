@@ -21,6 +21,19 @@ import xml.etree.ElementTree as ET
 FINGERS = ['thumb', 'index', 'middle', 'ring', 'little', 'pinky']
 NONPHYSICAL_LEAVES = {'imu_in_torso', 'imu_in_pelvis', 'd435_link', 'mid360_link'}
 COLLISION_MODEL_E2 = 'public_stl_meshes;approximation=convexDecomposition(importer);offsets=importer_default;no_slab_substitution'
+# The representation is baked into the delivered URDF (Q02-r4/r5): the declared collision model is derived from what the URDF carries.
+COLLISION_MODELS_BY_CANDIDATE = {
+    'e2_palm_yz_slabs_v2_thumb_cavity': ('e2_r5_folded_slabs', 'e2_r5:fixed_hand_links_folded;palm=e2_palm_yz_slabs_v2_thumb_cavity(4mm_xz_exact_meshes+1mm_thumb_cavity_carve_1.5mm_margin);fingers=convexDecomposition(importer);offsets=importer_default;baked_into_urdf'),
+    'e2_palm_yz_slabs_v1': ('e2_r4_folded_slabs', 'e2_r4:fixed_hand_links_folded;palm=e2_palm_yz_slabs_v1(4mm_xz_exact_meshes);fingers=convexDecomposition(importer);offsets=importer_default;baked_into_urdf'),
+}
+
+
+def collision_model_of(root):
+    """(kind, cooking) of a merged E2 URDF from the baked collision pieces it references."""
+    names = ' '.join(m.get('filename', '') for m in root.iter('mesh'))
+    for cand, (kind, cooking) in COLLISION_MODELS_BY_CANDIDATE.items():
+        if cand in names: return kind, cooking
+    return 'public_stl_meshes', COLLISION_MODEL_E2
 
 
 def _rpy(r, p, y):
@@ -101,7 +114,7 @@ def prepare_source_e2(source, output):
     return {'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(), 'prepared_source_sha256': hashlib.sha256(output.read_bytes()).hexdigest(),
             'coordinate_frames': frames, 'folded_flange_frames': folded, 'physical_link_mass_kg': masses, 'source_physical_mass_kg': sum(masses.values()),
             'physical_mass_inertia_geometry_and_joint_origins_preserved': True, 'exact_RH56E2_equivalence_verified': False,
-            'collision_model': COLLISION_MODEL_E2}
+            'collision_model': collision_model_of(root)[1], 'collision_model_kind': collision_model_of(root)[0]}
 
 
 def import_body_e2(source, output_dir, *, fixed_base):
