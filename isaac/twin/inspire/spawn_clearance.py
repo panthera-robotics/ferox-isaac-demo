@@ -90,9 +90,9 @@ def link_frames(urdf_path, q_by_name):
     return frames
 
 
-def hand_links(urdf_path, side):
-    """Every link at or below <side>_base_link."""
-    joints = read_urdf_joints(urdf_path); base = side + '_base_link'
+def hand_links(urdf_path, side, base=None):
+    """Every link at or below the hand base link (default <side>_base_link, the FTP donor; the manifest's hands.<side>.link_names.base_link otherwise)."""
+    joints = read_urdf_joints(urdf_path); base = base or (side + '_base_link')
     kids = {}
     for j in joints.values():
         kids.setdefault(j['parent'], []).append(j['child'])
@@ -104,14 +104,14 @@ def hand_links(urdf_path, side):
     return out
 
 
-def hand_points(urdf_path, side, q_by_name):
+def hand_points(urdf_path, side, q_by_name, base=None):
     """{link: origin (pelvis frame)} for every hand link of one side at the joint values q."""
     frames = link_frames(urdf_path, q_by_name)
-    return {l: frames[l][1] for l in hand_links(urdf_path, side) if l in frames}
+    return {l: frames[l][1] for l in hand_links(urdf_path, side, base) if l in frames}
 
 
-def hand_box(urdf_path, side, q_by_name, pad_m=DEFAULT_PAD_M):
-    pts = list(hand_points(urdf_path, side, q_by_name).values())
+def hand_box(urdf_path, side, q_by_name, pad_m=DEFAULT_PAD_M, base=None):
+    pts = list(hand_points(urdf_path, side, q_by_name, base).values())
     return {'min_m': [min(p[i] for p in pts) - pad_m for i in range(3)], 'max_m': [max(p[i] for p in pts) + pad_m for i in range(3)], 'frames': len(pts), 'pad_m': pad_m}
 
 
@@ -141,7 +141,7 @@ def _point_box_distance(pt, lo, hi):
     return dist, inside
 
 
-def check_spawn_clearance(urdf_path, scene, body_q_rad, hand_poses, pad_m=DEFAULT_PAD_M):
+def check_spawn_clearance(urdf_path, scene, body_q_rad, hand_poses, pad_m=DEFAULT_PAD_M, hand_base_links=None):
     """hand_poses: {label: {hand joint: rad}} — every hand pose the probe will command before the first row (the URDF open pose
     and the first-row targets). Each hand link is a sphere of radius pad_m at its frame origin; OVERLAP when any such sphere
     reaches into a scene box. Returns the per-link overlaps (depth = pad - distance, m) and the smallest free margin."""
@@ -151,7 +151,7 @@ def check_spawn_clearance(urdf_path, scene, body_q_rad, hand_poses, pad_m=DEFAUL
     for label, hand_q in hand_poses.items():
         q = dict(body_q_rad); q.update(hand_q or {})
         for side in ('left', 'right'):
-            pts = hand_points(urdf_path, side, q); key = '%s:%s' % (label, side)
+            pts = hand_points(urdf_path, side, q, (hand_base_links or {}).get(side)); key = '%s:%s' % (label, side)
             report['hands'][key] = {'links': len(pts), 'min_m': [round(min(p[i] for p in pts.values()), 4) for i in range(3)], 'max_m': [round(max(p[i] for p in pts.values()), 4) for i in range(3)]}
             for link, pt in pts.items():
                 for name, lo, hi in boxes:

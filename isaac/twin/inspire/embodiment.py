@@ -83,6 +83,25 @@ def wrist_mount_joint(root, pair=None):
     raise ContractError('no hand flange joint among %s' % (WRIST_MOUNT_PAIRS,))
 
 
+def hand_link_names(manifest_data, side):
+    """Asset-specific hand link roles for one side, declared by hands.<side>.link_names or defaulting to the FTP donor names:
+    base_link = root of the hand subtree under the wrist (spawn clearance, kinematics); palm_body = the palm RIGID BODY the
+    probes observe (views, close-up cameras, palm pose in traces); palm_body_rpy_from_base = fixed rotation from base_link to
+    palm_body (zero when they are the same link). The public E2 asset declares base_link <side>_base (a pure frame) and
+    palm_body <side>_hand_base_link (rpy pi, 0, 0 from the base)."""
+    if side not in SIDES:
+        raise ContractError('side must be left or right')
+    declared = (manifest_data.get('hands', {}).get(side) or {}).get('link_names') or {}
+    out = {'base_link': declared.get('base_link', side + '_base_link'), 'palm_body': declared.get('palm_body', side + '_base_link'),
+           'palm_body_rpy_from_base': list(declared.get('palm_body_rpy_from_base', [0.0, 0.0, 0.0]))}
+    for k in ('base_link', 'palm_body'):
+        if not isinstance(out[k], str) or not out[k].startswith(side + '_'):
+            raise ContractError('hands.%s.link_names.%s must be a link of that side' % (side, k))
+    if len(out['palm_body_rpy_from_base']) != 3:
+        raise ContractError('hands.%s.link_names.palm_body_rpy_from_base must be three angles' % side)
+    return out
+
+
 def wrist_mount_pair_from_manifest(manifest_data):
     """(parent, child) declared by transforms.right.wrist_to_hand.frame as "<parent> -> <child>", or None."""
     t = (manifest_data.get('transforms', {}).get('right') or {}).get('wrist_to_hand') or {}
@@ -258,6 +277,7 @@ class EmbodimentManifest:
                 _finite(m.get('offset', 0.0), child + '.offset')
             if hand.get('feedback', {}).get('independent_axes_measured') is None:
                 raise ContractError('%s hand must declare whether independent axes are measured' % side)
+            hand_link_names(data, side)   # validates hands.<side>.link_names when declared
             self._hand_joint_names[side] = tuple(spec['joint'] for spec in act.values())
         for key in ('wrist_to_hand', 'hand_to_tool'):
             for side in SIDES:

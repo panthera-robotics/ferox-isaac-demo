@@ -22,6 +22,7 @@ from inspire import loop_ipc  # noqa: E402
 from inspire.closed_loop_targets import ClosedLoopTargets, TargetError  # noqa: E402
 from inspire.model_action_adapter import validate_piston_chunk, PISTON_DIMS, PISTON_HAND_ORDER  # noqa: E402
 from inspire.presentation_layer import validate_presentation, add_visual_overlay  # noqa: E402
+from inspire.embodiment import hand_link_names  # noqa: E402
 from inspire.embodiment import HandCommandAdapter, HAND_ACTUATORS  # noqa: E402
 from inspire.operational_observer import OBSERVERS, LEGACY, make_observer  # noqa: E402
 
@@ -301,7 +302,9 @@ if hand_init == 'first_row_if_nearly_open' and all(abs(v) <= 0.15 for v in first
             q0[names.index(child)] = spec['multiplier'] * q0[names.index(spec['parent'])] + spec.get('offset', 0.0)
     hand_init_applied = True
 robot.set_joint_positions(q0); robot.set_joint_velocities(np.zeros(53, dtype=np.float32))
-views = {n: SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/G1/' + n) for n in ['pelvis', 'torso_link', 'right_wrist_yaw_link', 'left_wrist_yaw_link', 'right_base_link', 'left_base_link']}
+palm_body = {s_: hand_link_names(manifest.data, s_)['palm_body'] for s_ in ('left', 'right')}   # asset-specific palm rigid body (donor <side>_base_link, E2 <side>_hand_base_link)
+track_alias = {'right_base_link': palm_body['right'], 'left_base_link': palm_body['left']}         # frozen presentation configs name the donor palm; resolved to this asset's palm body
+views = {n: SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/G1/' + n) for n in ['pelvis', 'torso_link', 'right_wrist_yaw_link', 'left_wrist_yaw_link', palm_body['right'], palm_body['left']]}
 assert all(v.count == 1 for v in views.values())
 object_view = SimulationManager.get_physics_sim_view().create_rigid_body_view('/World/Scene/Object') if scene else None
 if object_view is not None:
@@ -443,7 +446,7 @@ for tick in range(steps):
                     hand_target[hand_names.index(n_)] = applied_rec['hand_targets_rad'][n_]
             cl_state['interventions'] = cl_targets.interventions
         if cl_hybrid:
-            palm_now = np.asarray(views['right_base_link'].get_transforms())[0][:3]
+            palm_now = np.asarray(views[palm_body['right']].get_transforms())[0][:3]
             if cl_state['hand_phase'] == 'open' and np.linalg.norm(palm_now - np.asarray(cl_hybrid['close_trigger']['palm_target_world'])) <= cl_hybrid['close_trigger']['radius_m']:
                 cl_state['hand_phase'] = 'closing'; cl_state['close_started_tick'] = tick
             if cl_state['hand_phase'] == 'closing':
@@ -509,7 +512,7 @@ for tick in range(steps):
     if object_view is not None:
         op = np.asarray(object_view.get_transforms())[0].tolist(); ov = np.asarray(object_view.get_velocities())[0].tolist()
         object_file.write(json.dumps({'sequence': tick, 'physics_s': world.current_time, 'phase': phase, 'source_row': None if row is None else row['row'], 'pose_world_xyzw': op, 'linear_velocity_m_s': ov[:3], 'angular_velocity_rad_s': ov[3:],
-                                      'right_palm_pose_world_xyzw': poses['right_base_link']}, allow_nan=False) + '\n')
+                                      'right_palm_pose_world_xyzw': poses[palm_body['right']], 'right_palm_body': palm_body['right']}, allow_nan=False) + '\n')
     violated = {n: float(q[i]) for i, n in enumerate(names) if q[i] < facts['joint_limits'][n]['lower'] - .1 or q[i] > facts['joint_limits'][n]['upper'] + .1}
     if decision is None:
         overspeed = reported_over_2x                                                    # legacy rule, unchanged
@@ -525,12 +528,12 @@ for tick in range(steps):
                        'coupling_faults_rad': decision['coupling_faults'], 'observer': observer_name, 'observer_reason': decision['reason'], 'legacy_envelope_shadow': r['legacy_envelope_shadow']}; break
     if (tick + 1) % frame_every == 0:
         frame = (tick + 1) // frame_every - 1; files_ = {}
-        palm = np.asarray(poses['right_base_link'][:3]); eye = palm + np.asarray(closeup['offset'])
+        palm = np.asarray(poses[palm_body['right']][:3]); eye = palm + np.asarray(closeup['offset'])
         if 'closeup_right_hand' in cameras:
             xc = UsdGeom.Xformable(cameras['closeup_right_hand'].prim); xc.ClearXformOpOrder()
             xc.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*eye.tolist()), Gf.Vec3d(*palm.tolist()), Gf.Vec3d(0, 0, 1)).GetInverse())
         for label_, (target_, offset_) in tracking_cameras.items():
-            anchor = np.asarray(object_view.get_transforms())[0][:3].astype(float) if target_ == 'object' else np.asarray(poses[target_][:3])
+            anchor = np.asarray(object_view.get_transforms())[0][:3].astype(float) if target_ == 'object' else np.asarray(poses[track_alias.get(target_, target_)][:3])
             xt = UsdGeom.Xformable(cameras[label_].prim); xt.ClearXformOpOrder()
             xt.AddTransformOp().Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*(anchor + offset_).tolist()), Gf.Vec3d(*anchor.tolist()), Gf.Vec3d(0, 0, 1)).GetInverse())
         world.render()   # re-render after re-aiming the tracking views (policy/static cameras unchanged)
