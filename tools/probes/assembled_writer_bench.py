@@ -1,0 +1,1157 @@
+"""Hand-agnostic variant of assembled_writer.py (RH56E2 acceptance lane B, R9): the assembled body is named by an optional probe-config
+`hand` block (inspire_grasp_bench.WriterHand: merged source URDF, palm body link, donor-palm frame in the palm body, six-axis map/uppers,
+importer donor|e2); absent, the frozen donor path is byte-identical (same import, slabs, grasp, checks). Grasp files stay in donor terms and
+map closure-preservingly; the held-marker holder pose (declared in the donor palm frame) is re-expressed in the E2 palm body through the
+declared fixed frame relation, so the marker sits at the same wrist-relative pose and the fixture's measured tool frame is transferred as-is.
+Actual-state, fixed-pelvis air task integration through one explicit body owner.
+
+Private task implementation and calibration are imported only from explicit
+read-only mounts. This public probe contains neither. There is no marker, board
+contact, grasp or standing qualification. CPU imports do not start Isaac.
+"""
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import shutil
+import sys
+import time
+import traceback
+import xml.etree.ElementTree as ET
+
+
+def finite(value, name, low=None, high=None):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(name + ' must be finite numeric data')
+    if (low is not None and value < low) or (high is not None and value > high):
+        raise ValueError(name + ' exceeds its declared bound')
+    return float(value)
+
+
+
+DEFAULT_CAMERAS = [{'label': 'front', 'position_m': [2.2, -2.3, 1.8], 'look_at_m': [.1, 0., 1.05]},
+                   {'label': 'side', 'position_m': [-.3, 2.9, 1.65], 'look_at_m': [.1, 0., 1.05]}]
+TRACK_TARGETS = ('right_base_link', 'right_wrist_yaw_link', 'nib', 'holder')
+
+
+def validate_presentation(pres):
+    """Sprint M M1: declared external camera placement (static or link-tracking) and visual-only ink decals.
+    Cameras never touch physics (held-physics captures as before); a tracking camera follows a named live link
+    pose read back from PhysX at capture time. Ink decals are render-only prims at the ACTUAL nib-panel contact
+    points of the PhysX contact report, pushed out of the face by a fraction of a millimetre; no collision, no mass."""
+    if pres is None:
+        return
+    if not isinstance(pres, dict) or not set(pres) <= {'cameras', 'ink_decals', 'note', 'visual_overlay'}:
+        raise ValueError('presentation: cameras / ink_decals / note / visual_overlay only')
+    validate_visual_overlay(pres.get('visual_overlay'))
+    cams = pres.get('cameras', DEFAULT_CAMERAS)
+    if not isinstance(cams, list) or not 1 <= len(cams) <= 6:
+        raise ValueError('presentation.cameras: 1..6 cameras')
+    labels = set()
+    for c in cams:
+        if not isinstance(c, dict) or not isinstance(c.get('label'), str) or not c['label'].isidentifier() or c['label'] in labels:
+            raise ValueError('presentation.cameras: unique identifier labels')
+        labels.add(c['label'])
+        res = c.get('resolution', [640, 640])
+        if not (isinstance(res, list) and len(res) == 2 and all(type(v) is int and 160 <= v <= 1280 for v in res)):
+            raise ValueError('presentation.cameras.resolution: two ints 160..1280')
+        for key in ('position_m', 'look_at_m', 'offset_m'):
+            if key in c and not (isinstance(c[key], list) and len(c[key]) == 3 and all(isinstance(v, (int, float)) and math.isfinite(v) and abs(v) < 10. for v in c[key])):
+                raise ValueError('presentation.cameras.%s: three finite metres' % key)
+        if 'track' in c:
+            if c['track'] not in TRACK_TARGETS or 'offset_m' not in c:
+                raise ValueError('presentation.cameras.track: one of %s with offset_m' % (TRACK_TARGETS,))
+            if 'look_at_m' in c or 'position_m' in c:
+                raise ValueError('a tracking camera is placed by offset_m from its target only')
+        elif 'position_m' not in c or 'look_at_m' not in c:
+            raise ValueError('a static camera needs position_m and look_at_m')
+        if 'focal_length_mm' in c and not (isinstance(c['focal_length_mm'], (int, float)) and 4. <= c['focal_length_mm'] <= 200.):
+            raise ValueError('presentation.cameras.focal_length_mm: 4..200')
+    if 'ink_decals' in pres and type(pres['ink_decals']) is not bool:
+        raise ValueError('presentation.ink_decals: bool')
+
+def validate_visual_overlay(spec):
+    """Sprint P Phase 5: a RENDER-ONLY set-dressing layer (hero-world board station, floor, props) referenced under a
+    declared root. Every physics schema found under that root is disabled or deactivated at insertion (collision,
+    rigid bodies, joints, articulation roots, physics scenes) and counted into metrics; the live PhysX shape audit
+    that follows (backend_shapes.json) is the proof that the physics path is unchanged. Nothing about the robot,
+    the board panel, the marker, gains or timing is touched."""
+    if spec is None:
+        return
+    if not isinstance(spec, dict) or not set(spec) <= {'usd_path', 'root', 'translate_m', 'note'} or 'usd_path' not in spec:
+        raise ValueError('presentation.visual_overlay: usd_path [root, translate_m, note] only')
+    if not isinstance(spec['usd_path'], str) or not spec['usd_path'].endswith(('.usd', '.usda', '.usdc', '.usdz')):
+        raise ValueError('presentation.visual_overlay.usd_path: a USD file path')
+    root = spec.get('root', '/World/Visual')
+    if not isinstance(root, str) or not root.startswith('/World/Visual') or not all(part.isidentifier() for part in root.strip('/').split('/')):
+        raise ValueError('presentation.visual_overlay.root: a prim path under /World/Visual')
+    if 'translate_m' in spec and not (isinstance(spec['translate_m'], list) and len(spec['translate_m']) == 3 and
+                                      all(isinstance(v, (int, float)) and math.isfinite(v) and abs(v) < 10. for v in spec['translate_m'])):
+        raise ValueError('presentation.visual_overlay.translate_m: three finite metres')
+    if 'note' in spec and not isinstance(spec['note'], str):
+        raise ValueError('presentation.visual_overlay.note: string')
+
+
+def add_visual_overlay(stage, spec, add_reference_to_stage, UsdGeom, UsdPhysics, Gf):
+    """Reference the overlay USD under spec.root, apply the declared translation and strip physics under the root.
+    Returns the audit written to metrics. Called before world.reset() so the PhysX shape statistics taken after
+    the reset cover the overlay."""
+    root = spec.get('root', '/World/Visual'); usd_path = Path(spec['usd_path'])
+    if not usd_path.is_file():
+        raise ValueError('presentation.visual_overlay.usd_path not found: %s' % usd_path)
+    add_reference_to_stage(str(usd_path), root)
+    xf = UsdGeom.Xformable(stage.GetPrimAtPath(root)); xf.ClearXformOpOrder()
+    if 'translate_m' in spec:
+        xf.AddTranslateOp().Set(Gf.Vec3d(*[float(v) for v in spec['translate_m']]))
+    audit = {'usd_path': str(usd_path), 'usd_sha256': hashlib.sha256(usd_path.read_bytes()).hexdigest(), 'root': root,
+             'translate_m': list(spec.get('translate_m', [0., 0., 0.])), 'prims': 0, 'collision_disabled': 0, 'rigid_bodies_disabled': 0,
+             'joints_deactivated': 0, 'articulation_roots_removed': 0, 'physics_scenes_deactivated': 0,
+             'declaration': 'render-only set dressing: no collider, body, joint, articulation or physics scene from this layer reaches PhysX'}
+    under_root = [prim for prim in stage.Traverse() if str(prim.GetPath()) == root or str(prim.GetPath()).startswith(root + '/')]
+    for prim in under_root:
+        audit['prims'] += 1
+        if prim.IsA(UsdPhysics.Scene):
+            prim.SetActive(False); audit['physics_scenes_deactivated'] += 1; continue
+        if prim.IsA(UsdPhysics.Joint):
+            prim.SetActive(False); audit['joints_deactivated'] += 1; continue
+        if prim.HasAPI(UsdPhysics.ArticulationRootAPI):
+            prim.RemoveAPI(UsdPhysics.ArticulationRootAPI); audit['articulation_roots_removed'] += 1
+        if prim.HasAPI(UsdPhysics.RigidBodyAPI):
+            UsdPhysics.RigidBodyAPI(prim).CreateRigidBodyEnabledAttr(False); audit['rigid_bodies_disabled'] += 1
+        if prim.HasAPI(UsdPhysics.CollisionAPI):
+            UsdPhysics.CollisionAPI(prim).CreateCollisionEnabledAttr(False); audit['collision_disabled'] += 1
+    return audit
+
+
+def validate_config(config):
+    required = {'schema_version', 'hardware_authorized', 'private_driver_path',
+        'private_dependency_path', 'private_profile_path', 'planner_frames_path',
+        'planner_frames_sha256', 'body_home_rad', 'kp_nm_rad', 'kd_nm_s_rad',
+        'tau_ff_nm', 'gain_provenance', 'feedforward_provenance', 'workflow_mode',
+        'letter_height_m', 'maximum_steps', 'maximum_wall_s'}
+    optional = {'actuation_backend', 'maximum_wall_age_s', 'hand_hold_kp_nm_rad', 'hand_hold_kd_nm_s_rad', 'contact_writing', 'job_text', 'presentation', 'observer'}
+    if config.get('observer', 'legacy') not in ('legacy', 'simulation_operational_v1'):
+        raise ValueError('observer must be legacy or simulation_operational_v1')
+    validate_presentation(config.get('presentation'))
+    text = config.get('job_text', 'I')
+    # one or two lines (the driver's validate_text accepts a single '\n'); every line 1-12 upper-case letters/digits/spaces, no surrounding whitespace
+    lines = text.split('\n') if isinstance(text, str) else None
+    if lines is None or not 1 <= len(lines) <= 2 or any(not 1 <= len(l) <= 12 or l != l.strip() or any(c not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ' for c in l) for l in lines):
+        raise ValueError('job_text must be 1-12 upper-case letters/digits/spaces without surrounding whitespace, optionally two such lines joined by one newline')
+    contact = config.get('contact_writing')
+    if contact is not None:
+        needed = {'held_marker_grasp_path', 'preload_support_s', 'closing_ramp_s', 'grasp_finger_kp_nm_rad', 'grasp_finger_kd_nm_s_rad', 'provenance'}
+        if not isinstance(contact, dict) or not needed <= set(contact) <= needed | {'board_offset_normal_m'}:
+            raise ValueError('contact_writing requires exactly held_marker_grasp_path, preload_support_s, closing_ramp_s, grasp gains and provenance (+ optional board_offset_normal_m)')
+        finite(contact.get('board_offset_normal_m', 0.), 'contact_writing.board_offset_normal_m', 0., .2)
+        path = Path(contact['held_marker_grasp_path'])
+        if not path.is_absolute() or '..' in path.parts or path.parts[:2] != ('/', 'workspace'):
+            raise ValueError('held marker grasp must be an explicit /workspace mount')
+        finite(contact['preload_support_s'], 'contact_writing.preload_support_s', 0., 1.5)
+        # Bench-style smooth closure from the authored preload pose; it must finish while the support holds.
+        finite(contact['closing_ramp_s'], 'contact_writing.closing_ramp_s', .1, 1.)
+        if contact['closing_ramp_s'] > contact['preload_support_s']:
+            raise ValueError('contact_writing.closing_ramp_s must not exceed preload_support_s')
+        finite(contact['grasp_finger_kp_nm_rad'], 'contact_writing.grasp_finger_kp_nm_rad', .1, 10.)
+        finite(contact['grasp_finger_kd_nm_s_rad'], 'contact_writing.grasp_finger_kd_nm_s_rad', .01, 1.)
+        if not isinstance(contact['provenance'], str) or not contact['provenance'].strip():
+            raise ValueError('contact_writing.provenance required')
+    if not isinstance(config, dict) or not required <= set(config) <= required | optional:
+        raise ValueError('explicit assembled writer config fields required')
+    # Idle-hand hold gains of the fixture (open hand, no grasp). Bounded by the
+    # source 10 Nm finger effort; the Inspire fingers are non-backdrivable
+    # position actuators, so a floppy 1 Nm/rad idle hand under-represents them.
+    finite(config.get('hand_hold_kp_nm_rad', 1.), 'hand_hold_kp_nm_rad', .1, 10.)
+    finite(config.get('hand_hold_kd_nm_s_rad', .05), 'hand_hold_kd_nm_s_rad', .01, 1.)
+    # Declared wall-clock arrival tolerance for a non-real-time simulator; the
+    # physics-sample staleness bound (valid_for_s <= 0.1 s of simulated time) is unchanged.
+    finite(config.get('maximum_wall_age_s', .1), 'maximum_wall_age_s', .1, 5.)
+    if config.get('actuation_backend', 'explicit_pd') not in ('explicit_pd', 'implicit_biased_drive_v1'):
+        raise ValueError('unknown versioned body actuation backend')
+    if type(config['schema_version']) is not int or config['schema_version'] != 1 or config['hardware_authorized'] is not False:
+        raise ValueError('simulator-only config version1 required')
+    for key in ['private_driver_path', 'private_dependency_path', 'private_profile_path', 'planner_frames_path']:
+        path = Path(config[key])
+        if not path.is_absolute() or '..' in path.parts or path.parts[:2] != ('/', 'workspace'):
+            raise ValueError('private input must be an explicit /workspace mount: ' + key)
+    names = set(config['body_home_rad'])
+    if len(names) != 29 or any(not isinstance(n, str) for n in names):
+        raise ValueError('exact named29 body home required')
+    for key in ['body_home_rad', 'kp_nm_rad', 'kd_nm_s_rad', 'tau_ff_nm']:
+        if not isinstance(config[key], dict) or set(config[key]) != names:
+            raise ValueError('named29 field mismatch: ' + key)
+        for name, value in config[key].items():
+            finite(value, key + '.' + name, 0. if key in ('kp_nm_rad', 'kd_nm_s_rad') else None,
+                   200. if key == 'kp_nm_rad' else 5. if key == 'kd_nm_s_rad' else None)
+    if config['workflow_mode'] not in ('complete', 'prefix_cancel'):
+        raise ValueError('one explicit workflow required')
+    finite(config['letter_height_m'], 'letter_height_m', .005, .08)
+    finite(config['maximum_wall_s'], 'maximum_wall_s', 10., 1700.)   # probe's own stop; the admitted launcher deadline (<= 1800 s batch) still governs
+    if type(config['maximum_steps']) is not int or not 200 <= config['maximum_steps'] <= 120000:
+        raise ValueError('bounded maximum_steps required')
+    for key in ('gain_provenance', 'feedforward_provenance'):
+        if not isinstance(config[key], str) or not config[key].strip():
+            raise ValueError('explicit provenance required')
+    digest = config['planner_frames_sha256']
+    if not isinstance(digest, str) or len(digest) != 64 or set(digest) - set('0123456789abcdef'):
+        raise ValueError('planner frame artifact hash required')
+    return config
+
+
+def observed_checks(names, q, dq, effort, limits, mimic, observer=None, sequence=None, physics_s=None):
+    """Fixed physical guards; do not soften these using a successful trajectory.
+    Sprint O owner decision A: with `observer` (SIMULATION_OPERATIONAL_OBSERVER v1) the velocity guard is evaluated on the SAMPLED-INTERVAL
+    velocity (mimic children at |multiplier| x parent field, persist 2, coupling faults) and the legacy reported-velocity rule is only
+    recorded in the returned `legacy_shadow`; without it (default) the historical reported-velocity rule aborts exactly as before."""
+    if len(names) != 53 or len(set(names)) != 53 or set(names) != set(limits):
+        raise ValueError('observed articulation does not match exact named53 source')
+    if any(len(values) != 53 for values in (q, dq, effort)):
+        raise ValueError('observed state width mismatch')
+    by_name = {}
+    violation = speed = 0.
+    for name, position, velocity, measured in zip(names, q, dq, effort):
+        position, velocity, measured = [finite(v, name) for v in (position, velocity, measured)]
+        limit = limits[name]
+        violation = max(violation, limit['lower'] - position, position - limit['upper'], 0.)
+        speed = max(speed, abs(velocity))
+        if observer is None and abs(velocity) > min(5., limit['velocity']):
+            raise ValueError('observed velocity exceeded source/5rad_s guard: ' + name)
+        by_name[name] = position
+    legacy_shadow = None
+    if observer is not None:
+        decision = observer.update(sequence, physics_s, by_name, dict(zip(names, dq)))
+        legacy_shadow = decision['legacy_shadow']
+        if decision['abort']:
+            raise ValueError('operational observer abort (%s): %s' % (decision['reason'], sorted(decision['violations'] or decision['coupling_faults'])))
+    if violation > .03:
+        raise ValueError('observed joint limit violation exceeded .03rad')
+    coupling = {name: by_name[name] - (m['multiplier'] * by_name[m['parent']] + m['offset'])
+                for name, m in mimic.items()}
+    if coupling and max(abs(v) for v in coupling.values()) > .03:
+        raise ValueError('observed hand mimic error exceeded .03rad')
+    return {'joint_limit_violation_rad': violation, 'maximum_velocity_rad_s': speed,
+            'coupling_error_rad': coupling, 'legacy_shadow': legacy_shadow}
+
+
+def quaternion_wxyz_from_matrix(R):
+    """Unit quaternion (w, x, y, z) of a proper rotation matrix as plain Python floats; the twin scene
+    validators reject numpy scalars."""
+    import numpy as np
+    R = np.asarray(R, dtype=float)
+    tr = float(np.trace(R))
+    if tr > 0:
+        sq = math.sqrt(tr + 1.) * 2; q = (sq/4, (R[2,1]-R[1,2])/sq, (R[0,2]-R[2,0])/sq, (R[1,0]-R[0,1])/sq)
+    else:
+        i = int(np.argmax(np.diag(R))); j, k = (i+1) % 3, (i+2) % 3
+        sq = math.sqrt(1. + R[i,i] - R[j,j] - R[k,k]) * 2; qv = [0., 0., 0.]
+        qv[i] = sq/4; qv[j] = (R[j,i]+R[i,j])/sq; qv[k] = (R[k,i]+R[i,k])/sq
+        q = ((R[k,j]-R[j,k])/sq, *qv)
+    return tuple(float(v) for v in q)
+
+
+def pose_matrix(pose):
+    import numpy as np
+    if len(pose) != 7:
+        raise ValueError('position plus xyzw quaternion required')
+    px, py, pz, x, y, z, w = [finite(v, 'measured_pose') for v in pose]
+    if not math.isclose(x*x + y*y + z*z + w*w, 1., abs_tol=1e-5):
+        raise ValueError('measured quaternion must be unit length')
+    result = np.eye(4)
+    result[:3, :3] = [[1-2*(y*y+z*z), 2*(x*y-z*w), 2*(x*z+y*w)],
+                      [2*(x*y+z*w), 1-2*(x*x+z*z), 2*(y*z-x*w)],
+                      [2*(x*z-y*w), 2*(y*z+x*w), 1-2*(x*x+y*y)]]
+    result[:3, 3] = [px, py, pz]
+    return result
+
+
+def frame_error(expected, actual):
+    import numpy as np
+    expected, actual = np.asarray(expected, dtype=float), np.asarray(actual, dtype=float)
+    for value in (expected, actual):
+        if value.shape != (4, 4) or not np.isfinite(value).all() or not np.allclose(value[3], [0., 0., 0., 1.], atol=1e-8):
+            raise ValueError('invalid homogeneous frame')
+        # Consistent with pose_matrix's 1e-5 unit-quaternion tolerance for float32
+        # PhysX readback (writer14 tripped a 1e-6 bound at step 1000); reflections
+        # (det -1) and non-unit quaternions are still refused.
+        if not np.allclose(value[:3, :3].T @ value[:3, :3], np.eye(3), atol=1e-4) or not math.isclose(np.linalg.det(value[:3, :3]), 1., abs_tol=1e-4):
+            raise ValueError('frame rotation must be proper orthonormal')
+    delta = expected[:3, :3].T @ actual[:3, :3]
+    return {'translation_m': float(np.linalg.norm(actual[:3, 3]-expected[:3, 3])),
+            'rotation_rad': float(np.arccos(np.clip((np.trace(delta)-1)/2, -1, 1)))}
+
+
+def copy_writable_template(source,destination):
+    """Copy immutable input bytes into a newly owned runtime directory."""
+    source,destination=Path(source),Path(destination)
+    if any(p.is_symlink() for p in source.rglob('*')):raise ValueError('Template symlinks are not admitted')
+    shutil.copytree(source,destination)
+    for path in [destination,*destination.rglob('*')]:
+        path.chmod(0o755 if path.is_dir() else 0o644)
+
+
+def main():
+    if os.environ.get('PANTHERA_SIM_AUTHORIZED') != '1' or sorted(p.name for p in Path('/sys/class/net').iterdir()) != ['lo']:
+        raise RuntimeError('isolated simulator authorization required')
+    probe_mode = os.environ.get('PANTHERA_PROBE_MODE')
+    if probe_mode not in ('assembled-writer-air', 'assembled-writer-contact'):
+        raise RuntimeError('explicit assembled-writer-air or assembled-writer-contact mode required')
+    config_path = Path(os.environ['PANTHERA_PROBE_CONFIG'])
+    _raw = json.loads(config_path.read_text())
+    sys.path.insert(0, '/workspace/sim-source/tools')
+    from inspire_grasp_bench import WriterHand, DONOR_JOINTS, DONOR_UPPER
+    whand = WriterHand.from_config(_raw); _raw = {k: v for k, v in _raw.items() if k != 'hand'}
+    cfg = validate_config(_raw)
+    contact_mode = probe_mode == 'assembled-writer-contact'
+    if contact_mode != ('contact_writing' in cfg):
+        raise RuntimeError('contact mode requires the contact_writing config block and vice versa')
+    out = Path('/evidence')
+    metrics = {'job_text': cfg.get('job_text', 'I'), 'status': 'FAIL', 'scope': 'fixed_pelvis_actual_writer_contact_writing' if contact_mode else 'fixed_pelvis_actual_writer_air_integration',
+        'hardware_authorized': False, 'fixed_base': True, 'body_final_writers': 1,
+        'tool_attached': False, 'ground_present': False,
+        'support_constraints': ['pelvis_fixed_to_world_1m_above_origin'],
+        'writing_qualification': 'NOT_QUALIFIED', 'grasp_qualification': 'NOT_RUN',
+        'standing_qualification': 'NOT_RUN', 'exact_asset_qualified': False,
+        'physical_virtual_tip_meaning': 'kinematic reference only; no physical tool or ink',
+        'physics_dt_s': .005, 'gpu_dynamics': False, 'checks': {},
+        'profile_sha256': hashlib.sha256(config_path.read_bytes()).hexdigest(),
+        'gain_provenance': cfg['gain_provenance'], 'feedforward_provenance': cfg['feedforward_provenance'],
+        'media_labels': {'fixture': ('FIXED PELVIS - ACTUAL WRITER CONTACT TASK (held marker, world-fixed board, declared support released)' if contact_mode
+                                     else 'FIXED PELVIS - ACTUAL WRITER AIR TASK'),
+            'embodiment': 'PROVISIONAL G1 + bilateral FTP hands',
+            'text': cfg.get('job_text', 'I'), 'letter_height_m': cfg['letter_height_m'],
+            'qualification': ('Contact ink evaluated (see contact_writing.evaluation); no standing qualification; PROVISIONAL asset' if contact_mode
+                              else 'No marker, grasp, contact writing or standing qualification')}}
+    app = world = bridge = subscription = None
+    files = []
+    started = time.monotonic()
+    try:
+        sys.path[:0] = ['/workspace/ferox_tools', '/workspace/ferox_isaac/twin',
+                        str(Path(cfg['private_driver_path']) / 'src/g1_arm_tasks')]
+        # Configure the real loopback namespace before enabling any ROS extension.
+        from g1_arm_tasks.sim_transport import configure_environment, load_profile
+        configure_environment()
+        template_profile = Path(cfg['private_profile_path'])
+        runtime = out/'writer-runtime'
+        copy_writable_template(template_profile.parent, runtime)
+        profile_data = json.loads(template_profile.read_text())
+        template_root = template_profile.parent.resolve()
+        # The mounted template describes files in its own directory. Rewrite
+        # only run custody/paths; calibration/home bytes and their hashes stay.
+        def copied_input(old):
+            relative = Path(old).resolve().relative_to(template_root)
+            return str(runtime/relative)
+        profile_data.update(run_id=os.environ['PANTHERA_SIM_RUN_ID'],
+            tool_board_path=copied_input(profile_data['tool_board_path']),
+            pose_dir=copied_input(profile_data['pose_dir']), record_dir=str(runtime/'recording'))
+        if profile_data.get('planner_model_path'):
+            profile_data['planner_model_path'] = copied_input(profile_data['planner_model_path'])
+        # Same declared wall arrival tolerance for the writer's telemetry watchdog.
+        profile_data['telemetry_stale_after_s'] = float(cfg.get('maximum_wall_age_s', .1))
+        private_profile_path = runtime/'profile.json'
+        private_profile_path.write_text(json.dumps(profile_data, indent=2, allow_nan=False))
+        metrics.update(private_profile_template_sha256=hashlib.sha256(template_profile.read_bytes()).hexdigest(),
+            private_profile_derived_sha256=hashlib.sha256(private_profile_path.read_bytes()).hexdigest(),
+            private_profile_derivation='copied explicit template; only runtime paths, admitted run_id and declared telemetry_stale_after_s rewritten')
+        task_profile = load_profile(private_profile_path)
+        frames_path = Path(cfg['planner_frames_path'])
+        if hashlib.sha256(frames_path.read_bytes()).hexdigest() != cfg['planner_frames_sha256']:
+            raise ValueError('planner frame export hash mismatch')
+        frames = json.loads(frames_path.read_text())
+        planner = frames['full_model_fk']['commanded_waist']
+        if planner['named_q_rad'] != cfg['body_home_rad'] or planner['tool_reference_frame'] != 'right_rubber_hand':
+            raise ValueError('planner export must use the exact admitted named29 home/tool frame')
+        if any(cfg['body_home_rad'][n] != v for n, v in task_profile.fixed_waist_rad.items()):
+            raise ValueError('body home differs from approved fixed waist')
+        from isaacsim import SimulationApp
+        app = SimulationApp({'headless': True, 'renderer': 'RaytracedLighting', 'fast_shutdown': False})
+        import numpy as np
+        from PIL import Image
+        from pxr import Gf, PhysxSchema, PhysicsSchemaTools, Usd, UsdGeom, UsdLux, UsdPhysics
+        from omni.physx import get_physx_simulation_interface, get_physxunittests_interface
+        from isaacsim.core.api import World
+        from isaacsim.core.prims import SingleArticulation
+        from isaacsim.core.utils.extensions import enable_extension
+        from isaacsim.core.utils.stage import add_reference_to_stage
+        from isaacsim.core.utils.types import ArticulationAction
+        from isaacsim.core.simulation_manager import SimulationManager
+        from isaacsim.sensors.camera import Camera
+        enable_extension('isaacsim.ros2.bridge')
+        enable_extension('omni.pip.compute')
+        for _ in range(5):
+            app.update()
+        from g1_arm_tasks.sim_process_bridge import WriterProcessBridge
+        from inspire.arm_adapter import NamedBodyArbiter, JointBound
+        from inspire.implicit_arm_adapter import NamedBodyDriveArbiter
+        implicit_backend = cfg.get('actuation_backend', 'explicit_pd') == 'implicit_biased_drive_v1'
+        metrics['actuation_backend'] = 'implicit_biased_drive_v1' if implicit_backend else 'explicit_pd'
+        from inspire_body_asset import import_body
+        from inspire_collision import replace_palm_with_components, replace_left_thumb_with_slabs
+        from rigid_inertia import audit_live_properties
+        from urdf_kinematics import UrdfKinematics
+        source = Path('/source-assets') / whand.source_urdf
+        metrics['hand_bench'] = whand.facts()
+        def palm_builder(stage, mesh, body, side):
+            return replace_palm_with_components(stage, mesh, body,
+                contact_offset_m=.0012860533315688372, rest_offset_m=0.,
+                candidate_id='ftp_palm_yz_slabs_v2' if side == 'right' else 'ftp_left_palm_yz_slabs_v1')
+        # Existing public helper owns source import, mass/inertia and mimic joints.
+        if whand.importer == 'e2':
+            from inspire_e2_asset import import_body_e2
+            asset, facts = import_body_e2(source, out, fixed_base=True)
+        else:
+            asset, facts = import_body(source, out, fixed_base=True, palm_builder=palm_builder,
+                                      left_thumb_builder=replace_left_thumb_with_slabs)
+        body_names = list(cfg['body_home_rad'])
+        if set(body_names) != set(facts['body_joint_names']):
+            raise ValueError('config body names differ from actual source donor')
+        limits = facts['joint_limits']
+        from inspire.operational_observer import make_observer
+        observer_name = cfg.get('observer', 'legacy')
+        operational_observer = make_observer(observer_name, limits, facts['mimic_map'], .005, threshold_multiple=1.0, persist=2, reported_cap=5.0)   # the writer guard's 1x threshold, now on the sampled-interval channel
+        metrics['observer'] = {'active': observer_name}
+        for n, value in cfg['body_home_rad'].items():
+            finite(value, n, limits[n]['lower'], limits[n]['upper'])
+            finite(cfg['tau_ff_nm'][n], n+'.feedforward', -limits[n]['effort'], limits[n]['effort'])
+        kinematics = UrdfKinematics(source)
+        adjacent = {frozenset((j.find('parent').get('link'),j.find('child').get('link')))
+                    for j in ET.parse(source).getroot().findall('joint')}
+        donor_home = kinematics.transforms(cfg['body_home_rad'])
+        comparison = frame_error(donor_home['right_wrist_yaw_link'], planner['right_wrist_yaw_link_T_pelvis'])
+        comparison.update(frame_name='right_wrist_yaw_link', reference_frame='pelvis',
+            donor_T_pelvis=donor_home['right_wrist_yaw_link'].tolist(),
+            planner_T_pelvis=planner['right_wrist_yaw_link_T_pelvis'],
+            separate_tool_T_wrist=planner['right_rubber_hand_T_right_wrist_yaw_link'],
+            artifact_sha256=cfg['planner_frames_sha256'], translation_budget_m=.001,
+            budget_scope='air_only_declared_model_mismatch_not_contact_writing',
+            source_urdf_sha256=hashlib.sha256(source.read_bytes()).hexdigest())
+        (out/'planner_donor_frame_comparison.json').write_text(json.dumps(comparison, indent=2))
+        if comparison['translation_m'] > .001 or comparison['rotation_rad'] > math.radians(.2):
+            raise ValueError('planner/donor geometry exceeds declared air-only1mm/0.2deg budget')
+        metrics['planner_donor_frame_comparison'] = comparison
+        stage = Usd.Stage.Open(str(asset))
+        held = None
+        if contact_mode:
+            # Declared held-marker grasp (the retention-qualified candidate): independent hand joints
+            # plus mimic-coupled children authored as initial joint state; targets closed by the same
+            # increments as the grasp bench. Not an attachment: the marker is a free dynamic body.
+            sys.path.insert(0, '/workspace/sim-source/tools')
+            from inspire_grasp import GraspConfig
+            grasp = GraspConfig.from_dict(json.loads(Path(cfg['contact_writing']['held_marker_grasp_path']).read_text()))
+            hand_limits = {n: (limits[n]['lower'], limits[n]['upper']) for n in limits}
+            donor_limits = {DONOR_JOINTS[a]: (0., DONOR_UPPER[a]) for a in DONOR_JOINTS}   # closed targets formed in donor space (= hand_limits on the donor)
+            held = {'config': grasp, 'initial': whand.map_targets(grasp.initial_targets()), 'closed': whand.map_targets(grasp.closed_targets(hand_limits if whand.is_donor else donor_limits)),
+                    'config_sha256': grasp.sha256, 'hand_bench': whand.facts()}
+            coupled = {}
+            for child, m in facts['mimic_map'].items():
+                parent_value = held['initial'].get(m['parent'], coupled.get(m['parent']))
+                if parent_value is not None:
+                    coupled[child] = m['multiplier'] * parent_value + m['offset']
+            for child, m in facts['mimic_map'].items():   # second pass for thumb_4 <- thumb_3
+                if child not in coupled and m['parent'] in coupled:
+                    coupled[child] = m['multiplier'] * coupled[m['parent']] + m['offset']
+            held['coupled_initial'] = coupled
+            metrics['held_marker_grasp'] = {'config': grasp.__dict__ if hasattr(grasp, '__dict__') else str(grasp), 'config_sha256': grasp.sha256,
+                'source': str(cfg['contact_writing']['held_marker_grasp_path']), 'provenance': cfg['contact_writing']['provenance']}
+        for p in stage.Traverse():
+            if p.IsA(UsdPhysics.RevoluteJoint):
+                state = PhysxSchema.JointStateAPI.Apply(p, 'angular')
+                authored = cfg['body_home_rad'].get(p.GetName(), 0.)
+                if held is not None:
+                    authored = held['initial'].get(p.GetName(), held['coupled_initial'].get(p.GetName(), authored))
+                state.CreatePositionAttr(math.degrees(authored))
+                state.CreateVelocityAttr(0.)
+            if p.IsA(UsdPhysics.RevoluteJoint) and p.GetName() in body_names:
+                drive = UsdPhysics.DriveAPI.Apply(p, 'angular')
+                drive.CreateTypeAttr('force'); drive.CreateStiffnessAttr(0.); drive.CreateDampingAttr(0.)
+                drive.CreateMaxForceAttr(limits[p.GetName()]['effort'])
+                # The implicit backend receives its declared radian gains through the
+                # tensor path after reset; the authored target must already be the
+                # named home, otherwise PhysX's default zero target would yank every
+                # body joint toward 0 on the first controlled step (writer05).
+                drive.CreateTargetPositionAttr(math.degrees(cfg['body_home_rad'][p.GetName()]))
+        stage.GetRootLayer().Save()
+        # The pinned SimulationManager integrates during warm-up before it
+        # exposes articulation handles. Use a declared microstep for those
+        # uncontrolled initialization integrations, then restore the evaluated
+        # 5ms timestep. No state teleport or temporary holding drive is used.
+        initialization_dt = 1e-6
+        world = World(stage_units_in_meters=1., physics_dt=initialization_dt, rendering_dt=.02)
+        scene = next(p for p in world.stage.Traverse() if p.IsA(UsdPhysics.Scene))
+        scene_api = PhysxSchema.PhysxSceneAPI.Apply(scene)
+        scene_api.CreateEnableGPUDynamicsAttr(False)
+        scene_api.CreateEnableExternalForcesEveryIterationAttr(True)
+        UsdLux.DomeLight.Define(world.stage, '/World/Fill').CreateIntensityAttr(600.)
+        add_reference_to_stage(str(asset), '/World/G1')
+        root = UsdGeom.Xformable(world.stage.GetPrimAtPath('/World/G1'))
+        root.ClearXformOpOrder(); root.AddTranslateOp().Set(Gf.Vec3d(0, 0, 1))
+        marker = None; support_path = '/World/DeclaredPreloadSupport'; support_active = False; support_seconds = 0.
+        if contact_mode:
+            from inspire.whiteboard_scene import SceneConfig, BoardFrame, HolderParameters, build_scene, rotate, compression_from_poses, reduce_tip_contacts
+            from inspire.contact_ink import ContactSample, IntendedStroke, MarkingRule, evaluate as evaluate_ink, export_svg, export_csv
+            import yaml
+            board_def = yaml.safe_load(Path(task_profile.tool_board_path).read_text())['board']
+            pelvis_world = np.array([0., 0., 1.])
+            board_u, board_v, board_n = (np.asarray(board_def[k], dtype=float) for k in ('u_axis_unit', 'v_axis_unit', 'normal_unit'))
+            R_board = np.column_stack([board_u, board_v, board_n])
+            if not np.allclose(R_board.T @ R_board, np.eye(3), atol=1e-6) or np.linalg.det(R_board) < .5:
+                raise ValueError('board frame is not a proper rotation')
+            quat_wxyz = quaternion_wxyz_from_matrix
+            board_frame = BoardFrame(origin_world_m=tuple((pelvis_world + np.asarray(board_def['origin_xyz_m'])).tolist()), orientation_world_qwxyz=quat_wxyz(R_board))
+            # Optional AIR-COMPARISON placement: the PHYSICAL board is moved away from the robot along the
+            # board normal while the planner, the scoring frame and every trace stay at the fixture frame.
+            board_offset = float(cfg['contact_writing'].get('board_offset_normal_m', 0.))
+            physical_frame = board_frame if board_offset == 0. else BoardFrame(
+                origin_world_m=tuple((np.asarray(board_frame.origin_world_m) - board_offset * board_n).tolist()), orientation_world_qwxyz=board_frame.orientation_world_qwxyz)
+            scene_cfg = SceneConfig(frame=physical_frame, holder_mode='free_dynamic', holder=HolderParameters())
+            marker = build_scene(world.stage, scene_cfg)
+            # Held-marker placement: palm pose at the authored home from the source FK, then the declared
+            # palm-relative holder pose of the grasp candidate (centre + orientation), never an attachment.
+            pelvis_T = np.eye(4); pelvis_T[:3, 3] = pelvis_world
+            authored_q = {n: cfg['body_home_rad'].get(n, 0.) for n in limits}
+            authored_q.update(held['initial']); authored_q.update(held['coupled_initial'])
+            palm_T = kinematics.transforms(authored_q, pelvis_T)[whand.palm_body_link]
+            grasp = held['config']; c = np.asarray(grasp.holder_center_palm_m); qh = grasp.holder_orientation_palm_qwxyz
+            def qmat(w, x, y, z):
+                return np.array([[1-2*(y*y+z*z), 2*(x*y-z*w), 2*(x*z+y*w)], [2*(x*y+z*w), 1-2*(x*x+z*z), 2*(y*z-x*w)], [2*(x*z-y*w), 2*(y*z+x*w), 1-2*(x*x+y*y)]])
+            holder_T = np.eye(4); holder_T[:3, :3] = qmat(*qh); holder_T[:3, 3] = c
+            holder_T = np.asarray(whand.donor_palm_in_palm_body, dtype=float) @ holder_T   # identity on the donor; E2: declared fixed frame relation (donor palm -> palm body)
+            world_T_holder = palm_T @ holder_T
+            world_q = quat_wxyz(world_T_holder[:3, :3]); world_c = world_T_holder[:3, 3]
+            nib_offset = -scene_cfg.holder.tip_offset_m + scene_cfg.holder.nib_radius_m
+            for path, offset in [(marker['holder_body'], 0.), (marker['nib_body'], nib_offset)]:
+                prim = world.stage.GetPrimAtPath(path); xf = UsdGeom.Xformable(prim); xf.ClearXformOpOrder()
+                delta = world_T_holder[:3, :3] @ np.array([0., 0., offset])
+                xf.AddTranslateOp().Set(Gf.Vec3d(*(world_c + delta).tolist()))
+                xf.AddOrientOp().Set(Gf.Quatf(float(world_q[0]), Gf.Vec3f(*[float(x) for x in world_q[1:]])))
+            support_seconds = float(cfg['contact_writing']['preload_support_s']); support_active = support_seconds > 0.
+            if support_active:
+                joint = UsdPhysics.FixedJoint.Define(world.stage, support_path)
+                joint.CreateBody1Rel().SetTargets([marker['holder_body']])
+                joint.CreateLocalPos0Attr(Gf.Vec3f(*[float(x) for x in world_c])); joint.CreateLocalRot0Attr(Gf.Quatf(float(world_q[0]), Gf.Vec3f(*[float(x) for x in world_q[1:]])))
+                joint.CreateLocalPos1Attr(Gf.Vec3f(0., 0., 0.)); joint.CreateLocalRot1Attr(Gf.Quatf(1., Gf.Vec3f(0., 0., 0.)))
+            marker['declared_initial_pose'] = {'palm_T_holder_from_grasp': holder_T.tolist(), 'world_T_holder': world_T_holder.tolist(),
+                'board_frame_world': {'origin_m': list(board_frame.origin_world_m), 'orientation_qwxyz': list(board_frame.orientation_world_qwxyz)},
+                'physical_board_offset_normal_m': board_offset, 'physical_board_origin_m': list(physical_frame.origin_world_m),
+                'air_comparison': board_offset != 0.,
+                'preload_support': {'declared_seconds': support_seconds, 'joint_path': support_path if support_active else None,
+                                    'kind': 'world_fixed_joint_on_holder_body_released_before_the_job_moves'}}
+            (out/'marker_scene.json').write_text(json.dumps(marker, indent=2, allow_nan=False))
+            metrics.update(tool_attached=False, physical_tool_present=True, board_present=True, physical_board_offset_normal_m=board_offset, air_comparison=board_offset != 0.,
+                physical_virtual_tip_meaning='physical free marker held by contact; nib/board contact measured',
+                support_constraints=['pelvis_fixed_to_world_1m_above_origin', 'declared_preload_support_%.2fs' % support_seconds])
+        # Declared depenetration-velocity bound for the whole contact run (0.05 m/s = 0.25 mm per 5 ms step):
+        # without it the 1e-6 s warm-up microsteps resolve the held pose's sub-0.1 mm overlaps at the 3 m/s
+        # fallback and launch the arm/hand (contact-04/08); a post-warm-up USD restore does not reach PhysX
+        # (contact-07), so the bound is not restored and is recorded as a run-wide solver setting.
+        warmup_depenetration = {}; warmup_depenetration_cap = .05
+        for p in world.stage.Traverse():
+            if p.HasAPI(PhysxSchema.PhysxArticulationAPI):
+                api = PhysxSchema.PhysxArticulationAPI(p)
+                api.CreateSolverPositionIterationCountAttr(32); api.CreateSolverVelocityIterationCountAttr(8)
+            if p.HasAPI(UsdPhysics.RigidBodyAPI):
+                PhysxSchema.PhysxContactReportAPI.Apply(p).CreateThresholdAttr(0.)
+                if contact_mode and warmup_depenetration_cap is not None:
+                    body_api = PhysxSchema.PhysxRigidBodyAPI.Apply(p)
+                    warmup_depenetration[str(p.GetPath())] = float(body_api.GetMaxDepenetrationVelocityAttr().Get())
+                    body_api.CreateMaxDepenetrationVelocityAttr(warmup_depenetration_cap)
+        contact_file = (out/'contacts.jsonl').open('w', buffering=1); files.append(contact_file)
+        sample_number = -1
+        contact_count = 0
+        collision_faults = []
+        step_contacts = []
+        def on_contact(headers, data):
+            nonlocal contact_count
+            for h in headers:
+                collider0, collider1 = str(PhysicsSchemaTools.intToSdfPath(h.collider0)), str(PhysicsSchemaTools.intToSdfPath(h.collider1))
+                for i in range(h.contact_data_offset, h.contact_data_offset+h.num_contact_data):
+                    d = data[i]
+                    actor0, actor1 = str(PhysicsSchemaTools.intToSdfPath(h.actor0)), str(PhysicsSchemaTools.intToSdfPath(h.actor1))
+                    record = {'sequence': sample_number, 'physics_s': float(world.current_time),
+                        'actor0': actor0, 'actor1': actor1, 'collider0': collider0, 'collider1': collider1,
+                        'position_world_m': list(map(float, d.position)), 'normal_world': list(map(float, d.normal)),
+                        'impulse_ns': list(map(float, d.impulse)), 'separation_m': float(d.separation),
+                        'source': 'actual_PhysX_contact_report_simulated_proxy'}
+                    task_pair = any(a.startswith(('/World/Marker', '/World/Whiteboard')) for a in (actor0, actor1))
+                    pair = frozenset((Path(actor0).name, Path(actor1).name))
+                    # Robot self-collision guard only; marker/board contacts are the task and are scored separately.
+                    if not task_pair and len(pair)==2 and pair not in adjacent and (record['separation_m'] < -.001 or
+                            sum(v*v for v in record['impulse_ns'])**.5 > .025):
+                        collision_faults.append(record)
+                    if task_pair:
+                        step_contacts.append(record)
+                    contact_file.write(json.dumps(record, allow_nan=False)+'\n')
+                    contact_count += 1
+        overlay_audit = None
+        if (cfg.get('presentation') or {}).get('visual_overlay'):
+            # render-only set dressing (Sprint P Phase 5): referenced after the physics scene is complete, physics
+            # stripped under its root, audited by the live shape statistics taken after the reset
+            overlay_audit = add_visual_overlay(world.stage, cfg['presentation']['visual_overlay'], add_reference_to_stage, UsdGeom, UsdPhysics, Gf)
+        subscription = get_physx_simulation_interface().subscribe_contact_report_events(on_contact)
+        robot = SingleArticulation('/World/G1', name='assembled_writer_fixture')
+        world.reset(); robot.initialize()
+        world.set_simulation_dt(physics_dt=.005, rendering_dt=.02)
+        if not math.isclose(world.get_physics_dt(), .005, rel_tol=0, abs_tol=1e-12):
+            raise ValueError('controlled physics timestep differs from declared5ms')
+        metrics['initialization'] = {'warmup_physics_dt_s':initialization_dt,
+            'controlled_physics_dt_s':float(world.get_physics_dt()),
+            'runtime_physics_step_count_after_warmup':int(SimulationManager.get_num_physics_steps()),
+            'world_time_after_warmup_s':float(world.current_time),
+            'source':'pinned Isaac5.1 SimulationManager performs gravity integration before articulation handles exist',
+            'post_reset_state_writes':False, 'temporary_body_holding_drives':False,
+            'depenetration_velocity_bound_m_s': (warmup_depenetration_cap if warmup_depenetration else None),
+            'depenetration_velocity_bound_scope': 'whole run, all rigid bodies and articulation links (not restored; USD restore does not reach PhysX)',
+            'replaced_fallback_depenetration_velocity_m_s': sorted(set(warmup_depenetration.values())) if warmup_depenetration else None,
+            'bounded_bodies': len(warmup_depenetration)}
+        names = list(robot.dof_names)
+        if len(names) != 53 or set(names) != set(limits):
+            raise ValueError('actual runtime named53 map differs from donor')
+        indices = {n: names.index(n) for n in body_names}
+        body_ids = np.array([indices[n] for n in body_names], dtype=np.int32)
+        hand_names = facts['hand_independent_names']
+        hand_ids = np.array([names.index(n) for n in hand_names], dtype=np.int32)
+        kp, kd = np.zeros(53, dtype=np.float32), np.zeros(53, dtype=np.float32)
+        kp[hand_ids], kd[hand_ids] = float(cfg.get('hand_hold_kp_nm_rad', 1.)), float(cfg.get('hand_hold_kd_nm_s_rad', .05))
+        metrics['hand_hold_gains'] = {'kp_nm_rad': float(kp[hand_ids][0]), 'kd_nm_s_rad': float(kd[hand_ids][0]),
+            'scope': 'declared idle open-hand fixture hold; not a grasp or exact-hand actuator model'}
+        hand_targets = np.zeros(12, dtype=np.float32)
+        if contact_mode:
+            # Right hand: the retention-qualified grasp bench drives (declared gains, closed targets);
+            # left hand: idle open. Same tensor path as the body gains.
+            right_hand = [n for n in hand_names if n.startswith('right_')]
+            right_ids = np.array([names.index(n) for n in right_hand], dtype=np.int32)
+            # Gains come from the grasp file itself (one source of truth, hashed): finger gains must equal the
+            # config's declared grasp_finger_* values; the thumb may carry its own declared hold gains.
+            if (abs(grasp.finger_stiffness_nm_rad - float(cfg['contact_writing']['grasp_finger_kp_nm_rad'])) > 1e-9
+                    or abs(grasp.finger_damping_nm_s_rad - float(cfg['contact_writing']['grasp_finger_kd_nm_s_rad'])) > 1e-9):
+                raise ValueError('config grasp_finger gains differ from the held-marker grasp file')
+            for n, i in zip(right_hand, right_ids):
+                kp[i], kd[i] = grasp.drive_gains(n)
+            closing_ramp_s = float(cfg['contact_writing']['closing_ramp_s'])
+            right_open = np.array([held['initial'][n] if n in held['closed'] else 0. for n in hand_names], dtype=np.float32)
+            right_closed = np.array([held['closed'][n] if n in held['closed'] else 0. for n in hand_names], dtype=np.float32)
+            hand_targets[:] = right_open
+            metrics['hand_hold_gains']['right_grasp'] = {'kp_nm_rad': {n: float(kp[i]) for n, i in zip(right_hand, right_ids)}, 'kd_nm_s_rad': {n: float(kd[i]) for n, i in zip(right_hand, right_ids)},
+                'closed_targets_rad': {n: float(held['closed'][n]) for n in right_hand}, 'closing_ramp_s': closing_ramp_s, 'scope': 'grasp bench drives of the held-marker candidate; smoothstep closure from the authored preload pose'}
+        if implicit_backend:
+            # Declared body gains live inside the capped implicit drives (same
+            # radian tensor path as the hands); no explicit body effort follows.
+            kp[body_ids] = [cfg['kp_nm_rad'][n] for n in body_names]
+            kd[body_ids] = [cfg['kd_nm_s_rad'][n] for n in body_names]
+        robot._articulation_view.set_gains(kp, kd)
+        gains = robot.get_articulation_controller().get_gains()
+        live_caps = np.ravel(robot._articulation_view.get_max_efforts()).astype(float)
+        gain_receipt = {'source': 'live_articulation_gain_readback_before_body_writes',
+            'backend': metrics['actuation_backend'],
+            'runtime_names': names, 'kp': np.ravel(gains[0]).tolist(), 'kd': np.ravel(gains[1]).tolist(),
+            'max_efforts': live_caps.tolist(), 'body_indices': indices, 'hand_root_names': hand_names}
+        (out/'implicit_gain_readback.json').write_text(json.dumps(gain_receipt, indent=2))
+        if not np.array_equal(np.ravel(gains[0]), kp) or not np.array_equal(np.ravel(gains[1]), kd):
+            raise ValueError('implicit gains differ from declared body/hand gains')
+        if any(abs(live_caps[indices[n]] - limits[n]['effort']) > 1e-6 for n in body_names):
+            raise ValueError('live body drive caps differ from source effort limits')
+        gain_writes = 0
+        if implicit_backend:
+            # One pre-loop implicit target write: exact named home, no bias yet.
+            home_targets = np.asarray([cfg['body_home_rad'][n] for n in body_names], dtype=np.float32)
+            robot.apply_action(ArticulationAction(joint_positions=home_targets, joint_velocities=np.zeros(29, dtype=np.float32), joint_indices=body_ids))
+            pre_targets = np.asarray(robot._articulation_view._physics_view.get_dof_position_targets()).reshape(-1)
+            if pre_targets.shape != (53,) or not np.array_equal(pre_targets[body_ids], home_targets):
+                raise ValueError('pre-loop implicit home target readback differs from named home')
+            gain_receipt['pre_loop_implicit_home_target_rad'] = home_targets.astype(float).tolist()
+            gain_receipt['pre_loop_target_readback_rad'] = pre_targets.astype(float).tolist()
+            (out/'implicit_gain_readback.json').write_text(json.dumps(gain_receipt, indent=2))
+        q0 = np.zeros(53, dtype=np.float32)
+        q0[body_ids] = [cfg['body_home_rad'][n] for n in body_names]
+        if held is not None:   # authored held-marker hand state (independent + mimic-coupled joints)
+            for i, n in enumerate(names):
+                if n in held['initial'] or n in held['coupled_initial']:
+                    q0[i] = held['initial'].get(n, held['coupled_initial'].get(n))
+        # JointState was authored before physics initialization. No body pose,
+        # position or velocity setters are called after reset; the implicit
+        # backend's only post-reset write is the declared home drive target above.
+        initial_q = np.ravel(robot.get_joint_positions())
+        (out/'initial_joint_state.json').write_text(json.dumps({'names':names,
+            'authored_pre_reset_q_rad':q0.astype(float).tolist(), 'actual_q_rad':initial_q.astype(float).tolist(),
+            'actual_dq_rad_s':np.ravel(robot.get_joint_velocities()).astype(float).tolist(),
+            'initialization':metrics['initialization'],
+            'maximum_initial_error_rad':float(np.max(np.abs(initial_q-q0)))}, indent=2))
+        if np.max(np.abs(initial_q-q0)) > .001:
+            raise ValueError('pre-reset joint-state preload differs from actual initial state')
+        sim_view = SimulationManager.get_physics_sim_view()
+        inertia = audit_live_properties(sim_view, '/World/G1', facts['expected_source_rigid_properties_in_imported_frame'])
+        (out/'live_inertia_audit.json').write_text(json.dumps(inertia, indent=2, allow_nan=False))
+        if not all(inertia['checks'].values()):
+            raise ValueError('source/import/live mass COM inertia audit failed before actuation')
+        views = {n: sim_view.create_rigid_body_view('/World/G1/'+n) for n in
+                 ['pelvis', 'right_wrist_yaw_link', 'left_wrist_yaw_link']}
+        views['right_base_link'] = sim_view.create_rigid_body_view('/World/G1/' + whand.palm_body_link); views['left_base_link'] = sim_view.create_rigid_body_view('/World/G1/' + whand.palm_body_link.replace('right_', 'left_', 1))
+        if any(v.count != 1 for v in views.values()):
+            raise ValueError('named link pose readback absent/ambiguous')
+        marker_views = {}
+        ink_samples = []; ink_rows = []; held_drift = []; job_path = None; strokes = []; path_refs = {}
+        if contact_mode:
+            marker_views = {'holder': sim_view.create_rigid_body_view(marker['holder_body']), 'nib': sim_view.create_rigid_body_view(marker['nib_body'])}
+            if any(v.count != 1 for v in marker_views.values()):
+                raise ValueError('marker body pose readback absent/ambiguous')
+            ink_file = (out/'ink_samples.jsonl').open('w', buffering=1); files.append(ink_file)
+        stats = get_physxunittests_interface().get_physics_stats()
+        shapes = {'statistics': stats, 'palms': {}}
+        if whand.is_donor:
+            left_thumb = sim_view.create_rigid_body_view('/World/G1/left_thumb_2')
+            left_thumb_expected = facts['thumb_collision_candidates']['left']['expected_live_hulls']
+            shapes['left_thumb'] = {'live_shape_count':left_thumb.max_shapes, 'expected_shape_count':left_thumb_expected}
+            if left_thumb.count != 1 or left_thumb.max_shapes != left_thumb_expected:
+                raise ValueError('repaired left thumb live hull count differs from declared candidate')
+        for side in ('left', 'right'):
+            v = views[side+'_base_link']
+            expected = facts['collision_candidates'][side]['expected_palm_hulls_if_all_cooking_succeeds'] if whand.is_donor else v.max_shapes
+            shapes['palms'][side] = {'live_shape_count': v.max_shapes, 'expected_shape_count': expected, 'palm_body': whand.palm_body_link.replace('right_', side + '_', 1),
+                'contact_offsets_m': np.asarray(v.get_contact_offsets()).tolist(),
+                'rest_offsets_m': np.asarray(v.get_rest_offsets()).tolist(), 'declared_check': 'donor slab candidate hull count' if whand.is_donor else 'mesh colliders as delivered (recorded, no expectation)'}
+            if v.max_shapes != expected:
+                raise ValueError('live palm shape count differs from declared candidate')
+        if stats['numTriMeshShapes'] != 0:
+            raise ValueError('unexpected live triangle collision shapes')
+        (out/'backend_shapes.json').write_text(json.dumps(shapes, indent=2))
+        cameras = {}; camera_specs = {}; camera_ops = {}
+        presentation = cfg.get('presentation') or {}
+        for spec in presentation.get('cameras', DEFAULT_CAMERAS):
+            label = spec['label']; resolution = tuple(spec.get('resolution', [640, 640]))
+            camera = Camera('/World/'+label+'AirCamera', resolution=resolution)
+            camera.initialize(); camera.set_clipping_range(.01,10.)
+            if 'focal_length_mm' in spec:
+                camera.prim.GetAttribute('focalLength').Set(float(spec['focal_length_mm']))   # USD units: same as the prim default 24 (with aperture 20.955)
+            camera_x=UsdGeom.Xformable(camera.prim); camera_x.ClearXformOpOrder()
+            camera_ops[label] = camera_x.AddTransformOp()
+            if 'track' not in spec:
+                camera_ops[label].Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*spec['position_m']),Gf.Vec3d(*spec['look_at_m']),Gf.Vec3d(0,0,1)).GetInverse())
+            (out/'frames'/label).mkdir(parents=True)
+            cameras[label]=camera; camera_specs[label] = dict(spec, resolution=list(resolution))
+        metrics['presentation'] = {'cameras': camera_specs, 'ink_decals': bool(presentation.get('ink_decals', False)) and contact_mode,
+            'visual_overlay': overlay_audit,
+            'note': 'cameras are external render-only prims (static or following a live link pose read back at capture time); ink decals are render-only prims at actual PhysX nib-panel contact points; a visual overlay is a referenced set-dressing layer with every physics schema disabled under its root (audit above, live shape statistics in backend_shapes.json); none of them touches physics or the robot'}
+        ink_decal_points = []; ink_instancer = None
+        if metrics['presentation']['ink_decals']:
+            ink_instancer = UsdGeom.PointInstancer.Define(world.stage, '/World/InkDecals')
+            proto = UsdGeom.Sphere.Define(world.stage, '/World/InkDecals/Dot'); proto.CreateRadiusAttr(float(scene_cfg.holder.nib_radius_m))
+            proto.CreateDisplayColorAttr([Gf.Vec3f(.05, .05, .08)])
+            ink_instancer.CreatePrototypesRel().SetTargets([proto.GetPath()]); ink_instancer.CreateProtoIndicesAttr([]); ink_instancer.CreatePositionsAttr([])
+        def place_tracking_cameras():
+            for label, spec in camera_specs.items():
+                if 'track' not in spec:
+                    continue
+                target = spec['track']
+                if target in ('nib', 'holder'):
+                    pose = np.asarray(marker_views[target].get_transforms())[0].astype(float)
+                else:
+                    pose = np.asarray(views[target].get_transforms())[0].astype(float)
+                eye = pose[:3] + np.asarray(spec['offset_m'], dtype=float)
+                camera_ops[label].Set(Gf.Matrix4d().SetLookAt(Gf.Vec3d(*eye.tolist()), Gf.Vec3d(*pose[:3].tolist()), Gf.Vec3d(0,0,1)).GetInverse())
+        # Allocate the annotators before starting the independently timed ROS
+        # writer. Render warm-up must not advance the measured physics clock.
+        camera_warmup_time = float(world.current_time)
+        for _ in range(8):
+            world.render()
+        if float(world.current_time) != camera_warmup_time:
+            raise ValueError('camera initialization advanced physics unexpectedly')
+        frame_file = (out/'frames.jsonl').open('w', buffering=1); files.append(frame_file)
+        state_file = (out/'state.jsonl').open('w', buffering=1); files.append(state_file)
+        bridge = WriterProcessBridge(private_profile_path, out/'writer_bridge',
+            dependency_path=cfg['private_dependency_path'], approved_fixture=True,
+            letter_height_m=cfg['letter_height_m'], state_provenance='physx_measured_joint_effort')
+        bounds = {n: JointBound(limits[n]['lower'], limits[n]['upper'], limits[n]['velocity'], 200., 5., limits[n]['effort']) for n in body_names}
+        wall_age = float(cfg.get('maximum_wall_age_s', .1))
+        metrics['freshness'] = {'physics_sample_ttl_s': .1, 'declared_maximum_wall_age_s': wall_age,
+            'scope': 'wall bound covers packet arrival in a non-real-time simulator; physics staleness bound unchanged'}
+        if implicit_backend:
+            arbiter = NamedBodyDriveArbiter(body_indices=indices, bounds=bounds,
+                simulator_id=task_profile.simulator_id, run_id=task_profile.run_id, mode='hybrid',
+                controller_id='fixed_pelvis_home_fixture', simulation_authorized=True,
+                explicit_efforts_disabled=True, source_caps_verified=True, maximum_wall_age_s=wall_age)
+        else:
+            arbiter = NamedBodyArbiter(body_indices=indices, bounds=bounds,
+                simulator_id=task_profile.simulator_id, run_id=task_profile.run_id, mode='hybrid',
+                controller_id='fixed_pelvis_home_fixture', simulation_authorized=True, implicit_drives_disabled=True,
+                maximum_wall_age_s=wall_age)
+        step_wall_seconds = []; previous_observed_wall = None
+        explicit_body_effort_observed = 0
+        base = {n: {'q': cfg['body_home_rad'][n], 'dq': 0., 'kp': cfg['kp_nm_rad'][n],
+                    'kd': cfg['kd_nm_s_rad'][n], 'tau': cfg['tau_ff_nm'][n]} for n in body_names}
+        metrics.update(runtime_names=names, source_mass_kg=facts['source_physical_mass_kg'],
+            steps=0, effective_body_writes=0, returned_references=0)
+        maximum_error = maximum_rotation = maximum_coupling = maximum_waist = 0.
+        workflow = None
+        next_step_wall = time.monotonic()
+        for sample_number in range(cfg['maximum_steps']):
+            if time.monotonic()-started > cfg['maximum_wall_s']:
+                raise TimeoutError('admitted experiment wall-time exceeded')
+            wait = next_step_wall-time.monotonic()
+            if wait > 0:
+                time.sleep(wait)
+            next_step_wall = max(next_step_wall+.005, time.monotonic())
+            if sample_number and not world.is_playing():
+                arbiter.check_freshness(time.monotonic())
+                raise RuntimeError('physics pause requires stopping this admitted run')
+            if contact_mode:
+                # Grasp-bench closure: smoothstep from the authored preload pose to the closed targets.
+                ramp = min(1., max(0., float(world.current_time)/closing_ramp_s)); ramp = ramp*ramp*(3.-2.*ramp)
+                hand_targets[:] = right_open + ramp*(right_closed-right_open)
+            robot.apply_action(ArticulationAction(joint_positions=hand_targets, joint_indices=hand_ids))
+            if contact_mode and support_active and float(world.current_time) >= support_seconds:
+                world.stage.RemovePrim(support_path)
+                if world.stage.GetPrimAtPath(support_path).IsValid():
+                    raise RuntimeError('Preload support joint was not removed')
+                support_active = False
+                metrics['preload_support_release'] = {'sequence': sample_number, 'physics_s_before_step': float(world.current_time)}
+            step_contacts.clear()
+            world.step(render=False)
+            q = np.ravel(robot.get_joint_positions()).astype(float).tolist()
+            dq = np.ravel(robot.get_joint_velocities()).astype(float).tolist()
+            effort = np.ravel(robot.get_measured_joint_efforts()).astype(float).tolist()
+            poses = {n: np.asarray(v.get_transforms())[0].astype(float).tolist() for n, v in views.items()}
+            observed_wall = time.monotonic(); sim_time = float(world.current_time)
+            if previous_observed_wall is not None:
+                step_wall_seconds.append(observed_wall - previous_observed_wall)
+            previous_observed_wall = observed_wall
+            # Raw readback is retained before any aborting physical guard.
+            record = {'sequence': sample_number, 'physics_s': sim_time, 'source_monotonic_s': observed_wall,
+                'runtime_names': names, 'q_rad': q, 'dq_rad_s': dq, 'measured_generalized_effort_nm': effort,
+                'link_poses_world_xyzw': poses, 'workflow': workflow,
+                'phase':workflow['stage'] if workflow is not None else 'initial_measured_state'}
+            state_file.write(json.dumps(record, allow_nan=True)+'\n')
+            metrics['steps'] += 1
+            if contact_mode:
+                mp = {k: np.asarray(v.get_transforms())[0].astype(float).tolist() for k, v in marker_views.items()}
+                holder_pos, holder_rot = tuple(mp['holder'][:3]), (mp['holder'][6], *mp['holder'][3:6])
+                nib_pos, nib_rot = tuple(mp['nib'][:3]), (mp['nib'][6], *mp['nib'][3:6])
+                tip_world = tuple(a+b for a, b in zip(nib_pos, rotate(nib_rot, (0., 0., -scene_cfg.holder.nib_radius_m))))
+                geometric_q = compression_from_poses(holder_pos, holder_rot, nib_pos, scene_cfg.holder)
+                observation = reduce_tip_contacts(list(step_contacts), tip_collider=marker['tip_collider'], board_collider=marker['board_collider'],
+                                                  frame=board_frame, nib_position_world=tip_world, dt_s=.005)
+                # Job sample actually streamed (writer progress index), used only to label pen_down/stroke.
+                progress = getattr(bridge, '_progress', None) or {}
+                idx = progress.get('job_index'); job_state = progress.get('job_state')
+                if job_path is None and workflow is not None and workflow.get('approved_sha256'):
+                    reviewed = out/'writer_bridge'/('approved_job_'+workflow['approved_sha256']+'.json')
+                    if reviewed.is_file():
+                        job_path = json.loads(reviewed.read_text())['content']['path']
+                        # Intended strokes (planned tip, pelvis -> board u,v) and the synchronized reference of every
+                        # pen-down path sample: vertex j of its stroke polyline.
+                        origin = np.asarray(board_def['origin_xyz_m']); groups = {}; path_refs = {}
+                        for k, pt in enumerate(job_path):
+                            if pt.get('pen_down'):
+                                key = '%s_%d_%d' % (pt.get('char', '?'), pt.get('char_index', -1), pt.get('stroke_index', -1))
+                                d = np.asarray(pt['tip']) - origin; pt_uv = (float(d @ board_u), float(d @ board_v))
+                                pts = groups.setdefault(key, [])
+                                if not pts or pts[-1][0] != pt_uv:
+                                    pts.append((pt_uv, k))
+                                path_refs[k] = (key, len(pts)-1)
+                        strokes = []; stroke_len = {}
+                        for key, pts in groups.items():
+                            if len(pts) >= 2:
+                                strokes.append(IntendedStroke(key, tuple(q_ for q_, _ in pts))); stroke_len[key] = len(pts)
+                        for k, (key, j) in list(path_refs.items()):
+                            n_ = stroke_len.get(key)
+                            path_refs[k] = None if n_ is None else (key, (j if j < n_-1 else n_-2), (0. if j < n_-1 else 1.))
+                        metrics['intended_strokes'] = {s_.stroke_id: [list(q_) for q_ in s_.points_board_m] for s_ in strokes}
+                sample_ref = None; ref = None
+                if job_path and job_state == 'running' and isinstance(idx, int):
+                    k_ = max(0, min(len(job_path)-1, int(idx)-1)); sample_ref = job_path[k_]; ref = path_refs.get(k_)
+                pen_down = bool(sample_ref['pen_down']) and ref is not None if sample_ref else False
+                stroke_id, segment_index, reference_fraction = (ref if pen_down else (None, None, None))
+                # Hand-relative holder drift (tip and axis) as in the retention bench.
+                hand_contacts = [c for c in step_contacts if any(a.startswith('/World/G1/right_') for a in (c['actor0'], c['actor1'])) and any(a.startswith('/World/Marker') for a in (c['actor0'], c['actor1'])) and sum(v*v for v in c['impulse_ns']) > 1e-20]
+                board_contacts = [c for c in step_contacts if any(a.startswith('/World/Whiteboard') for a in (c['actor0'], c['actor1']))]
+                nonnib_board = [c for c in board_contacts if {c['collider0'], c['collider1']} != {marker['tip_collider'], marker['board_collider']}]
+                if ink_instancer is not None:
+                    for c in board_contacts:
+                        if {c['collider0'], c['collider1']} == {marker['tip_collider'], marker['board_collider']} and len(ink_decal_points) < 20000:
+                            # actual PhysX contact point, lifted 0.3 mm off the face along the FIXTURE board normal (render only)
+                            ink_decal_points.append((np.asarray(c['position_world_m'], dtype=float) + .0003 * board_n).tolist())
+                sample = ContactSample(physics_sequence=sample_number, physics_time_s=sim_time, physics_dt_s=.005,
+                    nib_position_board_m=observation['position_board_m'], nib_board_contact=observation['nib_board_contact'],
+                    pen_down=pen_down, spring_compression_m=max(0., geometric_q), stroke_id=stroke_id,
+                    segment_index=segment_index, reference_fraction=reference_fraction,
+                    normal_impulse_ns=observation['normal_impulse_ns'], normal_force_n=observation['normal_force_n'],
+                    attachment_active=False, fixture_support_active=support_active,
+                    holder_bottomed_out=geometric_q >= scene_cfg.holder.slider_travel_m-scene_cfg.holder.bottomout_margin_m)
+                ink_samples.append(sample)
+                ink_row = {'sequence': sample_number, 'physics_s': sim_time, 'phase': record['phase'], 'job_state': job_state, 'job_index': idx,
+                    'pen_down': pen_down, 'stroke_id': stroke_id, 'nib_board_contact': observation['nib_board_contact'],
+                    'normal_force_n': observation['normal_force_n'], 'position_board_m': list(observation['position_board_m']),
+                    'position_source': observation['position_source'], 'tip_world_m': list(tip_world), 'spring_compression_m': geometric_q,
+                    'holder_hand_contact': bool(hand_contacts), 'hand_contact_links': sorted({Path(a).name for c in hand_contacts for a in (c['actor0'], c['actor1']) if a.startswith('/World/G1/')}),
+                    'support_active': support_active, 'holder_pose_world_xyzw': mp['holder'], 'nonnib_board_contact': bool(nonnib_board),
+                    'other_board_contact_actors': sorted({a for c in nonnib_board for a in (c['actor0'], c['actor1']) if not a.startswith('/World/Whiteboard')})}
+                ink_rows.append(ink_row); ink_file.write(json.dumps(ink_row, allow_nan=False)+'\n')
+            if collision_faults:
+                metrics['material_nonadjacent_collision_faults'] = collision_faults[:100]
+                raise ValueError('material nonadjacent self-collision before body write: penetration>1mm or impulse>0.025Ns')
+            checks = observed_checks(names, q, dq, effort, limits, facts['mimic_map'], operational_observer, sample_number, float(world.current_time))
+            maximum_coupling = max(maximum_coupling, max(map(abs, checks['coupling_error_rad'].values()), default=0.))
+            pelvis = pose_matrix(poses['pelvis'])
+            pelvis_rotation = np.eye(4)
+            pelvis_rotation[:3, :3] = pelvis[:3, :3]
+            if np.linalg.norm(pelvis[:3, 3]-[0., 0., 1.]) > .0001 or frame_error(np.eye(4), pelvis_rotation)['rotation_rad'] > 1e-4:
+                raise ValueError('fixed pelvis moved from declared level pose')
+            if sample_number == 0 or sample_number % 20 == 0:
+                source_fk = kinematics.transforms(dict(zip(names, q)), pelvis)
+                errors = {n: frame_error(source_fk[n], pose_matrix(poses[n])) for n in views if n != 'pelvis'}
+                maximum_error = max(maximum_error, max(v['translation_m'] for v in errors.values()))
+                maximum_rotation = max(maximum_rotation, max(v['rotation_rad'] for v in errors.values()))
+                with (out/'source_fk_checks.jsonl').open('a') as stream:
+                    stream.write(json.dumps({'sequence': sample_number, 'physics_s': sim_time, 'errors': errors})+'\n')
+                if maximum_error > .0002 or maximum_rotation > math.radians(.2):
+                    raise ValueError('actual/source FK exceeds .2mm/.2deg budget before body write')
+            position = {n: q[indices[n]] for n in body_names}
+            velocity = {n: dq[indices[n]] for n in body_names}
+            measured = {n: effort[indices[n]] for n in body_names}
+            waist = sum(abs(position[n]-v) for n, v in task_profile.fixed_waist_rad.items())
+            maximum_waist = max(maximum_waist, waist)
+            metrics.update(max_source_fk_position_error_m=maximum_error, max_source_fk_rotation_error_rad=maximum_rotation,
+                coupling_error_max_rad=maximum_coupling, fixed_waist_l1_error_max_rad=maximum_waist,
+                actual_contact_points=contact_count, workflow=workflow)
+            rotation = pelvis[:3, :3]
+            rpy = [math.atan2(rotation[2,1],rotation[2,2]), math.asin(max(-1.,min(1.,-rotation[2,0]))), math.atan2(rotation[1,0],rotation[0,0])]
+            bridge.publish_state(sequence=sample_number, sim_time_s=sim_time, position=position, velocity=velocity,
+                measured_effort=measured, imu_rpy_rad=rpy,
+                pelvis_pose_world={'position_m':poses['pelvis'][:3], 'orientation_qwxyz':[poses['pelvis'][6]]+poses['pelvis'][3:6]},
+                physics_dt_s=.005, source_monotonic_time_s=observed_wall)
+            arbiter.observe_physics(sequence=sample_number, sim_time_s=sim_time, source_monotonic_s=observed_wall,
+                position=position, velocity=velocity, now_monotonic_s=time.monotonic())
+            references = bridge.spin_and_get_reference()
+            for reference in references:
+                arbiter.accept_upper_reference(reference, now_monotonic_s=time.monotonic())
+            metrics['returned_references'] += len(references)
+            workflow = bridge.workflowadvance(mode=cfg['workflow_mode'], text=cfg.get('job_text', 'I'))
+            if workflow['finished']:
+                break
+            if implicit_backend:
+                drive = arbiter.compose_drives(base, controller_id='fixed_pelvis_home_fixture', physics_sequence=sample_number, now_monotonic_s=time.monotonic())
+                drive_ids = np.asarray(drive.articulation_indices, dtype=np.int32)
+                new_kp, new_kd = kp.copy(), kd.copy()
+                new_kp[drive_ids] = drive.stiffness_nm_rad; new_kd[drive_ids] = drive.damping_nm_s_rad
+                if not np.array_equal(new_kp, kp) or not np.array_equal(new_kd, kd):
+                    robot._articulation_view.set_gains(new_kp, new_kd); kp, kd = new_kp, new_kd; gain_writes += 1
+                    readback = robot.get_articulation_controller().get_gains()
+                    if not np.array_equal(np.ravel(readback[0]), kp) or not np.array_equal(np.ravel(readback[1]), kd):
+                        raise ValueError('blended implicit gain readback differs from the composed drive')
+                targets = np.asarray(drive.target_position_rad, dtype=np.float32)
+                target_velocities = np.asarray(drive.target_velocity_rad_s, dtype=np.float32)
+                # Exactly ONE implicit named29 body target write for this sample; zero explicit body effort.
+                robot.apply_action(ArticulationAction(joint_positions=targets, joint_velocities=target_velocities, joint_indices=drive_ids))
+                tensor = robot._articulation_view._physics_view
+                target_readback = np.asarray(tensor.get_dof_position_targets()).reshape(-1)
+                live_efforts = np.asarray(tensor.get_dof_actuation_forces()).reshape(-1)
+                if target_readback.shape != (53,) or not np.array_equal(target_readback[drive_ids], targets):
+                    raise ValueError('implicit target readback differs from the composed drive')
+                if np.any(live_efforts[body_ids] != 0.):
+                    explicit_body_effort_observed += 1
+                metrics['effective_body_writes'] += 1
+                bridge.record_effective_command(physics_sequence=sample_number, sim_time_s=sim_time,
+                    final_owner=drive.final_writer,
+                    joints={n:{'implicit_target_rad':float(t), 'implicit_target_velocity_rad_s':float(v), 'kp_nm_rad':float(k), 'kd_nm_s_rad':float(d),
+                               'feedforward_bias_rad':float(b), 'current_pd_estimate_nm':float(e)}
+                            for n,t,v,k,d,b,e in zip(drive.joint_names,targets,target_velocities,drive.stiffness_nm_rad,drive.damping_nm_s_rad,
+                                                     drive.feedforward_target_bias_rad,drive.current_pd_estimate_nm)},
+                    metadata={'applied_to_physics': True, 'applies_to_next_physics_step': True,
+                              'actuation_semantics': drive.actuation_semantics,
+                              'explicit_body_effort_written': False, 'source_effort_caps_nm': list(drive.source_effort_caps_nm),
+                              'reference_owners': list(drive.reference_owners), 'implicit_body_gains': 'declared_kp_kd_in_capped_drive',
+                              'gain_writes_so_far': gain_writes})
+            else:
+                effective = arbiter.compose(base, controller_id='fixed_pelvis_home_fixture', physics_sequence=sample_number, now_monotonic_s=time.monotonic())
+                # Exactly ONE explicit named29 body effort write for this sample.
+                applied_efforts = np.asarray(effective.effort_nm, dtype=np.float32)
+                robot.apply_action(ArticulationAction(joint_efforts=applied_efforts,
+                    joint_indices=np.asarray(effective.articulation_indices, dtype=np.int32)))
+                metrics['effective_body_writes'] += 1
+                bridge.record_effective_command(physics_sequence=sample_number, sim_time_s=sim_time,
+                    final_owner=effective.final_writer, joints={n:{'effort_nm':float(v)} for n,v in zip(effective.joint_names,applied_efforts)},
+                    metadata={'applied_to_physics': True, 'applies_to_next_physics_step': True,
+                              'arbiter_pre_float32_effort_nm': list(effective.effort_nm),
+                              'reference_owners': list(effective.reference_owners), 'implicit_body_gains': 'verified_zero'})
+            if (sample_number+1) % 20 == 0:
+                # Same held-physics capture interval as the balance probe: the
+                # first frame follows 20 controlled steps, never the first 5ms.
+                capture_time = float(world.current_time)
+                if any('track' in spec for spec in camera_specs.values()):
+                    place_tracking_cameras()
+                if ink_instancer is not None and ink_decal_points:
+                    ink_instancer.GetPositionsAttr().Set([Gf.Vec3f(*pt) for pt in ink_decal_points]); ink_instancer.GetProtoIndicesAttr().Set([0]*len(ink_decal_points))
+                world.render()
+                frame = (sample_number+1)//20-1
+                frame_views = {}
+                for label, camera in cameras.items():
+                    shape = (camera_specs[label]['resolution'][1], camera_specs[label]['resolution'][0], 4)
+                    pixels = camera.get_rgba(); extra_renders = 0
+                    while (pixels is None or pixels.shape != shape) and extra_renders < 3:
+                        world.render(); extra_renders += 1; pixels = camera.get_rgba()
+                    if float(world.current_time) != capture_time:
+                        raise ValueError('camera capture advanced physics')
+                    metrics['camera_extra_held_renders'] = max(metrics.get('camera_extra_held_renders', 0), extra_renders)
+                    if pixels is None or pixels.shape != shape:
+                        raise ValueError('actual camera frame absent after bounded held renders: '+label)
+                    filename='frames/%s/%06d.png'%(label,frame)
+                    Image.fromarray(pixels.astype(np.uint8)).save(out/filename)
+                    frame_views[label]=filename
+                frame_file.write(json.dumps({'frame':frame, 'sequence':sample_number, 'physics_s':sim_time,
+                    'phase':record['phase'], 'captured_after_same_step_render':True, 'views':frame_views, 'ink_decal_points':len(ink_decal_points)})+'\n')
+            metrics.update(max_source_fk_position_error_m=maximum_error, max_source_fk_rotation_error_rad=maximum_rotation,
+                coupling_error_max_rad=maximum_coupling, fixed_waist_l1_error_max_rad=maximum_waist,
+                actual_contact_points=contact_count, workflow=workflow)
+        else:
+            raise TimeoutError('admitted maximum steps ended before actual workflow completion')
+        metrics['workflow'] = workflow
+        if step_wall_seconds:
+            ordered = sorted(step_wall_seconds)
+            metrics['real_time'] = {'steps': len(ordered), 'physics_dt_s': .005,
+                'wall_per_step_s_median': ordered[len(ordered)//2], 'wall_per_step_s_p95': ordered[min(len(ordered)-1, int(.95*len(ordered)))],
+                'wall_per_step_s_max': ordered[-1], 'real_time_factor_median': .005/ordered[len(ordered)//2]}
+        final_gains = robot.get_articulation_controller().get_gains()
+        final_caps = np.ravel(robot._articulation_view.get_max_efforts()).astype(float)
+        metrics['actuation_receipt'] = {'backend': metrics['actuation_backend'], 'gain_writes': gain_writes,
+            'explicit_body_effort_samples': explicit_body_effort_observed,
+            'final_kp': np.ravel(final_gains[0]).tolist(), 'final_kd': np.ravel(final_gains[1]).tolist(),
+            'final_max_efforts': final_caps.tolist(),
+            'final_gains_match_last_composed': bool(np.array_equal(np.ravel(final_gains[0]), kp) and np.array_equal(np.ravel(final_gains[1]), kd)),
+            'source_caps_unchanged': bool(np.array_equal(final_caps, live_caps))}
+        if operational_observer is not None:
+            metrics['observer'].update(operational_observer.summary); metrics['observer']['note'] = 'SIM-only guard (owner decision A, Sprint O): sampled-interval velocity at 1x field, mimic children at |multiplier| x parent field, persist 2; legacy reported-velocity guard scored in legacy_shadow, never acting'
+        metrics['checks'] = {'actual_workflow_finished': bool(workflow and workflow['finished']),
+            'body_writes_observed': metrics['effective_body_writes'] > 0,
+            'actual_writer_references_observed': metrics['returned_references'] > 0,
+            'live_inertia_preserved': all(inertia['checks'].values()),
+            'body_actuation_ownership_verified': (explicit_body_effort_observed == 0 and metrics['actuation_receipt']['final_gains_match_last_composed']
+                                                  and metrics['actuation_receipt']['source_caps_unchanged']) if implicit_backend else True,
+            'actual_source_fk_within_budget': maximum_error <= .0002,
+            'hand_coupling_within_budget': maximum_coupling <= .03,
+            'full_job_complete': bool(workflow and workflow['full_job_completion']) if cfg['workflow_mode']=='complete' else True}
+        if implicit_backend:
+            metrics['checks']['implicit_body_gains_match_declared'] = bool(gain_receipt['kp'][indices[n]] == cfg['kp_nm_rad'][n]
+                and gain_receipt['kd'][indices[n]] == cfg['kd_nm_s_rad'][n] for n in body_names)
+        else:
+            metrics['checks']['implicit_body_gains_zero'] = True
+        if contact_mode:
+            # Intended strokes from the APPROVED job (planned tip in pelvis frame -> board u,v); ink from actual
+            # nib/board contacts only (MarkingRule unchanged: p95 3 mm, max 10 mm, coverage 95 %).
+            rule = MarkingRule(spring_travel_m=scene_cfg.holder.slider_travel_m, maximum_sample_interval_s=.005*1.1)
+            ink = None
+            # Scored window: after the declared preload support is gone (the support precedes the job; a
+            # supported sample would be disqualifying under the unchanged rule, so it is excluded and counted).
+            scored = tuple(s_ for s_ in ink_samples if not s_.fixture_support_active)
+            if strokes and scored:
+                try:
+                    ink = evaluate_ink(tuple(strokes), scored, rule)
+                    (out/'contact_ink.json').write_text(json.dumps(ink, indent=2, allow_nan=False, default=str))
+                    export_svg(ink, out/'contact_ink.svg'); export_csv(ink_samples, out/'contact_samples.csv')
+                except Exception as error:
+                    ink = {'error': repr(error)}
+            contact_rows = [r for r in ink_rows if r['nib_board_contact']]
+            metrics['contact_writing'] = {'intended_strokes': [s_.stroke_id for s_ in strokes], 'ink_samples': len(ink_samples),
+                'nib_board_contact_samples': len(contact_rows), 'pen_down_samples': sum(1 for r in ink_rows if r['pen_down']),
+                'pen_down_with_contact': sum(1 for r in ink_rows if r['pen_down'] and r['nib_board_contact']),
+                'contact_without_pen_down': sum(1 for r in contact_rows if not r['pen_down']),
+                'max_normal_force_n': max((r['normal_force_n'] for r in contact_rows), default=0.),
+                'max_spring_compression_m': max((r['spring_compression_m'] for r in ink_rows), default=0.),
+                'holder_hand_contact_fraction': (sum(1 for r in ink_rows if r['holder_hand_contact'])/len(ink_rows)) if ink_rows else 0.,
+                'nonnib_board_contact_samples': sum(1 for r in ink_rows if r['nonnib_board_contact']),
+                'support_release': metrics.get('preload_support_release'), 'support_samples_excluded_from_ink_scoring': len(ink_samples)-len(scored),
+                'nib_board_contact_while_supported': sum(1 for r in ink_rows if r['support_active'] and r['nib_board_contact']), 'evaluation': ink}
+            passed = bool(ink and isinstance(ink, dict) and ink.get('accepted') is True and ink.get('valid') is True)
+            metrics['checks'].update({
+                'held_marker_never_lost': bool(ink_rows) and all(r['holder_hand_contact'] for r in ink_rows if not r['support_active'] and r['job_state'] in ('running', 'done')),
+                'actual_nib_board_contact_during_pen_down': metrics['contact_writing']['pen_down_with_contact'] > 0,
+                'no_nonnib_board_contact': metrics['contact_writing']['nonnib_board_contact_samples'] == 0,
+                'contact_ink_gate_p95_3mm_max_10mm_coverage_95': passed})
+            metrics['writing_qualification'] = 'FIXED_BASE_PROVISIONAL_PASS' if passed else 'NOT_QUALIFIED'
+            metrics['media_labels']['qualification'] = ('CONTACT INK GATE PASS (fixed pelvis, provisional asset)' if passed else
+                'CONTACT INK GATE FAIL (fixed pelvis, provisional asset)') + '; text %s at %.0f mm' % (cfg.get('job_text', 'I'), cfg['letter_height_m']*1000)
+        metrics['status'] = 'PASS' if all(metrics['checks'].values()) else 'FAIL'
+    except BaseException:
+        metrics['error'] = traceback.format_exc()
+        print(metrics['error'], flush=True)
+    finally:
+        cleanup_errors = []
+        try:
+            (out/'metrics.json').write_text(json.dumps(dict(metrics,status='FAIL',evaluation_status=metrics['status'],
+                cleanup_complete=False,wall_seconds=time.monotonic()-started),indent=2,allow_nan=False))
+            (out/'probe.json').write_text(json.dumps({'status':'FAIL','scope':metrics['scope'],
+                'metrics':'metrics.json','reason':'cleanup_completion_pending','artifacts':['metrics.json']}))
+        except BaseException as error:
+            cleanup_errors.append('initial shutdown receipt: '+repr(error))
+        # Dropping the carb.Subscription unsubscribes before physics shutdown;
+        # no contact callback can race a subsequently closed output stream.
+        subscription = None
+        physics_stopped = world is None
+        if world is not None:
+            try:
+                world.stop(); physics_stopped = True
+            except BaseException as error:
+                cleanup_errors.append('world.stop: '+repr(error))
+                if app is not None:
+                    try:
+                        app.close(); app = None; physics_stopped = True
+                    except BaseException as close_error:
+                        cleanup_errors.append('early app.close: '+repr(close_error))
+        if bridge is not None:
+            try:
+                if not physics_stopped:
+                    raise RuntimeError('physics stop could not be established; refusing false shutdown receipt')
+                metrics['bridge_shutdown'] = bridge.shutdown_receipt(physics_stopped=True)
+                if metrics['bridge_shutdown']['status'] != 'STOPPED':
+                    cleanup_errors.append('writer bridge shutdown did not return STOPPED')
+            except BaseException as error:
+                cleanup_errors.append('bridge shutdown: '+repr(error))
+                if bridge.process is not None and bridge.process.poll() is None:
+                    try:
+                        bridge.process.terminate(); bridge.process.wait(timeout=12.)
+                    except BaseException as process_error:
+                        cleanup_errors.append('owned writer process termination: '+repr(process_error))
+        for stream in files:
+            try:
+                stream.close()
+            except BaseException as error:
+                cleanup_errors.append('output close: '+repr(error))
+        # Persist an explicitly incomplete receipt before Kit tears down its
+        # framework. A process exit during close cannot leave a raw PASS.
+        pending = dict(metrics, status='FAIL', evaluation_status=metrics['status'],
+                       cleanup_complete=False, cleanup_errors=cleanup_errors,
+                       wall_seconds=time.monotonic()-started)
+        try:
+            (out/'metrics.json').write_text(json.dumps(pending, indent=2, allow_nan=False))
+            (out/'probe.json').write_text(json.dumps({'status':'FAIL','scope':metrics['scope'],
+                'metrics':'metrics.json','reason':'cleanup_completion_pending','artifacts':['metrics.json']}))
+        except BaseException as error:
+            cleanup_errors.append('pending receipt write: '+repr(error))
+        if app is not None:
+            try:
+                app.close()
+            except BaseException as error:
+                cleanup_errors.append('app.close: '+repr(error))
+        metrics['cleanup_errors'] = cleanup_errors
+        metrics['cleanup_complete'] = True
+        if cleanup_errors:
+            metrics['status'] = 'FAIL'
+        metrics['wall_seconds'] = time.monotonic()-started
+        (out/'metrics.json').write_text(json.dumps(metrics, indent=2, allow_nan=False))
+        candidates = [p for p in out.rglob('*') if p.is_file() and p.name not in
+                      ['run.json','probe.json','console.log','executed_probe.py','executed_launcher.py','uncommitted.patch']]
+        # Zero-byte logs (e.g. a silent child console) are listed separately, not
+        # hidden: the launcher hashes and requires every listed artifact to be non-empty.
+        artifacts = [str(p.relative_to(out)) for p in candidates if p.stat().st_size > 0]
+        empty = [str(p.relative_to(out)) for p in candidates if p.stat().st_size == 0]
+        (out/'probe.json').write_text(json.dumps({'status':metrics['status'], 'scope':metrics['scope'],
+            'metrics':'metrics.json', 'artifacts':artifacts, 'empty_artifacts':empty}))
+    return 0 if metrics['status']=='PASS' else 1
+
+
+if __name__ == '__main__':
+    code = main()
+    # Every receipt and stream is complete and flushed above. The pinned Isaac
+    # 5.1 + ROS2 bridge interpreter teardown segfaults during garbage collection
+    # after app.close() (writer03..15 console logs), which would turn a complete
+    # receipt into a nonzero container exit; skip interpreter teardown.
+    sys.stdout.flush(); sys.stderr.flush()
+    os._exit(code)

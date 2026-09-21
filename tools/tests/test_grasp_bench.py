@@ -41,3 +41,17 @@ class BenchTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class WriterHandTests(unittest.TestCase):
+    def test_donor_default_identity(self):
+        from inspire_grasp_bench import WriterHand
+        w = WriterHand.from_config({}); cfg = GraspConfig()
+        self.assertTrue(w.is_donor); self.assertEqual(w.map_targets(cfg.initial_targets()), cfg.initial_targets()); self.assertEqual(w.facts()['mapping'], 'identity')
+
+    def test_e2_block(self):
+        from inspire_grasp_bench import WriterHand
+        X2 = ((0., 1., 0., 0.), (1., 0., 0., 0.), (0., 0., -1., 0.), (0., 0., 0., 1.))
+        w = WriterHand.from_config({'hand': {'source_urdf': 'g1_29dof_rev_1_0_with_inspire_hand_E2.urdf', 'importer': 'e2', 'palm_body_link': 'right_hand_base_link', 'donor_palm_in_palm_body': X2, 'axis_joints': E2['axis_joints'], 'axis_upper_rad': E2['axis_upper_rad']}})
+        self.assertFalse(w.is_donor); m = w.map_targets(GraspConfig(thumb_yaw_initial_rad=1.1641).initial_targets()); self.assertAlmostEqual(m['right_thumb_proximal_yaw_joint'], 1.658, places=9)
+        with self.assertRaises(ValueError): WriterHand.from_config({'hand': {'importer': 'x'}})

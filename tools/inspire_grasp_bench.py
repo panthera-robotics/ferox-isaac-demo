@@ -71,3 +71,43 @@ class HandBench:
         return {'source_urdf': self.source_urdf, 'root_link': self.root_link, 'mount_rpy': self.mount_rpy, 'axis_joints': dict(self.axis_joints), 'axis_upper_rad': dict(self.axis_upper_rad),
                 'donor_upper_rad': dict(DONOR_UPPER), 'palm_collision': self.palm_collision, 'label': self.label, 'is_donor': self.is_donor,
                 'mapping': 'identity' if self.is_donor else 'closure-preserving: q_bench = (q_donor / donor_upper) * bench_upper per axis; names renamed; increments/releases scaled likewise'}
+
+
+@dataclass(frozen=True)
+class WriterHand:
+    """Assembled-body hand binding for the writer probe (R9). Defaults = the frozen donor (byte-identical path)."""
+    source_urdf: str = 'g1_29dof_rev_1_0_with_inspire_hand_FTP.urdf'
+    importer: str = 'donor'                       # donor (inspire_body_asset.import_body + slab candidates) | e2 (inspire_e2_asset.import_body_e2, meshes as delivered)
+    palm_body_link: str = 'right_base_link'       # the rigid body carrying the palm (E2: right_hand_base_link)
+    donor_palm_in_palm_body: tuple = ((1., 0., 0., 0.), (0., 1., 0., 0.), (0., 0., 1., 0.), (0., 0., 0., 1.))   # T(palm body -> donor palm frame); identity on the donor
+    axis_joints: dict = field(default_factory=lambda: dict(DONOR_JOINTS))
+    axis_upper_rad: dict = field(default_factory=lambda: dict(DONOR_UPPER))
+    label: str = 'DONOR_BASELINE_FROZEN (provisional RH56DFTP donor assembly)'
+
+    def __post_init__(self):
+        if self.importer not in ('donor', 'e2'): raise ValueError('importer must be donor or e2')
+        if set(self.axis_joints) != set(AXES) or set(self.axis_upper_rad) != set(AXES): raise ValueError('hand block needs all six axes')
+        M = [[float(x) for x in row] for row in self.donor_palm_in_palm_body]
+        if len(M) != 4 or any(len(r) != 4 for r in M) or any(not math.isfinite(x) for r in M for x in r): raise ValueError('donor_palm_in_palm_body must be a finite 4x4')
+        object.__setattr__(self, 'donor_palm_in_palm_body', tuple(tuple(r) for r in M))
+
+    @classmethod
+    def from_config(cls, config_data):
+        return cls(**dict(config_data.get('hand') or {}))
+
+    @property
+    def is_donor(self):
+        return self.importer == 'donor' and self.axis_joints == DONOR_JOINTS and self.axis_upper_rad == DONOR_UPPER and self.palm_body_link == 'right_base_link'
+
+    def _axis(self, donor_name):
+        for a, n in DONOR_JOINTS.items():
+            if n == donor_name: return a
+        raise KeyError(donor_name)
+
+    def map_targets(self, donor_targets):
+        return {self.axis_joints[self._axis(n)]: float(q) * (float(self.axis_upper_rad[self._axis(n)]) / DONOR_UPPER[self._axis(n)]) for n, q in donor_targets.items()}   # ratio first: exact identity on the donor
+
+    def facts(self):
+        return {'source_urdf': self.source_urdf, 'importer': self.importer, 'palm_body_link': self.palm_body_link, 'donor_palm_in_palm_body': [list(r) for r in self.donor_palm_in_palm_body],
+                'axis_joints': dict(self.axis_joints), 'axis_upper_rad': dict(self.axis_upper_rad), 'donor_upper_rad': dict(DONOR_UPPER), 'label': self.label, 'is_donor': self.is_donor,
+                'mapping': 'identity' if self.is_donor else 'closure-preserving per axis; holder pose re-expressed through donor_palm_in_palm_body'}
