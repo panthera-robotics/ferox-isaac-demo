@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panthera G1 Manipulation Education</title>
+<style>
+:root{--bg:#07111d;--panel:#102138;--line:#27415e;--text:#eef7ff;--muted:#b8c7d8;--blue:#69d8ff;--green:#87efb7;--yellow:#ffe18b;--red:#ff9ca7;--purple:#cfbbff}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 18% 0,#173a63 0,#07111d 34%,#050b13 100%);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;line-height:1.58}a{color:#8ce2ff}.wrap{max-width:1180px;margin:auto;padding:0 22px 80px}nav{position:sticky;top:0;z-index:20;background:rgba(5,11,19,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}nav div{max-width:1180px;margin:auto;padding:10px 22px;display:flex;gap:6px;overflow:auto}nav a{white-space:nowrap;text-decoration:none;color:#c1d1e1;padding:7px 10px;border-radius:9px;font-size:13px}nav a:hover{background:#10263e;color:white}header{padding:60px 0 36px;border-bottom:1px solid var(--line)}.eyebrow{color:var(--blue);font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}h1{font-size:clamp(40px,7vw,74px);line-height:1;letter-spacing:-.045em;margin:10px 0 18px}header p,.lead{max-width:900px;color:#c6d5e4;font-size:18px}section{padding-top:46px}h2{font-size:31px;margin-bottom:6px}h3{margin:5px 0 8px}.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:15px;margin-top:20px}.card{grid-column:span 4;background:linear-gradient(180deg,#102138,#0b1726);border:1px solid var(--line);border-radius:18px;padding:18px}.w6{grid-column:span 6}.w12{grid-column:span 12}.card p,.card li{color:#bdccdc}.status{display:inline-block;padding:4px 9px;border-radius:999px;font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;border:1px solid}.ok{color:var(--green);border-color:#3a805b;background:#113225}.partial{color:var(--yellow);border-color:#806b30;background:#302811}.bad{color:var(--red);border-color:#86424b;background:#35191e}.info{color:#9de6ff;border-color:#397994;background:#102c3d}.next{color:var(--purple);border-color:#684f8b;background:#241c35}.metric{font-size:30px;font-weight:900}.kpi{display:flex;justify-content:space-between;gap:12px}.callout{margin:20px 0;padding:15px 17px;border-left:4px solid var(--blue);background:#0b1b2c;border-radius:0 13px 13px 0;color:#cbd9e8}.warn{border-left-color:var(--yellow)}table{width:100%;border-collapse:collapse;margin-top:18px;font-size:14px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid #233b57;padding:11px}th{background:#102035}.arch{display:grid;grid-template-columns:1fr 45px 1fr 45px 1fr;gap:8px;align-items:center;margin:20px 0}.box{background:#0c1a2b;border:1px solid #2b4664;border-radius:16px;padding:16px}.arrow{text-align:center;color:var(--blue);font-size:26px}.timeline{border-left:2px solid #365673;margin-top:22px;padding-left:26px}.event{position:relative;margin-bottom:24px}.event:before{content:"";position:absolute;left:-34px;top:7px;width:14px;height:14px;border-radius:50%;background:var(--blue)}.event p{color:#b9c9da;margin:3px 0}.flow{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-top:18px}.step{background:#0c1b2c;border:1px solid #29435e;border-radius:14px;padding:13px}.num{font-size:22px;font-weight:900;color:var(--blue)}details{margin:12px 0;padding:13px 15px;background:#0a1726;border:1px solid #263e59;border-radius:13px}summary{font-weight:800;cursor:pointer}.quiz{padding:14px;margin:13px 0;border-radius:13px;background:#0a1828;border:1px solid #27425f}.quiz button{margin-top:8px;padding:8px 11px;border:1px solid #385774;border-radius:9px;background:#10243a;color:white;cursor:pointer}.answer{display:none;color:#bfd0df;margin-top:10px}.glossary{columns:2}.term{break-inside:avoid;margin-bottom:14px}.term span{color:#afc0d0}footer{margin-top:60px;padding-top:28px;border-top:1px solid var(--line);color:#91a4b8;font-size:13px}@media(max-width:900px){.card,.w6{grid-column:span 12}.arch{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}.flow{grid-template-columns:1fr 1fr}.glossary{columns:1}}
+</style>
+</head>
+<body>
+<nav><div>
+<a href="#summary">Summary</a><a href="#architecture">Architecture</a><a href="#models">Models</a><a href="#body">Body</a><a href="#hands">Hands</a><a href="#manipulation">Manipulation</a><a href="#whiteboard">Whiteboard</a><a href="#groot">GR00T</a><a href="#sonic">SONIC</a><a href="#unifolm">UnifoLM</a><a href="#next">Next</a><a href="#links">Links</a><a href="#quiz">Quiz</a>
+</div></nav>
+<div class="wrap">
+<header>
+<div class="eyebrow">Panthera Robotics · Unitree G1 manipulation program</div>
+<h1>What we built.<br>Why we built it.<br>What works today.</h1>
+<p>A human-friendly guide to Panthera's G1 body policy, Inspire RH56E2 hands, scripted manipulation, whiteboard writing, GR00T, SONIC, UnifoLM, and the digital-twin migration.</p>
+</header>
+
+<section id="summary">
+<h2>Start here: current status</h2>
+<div class="grid">
+<div class="card"><div class="kpi"><div><span class="status ok">Working</span><h3>Body locomotion</h3></div><div class="metric">✓</div></div><p><b>ma2_7325</b> walks, strafes, performs moving turns and handles manipulation-like arm poses.</p></div>
+<div class="card"><div class="kpi"><div><span class="status ok">Working</span><h3>Scripted manipulation</h3></div><div class="metric">✓</div></div><p>Rod30 pick-lift-place and standing pick/place transferred to the E2 hand through a proper embodiment adapter.</p></div>
+<div class="card"><div class="kpi"><div><span class="status bad">Needs new grip</span><h3>Whiteboard</h3></div><div class="metric">↻</div></div><p>The donor hand wrote <b>G1 / OK</b>. The old marker grasp does not fit the E2 thumb geometry, so the grip must be redesigned.</p></div>
+<div class="card"><div class="kpi"><div><span class="status partial">Adaptation needed</span><h3>GR00T</h3></div><div class="metric">4/10</div></div><p>Learned manipulation is real but not reliable enough on E2. Final decision: <b>SHORT_ADAPTATION_REQUIRED</b>.</p></div>
+<div class="card"><div class="kpi"><div><span class="status info">Public prior</span><h3>RH56E2 twin</h3></div><div class="metric">r5</div></div><p>The E2 twin is physics-valid and much more realistic than the old donor, but it is not yet calibrated to Panthera's installed hands.</p></div>
+<div class="card"><div class="kpi"><div><span class="status next">Next blocker</span><h3>Real-hand calibration</h3></div><div class="metric">H0→H2</div></div><p>Measure mounting, endpoints, coupling, timing, force, tactile response, compliance and left/right differences.</p></div>
+</div>
+<div class="callout"><b>One-sentence summary:</b> the body and general manipulation architecture survived the donor→E2 migration; what failed was mostly donor-specific thumb/contact geometry.</div>
+</section>
+
+<section id="architecture">
+<h2>1. Architecture: not one giant model</h2>
+<div class="arch">
+<div class="box"><b>Task layer</b><br>Ferox / deterministic skills / future language planner</div><div class="arrow">→</div>
+<div class="box"><b>Manipulation layer</b><br>Scripted IK, GR00T, or another learned skill</div><div class="arrow">→</div>
+<div class="box"><b>Body layer</b><br>ma2_7325 today; SONIC is a separate whole-body route</div>
+</div>
+<div class="arch">
+<div class="box"><b>Hand adapter</b><br>Six semantic Inspire commands → embodiment-specific joint targets</div><div class="arrow">→</div>
+<div class="box"><b>Digital twin</b><br>Isaac Sim / Isaac Lab physics, contacts and robot geometry</div><div class="arrow">→</div>
+<div class="box"><b>Physical G1</b><br>29 body joints + two RH56E2 hands</div>
+</div>
+<details><summary>Why does this separation matter?</summary><p>Because replacing the hand should not mean throwing away the walking policy or the learned manipulation model. The E2 campaign proved that the body policy transfers independently of the hand.</p></details>
+</section>
+
+<section id="models">
+<h2>2. Models and controllers</h2>
+<div class="grid">
+<div class="card w6"><span class="status ok">Current body policy</span><h3>ma2_7325</h3><ul><li>RL locomotion policy.</li><li>Built from the earlier model_5000 walking checkpoint.</li><li>Trained with arm-forward/payload conditions.</li><li>Recovered lateral motion and moving turns under manipulation load.</li><li>Transferred directly from donor to E2.</li></ul><p><b>Why?</b> A good grasp is useless if raising the arm makes the robot drift or fall.</p></div>
+<div class="card w6"><span class="status partial">Learned manipulation</span><h3>NVIDIA GR00T N1.6</h3><ul><li>Vision-language-action model.</li><li>Images + robot state + task context in.</li><li>Future robot action chunks out.</li><li>Panthera proved fine-tuning, checkpoint loading, closed-loop inference and simulator execution.</li><li>Current E2 status: short adaptation required.</li></ul></div>
+<div class="card w6"><span class="status info">Separate motion lane</span><h3>GEAR-SONIC</h3><ul><li>Whole-body humanoid motion model.</li><li>Useful for reference tracking, expressive motion and teleoperation.</li><li>MuJoCo route was recovered.</li><li>Walk, dance, turns and squats ran.</li><li>Not the current Isaac body controller.</li></ul></div>
+<div class="card w6"><span class="status partial">Evaluated / parked</span><h3>Unitree UnifoLM-VLA-0</h3><ul><li>Checkpoint loaded.</li><li>Finite action chunks generated.</li><li>Closed-loop route ran.</li><li>No reliable grasp/lift in the bounded evaluation.</li></ul></div>
+<div class="card w6"><span class="status info">Embodiment</span><h3>RH56E2 r5 digital twin</h3><ul><li>Built from exact-model public description.</li><li>Uses E2 geometry/coupling instead of the old donor approximation.</li><li>Collision representation went through several physics fixes.</li><li>Still needs installed-hand measurements.</li></ul></div>
+<div class="card w6"><span class="status ok">Reference controller</span><h3>Scripted IK + trajectories</h3><ul><li>Not a neural model.</li><li>Used as a positive control.</li><li>Produced rod30 manipulation, standing manipulation and donor whiteboard writing.</li></ul><p>If the scripted controller cannot perform a task, it is unfair to blame GR00T.</p></div>
+</div>
+</section>
+
+<section id="body">
+<h2>3. Body policy achievements</h2>
+<table>
+<tr><th>Capability</th><th>Result</th><th>Why it matters</th></tr>
+<tr><td>Left moving turn</td><td><b>5/5 PASS</b></td><td>Reliable yaw control while walking.</td></tr>
+<tr><td>Right moving turn</td><td><b>5/5 PASS</b></td><td>Recovered the opposite direction too.</td></tr>
+<tr><td>Arm-forward hold</td><td><b>5/5 PASS</b></td><td>The old turning loop under manipulation posture was removed.</td></tr>
+<tr><td>Arm-forward strafe</td><td><b>90–98% tracking</b></td><td>Lateral mobility works under arm load.</td></tr>
+<tr><td>In-place turn with arm/object</td><td><b>≈90° demonstrated</b></td><td>Important for whole-body mobile manipulation.</td></tr>
+<tr><td>Residual heading bias</td><td><b>~1.5°/s</b></td><td>Known policy property; unchanged by the E2 hand.</td></tr>
+</table>
+<details><summary>Why not use ma3?</summary><p>ma3 reduced heading drift but traded away forward-speed tracking. ma2 remained the stronger overall checkpoint.</p></details>
+</section>
+
+<section id="hands">
+<h2>4. Donor hand vs RH56E2</h2>
+<table>
+<tr><th></th><th>Donor</th><th>E2 public-prior</th><th>Installed E2</th></tr>
+<tr><td>Purpose</td><td>Fast development</td><td>Realistic E2 simulation</td><td>Final sim-to-real target</td></tr>
+<tr><td>Geometry</td><td>Approximate</td><td>Much better</td><td>Unit-specific</td></tr>
+<tr><td>Body policy</td><td>Worked</td><td>Direct transfer</td><td>Hardware validation later</td></tr>
+<tr><td>Thumb-specific grasps</td><td>Several worked</td><td>Some fail geometrically</td><td>Must be measured/validated</td></tr>
+<tr><td>Tactile</td><td>Physics contacts</td><td>17 public sensor frames</td><td>Needs real calibration</td></tr>
+</table>
+<div class="callout warn"><b>Key discovery:</b> several old grasps used a donor thumb-pad contact point that the E2 distal thumb cannot physically reach. FK showed roughly <b>12–25 mm</b> residual over the tested range. This means the grasp topology must change; simply converting old joint angles is not enough.</div>
+</section>
+
+<section id="manipulation">
+<h2>5. Manipulation transfer</h2>
+<table>
+<tr><th>Skill</th><th>Donor</th><th>E2</th><th>Meaning</th></tr>
+<tr><td>Rod30 pick→lift→hold→place</td><td>PASS</td><td><b>PASS_WITH_ADAPTER</b></td><td>General enclosing grasp transfers.</td></tr>
+<tr><td>Standing pick/place</td><td>PASS</td><td><b>PASS_WITH_ADAPTER</b></td><td>Body+hand integration survived.</td></tr>
+<tr><td>Blocked-index contact test</td><td>Reference</td><td>Parity</td><td>Basic contact behavior is comparable.</td></tr>
+<tr><td>Old thumb-pad holder grip</td><td>PASS</td><td><b>HAND_TRANSFER_FAIL</b></td><td>Old contact point is unreachable.</td></tr>
+<tr><td>Mission hand rungs</td><td>Marginal</td><td>Parity</td><td>The observed drop existed on both sides, so E2 did not create it.</td></tr>
+</table>
+<div class="callout"><b>Interpretation:</b> embodiment-generic skills transferred; donor-contact-specific skills must be redesigned.</div>
+</section>
+
+<section id="whiteboard">
+<h2>6. Whiteboard</h2>
+<div class="grid">
+<div class="card w6"><span class="status ok">Historical donor success</span><h3>What worked</h3><p>The donor simulation physically wrote <b>G1 / OK</b>. The complete workflow produced seven strokes and thousands of pen-down contact samples. It was good enough for the hero presentation, although the stricter research metric still had path/coverage failures.</p></div>
+<div class="card w6"><span class="status bad">Current E2 issue</span><h3>What broke</h3><p>The old marker grip itself is incompatible with E2 geometry, so the writer never reaches a valid writing start. The E2 campaign therefore classified the old whiteboard grip as <b>HAND_TRANSFER_FAIL — geometry</b>.</p></div>
+</div>
+<h3>Recovery path</h3>
+<div class="flow">
+<div class="step"><div class="num">1</div><b>New E2 marker grip</b><br>Use real E2 contact surfaces.</div>
+<div class="step"><div class="num">2</div><b>Retention</b><br>Static + wrist sweep.</div>
+<div class="step"><div class="num">3</div><b>Tool frame</b><br>Measure marker tip relative to wrist.</div>
+<div class="step"><div class="num">4</div><b>Reuse writer</b><br>Do not rewrite the trajectory engine first.</div>
+<div class="step"><div class="num">5</div><b>Write I/L/G1 OK</b><br>Same evaluator.</div>
+<div class="step"><div class="num">6</div><b>Hardware</b><br>Validate after installed calibration.</div>
+</div>
+</section>
+
+<section id="groot">
+<h2>7. GR00T: what really happened</h2>
+<div class="timeline">
+<div class="event"><h3>Compatible G1 + Inspire route</h3><p>Panthera integrated a GR00T N1.6 checkpoint built around a G1 + Inspire pick-and-place embodiment.</p></div>
+<div class="event"><h3>R1: normalization defect</h3><p>The fine-tune kept the base checkpoint's normalization statistics. Many arm targets were clipped, so the model could not command enough reach. <b>0/10 contact.</b></p></div>
+<div class="event"><h3>R2: first learned enclosure</h3><p>After fixing normalization, the model reached farther and produced the first held-out finger/thumb enclosure. The remaining data contained a long static pre-grasp dwell, which taught a memoryless policy to pause.</p></div>
+<div class="event"><h3>Action-chunk horizon diagnosis</h3><p>The lift lived later in each predicted action chunk. When a longer prefix was executed, <b>3/3 donor diagnostic cells produced model-controlled lifts</b>.</p></div>
+<div class="event"><h3>E2 transfer</h3><p>Frozen weights transferred poorly at first, but the longer execution-horizon E2 row produced <b>4/10 model lifts</b>. Final classification: <b>SHORT_ADAPTATION_REQUIRED</b>.</p></div>
+</div>
+<div class="callout warn"><b>Next GR00T rule:</b> do not restart from base N1.6. First calibrate the real RH56E2, rerun the frozen checkpoint, then do only the short embodiment adaptation that evidence says is needed.</div>
+</section>
+
+<section id="sonic">
+<h2>8. SONIC</h2>
+<div class="grid">
+<div class="card w6"><h3>What SONIC is for</h3><p>Whole-body humanoid motion: natural locomotion, reference tracking, VR/teleoperation and expressive movements.</p><ul><li>standing</li><li>walking</li><li>dances</li><li>large turns</li><li>squats</li></ul></div>
+<div class="card w6"><h3>Why ma2 in Isaac?</h3><p>The SONIC reference body did not balance cleanly in the Panthera PhysX twin, while the in-house RL locomotion policy did. So ma2 is the current Isaac body controller; SONIC remains a separate MuJoCo/future-hardware path.</p></div>
+</div>
+</section>
+
+<section id="unifolm">
+<h2>9. UnifoLM</h2>
+<div class="grid">
+<div class="card w6"><span class="status ok">Pipeline success</span><ul><li>Checkpoint loaded.</li><li>Finite action chunks produced.</li><li>Closed-loop simulator route ran.</li></ul></div>
+<div class="card w6"><span class="status partial">Task not solved</span><ul><li>No reliable finger grasp.</li><li>No useful lift.</li><li>Observed contact was not a convincing learned manipulation success.</li></ul><p>It remains an evaluated alternative, not the main route today.</p></div>
+</div>
+</section>
+
+<section id="next">
+<h2>10. What is done and what is next?</h2>
+<table>
+<tr><th>Area</th><th>Status</th><th>Meaning</th></tr>
+<tr><td>Manipulation-aware locomotion</td><td><span class="status ok">Working</span></td><td>ma2 transferred to E2.</td></tr>
+<tr><td>E2 public-prior twin</td><td><span class="status ok">Built</span></td><td>Physics-valid r5 asset.</td></tr>
+<tr><td>General enclosing manipulation</td><td><span class="status ok">Working</span></td><td>Rod30 + standing pick/place transfer.</td></tr>
+<tr><td>Old donor thumb grasps</td><td><span class="status bad">Not transferable</span></td><td>Need E2-native contact topology.</td></tr>
+<tr><td>Whiteboard</td><td><span class="status bad">Needs E2 grip</span></td><td>Writer exists; grip must change.</td></tr>
+<tr><td>GR00T</td><td><span class="status partial">Partial</span></td><td>Learned manipulation exists, but short adaptation is required.</td></tr>
+<tr><td>Installed digital twin</td><td><span class="status next">Next</span></td><td>Real-hand calibration not yet complete.</td></tr>
+</table>
+
+<h3>Correct next workflow</h3>
+<div class="flow">
+<div class="step"><div class="num">H0</div><b>Read-only capture</b><br>State, config, force/tactile baseline.</div>
+<div class="step"><div class="num">H1</div><b>Controlled sweeps</b><br>Endpoints, coupling, deadband, hysteresis, timing.</div>
+<div class="step"><div class="num">H2</div><b>Geometry/contact</b><br>Mount transform, tactile map, friction/compliance.</div>
+<div class="step"><div class="num">4</div><b>Update twin</b><br>Public prior → installed calibration.</div>
+<div class="step"><div class="num">5</div><b>Restore skills</b><br>Whiteboard + E2-native grasps.</div>
+<div class="step"><div class="num">6</div><b>Adapt GR00T</b><br>Short adaptation, not restart.</div>
+</div>
+<div class="callout"><b>Why hardware measurement now?</b> Because the remaining unknowns are exactly the things simulation cannot invent correctly: mounting transform, real endpoints, backlash, deadband, pad compliance, friction, force/tactile calibration and unit-to-unit differences.</div>
+</section>
+
+<section id="links">
+<h2>11. Useful public links</h2>
+<div class="grid">
+<div class="card"><h3>NVIDIA Isaac GR00T</h3><a target="_blank" href="https://github.com/NVIDIA/Isaac-GR00T">NVIDIA/Isaac-GR00T ↗</a></div>
+<div class="card"><h3>G1 + Inspire checkpoint</h3><a target="_blank" href="https://huggingface.co/birbirll/g1-inspire-piston-n16">g1-inspire-piston-n16 ↗</a></div>
+<div class="card"><h3>GR00T WholeBodyControl / SONIC</h3><a target="_blank" href="https://github.com/NVlabs/GR00T-WholeBodyControl">NVlabs/GR00T-WholeBodyControl ↗</a></div>
+<div class="card"><h3>Unitree XR teleoperation</h3><a target="_blank" href="https://github.com/unitreerobotics/xr_teleoperate">unitreerobotics/xr_teleoperate ↗</a></div>
+<div class="card"><h3>Unitree LeRobot</h3><a target="_blank" href="https://github.com/unitreerobotics/unitree_lerobot">unitreerobotics/unitree_lerobot ↗</a></div>
+<div class="card"><h3>Unitree UnifoLM-VLA</h3><a target="_blank" href="https://huggingface.co/unitreerobotics/UnifoLM-VLA-Base">UnifoLM-VLA-Base ↗</a></div>
+<div class="card"><h3>Isaac Lab</h3><a target="_blank" href="https://github.com/isaac-sim/IsaacLab">isaac-sim/IsaacLab ↗</a></div>
+<div class="card"><h3>Inspire RH56 description</h3><a target="_blank" href="https://github.com/renesas-rdk/inspire_rh56_hand_description">Renesas RH56 description ↗</a></div>
+</div>
+</section>
+
+<section id="quiz">
+<h2>12. Test yourself</h2>
+<div class="quiz"><b>Which component currently controls manipulation-aware walking in Isaac?</b><br><button onclick="this.parentElement.querySelector('.answer').style.display='block'">Show answer</button><div class="answer"><b>ma2_7325.</b> GR00T handles manipulation logic; SONIC is a separate whole-body motion route.</div></div>
+<div class="quiz"><b>Did changing from donor hands to E2 destroy locomotion?</b><br><button onclick="this.parentElement.querySelector('.answer').style.display='block'">Show answer</button><div class="answer"><b>No.</b> The body policy achieved DIRECT_TRANSFER_PASS.</div></div>
+<div class="quiz"><b>Why does the old whiteboard grip fail?</b><br><button onclick="this.parentElement.querySelector('.answer').style.display='block'">Show answer</button><div class="answer">Because the old grip depends on a donor thumb contact point the E2 distal thumb cannot physically reach.</div></div>
+<div class="quiz"><b>Should GR00T restart from scratch?</b><br><button onclick="this.parentElement.querySelector('.answer').style.display='block'">Show answer</button><div class="answer"><b>No.</b> Calibrate the installed E2, rerun the frozen checkpoint, then use a short embodiment adaptation if needed.</div></div>
+</section>
+
+<footer>Panthera G1 manipulation education page · donor simulation, E2 public-prior simulation, learned-model evaluation, and real-robot calibration are intentionally kept separate.</footer>
+</div>
+</body>
+</html>
