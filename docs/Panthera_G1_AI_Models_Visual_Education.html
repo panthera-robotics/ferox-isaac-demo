@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panthera G1 AI Models Visual Education</title>
+<style>
+:root{--bg:#06101b;--panel:#0c1b2c;--panel2:#10233a;--line:#29445f;--text:#eef6ff;--muted:#a9bbcf;--blue:#67d7ff;--cyan:#70f1ea;--green:#79e7ad;--yellow:#ffd974;--red:#ff8e99;--purple:#cbb4ff;--orange:#ffb46c}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 20% 0,#14365d 0,#07111e 30%,#040a12 100%);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;line-height:1.55}a{color:#87ddff}code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#07131f;border:1px solid #29445f;border-radius:7px;padding:2px 5px}.wrap{max-width:1280px;margin:auto;padding:0 22px 80px}
+nav{position:sticky;top:0;z-index:50;background:rgba(4,10,18,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}nav .inner{max-width:1280px;margin:auto;display:flex;gap:5px;padding:10px 20px;overflow:auto}nav a{white-space:nowrap;text-decoration:none;color:#bdd0e2;padding:7px 10px;border-radius:9px;font-size:13px}nav a:hover{background:#10243a;color:white}
+header{padding:58px 0 34px;border-bottom:1px solid var(--line)}.eyebrow{color:var(--blue);text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:900}h1{font-size:clamp(42px,7vw,76px);line-height:.98;letter-spacing:-.05em;margin:10px 0 18px}h2{font-size:32px;margin:0 0 7px;letter-spacing:-.025em}h3{margin:5px 0 9px}.lead{max-width:980px;color:#bfd0e1;font-size:17px}
+section{padding-top:50px}.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:15px;margin-top:18px}.card{grid-column:span 4;background:linear-gradient(180deg,#102138,#0a1726);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 16px 50px rgba(0,0,0,.22)}.w6{grid-column:span 6}.w12{grid-column:span 12}.card p,.card li{color:#bdcddd}.card ul{padding-left:19px}
+.status{display:inline-block;font-size:11px;text-transform:uppercase;font-weight:900;letter-spacing:.06em;border-radius:999px;padding:4px 9px;border:1px solid}.ok{color:#91efba;border-color:#3b875f;background:#123326}.partial{color:#ffe08b;border-color:#836b2a;background:#302912}.bad{color:#ff9aa5;border-color:#87434b;background:#35191e}.info{color:#98e5ff;border-color:#347794;background:#102c3c}.next{color:#d6c2ff;border-color:#674e8b;background:#241c35}
+.callout{margin:20px 0;padding:15px 17px;background:#0b1b2c;border-left:4px solid var(--blue);border-radius:0 13px 13px 0;color:#cbd9e8}.warn{border-left-color:var(--yellow)}.danger{border-left-color:var(--red)}
+table{width:100%;border-collapse:collapse;margin-top:17px;font-size:14px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid #233b57;padding:10px}th{background:#102035;color:white}
+.arch{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:center;margin:20px 0}.node{background:#0c1a2b;border:1px solid #2b4664;border-radius:15px;padding:13px;min-height:112px;position:relative}.arrow{font-size:25px;color:#72cce9;text-align:center}.sub{font-size:12px;color:#95aabd}.role{color:#7ddfff;font-size:11px;text-transform:uppercase;letter-spacing:.1em;font-weight:900}
+.packetline{position:relative;height:5px;background:#173652;border-radius:999px;overflow:hidden;margin:14px 0}.packetline:after{content:"";position:absolute;width:52px;height:100%;background:linear-gradient(90deg,transparent,var(--cyan),transparent);animation:flow 2.2s linear infinite}@keyframes flow{from{left:-60px}to{left:100%}}
+.topicTabs,.modelTabs,.controls{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0}.topicTabs button,.controls button,.modelTabs button{cursor:pointer;background:#10243a;color:#eaf6ff;border:1px solid #355674;border-radius:9px;padding:8px 11px}.topicTabs button.active,.modelTabs button.active{background:#174365;border-color:#61d3ff}
+.vector{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:7px;margin-top:12px}.slot{background:#071522;border:1px solid #28445e;border-radius:11px;padding:9px;min-height:72px;transition:.18s}.slot:hover{transform:translateY(-2px);border-color:#6cd9ff;background:#0a1e30}.slot .i{font-size:11px;color:#6edcff}.slot .name{font-size:12px;font-weight:750;margin-top:4px}.slot .val{font-family:ui-monospace,monospace;color:#b8cadd;font-size:11px;margin-top:5px}
+.pipeline{display:flex;gap:9px;align-items:stretch;overflow:auto;padding:4px 2px 8px}.block{min-width:170px;background:#0b1b2b;border:1px solid #2b4865;border-radius:15px;padding:13px;position:relative}.block strong{display:block;margin-bottom:4px}.block.purple{border-color:#7053a0}.block.green{border-color:#367a5b}.block.orange{border-color:#8a5b31}.block.blue{border-color:#35759a}.connector{min-width:45px;display:flex;align-items:center;justify-content:center;color:#6fcee9;font-size:24px}.pulse{box-shadow:0 0 0 rgba(103,215,255,0);animation:pulse 2.2s infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(103,215,255,.2)}70%{box-shadow:0 0 0 13px rgba(103,215,255,0)}100%{box-shadow:0 0 0 0 rgba(103,215,255,0)}}
+.stack{border:1px solid #2b4664;border-radius:16px;overflow:hidden;margin-top:13px}.layer{padding:11px 14px;border-bottom:1px solid #233c58;display:flex;gap:10px;align-items:center}.layer:last-child{border-bottom:none}.layer .tag{width:120px;flex:0 0 auto;font-size:11px;color:#8fdfff;text-transform:uppercase;font-weight:900}.layer.changed{background:rgba(255,217,116,.08)}.layer.frozen{background:rgba(121,231,173,.05)}
+.diagram{background:#07131f;border:1px solid #29445f;border-radius:17px;padding:15px;overflow:auto}.diagram svg{min-width:820px;width:100%;height:auto}.svgbox{fill:#0f2134;stroke:#355a78;stroke-width:1.5}.svgbox2{fill:#13283f;stroke:#6a58a2;stroke-width:1.5}.svgtxt{fill:#eef7ff;font-family:Arial,sans-serif;font-size:14px}.svgsmall{fill:#a9bfd3;font-family:Arial,sans-serif;font-size:11px}.moving{stroke-dasharray:8 10;animation:dash 1s linear infinite}@keyframes dash{to{stroke-dashoffset:-18}}
+.modelpanel{display:none}.modelpanel.active{display:block}.live{font-family:ui-monospace,monospace;background:#071522;border:1px solid #28445e;padding:10px;border-radius:11px;color:#bfe7ff;overflow:auto}.highlight{outline:2px solid var(--yellow);box-shadow:0 0 20px rgba(255,217,116,.24)}
+details{margin:11px 0;padding:12px 14px;background:#091725;border:1px solid #263e59;border-radius:13px}summary{font-weight:800;cursor:pointer}details p,details li{color:#b9c9da}.small{font-size:12px;color:#96aac0}.footer{margin-top:58px;padding-top:24px;border-top:1px solid var(--line);color:#90a4b9;font-size:12px}
+@media(max-width:900px){.card,.w6{grid-column:span 12}.arch{grid-template-columns:1fr}.arrow{transform:rotate(90deg)}.pipeline{flex-direction:column}.connector{transform:rotate(90deg)}.layer .tag{width:92px}}
+</style>
+</head>
+<body>
+<nav><div class="inner"><a href="#map">Big picture</a><a href="#g1data">Real G1 data</a><a href="#groot">GR00T</a><a href="#sonic">SONIC</a><a href="#pi0">π0</a><a href="#unifolm">UnifoLM</a><a href="#gemini">Gemini ER</a><a href="#compare">Compare</a><a href="#teleop">Teleop data</a><a href="#finetune">Fine-tuning</a><a href="#panthera">Panthera path</a><a href="#sources">Sources</a></div></nav>
+<div class="wrap">
+<header>
+<div class="eyebrow">Panthera Robotics · beginner-friendly visual guide</div>
+<h1>From camera pixels<br>to G1 motion.</h1>
+<p class="lead">A visual explanation of GR00T, GEAR-SONIC, Physical Intelligence π0, Unitree UnifoLM, and Gemini Robotics-ER 1.6 — using the <b>actual Unitree G1 topics and named joint arrays</b> wherever Panthera has them, instead of vague boxes labelled only “state” or “actions”.</p>
+<div class="callout"><b>One sentence:</b> GR00T / π0 / UnifoLM decide manipulation actions from vision + language; SONIC turns compact motion intent into stable whole-body G1 motion; Gemini Robotics-ER 1.6 reasons and plans but does not itself output G1 motor targets.</div>
+</header>
+
+<section id="map">
+<h2>1. The mental model</h2>
+<p class="lead">Think of the stack as three levels: <b>reason</b> → <b>choose robot action</b> → <b>execute physical motion</b>.</p>
+<div class="arch">
+<div class="node"><div class="role">High-level reasoner</div><b>Gemini Robotics-ER 1.6</b><div class="sub">Images / video / text → text, plans, tool calls</div></div><div class="arrow">→</div>
+<div class="node"><div class="role">VLA policy</div><b>GR00T / π0 / UnifoLM</b><div class="sub">Pixels + instruction + robot measurements → future action chunk</div></div><div class="arrow">→</div>
+<div class="node"><div class="role">Whole-body controller</div><b>SONIC or ma2</b><div class="sub">Motion intent + G1 feedback → coordinated 29-DoF body targets</div></div><div class="arrow">→</div>
+<div class="node"><div class="role">Hardware</div><b>Unitree G1 + Inspire RH56E2</b><div class="sub">DDS / Modbus commands → real motors</div></div>
+</div>
+<div class="packetline"></div>
+<div class="grid">
+<div class="card"><span class="status info">Reasoner</span><h3>Gemini Robotics-ER 1.6</h3><p>“What is happening? What should I do next? Did I succeed?” It can call a VLA as a tool.</p></div>
+<div class="card"><span class="status partial">Action model</span><h3>GR00T / π0 / UnifoLM</h3><p>“Given what I see and the instruction, what robot actions should happen over the next short horizon?”</p></div>
+<div class="card"><span class="status ok">Motor skill</span><h3>SONIC</h3><p>“Given a desired motion representation, how do I move 29 G1 joints naturally and stay coordinated at 50 Hz?”</p></div>
+</div>
+</section>
+
+<section id="g1data">
+<h2>2. What “robot data” really means on our G1</h2>
+<p class="lead">Click a topic. Each tile is a real array entry, with the actual G1 joint name or RH56E2 hand axis.</p>
+<div class="topicTabs">
+<button class="active" data-topic="lowstate">rt/lowstate · q[29]</button><button data-topic="dq">rt/lowstate · dq[29]</button><button data-topic="tau">rt/lowstate · tau_est[29]</button><button data-topic="armsdk">rt/arm_sdk</button><button data-topic="handR">rt/inspire_hand/state/r</button><button data-topic="handCtrlR">rt/inspire_hand/ctrl/r</button>
+</div>
+<div id="topicTitle" class="callout"></div>
+<div id="vector" class="vector"></div>
+<div class="grid">
+<div class="card w6"><h3>Body feedback</h3><p><code>rt/lowstate</code> carries the 29 body motors. Per motor, important fields include <code>q</code>, <code>dq</code>, <code>tau_est</code>, temperature and diagnostics. Unitree’s low-level examples also use torso IMU data.</p></div>
+<div class="card w6"><h3>Installed RH56E2 bridge</h3><p>Panthera’s real hands use separate left/right topics: <code>rt/inspire_hand/ctrl/l|r</code>, <code>state/l|r</code> and <code>touch/l|r</code>. The native six-axis order is <b>little, ring, middle, index, thumb bend, thumb rotation</b>.</p></div>
+</div>
+</section>
+
+<section id="groot">
+<h2>3. GR00T: the “see + understand + predict actions” model</h2>
+<p class="lead">GR00T combines a visual-language backbone with robot-specific encoders and a flow-matching diffusion-transformer action head.</p>
+<div class="pipeline">
+<div class="block blue pulse"><strong>Camera images</strong><span class="small">ego / wrist views defined by embodiment</span></div><div class="connector">+</div>
+<div class="block blue"><strong>Language</strong><span class="small">“pick up the object”</span></div><div class="connector">+</div>
+<div class="block blue"><strong>G1 values</strong><span class="small">named body / hand slices</span></div><div class="connector">→</div>
+<div class="block purple"><strong>VLM backbone</strong><span class="small">visual-language context</span></div><div class="connector">→</div>
+<div class="block orange"><strong>Robot encoders</strong><span class="small">normalize + project embodiment</span></div><div class="connector">→</div>
+<div class="block purple"><strong>Flow-matching DiT</strong><span class="small">denoise future actions</span></div><div class="connector">→</div>
+<div class="block green"><strong>Action chunk</strong><span class="small">T future physical actions</span></div>
+</div>
+<div class="diagram">
+<svg viewBox="0 0 1080 410"><defs><marker id="a1" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#64d7ff"/></marker></defs>
+<rect class="svgbox" x="25" y="35" width="210" height="78" rx="14"/><text class="svgtxt" x="45" y="65">RGB frames</text><text class="svgsmall" x="45" y="89">head / wrist cameras</text>
+<rect class="svgbox" x="25" y="135" width="210" height="78" rx="14"/><text class="svgtxt" x="45" y="165">Task prompt</text><text class="svgsmall" x="45" y="189">natural language</text>
+<rect class="svgbox" x="25" y="235" width="210" height="116" rx="14"/><text class="svgtxt" x="45" y="265">G1 observation slices</text><text class="svgsmall" x="45" y="289">right_shoulder_pitch</text><text class="svgsmall" x="45" y="309">right_elbow · wrist_pitch</text><text class="svgsmall" x="45" y="329">RH56E2 hand[0..5]</text>
+<rect class="svgbox2" x="320" y="75" width="230" height="150" rx="16"/><text class="svgtxt" x="343" y="110">Vision-language backbone</text><text class="svgsmall" x="343" y="139">image tokens + language tokens</text><text class="svgsmall" x="343" y="162">scene / task context</text>
+<rect class="svgbox" x="320" y="260" width="230" height="100" rx="16"/><text class="svgtxt" x="343" y="293">Robot state encoder</text><text class="svgsmall" x="343" y="317">embodiment-specific projection</text><text class="svgsmall" x="343" y="338">normalization statistics matter</text>
+<rect class="svgbox2" x="640" y="110" width="245" height="190" rx="16"/><text class="svgtxt" x="666" y="145">Flow-matching DiT</text><text class="svgsmall" x="666" y="171">start with noisy future actions</text><text class="svgsmall" x="666" y="195">condition on VLM + G1 values</text><text class="svgsmall" x="666" y="219">predict vector field</text><text class="svgsmall" x="666" y="243">repeat denoising steps</text><text class="svgsmall" x="666" y="268">→ future action chunk</text>
+<rect class="svgbox" x="930" y="135" width="125" height="140" rx="16"/><text class="svgtxt" x="947" y="168">Actions</text><text class="svgsmall" x="947" y="193">t</text><text class="svgsmall" x="947" y="213">t+1</text><text class="svgsmall" x="947" y="233">…</text><text class="svgsmall" x="947" y="253">t+T−1</text>
+<path class="moving" d="M235 74 C280 74,285 110,320 120" stroke="#64d7ff" stroke-width="2" fill="none" marker-end="url(#a1)"/><path class="moving" d="M235 174 C280 174,285 145,320 145" stroke="#64d7ff" stroke-width="2" fill="none" marker-end="url(#a1)"/><path class="moving" d="M235 290 C270 290,285 310,320 310" stroke="#64d7ff" stroke-width="2" fill="none" marker-end="url(#a1)"/><path class="moving" d="M550 150 L640 165" stroke="#64d7ff" stroke-width="2" fill="none" marker-end="url(#a1)"/><path class="moving" d="M550 310 C600 310,600 245,640 235" stroke="#64d7ff" stroke-width="2" fill="none" marker-end="url(#a1)"/><path class="moving" d="M885 205 L930 205" stroke="#64d7ff" stroke-width="2" fill="none" marker-end="url(#a1)"/>
+</svg></div>
+<div class="grid">
+<div class="card w6"><h3>Why fine-tune GR00T?</h3><p>The base model has broad manipulation priors. It does not automatically know Panthera’s exact camera geometry, RH56E2 six-axis action semantics, controller timing, object distribution or contact geometry. Fine-tuning teaches that mapping.</p></div>
+<div class="card w6"><h3>What usually changes?</h3><p>The common post-training path focuses on the robot projector / state-action encoders and diffusion action head. Full VLM tuning is optional and far more expensive.</p></div>
+</div>
+<div class="callout warn"><b>Panthera lesson:</b> normalization is part of the behavior. In our first serious fine-tune, old base statistics clipped shoulder motion. A smart model can still fail if the embodiment adapter prevents the physical range it needs.</div>
+</section>
+
+<section id="sonic">
+<h2>4. SONIC: a learned whole-body motor skill, not a language model</h2>
+<p class="lead">SONIC learns a reusable <b>64-D motion-token language</b>. Different encoders translate robot motion, VR teleoperation or SMPL human motion into that same latent space; a single decoder produces coordinated G1 body motion at 50 Hz.</p>
+<div class="pipeline">
+<div class="block blue"><strong>G1 reference</strong><span class="small">future joint trajectory</span></div><div class="block blue"><strong>VR 3-point</strong><span class="small">head + two wrists</span></div><div class="block blue"><strong>SMPL pose</strong><span class="small">human body representation</span></div><div class="connector">→</div>
+<div class="block purple pulse"><strong>Parallel encoders + FSQ</strong><span class="small">different inputs → shared latent</span></div><div class="connector">→</div>
+<div class="block orange"><strong>64-D SONIC token</strong></div><div class="connector">→</div>
+<div class="block purple"><strong>SONIC decoder</strong><span class="small">token + G1 motion history</span></div><div class="connector">→</div>
+<div class="block green"><strong>29 G1 targets</strong><span class="small">50 Hz → rt/lowcmd</span></div>
+</div>
+<div class="grid">
+<div class="card"><span class="status info">v1.1</span><h3>Encoder input</h3><p>Official v1.1 config uses a 1751-dimensional encoder input built from future references / VR / SMPL depending on mode.</p></div>
+<div class="card"><span class="status info">64-D</span><h3>Shared token</h3><p>The different reference forms become the same compact motion representation.</p></div>
+<div class="card"><span class="status info">50 Hz</span><h3>Decoder</h3><p>The decoder also sees body history: joint positions, velocities, recent actions, gravity direction and base angular velocity.</p></div>
+</div>
+<details><summary>Why combine GR00T + SONIC?</summary><p>Current NVIDIA G1 workflow can let the VLA output 64-D SONIC tokens. GR00T reasons about the task, while SONIC handles balance, locomotion and coordinated motor execution. Officially, the whole-body VLA stream is 64 motion values plus hand action values.</p></details>
+<details><summary>Why does Panthera still care about ma2?</summary><p>In our Isaac campaign, SONIC’s recovered MuJoCo reference route worked, but ma2_7325 became the reliable manipulation-aware body controller in the PhysX twin. So SONIC is a separate whole-body route, not the controller that produced the current Isaac manipulation results.</p></details>
+</section>
+
+<section id="pi0">
+<h2>5. π0 (Pi-Zero): another VLA with an explicit action expert</h2>
+<p class="lead">Physical Intelligence π0 combines a pretrained PaliGemma-family visual-language model with a smaller action expert. The action expert uses flow matching to turn noise into a continuous future robot trajectory.</p>
+<div class="pipeline">
+<div class="block blue"><strong>base_0_rgb</strong><span class="small">224×224 RGB</span></div><div class="block blue"><strong>left_wrist_0_rgb</strong></div><div class="block blue"><strong>right_wrist_0_rgb</strong></div><div class="block blue"><strong>prompt</strong></div><div class="connector">→</div>
+<div class="block purple"><strong>SigLIP + Gemma/PaliGemma</strong></div><div class="connector">↘</div><div class="block orange"><strong>Action expert ~300M</strong><span class="small">robot vector + noisy action + flow time</span></div><div class="connector">→</div><div class="block green"><strong>50-step action chunk</strong><span class="small">default openpi action_dim 32</span></div>
+</div>
+<div class="callout"><b>Flow matching in easy words:</b> during training the action expert sees a corrupted future action sequence and learns the direction that would turn it back into the demonstrated motion. At inference it starts from noise and repeatedly follows that learned direction until a plausible action trajectory emerges.</div>
+<div class="grid"><div class="card w6"><h3>Would π0 run on Panthera G1 directly?</h3><p>No turnkey mapping. We would need an embodiment transform from our 29-joint body / 6-axis hands / camera streams into π0’s configured robot vector and action space.</p></div><div class="card w6"><h3>Why compare against it?</h3><p>It is one of the clearest reference architectures for “VLM + robot action expert + flow matching”, so it helps us understand what is general across modern VLAs and what is specific to GR00T.</p></div></div>
+</section>
+
+<section id="unifolm">
+<h2>6. Unitree UnifoLM: VLA-0 vs WLA-1.0</h2>
+<div class="grid">
+<div class="card w6"><span class="status partial">Panthera evaluated</span><h3>UnifoLM-VLA-0</h3><p>Unitree’s earlier VLA route. Public code uses a Qwen2.5-VL-family backbone and a flow-matching / DiT action head. Panthera loaded the checkpoint and ran closed-loop inference, but did not obtain useful finger grasp/lift progress in the bounded evaluation.</p></div>
+<div class="card w6"><span class="status info">Newest family</span><h3>UnifoLM-WLA-1.0</h3><p>Unitree’s newer 6B whole-body foundation-model family, trained on about 2,500 hours of real-robot data. Unitree documents a unified 60-D current robot representation and 54-D future action representation, with masks to handle different embodiments.</p></div>
+</div>
+<div class="pipeline"><div class="block blue"><strong>Multi-camera RGB</strong></div><div class="block blue"><strong>Instruction</strong></div><div class="block blue"><strong>Robot vector</strong></div><div class="connector">→</div><div class="block purple"><strong>Qwen / UnifoLM-ER backbone</strong><span class="small">spatial + embodied reasoning</span></div><div class="connector">→</div><div class="block orange"><strong>Action expert / DiT</strong><span class="small">flow matching</span></div><div class="connector">→</div><div class="block green"><strong>Future robot actions</strong></div></div>
+</section>
+
+<section id="gemini">
+<h2>7. Gemini Robotics-ER 1.6: why it is different</h2>
+<div class="callout"><b>ER = Embodied Reasoning.</b> It is a robotics-specialized VLM reasoner, not a direct low-level G1 policy.</div>
+<div class="pipeline"><div class="block blue"><strong>Image / video</strong></div><div class="block blue"><strong>Text / audio</strong></div><div class="connector">→</div><div class="block purple pulse"><strong>Gemini Robotics-ER 1.6</strong><span class="small">spatial reasoning · planning · success detection · tool use</span></div><div class="connector">→</div><div class="block orange"><strong>Text / plan / tool call</strong></div><div class="connector">→</div><div class="block green"><strong>Call GR00T / π0 / UnifoLM / scripted skill</strong></div></div>
+<table><tr><th>Question</th><th>Gemini Robotics-ER 1.6</th><th>VLA model</th></tr><tr><td>Sees images?</td><td>Yes</td><td>Yes</td></tr><tr><td>Understands language?</td><td>Yes, strongly</td><td>Yes</td></tr><tr><td>Outputs G1 joint targets?</td><td><b>No, not by itself</b></td><td>Yes, after embodiment decoding / controller</td></tr><tr><td>Main role</td><td>Reasoning, planning, success detection, tool orchestration</td><td>Robot action generation</td></tr></table>
+</section>
+
+<section id="compare">
+<h2>8. Compare all models</h2>
+<div style="overflow:auto"><table>
+<tr><th>Model</th><th>Core job</th><th>Main inputs</th><th>Main output</th><th>G1 fit</th><th>Why fine-tune?</th></tr>
+<tr><td>GR00T N1.6 / N1.7</td><td>Generalist VLA</td><td>images + language + configured robot values</td><td>future action chunk; N1.7 can emit SONIC latent motion tokens</td><td>Strong, official G1 routes</td><td>Our cameras, RH56E2 action contract, task distribution</td></tr>
+<tr><td>GEAR-SONIC</td><td>Whole-body motor foundation policy</td><td>motion reference + G1 history</td><td>29 body targets at 50 Hz</td><td>Native G1</td><td>Only if the body motor skill itself needs change</td></tr>
+<tr><td>π0</td><td>Generalist manipulation VLA</td><td>3 RGB views + prompt + robot vector</td><td>50-step continuous action chunk</td><td>Needs custom Panthera embodiment mapping</td><td>Robot embodiment + task adaptation</td></tr>
+<tr><td>UnifoLM VLA/WLA</td><td>Unitree embodied manipulation / whole-body model</td><td>camera + instruction + robot vector</td><td>future action chunk / unified action representation</td><td>Strong Unitree ecosystem</td><td>Exact hand/camera/task adaptation may still be needed</td></tr>
+<tr><td>Gemini Robotics-ER 1.6</td><td>Embodied reasoning</td><td>text, image, video, audio</td><td>text / plan / tool call</td><td>High-level, robot-agnostic</td><td>Usually prompt/tool integration rather than motor-head fine-tuning</td></tr>
+</table></div>
+</section>
+
+<section id="teleop">
+<h2>9. Real G1 data collection: two useful pipelines</h2>
+<h3>A. Unitree xr_teleoperate</h3>
+<div class="pipeline"><div class="block blue"><strong>Quest / PICO / Vision Pro</strong><span class="small">XR tracking</span></div><div class="connector">→</div><div class="block purple"><strong>Retarget / IK</strong><span class="small">human → G1 arm targets</span></div><div class="connector">→</div><div class="block green"><strong>rt/arm_sdk</strong><span class="small">waist 12–14 · L arm 15–21 · R arm 22–28 · slot29 blend</span></div><div class="connector">+</div><div class="block green"><strong>RH56E2 bridge</strong><span class="small">angle_set[6] per hand</span></div><div class="connector">→</div><div class="block orange"><strong>Episode recorder</strong></div></div>
+
+<h3>B. NVIDIA SONIC / GR00T</h3>
+<div class="pipeline"><div class="block blue"><strong>PICO pose</strong><span class="small">ZMQ 5556</span></div><div class="block blue"><strong>G1 feedback</strong><span class="small">ZMQ 5557 · g1_debug</span></div><div class="block blue"><strong>Cameras</strong><span class="small">ZMQ 5555</span></div><div class="connector">→</div><div class="block orange pulse"><strong>SONIC data exporter</strong><span class="small">synchronize / label / store</span></div><div class="connector">→</div><div class="block green"><strong>LeRobot v2.1</strong><span class="small">parquet + video + metadata</span></div><div class="connector">→</div><div class="block purple"><strong>GR00T fine-tune</strong></div></div>
+
+<div class="callout"><b>What a training row really contains:</b> RGB frame(s), timestamp, named measured G1 joint values, RH56E2 hand values, the action target demonstrated by the operator, and task text. Training learns the conditional mapping from observation → future action.</div>
+</section>
+
+<section id="finetune">
+<h2>10. Fine-tuning: what changes?</h2>
+<div class="modelTabs"><button class="active" data-model="ftgroot">GR00T</button><button data-model="ftsonic">SONIC</button><button data-model="ftpi0">π0</button><button data-model="ftuni">UnifoLM</button><button data-model="ftgem">Gemini ER</button></div>
+<div id="ftgroot" class="modelpanel active"><div class="stack"><div class="layer frozen"><div class="tag">Mostly frozen</div><b>Large VLM backbone</b><span class="sub">general visual-language priors</span></div><div class="layer changed"><div class="tag">Usually tuned</div><b>Robot projector / state-action encoders</b><span class="sub">learn embodiment mapping</span></div><div class="layer changed"><div class="tag">Usually tuned</div><b>Flow-matching DiT action head</b><span class="sub">learn task motion</span></div><div class="layer changed"><div class="tag">Critical config</div><b>Normalization + modality mapping</b><span class="sub">not weights, but behavior-critical</span></div></div></div>
+<div id="ftsonic" class="modelpanel"><div class="stack"><div class="layer frozen"><div class="tag">Prefer frozen</div><b>Universal token body controller</b></div><div class="layer changed"><div class="tag">Tune only if needed</div><b>PPO whole-body policy</b><span class="sub">when motor skill itself is wrong</span></div></div><div class="callout">For task learning, it is often better to fine-tune the VLA that emits SONIC tokens and keep SONIC fixed.</div></div>
+<div id="ftpi0" class="modelpanel"><div class="stack"><div class="layer frozen"><div class="tag">Pretrained</div><b>SigLIP + Gemma/PaliGemma expert</b></div><div class="layer changed"><div class="tag">Adapt</div><b>Action expert + robot transforms / normalization</b></div></div></div>
+<div id="ftuni" class="modelpanel"><div class="stack"><div class="layer frozen"><div class="tag">Base</div><b>Qwen / UnifoLM-ER reasoning backbone</b></div><div class="layer changed"><div class="tag">Common target</div><b>Action expert / DiT</b></div><div class="layer changed"><div class="tag">Option</div><b>LoRA / broader fine-tuning</b></div></div></div>
+<div id="ftgem" class="modelpanel"><div class="stack"><div class="layer frozen"><div class="tag">Hosted model</div><b>Gemini Robotics-ER reasoning model</b></div><div class="layer changed"><div class="tag">Our integration</div><b>prompts + tool schemas + success checks</b><span class="sub">not joint-action fine-tuning</span></div></div></div>
+</section>
+
+<section id="panthera">
+<h2>11. Panthera: which model should do what?</h2>
+<div class="grid">
+<div class="card w6"><span class="status ok">Keep</span><h3>ma2 body policy</h3><p>The E2 migration showed direct body-policy transfer. Do not retrain body locomotion just because hand geometry changed.</p></div>
+<div class="card w6"><span class="status next">Calibrate</span><h3>RH56E2 installed hand</h3><p>Real endpoints, mount transform, coupling, timing, force/tactile and compliance are now higher-value than another large simulation fine-tune.</p></div>
+<div class="card w6"><span class="status partial">Short adaptation</span><h3>GR00T</h3><p>Preserve the best checkpoint. After hand calibration, rerun frozen, then adapt only the remaining embodiment/task gap.</p></div>
+<div class="card w6"><span class="status bad">Redesign grip</span><h3>Whiteboard / old thumb-pad grips</h3><p>The donor contact point is geometrically unreachable on E2. This is a grasp-topology problem, not a language-model problem.</p></div>
+</div>
+<div class="callout warn"><b>Why GR00T needs adaptation but ma2 does not:</b> ma2 mostly cares about body balance and load. GR00T must predict precise visual-to-contact behavior. Changing thumb geometry, camera-to-hand transform and contact surfaces changes the action distribution that GR00T must produce.</div>
+</section>
+
+<section>
+<h2>12. Interactive: play one control cycle</h2>
+<div class="controls"><button id="play">▶ Play cycle</button><button id="reset">Reset</button></div>
+<div class="pipeline" id="cycle"><div class="block blue" data-step="0"><strong>1. Camera</strong><span class="small">RGB from G1</span></div><div class="connector">→</div><div class="block blue" data-step="1"><strong>2. q[29] + hand[6]</strong><span class="small">measured robot values</span></div><div class="connector">→</div><div class="block purple" data-step="2"><strong>3. VLA</strong><span class="small">GR00T / π0 / UnifoLM</span></div><div class="connector">→</div><div class="block orange" data-step="3"><strong>4. Action chunk</strong><span class="small">future targets / SONIC tokens</span></div><div class="connector">→</div><div class="block purple" data-step="4"><strong>5. Controller</strong><span class="small">ma2 / SONIC / arm adapter</span></div><div class="connector">→</div><div class="block green" data-step="5"><strong>6. G1</strong><span class="small">DDS + Modbus → motors</span></div></div>
+<div id="cycleText" class="live">Press Play cycle.</div>
+</section>
+
+<section id="sources">
+<h2>13. Primary sources</h2>
+<div class="grid">
+<div class="card"><h3>NVIDIA Isaac GR00T</h3><a target="_blank" href="https://github.com/NVIDIA/Isaac-GR00T">NVIDIA/Isaac-GR00T ↗</a></div>
+<div class="card"><h3>GEAR-SONIC</h3><a target="_blank" href="https://github.com/NVlabs/GR00T-WholeBodyControl">NVlabs/GR00T-WholeBodyControl ↗</a></div>
+<div class="card"><h3>Physical Intelligence π0</h3><a target="_blank" href="https://github.com/Physical-Intelligence/openpi">Physical-Intelligence/openpi ↗</a></div>
+<div class="card"><h3>Unitree xr_teleoperate</h3><a target="_blank" href="https://github.com/unitreerobotics/xr_teleoperate">unitreerobotics/xr_teleoperate ↗</a></div>
+<div class="card"><h3>Unitree UnifoLM-VLA</h3><a target="_blank" href="https://github.com/unitreerobotics/unifolm-vla">unitreerobotics/unifolm-vla ↗</a></div>
+<div class="card"><h3>Unitree UnifoLM-WLA</h3><a target="_blank" href="https://github.com/unitreerobotics/unifolm-wla">unitreerobotics/unifolm-wla ↗</a></div>
+<div class="card"><h3>Gemini Robotics-ER 1.6</h3><a target="_blank" href="https://deepmind.google/blog/gemini-robotics-er-1-6/">Google DeepMind ↗</a></div>
+<div class="card"><h3>Unitree G1 joint index</h3><a target="_blank" href="https://github.com/unitreerobotics/unitree_mujoco/blob/main/unitree_robots/g1/g1_joint_index_dds.md">G1 DDS joint index ↗</a></div>
+<div class="card"><h3>NVIDIA Isaac Teleop</h3><a target="_blank" href="https://github.com/NVIDIA/IsaacTeleop">NVIDIA/IsaacTeleop ↗</a></div>
+</div>
+</section>
+
+<div class="footer">Panthera-specific sections reflect the G1 manipulation context pack, FINAL body/GR00T campaign and RH56E2 migration campaign. Public-model architecture sections link to primary repositories/model cards. “π0” is the Physical Intelligence Pi-Zero model.</div>
+</div>
+<script>
+var joints=["left_hip_pitch","left_hip_roll","left_hip_yaw","left_knee","left_ankle_pitch","left_ankle_roll","right_hip_pitch","right_hip_roll","right_hip_yaw","right_knee","right_ankle_pitch","right_ankle_roll","waist_yaw","waist_roll","waist_pitch","left_shoulder_pitch","left_shoulder_roll","left_shoulder_yaw","left_elbow","left_wrist_roll","left_wrist_pitch","left_wrist_yaw","right_shoulder_pitch","right_shoulder_roll","right_shoulder_yaw","right_elbow","right_wrist_roll","right_wrist_pitch","right_wrist_yaw"];
+var hands=["little","ring","middle","index","thumb_bend","thumb_rotation"];
+function mkBody(unit,fn){return joints.map(function(n,i){return {i:i,n:n,v:fn(i)+unit};});}
+var topics={
+lowstate:{title:"rt/lowstate → motor_state[i].q — 29 measured body joint positions, radians.",arr:mkBody(" rad",function(i){return (Math.sin(i*.53)*.45).toFixed(3);})},
+dq:{title:"rt/lowstate → motor_state[i].dq — 29 measured body joint velocities.",arr:mkBody(" rad/s",function(i){return (Math.cos(i*.42)*.7).toFixed(3);})},
+tau:{title:"rt/lowstate → motor_state[i].tau_est — estimated torque for the same 29 joints.",arr:mkBody(" N·m",function(i){return (Math.sin(i*.31)*3).toFixed(2);})},
+armsdk:{title:"rt/arm_sdk — waist 12–14, left arm 15–21, right arm 22–28; slot 29 is blend weight.",arr:[12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29].map(function(i){return {i:i,n:i===29?"blend_weight":joints[i],v:i===29?"0.0…1.0":"joint target"};})},
+handR:{title:"rt/inspire_hand/state/r — six installed RH56E2 right-hand angle readbacks.",arr:hands.map(function(n,i){var vals=[10,23,51,45,28,989];return {i:i,n:n,v:"angle_act="+vals[i]+" counts"};})},
+handCtrlR:{title:"rt/inspire_hand/ctrl/r — angle_set[6], native counts; 0=flexed/closed, 1000=open.",arr:hands.map(function(n,i){return {i:i,n:n,v:"angle_set["+i+"] = 0…1000"};})}
+};
+function renderTopic(k){var t=topics[k];document.getElementById("topicTitle").innerHTML="<b>"+t.title+"</b>";document.getElementById("vector").innerHTML=t.arr.map(function(x){return '<div class="slot"><div class="i">index '+x.i+'</div><div class="name">'+x.n+'</div><div class="val">'+x.v+'</div></div>';}).join("");}
+Array.prototype.forEach.call(document.querySelectorAll(".topicTabs button"),function(b){b.onclick=function(){Array.prototype.forEach.call(document.querySelectorAll(".topicTabs button"),function(x){x.classList.remove("active");});b.classList.add("active");renderTopic(b.getAttribute("data-topic"));};});renderTopic("lowstate");
+Array.prototype.forEach.call(document.querySelectorAll(".modelTabs button"),function(b){b.onclick=function(){Array.prototype.forEach.call(document.querySelectorAll(".modelTabs button"),function(x){x.classList.remove("active");});Array.prototype.forEach.call(document.querySelectorAll(".modelpanel"),function(x){x.classList.remove("active");});b.classList.add("active");document.getElementById(b.getAttribute("data-model")).classList.add("active");};});
+var steps=["Camera frame arrives from the robot.","We sample named G1 body and RH56E2 values.","The VLA fuses vision, task language and robot measurements.","The action head predicts a short future action chunk.","A robot-specific controller/adapter turns the chunk into valid G1 targets.","DDS and Modbus commands reach the robot; the next sensor sample closes the loop."];
+var timer=null,idx=0;function clearCycle(){clearInterval(timer);timer=null;idx=0;Array.prototype.forEach.call(document.querySelectorAll("#cycle [data-step]"),function(x){x.classList.remove("highlight");});document.getElementById("cycleText").textContent="Press Play cycle.";}function tick(){Array.prototype.forEach.call(document.querySelectorAll("#cycle [data-step]"),function(x){x.classList.remove("highlight");});var el=document.querySelector('#cycle [data-step="'+idx+'"]');if(el)el.classList.add("highlight");document.getElementById("cycleText").textContent=(idx+1)+". "+steps[idx];idx=(idx+1)%steps.length;}document.getElementById("play").onclick=function(){clearInterval(timer);idx=0;tick();timer=setInterval(tick,1300);};document.getElementById("reset").onclick=clearCycle;
+</script>
+</body>
+</html>
